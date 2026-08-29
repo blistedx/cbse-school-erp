@@ -37,13 +37,13 @@ export async function POST(request: Request) {
         );
 
         await transporter.sendMail({
-          from: `"EduGit ERP" <${process.env.SMTP_USER}>`,
+          from: `"Giterp ERP" <${process.env.SMTP_USER}>`,
           to: originalReq.email,
-          subject: `🎉 Your EduGit School ERP Account is Ready (${result.school.school_name})`,
+          subject: `🎉 Your Giterp School ERP Account is Ready (${result.school.school_name})`,
           html: `
             <div style="font-family: Arial, sans-serif; background: #F8FAFC; padding: 25px; color: #0F172A;">
               <div style="max-width: 550px; margin: 0 auto; background: #FFFFFF; border: 1px solid #E2E8F0; padding: 25px; border-radius: 10px;">
-                <h2 style="color: #122A24; margin-top: 0;">Welcome to EduGit Cloud ERP!</h2>
+                <h2 style="color: #122A24; margin-top: 0;">Welcome to Giterp Cloud ERP!</h2>
                 <p>Dear ${originalReq.contact_name},</p>
                 <p>Your demo & onboarding application for <strong>${result.school.school_name}</strong> has been approved. Your dedicated institutional workspace is now active.</p>
                 

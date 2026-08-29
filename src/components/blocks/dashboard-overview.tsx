@@ -332,11 +332,13 @@ export function DashboardOverview({
           </div>
         </div>
 
-        {/* 4. Stat Card 4: Campus Demographics Breakdown */}
+        {/* 4. Stat Card 4: Total Campus Strength & CBSE Student-Teacher Ratio */}
         <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider">Campus Ratio</span>
-            <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 rounded-full text-slate-600 whitespace-nowrap">2026-27</span>
+            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider">Total Campus Strength</span>
+            <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full whitespace-nowrap">
+              STR 1 : {Math.round(totalStudentsCount / (totalTeachersCount || 1))}
+            </span>
           </div>
 
           <div className="relative flex flex-col items-center justify-center my-1">
@@ -347,23 +349,23 @@ export function DashboardOverview({
               <path d="M 82 36 A 40 40 0 0 1 90 50" fill="none" stroke="#122A24" strokeWidth="9" strokeDasharray="10 100" strokeLinecap="round" />
             </svg>
             <div className="text-center -mt-6">
-              <div className="font-display font-bold text-lg text-[#122A24]">{totalStudentsCount + totalTeachersCount}</div>
-              <div className="text-[9px] text-slate-400 font-mono uppercase tracking-wider">Total Campus</div>
+              <div className="font-display font-bold text-xl text-[#122A24]">{totalStudentsCount + totalTeachersCount}</div>
+              <div className="text-[9px] text-slate-400 font-mono uppercase tracking-wider">Total Members</div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono pt-2 text-slate-600 border-t border-slate-100">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#34D399] shrink-0" />
-              <span>Boys: 52%</span>
+              <span>Scholars: <strong>{totalStudentsCount}</strong></span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#10B981] shrink-0" />
-              <span>Girls: 45%</span>
+              <span>Faculty: <strong>{totalTeachersCount}</strong></span>
             </div>
-            <div className="col-span-2 flex items-center gap-1.5 text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-[#122A24] shrink-0" />
-              <span>Faculty: 3% ({totalTeachersCount} Staff)</span>
+            <div className="col-span-2 flex items-center justify-between text-slate-500 pt-0.5">
+              <span className="text-[9.5px]">CBSE Ratio: 1 Teacher per {Math.round(totalStudentsCount / (totalTeachersCount || 1))} Students</span>
+              <span className="text-[9.5px] font-bold text-emerald-700">✓ Ideal</span>
             </div>
           </div>
         </div>

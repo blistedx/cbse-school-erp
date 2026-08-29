@@ -32,11 +32,13 @@ export interface User {
   id: string;
   school_id: string;
   username: string;
-  role: 'SUPERADMIN' | 'PRINCIPAL' | 'TEACHER' | 'ACCOUNTANT' | 'STUDENT';
+  role: 'SUPERADMIN' | 'AGENCY_SUPERADMIN' | 'GOD_ACCESS' | 'PRINCIPAL' | 'TEACHER' | 'ACCOUNTANT' | 'STUDENT';
   full_name: string;
   email?: string;
   phone?: string;
   status?: string;
+  is_god_admin?: boolean;
+  permissions?: string[];
 }
 
 // Comprehensive CBSE OASIS / SARAS Compliant Student Record

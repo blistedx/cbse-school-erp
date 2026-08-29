@@ -11,46 +11,52 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-[var(--line)]">
-        <div className="max-w-[1160px] mx-auto px-6 sm:px-8 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 no-underline">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-[var(--line)] shadow-2xs">
+        <div className="max-w-[1160px] mx-auto px-3.5 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 no-underline min-w-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/icon-192.png" alt="EduGit Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm border border-[#122A24]/30" />
-            <div>
-              <span className="font-display font-semibold text-lg sm:text-xl text-[var(--ink-navy)] tracking-tight block">
-                EduGit
+            <img src="/giterp-logo.png" alt="Giterp Logo" className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-contain shadow-xs bg-[#122A24] border border-[#122A24]/30 p-1 shrink-0" />
+            <div className="min-w-0">
+              <span className="font-display font-semibold text-base sm:text-xl text-[var(--ink-navy)] tracking-tight block truncate">
+                Giterp
               </span>
-              <span className="font-mono text-[10px] font-normal tracking-[1.5px] uppercase text-[var(--board-2)] block -mt-0.5 opacity-85">
-                School ERP, one register per school
+              <span className="font-mono text-[9px] sm:text-[10px] font-normal tracking-[1px] sm:tracking-[1.5px] uppercase text-[var(--board-2)] block -mt-0.5 opacity-85 truncate">
+                Manage • Integrate • Grow
               </span>
             </div>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8 text-[14.5px] font-medium text-[var(--ink-navy)]">
+          <nav className="hidden lg:flex items-center gap-7 text-[14.5px] font-medium text-[var(--ink-navy)]">
             <a href="#how" className="opacity-75 hover:opacity-100 transition-opacity no-underline">
               How it works
             </a>
             <a href="#modules" className="opacity-75 hover:opacity-100 transition-opacity no-underline">
               Modules
             </a>
-            <a href="#contact" className="opacity-75 hover:opacity-100 transition-opacity no-underline">
-              Contact
-            </a>
+            <Link href="/mobile" className="opacity-90 hover:opacity-100 text-emerald-800 font-bold transition-opacity no-underline flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+              📱 Mobile App
+            </Link>
             <Link href="/agency" className="opacity-75 hover:opacity-100 transition-opacity no-underline">
               Agency Hub
             </Link>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <Link
+              href="/mobile"
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-emerald-900 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 transition-colors no-underline shadow-xs whitespace-nowrap"
+            >
+              📱 Mobile App
+            </Link>
             <Link
               href="/login"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-[14px] font-semibold text-[var(--ink-navy)] border border-[var(--line)] bg-white hover:bg-slate-50 transition-colors no-underline shadow-sm"
+              className="inline-flex items-center justify-center px-2.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-[var(--ink-navy)] border border-[var(--line)] bg-white hover:bg-slate-50 transition-colors no-underline shadow-xs whitespace-nowrap"
             >
               School Login
             </Link>
             <Link
               href="/request-demo"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-[14px] font-semibold text-white bg-[var(--ink-navy)] hover:bg-[var(--red-pen)] transition-all shadow-sm no-underline hover:-translate-y-0.5"
+              className="inline-flex items-center justify-center px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-white bg-[var(--ink-navy)] hover:bg-[var(--red-pen)] transition-all shadow-xs no-underline whitespace-nowrap"
             >
               Request a Demo
             </Link>
@@ -90,7 +96,7 @@ export default async function HomePage() {
             </h1>
 
             <p className="text-base sm:text-lg leading-relaxed text-slate-200 max-w-xl my-7 font-normal">
-              EduGit runs attendance, fees, timetables and report cards for any number of schools — each with its own data, its own staff, and its own login, on one shared platform.
+              Giterp runs attendance, fees, timetables, examinations, transport GPS and CBSE report cards for any number of schools — each with its own data, its own staff, and its own login, on one shared platform.
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -381,7 +387,7 @@ export default async function HomePage() {
       {/* Footer */}
       <footer className="border-t border-[var(--line)] py-9 bg-white" id="contact">
         <div className="max-w-[1160px] mx-auto px-6 sm:px-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
-          <p className="m-0">EduGit · School ERP for multiple schools, one platform</p>
+          <p className="m-0">Giterp · School ERP for multiple schools, one platform</p>
           <div className="flex gap-6 text-[13.5px]">
             <Link href="/login" className="hover:text-[var(--ink-navy)] no-underline">
               School Login

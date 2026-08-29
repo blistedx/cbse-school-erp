@@ -2,38 +2,38 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'EduGit — Multi-School ERP Platform',
-    short_name: 'EduGit ERP',
-    description: 'Enterprise School ERP for attendance, fees, exams, timetables, and multi-school management.',
+    name: 'Giterp — School ERP Platform',
+    short_name: 'Giterp ERP',
+    description: 'Enterprise CBSE School ERP for attendance, fees, exams, transport GPS, homework and school management.',
     start_url: '/app',
     id: '/app',
     display: 'standalone',
-    background_color: '#232e1a',
-    theme_color: '#232e1a',
+    background_color: '#122A24',
+    theme_color: '#122A24',
     orientation: 'portrait-primary',
     scope: '/',
     categories: ['education', 'productivity', 'business'],
     icons: [
       {
-        src: '/icons/icon-192.png',
+        src: '/giterp-logo.png',
         sizes: '192x192',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/icon-192.png',
+        src: '/giterp-logo.png',
         sizes: '192x192',
         type: 'image/png',
         purpose: 'maskable',
       },
       {
-        src: '/icons/icon-512.png',
+        src: '/giterp-logo.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/icon-512.png',
+        src: '/giterp-logo.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',
@@ -52,6 +52,13 @@ export default function manifest(): MetadataRoute.Manifest {
       },
     ],
     shortcuts: [
+      {
+        name: 'Mobile Native App',
+        short_name: 'Mobile App',
+        description: 'Open the Native Mobile Experience',
+        url: '/mobile',
+        icons: [{ src: '/icons/icon.svg', sizes: 'any' }],
+      },
       {
         name: 'School Dashboard',
         short_name: 'Dashboard',

@@ -3,14 +3,16 @@ import './globals.css';
 import PWAProvider from '@/components/pwa-provider';
 
 export const metadata: Metadata = {
-  title: 'EduGit — School ERP Platform',
-  description: 'EduGit runs attendance, fees, timetables and report cards for any number of schools — each with its own data, its own staff, and its own login, on one shared platform.',
+  title: 'Giterp — School ERP Platform',
+  description: 'Giterp runs attendance, fees, timetables, examinations, transport GPS and CBSE report cards for schools — all on one unified platform.',
+  keywords: 'Giterp, School ERP, CBSE school software, student information system, fees management, school management',
+  applicationName: 'Giterp ERP',
+  authors: [{ name: 'Giterp Technologies' }],
   manifest: '/manifest.webmanifest',
-  applicationName: 'EduGit ERP',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'EduGit',
+    title: 'Giterp',
   },
   icons: {
     icon: [
@@ -64,11 +66,11 @@ export default function RootLayout({
         {/* Mobile PWA Metas */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="EduGit ERP" />
-        <meta name="application-name" content="EduGit ERP" />
+        <meta name="apple-mobile-web-app-title" content="Giterp ERP" />
+        <meta name="application-name" content="Giterp ERP" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="theme-color" content="#232e1a" />
-        <meta name="msapplication-TileColor" content="#232e1a" />
+        <meta name="theme-color" content="#122A24" />
+        <meta name="msapplication-TileColor" content="#122A24" />
       </head>
       <body className="antialiased font-sans">
         <PWAProvider>

@@ -63,10 +63,10 @@ export default function RequestDemoPage() {
       <div className="panel">
         <Link className="brand" href="/">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/icon-192.png" alt="EduGit Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm border border-white/20" />
+          <img src="/giterp-logo.png" alt="Giterp Logo" className="w-10 h-10 rounded-xl object-contain shadow-sm bg-[#122A24] border border-white/20 p-1" />
           <span className="brand-text">
-            EduGit
-            <span>School ERP, one register per school</span>
+            Giterp
+            <span>Manage • Integrate • Grow</span>
           </span>
         </Link>
 
@@ -219,7 +219,7 @@ export default function RequestDemoPage() {
             )}
           </form>
 
-          <Link className="back" href="/">← Back to EduGit</Link>
+          <Link className="back" href="/">← Back to Giterp</Link>
         </div>
       </div>
     </div>

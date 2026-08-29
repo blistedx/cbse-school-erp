@@ -32,6 +32,13 @@ export function DashboardAgency() {
   const [activeTab, setActiveTab] = useState<'requests' | 'schools'>('requests');
   const [loading, setLoading] = useState(true);
 
+  // Agency Authentication Gate State (Requires blistedx / admin@4317)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [agencyIdInput, setAgencyIdInput] = useState('');
+  const [agencyPassInput, setAgencyPassInput] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
   // Approval Modal State
   const [selectedReq, setSelectedReq] = useState<DemoRequest | null>(null);
   const [customCode, setCustomCode] = useState('');
@@ -41,8 +48,71 @@ export function DashboardAgency() {
   const [actionMessage, setActionMessage] = useState('');
 
   useEffect(() => {
-    loadData();
+    checkAgencyAuth();
   }, []);
+
+  const checkAgencyAuth = () => {
+    if (typeof window !== 'undefined') {
+      const isSessionAuthed = sessionStorage.getItem('agency_auth') === 'true';
+      const storedUser = localStorage.getItem('current_user');
+      let isGodUser = false;
+      if (storedUser) {
+        try {
+          const userObj = JSON.parse(storedUser);
+          if (userObj.username?.toLowerCase() === 'blistedx' || userObj.role === 'AGENCY_SUPERADMIN' || userObj.is_god_admin) {
+            isGodUser = true;
+          }
+        } catch (e) {}
+      }
+
+      if (isSessionAuthed || isGodUser) {
+        setIsAuthenticated(true);
+        loadData();
+      } else {
+        setIsAuthenticated(false);
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleAgencyLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError('');
+
+    const id = agencyIdInput.trim().toLowerCase();
+    const pass = agencyPassInput.trim();
+
+    if (id === 'blistedx' && pass === 'admin@4317') {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('agency_auth', 'true');
+        const godUser = {
+          id: 'blistedx-god-master',
+          username: 'blistedx',
+          role: 'AGENCY_SUPERADMIN',
+          full_name: 'BlistedX (God Access Superadmin)',
+          email: 'blistedx@giterp.io',
+          is_god_admin: true,
+          status: 'ACTIVE'
+        };
+        localStorage.setItem('current_user', JSON.stringify(godUser));
+      }
+      setIsAuthenticated(true);
+      setAuthLoading(false);
+      loadData();
+    } else {
+      setAuthError('❌ Invalid Agency credentials. Access strictly restricted to authorized Superadmins.');
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLockConsole = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('agency_auth');
+    }
+    setIsAuthenticated(false);
+    setAgencyPassInput('');
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -135,29 +205,112 @@ export function DashboardAgency() {
       (s.city && s.city.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  // 1. RENDER AUTHENTICATION SECURITY GATE IF NOT LOGGED IN
+  if (isAuthenticated === false) {
+    return (
+      <div className="min-h-screen bg-[#122A24] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
+        {/* Background Grid Accent */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#10B981_1px,transparent_1px)] [background-size:24px_24px]" />
+
+        <div className="relative z-10 w-full max-w-md bg-white text-[#122A24] rounded-3xl p-7 sm:p-9 shadow-2xl border border-white/20 space-y-6 animate-fade-in">
+          {/* Header */}
+          <div className="text-center space-y-2">
+            <div className="mx-auto w-14 h-14 rounded-2xl bg-[#122A24] border-2 border-emerald-500/50 p-1.5 flex items-center justify-center shadow-lg">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/giterp-logo.png" alt="Giterp Logo" className="w-full h-full object-contain" />
+            </div>
+            <div className="pt-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider">
+                🔒 Restricted Agency Gate
+              </span>
+            </div>
+            <h1 className="font-display font-bold text-2xl text-[#122A24] tracking-tight">
+              AgencyOS Master Access
+            </h1>
+            <p className="text-xs text-[#2D5A4E]">
+              Enter authorized God Superadmin credentials to unlock multi-tenant school infrastructure.
+            </p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleAgencyLogin} className="space-y-4 text-xs">
+            <div>
+              <label className="block font-semibold text-[#122A24] mb-1.5">Agency Superadmin ID</label>
+              <input
+                type="text"
+                required
+                value={agencyIdInput}
+                onChange={(e) => setAgencyIdInput(e.target.value)}
+                placeholder="e.g. blistedx"
+                autoComplete="username"
+                className="w-full px-4 py-3 bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl text-xs font-mono font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 focus:bg-white transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-[#122A24] mb-1.5">Master Agency Passcode</label>
+              <input
+                type="password"
+                required
+                value={agencyPassInput}
+                onChange={(e) => setAgencyPassInput(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="current-password"
+                className="w-full px-4 py-3 bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold text-[#122A24] focus:outline-none focus:border-emerald-600 focus:bg-white transition-all"
+              />
+            </div>
+
+            {authError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl animate-fade-in">
+                {authError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={authLoading}
+              className="w-full py-3 bg-[#122A24] hover:bg-[#1C443A] text-white font-bold rounded-xl text-xs border-none cursor-pointer shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <span>{authLoading ? 'Verifying Credentials...' : 'Unlock Agency Console'}</span>
+            </button>
+          </form>
+
+          {/* Footer Back Link */}
+          <div className="pt-4 border-t border-[#E8F0EA] text-center">
+            <Link href="/app" className="text-xs text-[#2D5A4E] hover:text-[#122A24] font-medium no-underline">
+              ← Return to School ERP Workspace
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased flex flex-col">
       {/* Clean Header */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[var(--line)] px-6 sm:px-10 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-3 no-underline">
-            <span className="seal-dark seal shadow-sm">E</span>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-display font-semibold text-lg text-[var(--ink-navy)] tracking-tight">
-                  EduGit AgencyOS
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[var(--line)] px-3.5 sm:px-8 py-3 sm:py-4 flex items-center justify-between gap-2 shadow-2xs">
+        <div className="flex items-center gap-4 sm:gap-6 min-w-0">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 no-underline min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/giterp-logo.png" alt="Giterp Logo" className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-contain bg-[#122A24] border border-[#122A24]/30 p-1 shadow-xs shrink-0" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-display font-semibold text-sm sm:text-lg text-[var(--ink-navy)] tracking-tight truncate">
+                  Giterp AgencyOS
                 </span>
-                <span className="font-mono text-[10.5px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--board-1)] text-white font-semibold">
+                <span className="hidden sm:inline-block font-mono text-[10px] sm:text-[10.5px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--board-1)] text-white font-semibold shrink-0 whitespace-nowrap">
                   Admin Console
                 </span>
               </div>
-              <span className="font-mono text-[10px] tracking-[1.5px] uppercase text-[var(--board-2)] block -mt-0.5 opacity-85">
-                Onboarding Approvals & Tenant Management
+              <span className="font-mono text-[9.5px] sm:text-[10px] tracking-[1px] uppercase text-[var(--board-2)] block -mt-0.5 opacity-85 truncate">
+                Manage • Integrate • Grow
               </span>
             </div>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6 text-[13.5px] font-medium text-[var(--ink-navy)] ml-4">
+          <nav className="hidden lg:flex items-center gap-6 text-[13.5px] font-medium text-[var(--ink-navy)] ml-2">
             <Link href="/" className="opacity-75 hover:opacity-100 transition-opacity no-underline">
               Public Portal
             </Link>
@@ -170,55 +323,71 @@ export function DashboardAgency() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-300 text-amber-900 rounded-full text-xs font-mono font-bold shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span>⚡ GOD ACCESS: blistedx</span>
+          </div>
+
           <Link
-            href="/request-demo"
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[var(--ink-navy)] hover:bg-[var(--red-pen)] text-white rounded-lg text-xs font-semibold shadow-sm transition-all no-underline hover:-translate-y-0.5"
+            href="/app"
+            className="inline-flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-lg text-xs font-semibold shadow-xs transition-all no-underline whitespace-nowrap"
           >
-            <Plus className="h-4 w-4" /> New Demo Lead
+            <span className="hidden sm:inline">ERP Workspace</span>
+            <span className="sm:hidden">ERP</span>
+            <span>➔</span>
           </Link>
+
+          <button
+            onClick={handleLockConsole}
+            className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
+            title="Lock Agency Console and Sign Out"
+          >
+            <span>🔒</span>
+            <span className="hidden xs:inline">Lock</span>
+          </button>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-[1160px] w-full mx-auto px-6 sm:px-10 py-10 space-y-8">
+      <main className="flex-1 max-w-[1160px] w-full mx-auto px-4 sm:px-8 lg:px-10 py-6 sm:py-10 space-y-6 sm:space-y-8">
         {/* Banner & Navigation Switcher */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 font-mono text-[11px] tracking-[1.5px] uppercase text-[var(--red-pen)] font-semibold mb-1">
+            <div className="inline-flex items-center gap-2 font-mono text-[10.5px] sm:text-[11px] tracking-[1.5px] uppercase text-[var(--red-pen)] font-semibold mb-1">
               <span className="w-2 h-2 rounded-full bg-[var(--red-pen)] inline-block" /> Central Admin Desk
             </div>
-            <h1 className="font-display font-semibold text-3xl sm:text-4xl text-[var(--ink-navy)] tracking-tight">
+            <h1 className="font-display font-semibold text-2xl sm:text-3xl lg:text-4xl text-[var(--ink-navy)] tracking-tight">
               Onboarding & Tenant Approvals
             </h1>
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">
               Review incoming school applications, approve credentials, and manage active MongoDB institutional databases.
             </p>
           </div>
 
           {/* Tab Switcher */}
-          <div className="flex items-center gap-1 bg-white border border-slate-300 p-1 rounded-lg self-start sm:self-auto font-mono text-xs shadow-sm">
+          <div className="flex items-center gap-1 bg-white border border-slate-300 p-1 rounded-xl self-stretch sm:self-auto font-mono text-xs shadow-xs justify-between sm:justify-start">
             <button
               onClick={() => setActiveTab('requests')}
-              className={`px-3 py-1.5 rounded font-semibold transition-colors border-none cursor-pointer flex items-center gap-2 ${
+              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-semibold transition-colors border-none cursor-pointer flex items-center justify-center gap-1.5 text-xs whitespace-nowrap ${
                 activeTab === 'requests'
-                  ? 'bg-[var(--ink-navy)] text-white'
+                  ? 'bg-[var(--ink-navy)] text-white shadow-xs'
                   : 'bg-transparent text-[var(--ink-navy)] hover:bg-slate-50'
               }`}
             >
-              <Clock className="h-3.5 w-3.5" />
-              Demo Requests ({pendingRequests.length})
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span>Demo Requests ({pendingRequests.length})</span>
             </button>
             <button
               onClick={() => setActiveTab('schools')}
-              className={`px-3 py-1.5 rounded font-semibold transition-colors border-none cursor-pointer flex items-center gap-2 ${
+              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-semibold transition-colors border-none cursor-pointer flex items-center justify-center gap-1.5 text-xs whitespace-nowrap ${
                 activeTab === 'schools'
-                  ? 'bg-[var(--ink-navy)] text-white'
+                  ? 'bg-[var(--ink-navy)] text-white shadow-xs'
                   : 'bg-transparent text-[var(--ink-navy)] hover:bg-slate-50'
               }`}
             >
-              <Building2 className="h-3.5 w-3.5" />
-              Active Tenants ({schools.length})
+              <Building2 className="h-3.5 w-3.5 shrink-0" />
+              <span>Active Tenants ({schools.length})</span>
             </button>
           </div>
         </div>
@@ -515,7 +684,7 @@ export function DashboardAgency() {
       {/* Footer */}
       <footer className="border-t border-[var(--line)] py-7 bg-white">
         <div className="max-w-[1160px] mx-auto px-6 sm:px-10 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
-          <p className="m-0">EduGit AgencyOS · Multi-Tenant School ERP Cloud</p>
+          <p className="m-0">Giterp AgencyOS · Multi-Tenant School ERP Cloud</p>
           <div className="flex gap-6 text-[13px]">
             <Link href="/" className="hover:text-[var(--ink-navy)] no-underline">
               Public Home

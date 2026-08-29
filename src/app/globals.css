@@ -453,19 +453,49 @@ a {
   background: #FFFFFF;
 }
 
-/* Responsive Breakpoint */
+/* Responsive Breakpoint for Login & Demo */
 @media (max-width: 860px) {
-  .auth-split-layout,
+  .auth-split-layout {
+    grid-template-columns: 1fr;
+    background: var(--parchment);
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .auth-split-layout .panel {
+    display: none;
+  }
+  .auth-split-layout .formside {
+    padding: 32px 18px;
+    background: transparent;
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 460px;
+    margin: 0 auto;
+  }
+  .auth-split-layout .formside .card {
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid #DCE8E0;
+    box-shadow: 0 15px 40px rgba(18, 42, 36, 0.08);
+    border-radius: 24px;
+    padding: 32px 24px;
+  }
+
   .demo-split-layout {
     grid-template-columns: 1fr;
   }
-  .panel {
+  .demo-split-layout .panel {
     display: none;
   }
-  .formside {
-    padding: 40px 24px;
+  .demo-split-layout .formside {
+    padding: 32px 18px;
   }
-  .formside .grid2 {
+  .demo-split-layout .formside .grid2 {
     grid-template-columns: 1fr;
   }
 }
@@ -523,4 +553,68 @@ a {
 .animate-fade-up {
   animation: fadeUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ── Mobile Native Utilities & Animations ── */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.touch-tap-none {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+@keyframes springUp {
+  0% {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  70% {
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseRadar {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 14px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.animate-spring-up {
+  animation: springUp 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.15) forwards;
+}
+
+.animate-radar {
+  animation: pulseRadar 2s infinite;
+}
+
+.mobile-glass {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.mobile-glass-dark {
+  background: rgba(18, 42, 36, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
 
