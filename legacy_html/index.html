@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>EduSuite · Multi-School ERP Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <style>
+        :root {
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --primary-blue: #2563eb;
+            --primary-blue-hover: #1d4ed8;
+            --primary-dark: #0f172a;
+            --navy-deep: #1e3a8a;
+            --blue-glow: rgba(37, 99, 235, 0.15);
+            --blue-subtle: #eff6ff;
+            --sky-accent: #0ea5e9;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --text-light: #64748b;
+            --line: #e2e8f0;
+            --line-blue: rgba(37, 99, 235, 0.16);
+            --radius-sm: 8px;
+            --radius-md: 16px;
+            --radius-lg: 24px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-main);
+            color: var(--text-main);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Subtle grid background */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            opacity: .45;
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 28px 28px;
+            z-index: 0;
+        }
+
+        a { text-decoration: none; color: inherit; }
+
+        .container {
+            width: 100%;
+            max-width: 1040px;
+            margin: 0 auto;
+            padding: 0 20px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* ── HEADER / NAVBAR ── */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--line);
+            padding: 16px 0;
+        }
+        .navbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .brand-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .seal {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Sora', sans-serif;
+            font-weight: 800;
+            font-size: 18px;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+            flex-shrink: 0;
+        }
+        .brand-name {
+            font-family: 'Sora', sans-serif;
+            font-weight: 800;
+            font-size: 19px;
+            color: var(--primary-dark);
+            letter-spacing: -0.2px;
+        }
+        .brand-name small {
+            display: block;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--primary-blue);
+            opacity: 0.9;
+            margin-top: 1px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 28px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .nav-links a {
+            color: var(--text-muted);
+            transition: color 0.2s;
+        }
+        .nav-links a:hover {
+            color: var(--primary-blue);
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .btn-nav-outline {
+            padding: 9px 18px;
+            border-radius: 8px;
+            border: 1.5px solid var(--line);
+            background: #ffffff;
+            color: var(--primary-dark);
+            font-size: 13.5px;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-nav-outline:hover {
+            background: var(--blue-subtle);
+            border-color: var(--primary-blue);
+            color: var(--primary-blue);
+        }
+        .btn-nav-brass {
+            padding: 9px 20px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #ffffff;
+            font-size: 13.5px;
+            font-weight: 700;
+            font-family: 'Sora', sans-serif;
+            transition: transform 0.15s, box-shadow 0.2s;
+            box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-nav-brass:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+        }
+
+        /* ── HERO SECTION ── */
+        .hero {
+            padding: 48px 0 36px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            background: radial-gradient(ellipse at 50% 15%, #eff6ff 0%, #f8fafc 75%);
+        }
+
+        #heroCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+            opacity: 0.45;
+        }
+
+        .badge-hero {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11.5px;
+            font-weight: 700;
+            letter-spacing: 1.8px;
+            text-transform: uppercase;
+            color: var(--primary-blue);
+            background: var(--blue-subtle);
+            padding: 6px 18px;
+            border-radius: 100px;
+            border: 1px solid rgba(37, 99, 235, 0.25);
+            margin-bottom: 18px;
+        }
+
+        .hero h1 {
+            font-family: 'Sora', sans-serif;
+            font-weight: 800;
+            font-size: clamp(30px, 4.5vw, 50px);
+            line-height: 1.18;
+            letter-spacing: -0.5px;
+            margin-bottom: 16px;
+            max-width: 820px;
+            margin-left: auto;
+            margin-right: auto;
+            color: var(--primary-dark);
+        }
+
+        .hero h1 .underline {
+            position: relative;
+            white-space: nowrap;
+            color: var(--primary-blue);
+        }
+
+        .hero h1 .underline svg {
+            position: absolute;
+            left: 0;
+            bottom: -6px;
+            width: 100%;
+            height: 14px;
+        }
+
+        .hero-desc {
+            font-size: clamp(14px, 1.8vw, 16.5px);
+            line-height: 1.6;
+            color: var(--text-muted);
+            max-width: 640px;
+            margin: 0 auto 28px;
+        }
+
+        .hero-ctas {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-bottom: 40px;
+        }
+
+        .btn-cta-main {
+            padding: 13px 28px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 700;
+            font-family: 'Sora', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+            transition: all 0.2s;
+            border: 1.5px solid var(--primary-blue);
+        }
+        .btn-cta-main:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(37, 99, 235, 0.45);
+        }
+
+        .btn-cta-sec {
+            padding: 13px 24px;
+            border-radius: 10px;
+            border: 1.5px solid var(--line);
+            background: #ffffff;
+            color: var(--primary-dark);
+            font-size: 14.5px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+            transition: all 0.2s;
+        }
+        .btn-cta-sec:hover {
+            background: var(--blue-subtle);
+            border-color: var(--primary-blue);
+            color: var(--primary-blue);
+        }
+
+        /* ── STATS BAR (Crisp White Card) ── */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            background: #ffffff;
+            border: 1.5px solid var(--line);
+            border-radius: var(--radius-md);
+            padding: 20px 24px;
+            color: var(--text-main);
+            box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.08);
+            margin-bottom: 50px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-num {
+            font-family: 'Sora', sans-serif;
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--primary-blue);
+            line-height: 1.1;
+        }
+        .stat-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ── FEATURES GRID ── */
+        .section-title {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+        .section-title .kicker {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            color: var(--primary-blue);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+        .section-title h2 {
+            font-family: 'Sora', sans-serif;
+            font-size: clamp(28px, 4vw, 40px);
+            font-weight: 700;
+            color: var(--primary-dark);
+            letter-spacing: -0.5px;
+            margin-bottom: 12px;
+        }
+        .section-title p {
+            color: var(--text-muted);
+            font-size: 15.5px;
+            max-width: 580px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-bottom: 90px;
+        }
+
+        .feature-card {
+            background: #ffffff;
+            color: var(--text-main);
+            border: 1.5px solid var(--line);
+            border-radius: var(--radius-md);
+            padding: 32px 28px;
+            transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.06);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary-blue);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 35px -10px rgba(37, 99, 235, 0.15);
+            border-color: #93c5fd;
+        }
+
+        .feature-card:hover::before {
+            background: var(--primary-blue-hover);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--blue-subtle);
+            color: var(--primary-blue);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .feature-card h3 {
+            font-family: 'Sora', sans-serif;
+            font-size: 19px;
+            font-weight: 700;
+            color: var(--primary-dark);
+        }
+
+        .feature-card p {
+            font-size: 14px;
+            color: var(--text-light);
+            line-height: 1.6;
+        }
+
+        /* ── CTA BANNER ── */
+        .cta-banner {
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-lg);
+            padding: 56px 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 32px;
+            flex-wrap: wrap;
+            margin-bottom: 80px;
+            box-shadow: 0 25px 50px -12px rgba(37, 99, 235, 0.35);
+            position: relative;
+        }
+
+        .cta-left h2 {
+            font-family: 'Sora', sans-serif;
+            font-size: clamp(26px, 3.5vw, 36px);
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+
+        .cta-left p {
+            font-size: 15px;
+            color: rgba(255, 255, 255, 0.9);
+            max-width: 500px;
+            line-height: 1.5;
+        }
+
+        .cta-banner .btn-cta-main {
+            background: #ffffff;
+            color: var(--navy-deep);
+            border-color: #ffffff;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+        .cta-banner .btn-cta-main:hover {
+            background: #f8fafc;
+            color: var(--primary-blue);
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            border-top: 1px solid var(--line);
+            padding: 36px 0 48px;
+            font-size: 13px;
+            color: var(--text-light);
+            background: #ffffff;
+        }
+
+        .footer-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        @media (max-width: 900px) {
+            .nav-links { display: none; }
+            .stats-bar { grid-template-columns: repeat(2, 1fr); padding: 20px; }
+            .features-grid { grid-template-columns: 1fr; }
+            .cta-banner { padding: 36px 24px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header>
+        <div class="container">
+            <nav class="navbar">
+                <a href="/" class="brand-top">
+                    <span class="seal">E</span>
+                    <span class="brand-name">
+                        EDUSUITE
+                        <small>School ERP · one register per school</small>
+                    </span>
+                </a>
+
+                <div class="nav-links">
+                    <a href="#features">Features</a>
+                    <a href="/login">School Login</a>
+                    <a href="/app">Executive Workspace</a>
+                </div>
+
+                <div class="nav-actions">
+                    <a href="/login" class="btn-nav-outline"><i class="fa-solid fa-lock"></i> Sign In</a>
+                    <a href="/request-demo" class="btn-nav-brass"><i class="fa-solid fa-plus"></i> Onboard School</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- HERO SECTION -->
+    <section class="hero">
+        <canvas id="heroCanvas"></canvas>
+
+        <div class="container">
+            <div class="badge-hero">✦ Multi-School Cloud Platform</div>
+            <h1>
+                One enterprise engine. <br />
+                <span class="underline">
+                    Every school campus
+                    <svg viewBox="0 0 160 12" preserveAspectRatio="none">
+                        <path d="M2 8 Q40 2 80 7 T158 5" stroke="#2563eb" stroke-width="3" fill="none" stroke-linecap="round" />
+                    </svg>
+                </span> isolated.
+            </h1>
+            <p class="hero-desc">
+                EduSuite provides each institution with a private partitioned workspace in Supabase PostgreSQL Cloud. Manage student rosters, biometrics, fee ledgers, staff rosters, and report cards in seconds.
+            </p>
+
+            <div class="hero-ctas">
+                <a href="/app" class="btn-cta-main">
+                    <i class="fa-solid fa-gauge-high"></i> Open Admin OS Board →
+                </a>
+                <a href="/login" class="btn-cta-sec">
+                    <i class="fa-solid fa-school"></i> Sign in with School Code
+                </a>
+            </div>
+
+            <!-- STATS BAR -->
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-num">1,337+</div>
+                    <div class="stat-label">Active Students</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-num">49</div>
+                    <div class="stat-label">Faculty Staff</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-num">100%</div>
+                    <div class="stat-label">PostgreSQL Cloud</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-num">&lt;25ms</div>
+                    <div class="stat-label">Fast Sync</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FEATURES GRID -->
+    <section class="container" id="features">
+        <div class="section-title">
+            <p class="kicker">Full Campus Operating System</p>
+            <h2>Everything your campus needs</h2>
+            <p>From biometric punch synchronization to automatic teacher leave substitution.</p>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fa-solid fa-user-graduate"></i></div>
+                <h3>Student Information System</h3>
+                <p>Complete admissions, parent info, roll tracking, class promotion studio, and 1-click CSV roster exports.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fa-solid fa-fingerprint"></i></div>
+                <h3>Attendance &amp; Biometrics</h3>
+                <p>Real-time class-by-class student attendance logging, staff biometric hours tracking, and automated alerts.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fa-solid fa-shuffle"></i></div>
+                <h3>Auto-Substitution Roster</h3>
+                <p>Live teacher on-leave monitor with automatic timetable conflict-free period substitutions.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fa-solid fa-receipt"></i></div>
+                <h3>Fee Ledger &amp; Invoices</h3>
+                <p>Instant UPI, cash, and cheque payment receipts with monthly collection tracking and dues summaries.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fa-solid fa-calendar-days"></i></div>
+                <h3>Master Timetable &amp; Schedule</h3>
+                <p>Period allocations, academic calendar with national &amp; festive holiday markers, and classroom logs.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                <h3>Strict Data Isolation</h3>
+                <p>Zero cross-tenant leakage between schools with row-level PostgreSQL isolation and backup studio.</p>
+            </div>
+        </div>
+
+        <!-- CTA BANNER -->
+        <div class="cta-banner">
+            <div class="cta-left">
+                <h2>Ready to onboard your institution?</h2>
+                <p>Get your school workspace provisioned in PostgreSQL cloud database in 30 seconds.</p>
+            </div>
+            <a href="/request-demo" class="btn-cta-main">
+                <i class="fa-solid fa-rocket"></i> Launch School Workspace
+            </a>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="container">
+            <div class="footer-row">
+                <div>
+                    <strong style="color:var(--primary-dark);">EDUSUITE ERP</strong> · Multi-School Admin OS Platform
+                </div>
+                <div>
+                    Engineered with Supabase Cloud PostgreSQL 17
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- MATRIX CANVAS BACKGROUND SCRIPT -->
+    <script>
+        (function heroMatrix() {
+            const canvas = document.getElementById('heroCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let W, H, cols, drops;
+            const charSet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789§±√π∑∆';
+            const fontSize = 18;
+            let animId = null;
+
+            function resize() {
+                W = canvas.width = canvas.parentElement.offsetWidth;
+                H = canvas.height = canvas.parentElement.offsetHeight;
+                cols = Math.floor(W / fontSize);
+                drops = new Array(cols).fill(0);
+                for (let i = 0; i < cols; i++) {
+                    drops[i] = Math.floor(Math.random() * -30);
+                }
+            }
+
+            function draw() {
+                ctx.fillStyle = 'rgba(239, 246, 255, 0.2)';
+                ctx.fillRect(0, 0, W, H);
+                ctx.font = fontSize + 'px "IBM Plex Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = 'rgba(37, 99, 235, 0.25)';
+
+                for (let i = 0; i < cols; i++) {
+                    const char = charSet[Math.floor(Math.random() * charSet.length)];
+                    const x = i * fontSize + fontSize / 2;
+                    const y = drops[i] * fontSize;
+                    ctx.fillText(char, x, y);
+                    drops[i] += 0.8;
+                    if (drops[i] * fontSize > H + 20 && Math.random() < 0.01) {
+                        drops[i] = Math.floor(Math.random() * -20);
+                    }
+                }
+                animId = requestAnimationFrame(draw);
+            }
+
+            window.addEventListener('resize', resize);
+            resize();
+            draw();
+        })();
+    </script>
+</body>
+</html>

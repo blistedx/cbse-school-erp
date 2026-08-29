@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="50%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  
+  <!-- Subtle border highlight -->
+  <rect width="510" height="510" x="1" y="1" rx="111" fill="none" stroke="#334155" stroke-width="2" opacity="0.6"/>
+
+  <!-- Glowing background effect -->
+  <circle cx="256" cy="240" r="140" fill="url(#accent)" opacity="0.15" filter="url(#glow)"/>
+
+  <!-- Graduation Cap / Book Icon Graphic -->
+  <g transform="translate(106, 126)">
+    <!-- Graduation Cap Top Diamond -->
+    <path d="M150 20 L280 85 L150 150 L20 85 Z" fill="url(#accent)"/>
+    <!-- Cap Rim -->
+    <path d="M60 115 L60 175 C60 215, 240 215, 240 175 L240 115 C210 135, 90 135, 60 115 Z" fill="#1d4ed8" opacity="0.9"/>
+    
+    <!-- Tassel String -->
+    <path d="M250 100 Q265 130 265 170" stroke="#f59e0b" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <!-- Tassel Pendant -->
+    <circle cx="265" cy="180" r="10" fill="#fbbf24"/>
+    <path d="M260 185 L270 185 L273 220 L257 220 Z" fill="#f59e0b"/>
+
+    <!-- Open Book / ERP Platform Pages below -->
+    <path d="M40 210 Q150 190 150 225 Q150 190 260 210 L260 250 Q150 230 150 265 Q150 230 40 250 Z" fill="#38bdf8" opacity="0.85"/>
+  </g>
+</svg>

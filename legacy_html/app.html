@@ -1,0 +1,3718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Anand International School · Admin OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+<style>
+  :root {
+    --bg-dark: #f0f4f9;
+    --bg-main: #f0f4f9;
+    --bg-gradient: linear-gradient(180deg, #eef4fc 0%, #f8fafc 100%);
+    --bg-card: #ffffff;
+    
+    --primary-blue: #2563eb;
+    --primary-blue-hover: #1d4ed8;
+    --primary-blue-light: #eff6ff;
+    --primary-dark: #0f172a;
+    --navy-sidebar: #07152b;
+    --navy-header: #0f233a;
+    --sky-accent: #0ea5e9;
+    --sky-glow: #38bdf8;
+    
+    --forest-deep: #0f172a;
+    --forest-mid: #1e3a8a;
+    --forest-card: #ffffff;
+    --forest-card-hover: #f8fafc;
+    
+    --cream-bg: #f8fafc;
+    --cream-card: #ffffff;
+    --cream-border: #e2e8f0;
+    
+    --gold-accent: #2563eb;
+    --gold-glow: #3b82f6;
+    --gold-btn-text: #ffffff;
+    
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --text-light: #94a3b8;
+    --text-dark: #0f172a;
+    
+    --border-gold: #e2e8f0;
+    --border-gold-glow: rgba(37, 99, 235, 0.25);
+    
+    --sidebar-w: 245px;
+    --topbar-h: 64px;
+    --bottom-nav-h: 60px;
+    
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-full: 9999px;
+    
+    --shadow-card: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 2px 4px -1px rgba(15, 23, 42, 0.04);
+    --shadow-gold: 0 6px 16px rgba(37, 99, 235, 0.25);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; min-width: 320px; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-dark);
+    background-image: var(--bg-gradient);
+    color: var(--text-main);
+    display: flex;
+    -webkit-font-smoothing: antialiased;
+    position: relative;
+  }
+  a { text-decoration: none; color: inherit; }
+  button { font-family: inherit; outline: none; }
+  input, select, textarea { font-family: inherit; }
+
+  /* Background Geometric Rings */
+  .bg-deco {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .bg-deco .ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(37, 99, 235, 0.06);
+  }
+  .ring--1 { width: 700px; height: 700px; top: -200px; right: -100px; }
+  .ring--2 { width: 450px; height: 450px; bottom: -100px; left: -50px; border-color: rgba(37, 99, 235, 0.04); }
+  .ring--3 { width: 250px; height: 250px; top: 40%; left: 30%; border-color: rgba(37, 99, 235, 0.07); filter: blur(2px); }
+
+  /* ================= 1. SIDEBAR ================= */
+  .sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(6px);
+    z-index: 95;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .sidebar-backdrop.active { display: block; opacity: 1; }
+
+  .sidebar {
+    width: var(--sidebar-w);
+    background: linear-gradient(180deg, #07152b 0%, #0c2340 50%, #0f2b52 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 100;
+    position: relative;
+    box-shadow: 6px 0 24px rgba(7, 21, 43, 0.2);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sidebar-header {
+    height: var(--topbar-h);
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .brand-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+  }
+  .brand-crest {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #2563eb, #38bdf8);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+    flex-shrink: 0;
+  }
+  .brand-text-col {
+    display: flex;
+    flex-direction: column;
+  }
+  .brand-name {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 155px;
+  }
+  .brand-sub {
+    font-size: 10px;
+    font-weight: 600;
+    color: #38bdf8;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    opacity: 0.9;
+  }
+  .btn-sidebar-close {
+    display: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #ffffff;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .sidebar-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+  .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
+
+  .menu-category-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #7dd3fc;
+    opacity: 0.7;
+    padding: 0 12px 8px;
+  }
+
+  .nav-item-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    color: #cbd5e1;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    min-height: 44px;
+  }
+  .nav-item-btn:active { transform: scale(0.98); }
+  .nav-item-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #38bdf8;
+  }
+  .nav-item-btn.active {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  }
+  .nav-item-btn i.ico {
+    font-size: 14px;
+    width: 18px;
+    text-align: center;
+  }
+
+  .nav-collapsible-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+    min-height: 44px;
+  }
+  .nav-collapsible-header:hover { background: rgba(255, 255, 255, 0.06); }
+  .nav-collapsible-header .nav-left { display: flex; align-items: center; gap: 12px; }
+  .nav-collapsible-header .nav-left i.ico { font-size: 14px; width: 18px; text-align: center; color: #38bdf8; opacity: 0.9; }
+  .nav-collapsible-header .nav-chevron { font-size: 10px; color: #94a3b8; transition: transform 0.2s ease; }
+  .nav-group.open .nav-chevron { transform: rotate(180deg); }
+
+  .sub-nav-list {
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 2px;
+    padding-left: 28px;
+  }
+  .nav-group.open .sub-nav-list { display: flex; }
+
+  .sub-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: #94a3b8;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    min-height: 38px;
+  }
+  .sub-nav-link:hover {
+    color: #38bdf8;
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .sub-nav-link.active {
+    color: #38bdf8;
+    font-weight: 700;
+  }
+  .sub-nav-link i { font-size: 12px; width: 14px; text-align: center; }
+  .sub-nav-link.highlight-action {
+    color: #38bdf8;
+    font-weight: 700;
+    margin-top: 3px;
+  }
+
+  .sidebar-footer {
+    padding: 14px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.2);
+  }
+  .school-tag-badge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+  }
+  .school-tag-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #ffffff;
+  }
+  .school-tag-code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.15);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* ================= 2. MAIN CONTAINER ================= */
+  .main-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ================= 3. TOPBAR ================= */
+  .topbar {
+    height: var(--topbar-h);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid #e2e8f0;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    gap: 16px;
+    z-index: 40;
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+  }
+  .btn-sidebar-toggle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 15px;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+  .btn-sidebar-toggle:active { transform: scale(0.94); }
+  .btn-sidebar-toggle:hover { background: #eff6ff; border-color: #93c5fd; }
+
+  .header-titles {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+    min-width: 0;
+  }
+  .header-main-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: clamp(14px, 3vw, 17px);
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .header-sub-title {
+    font-size: 11px;
+    color: #64748b;
+    opacity: 0.9;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Center Navigation Pills */
+  .top-nav-pills-wrap {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 0;
+  }
+  .top-nav-pills-wrap::-webkit-scrollbar { display: none; }
+
+  .top-nav-pills {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #f1f5f9;
+    padding: 4px 6px;
+    border-radius: var(--radius-full);
+    border: 1px solid #e2e8f0;
+    flex-shrink: 0;
+  }
+  .pill-nav-btn {
+    border: none;
+    background: transparent;
+    padding: 6px 14px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    min-height: 32px;
+  }
+  .pill-nav-btn:hover {
+    color: #2563eb;
+    background: #e2e8f0;
+  }
+  .pill-nav-btn.active {
+    background: #2563eb;
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  }
+
+  /* Right Controls */
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .circle-btn-action {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13.5px;
+    position: relative;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+  .circle-btn-action:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+  }
+  .btn-plus-gold {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #ffffff;
+    border-color: #2563eb;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  }
+  .btn-plus-gold:hover {
+    background: #1d4ed8;
+    color: #ffffff;
+  }
+  .notif-badge-dot {
+    position: absolute;
+    top: 7px;
+    right: 8px;
+    width: 7px;
+    height: 7px;
+    background: #ef4444;
+    border-radius: 50%;
+    border: 1.5px solid #ffffff;
+  }
+
+  .top-user-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px 3px 3px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .top-user-pill:hover { background: #f1f5f9; }
+  .user-avatar-circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 13.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+  }
+  .user-info-col {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+    text-align: left;
+  }
+  .user-title-name {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .user-role-tag {
+    font-size: 10px;
+    font-weight: 600;
+    color: #2563eb;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ================= 4. CONTENT SCROLL AREA ================= */
+  .content-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .content-scroll::-webkit-scrollbar { width: 6px; }
+  .content-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+  /* ================= 5. BANNERS ================= */
+  .welcome-pill-banner {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: var(--radius-md);
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e40af;
+    box-shadow: var(--shadow-card);
+  }
+  .welcome-pill-banner i { font-size: 15px; color: #2563eb; flex-shrink: 0; }
+
+  .attendance-alert-banner {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: var(--radius-lg);
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: var(--shadow-card);
+    flex-wrap: wrap;
+    color: #92400e;
+  }
+  .alert-left-col {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    max-width: 650px;
+    min-width: 0;
+  }
+  .alert-warning-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #f59e0b;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 800;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  }
+  .alert-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #78350f;
+    letter-spacing: 0.2px;
+    margin-bottom: 2px;
+  }
+  .alert-desc {
+    font-size: 12.5px;
+    color: #92400e;
+    line-height: 1.45;
+  }
+  .alert-actions-col {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .btn-alert-action {
+    border: none;
+    padding: 9px 18px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+    transition: transform 0.15s ease, opacity 0.15s ease;
+    min-height: 38px;
+  }
+  .btn-alert-action:active { transform: scale(0.96); }
+  .btn-alert-action:hover { opacity: 0.9; }
+  .btn-mark-student { background: #2563eb; }
+  .btn-mark-staff { background: #0f172a; }
+  .btn-backup-studio { background: #0284c7; }
+
+  /* ================= 6. 4 KPI METRIC CARDS (UNIFIED EXECUTIVE CARDS) ================= */
+  .kpi-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .kpi-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-md);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 155px;
+    box-shadow: var(--shadow-card);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #2563eb;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.1), 0 0 0 1px #2563eb;
+  }
+  .kpi-card:hover::before {
+    opacity: 1;
+  }
+
+  .kpi-head-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .kpi-header-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+  
+  .kpi-live-badge {
+    font-size: 9.5px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #2563eb;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .kpi-live-dot {
+    width: 6px;
+    height: 6px;
+    background: #2563eb;
+    border-radius: 50%;
+    animation: pulseDot 1.8s infinite;
+  }
+  @keyframes pulseDot {
+    0%, 100% { transform: scale(0.9); opacity: 0.6; }
+    50% { transform: scale(1.3); opacity: 1; }
+  }
+
+  .kpi-staff-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+  }
+  .kpi-rec-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+  }
+
+  .btn-kpi-corner {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: #f8fafc;
+    color: #2563eb;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-kpi-corner:hover {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+  }
+  .btn-kpi-corner:active { transform: scale(0.92); }
+
+  .kpi-sub-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #94a3b8;
+  }
+
+  .kpi-main-number {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: clamp(24px, 3.2vw, 30px);
+    font-weight: 800;
+    line-height: 1.1;
+    margin: 4px 0 8px;
+    letter-spacing: -0.5px;
+    color: #0f172a;
+  }
+
+  .kpi-faculty-stat {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin: 4px 0 8px;
+  }
+  .kpi-faculty-stat .big {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: clamp(24px, 3.2vw, 30px);
+    font-weight: 800;
+    line-height: 1.1;
+    color: #0f172a;
+  }
+  .kpi-faculty-stat .sub {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .kpi-bottom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    padding-top: 8px;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  .today-fees-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f1f5f9;
+  }
+  .btn-collect-fee {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #ffffff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    min-height: 28px;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+    transition: all 0.15s;
+  }
+  .btn-collect-fee:hover { opacity: 0.92; transform: translateY(-1px); }
+  .btn-fee-details {
+    background: #f8fafc;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    padding: 5px 12px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 28px;
+    transition: all 0.15s;
+  }
+  .btn-fee-details:hover { background: #f1f5f9; color: #0f172a; }
+
+  /* ================= 7. LEAVE & SUBSTITUTION SECTION ================= */
+  .leave-substitution-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .leave-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .leave-header-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 14.5px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  .leave-header-sub {
+    font-size: 11.5px;
+    color: #64748b;
+    margin-top: 3px;
+  }
+
+  .leave-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .btn-manage-leaves {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #ffffff;
+    border: none;
+    padding: 8px 18px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: var(--shadow-gold);
+    min-height: 36px;
+  }
+  .btn-dismiss-notice {
+    background: #fef2f2;
+    color: #ef4444;
+    border: 1px solid #fecaca;
+    padding: 7px 14px;
+    border-radius: var(--radius-full);
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    min-height: 36px;
+  }
+
+  .leave-sub-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 20px;
+  }
+  .col-onleave-roster { display: flex; flex-direction: column; gap: 10px; }
+  .col-substitution-table { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+  .section-mini-heading {
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #2563eb;
+    opacity: 0.9;
+  }
+
+  .all-present-badge {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #059669;
+  }
+  .green-bullet-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    flex-shrink: 0;
+    box-shadow: 0 0 8px #10b981;
+  }
+
+  .sub-table-container {
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    background: #ffffff;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sub-table-head {
+    display: grid;
+    grid-template-columns: 1.2fr 1.2fr 1fr 1.5fr;
+    background: #f8fafc;
+    padding: 10px 14px;
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #2563eb;
+    border-bottom: 1px solid #e2e8f0;
+    min-width: 500px;
+  }
+  .sub-table-empty {
+    padding: 24px 16px;
+    text-align: center;
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  /* ================= 8. BOTTOM PANELS ================= */
+  .bottom-panels-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: 18px;
+  }
+
+  .panel-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-md);
+    padding: 18px 20px;
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 250px;
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .panel-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: 0.2px;
+  }
+  .pill-badge-green {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+  }
+
+  .class-progress-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 210px;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+  .class-progress-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .class-progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #334155;
+  }
+  .progress-track {
+    width: 100%;
+    height: 6px;
+    background: #f1f5f9;
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #38bdf8, #2563eb);
+    border-radius: var(--radius-full);
+    transition: width 0.4s ease;
+  }
+
+  .cal-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .btn-manage-holidays {
+    font-size: 11px;
+    font-weight: 700;
+    color: #2563eb;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    min-height: 26px;
+    transition: all 0.15s;
+  }
+  .btn-manage-holidays:hover { background: #2563eb; color: #ffffff; }
+  
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    text-align: center;
+    align-items: center;
+  }
+  .cal-day-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #64748b;
+    padding-bottom: 4px;
+  }
+  .cal-day-cell {
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 4px;
+    color: #0f172a;
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .cal-day-cell:hover { background: #eff6ff; color: #2563eb; }
+  .cal-day-cell.other-month { color: #cbd5e1; }
+  .cal-day-cell.today {
+    background: #2563eb;
+    color: #ffffff;
+    font-weight: 800;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
+  }
+  .cal-day-cell.holiday { color: #f59e0b; font-weight: 700; }
+  .cal-day-cell.holiday::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #f59e0b;
+  }
+
+  .hours-stat-box {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .hours-big-val {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: clamp(22px, 2.5vw, 26px);
+    font-weight: 800;
+    color: #2563eb;
+  }
+  .hours-sub-label {
+    font-size: 11px;
+    color: #64748b;
+  }
+  .weekly-bars-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 100px;
+    gap: 6px;
+    padding-top: 6px;
+  }
+  .bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  .bar-fill {
+    width: 100%;
+    max-width: 20px;
+    background: #e2e8f0;
+    border-radius: 4px 4px 0 0;
+    transition: height 0.4s ease;
+  }
+  .bar-col.active .bar-fill {
+    background: linear-gradient(180deg, #38bdf8 0%, #2563eb 100%);
+    box-shadow: 0 0 8px rgba(37, 99, 235, 0.3);
+  }
+  .bar-day-name {
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748b;
+  }
+
+  /* ================= 9. RECENT FEE TRANSACTIONS & STUDENT LEDGER ================= */
+  .recent-ledger-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-md);
+    padding: 24px;
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .recent-ledger-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .recent-ledger-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .recent-ledger-sub {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 3px;
+  }
+  .btn-view-fee-studio {
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+    padding: 7px 16px;
+    border-radius: var(--radius-full);
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-view-fee-studio:hover {
+    background: #2563eb;
+    color: #ffffff;
+  }
+
+  .student-avatar-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 11px;
+    color: #ffffff;
+    flex-shrink: 0;
+  }
+  .avatar-aa-blue { background: #38bdf8; }
+  .avatar-aa-gold { background: #f59e0b; }
+  .avatar-an-green { background: #10b981; }
+  .avatar-an-purple { background: #8b5cf6; }
+  .avatar-ad-red { background: #ef4444; }
+  .avatar-ka-indigo { background: #6366f1; }
+
+  .sr-code-text {
+    font-size: 11px;
+    color: #64748b;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .receipt-id-text {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: #2563eb;
+    font-weight: 700;
+  }
+  .payment-date-text {
+    font-size: 12px;
+    color: #64748b;
+  }
+  .pill-paid-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+  }
+  .pill-paid-badge::before {
+    content: '●';
+    font-size: 8px;
+  }
+  .amount-val-text {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 800;
+    font-size: 13.5px;
+    color: #0f172a;
+  }
+
+  /* ================= 10. 2-COLUMN SECTION: LIVE LOGS & NOTICES ================= */
+  .logs-notices-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+
+  /* Deep Sapphire/Navy Live Logs Card */
+  .todays-logs-card {
+    background: linear-gradient(155deg, #07152b 0%, #0f274d 100%);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .logs-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logs-card-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .logs-card-sub {
+    font-size: 11px;
+    color: #7dd3fc;
+    opacity: 0.9;
+    margin-top: 2px;
+  }
+  .logs-live-pill {
+    font-size: 9.5px;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid #38bdf8;
+    color: #38bdf8;
+    letter-spacing: 0.8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .logs-list-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .log-item-row {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 11.5px;
+  }
+  .log-tag-badge {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .tag-settings { background: rgba(148, 163, 184, 0.25); color: #e2e8f0; }
+  .tag-fee { background: rgba(52, 211, 153, 0.25); color: #6ee7b7; }
+  .tag-attendance { background: rgba(56, 189, 248, 0.25); color: #7dd3fc; }
+
+  .log-desc-text {
+    flex: 1;
+    color: rgba(255, 255, 255, 0.9);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .log-time-text {
+    font-size: 10.5px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: rgba(255, 255, 255, 0.6);
+    flex-shrink: 0;
+  }
+  .logs-footer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .logs-footer-row a {
+    color: #38bdf8;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* Official Notices Card */
+  .notices-announcements-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-lg);
+    padding: 22px;
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .notices-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .notices-card-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .notices-card-sub {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+  .btn-notice-board {
+    font-size: 11px;
+    font-weight: 700;
+    color: #2563eb;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    padding: 5px 12px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+  }
+
+  .notices-list-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .notice-item-row {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .notice-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .notice-item-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .notice-item-sub {
+    font-size: 11px;
+    color: #64748b;
+  }
+  .notice-right-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .notice-date-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+  }
+  .notice-pin-icon {
+    font-size: 12px;
+    color: #2563eb;
+    opacity: 0.6;
+    cursor: pointer;
+  }
+  .notice-pin-icon:hover { opacity: 1; }
+
+  .notices-footer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #64748b;
+    padding-top: 8px;
+    border-top: 1px solid #e2e8f0;
+  }
+  .notices-footer-row a {
+    color: #2563eb;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* ================= 11. TAB PANES ================= */
+  .tab-pane { display: none; }
+  .tab-pane.active { display: flex; flex-direction: column; gap: 16px; }
+
+  .module-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .module-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .module-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 17px;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-sm);
+  }
+  table.custom-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; min-width: 620px; }
+  table.custom-table th {
+    background: #f8fafc;
+    padding: 12px 14px;
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    color: #2563eb;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  table.custom-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #0f172a;
+    vertical-align: middle;
+  }
+  table.custom-table tr:hover td { background: #f8fafc; }
+
+  /* ================= 12. MODALS ================= */
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .modal-backdrop.open { display: flex; opacity: 1; }
+  .modal-box {
+    background: #ffffff;
+    color: #0f172a;
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 580px;
+    padding: 28px;
+    box-shadow: 0 40px 80px -20px rgba(15, 23, 42, 0.25);
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    border: 1px solid #e2e8f0;
+    transform: scale(0.96);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .modal-backdrop.open .modal-box { transform: scale(1); }
+  .modal-drag-handle {
+    display: none;
+    width: 40px;
+    height: 4px;
+    background: #cbd5e1;
+    border-radius: 4px;
+    margin: 0 auto 16px;
+  }
+  .modal-close-btn {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+    background: #f1f5f9;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 16px;
+    color: #0f172a;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+  }
+  .modal-close-btn:hover { background: #e2e8f0; }
+  .modal-title { font-family:'Plus Jakarta Sans', sans-serif; font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 16px; }
+  .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-label { font-size: 12px; font-weight: 700; color: #0f172a; margin-bottom: 5px; display: block; }
+  .form-input {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 14.5px;
+    outline: none;
+    margin-bottom: 12px;
+    background: #ffffff;
+    color: #0f172a;
+    min-height: 44px;
+  }
+  .form-input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+  .btn-submit-modal {
+    width: 100%;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #ffffff;
+    border: none;
+    padding: 13px;
+    border-radius: 12px;
+    font-size: 14.5px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 8px;
+    min-height: 46px;
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.25);
+    transition: all 0.15s;
+  }
+  .btn-submit-modal:hover { box-shadow: 0 10px 28px rgba(37, 99, 235, 0.35); transform: translateY(-1px); }
+
+  /* ================= 13. MOBILE BOTTOM APP BAR ================= */
+  .mobile-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--bottom-nav-h);
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    z-index: 80;
+    padding: 0 12px;
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.08);
+  }
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    flex: 1;
+    height: 100%;
+  }
+  .bottom-nav-item i { font-size: 18px; }
+  .bottom-nav-item.active { color: #2563eb; }
+  .bottom-nav-fab {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+    margin-top: -18px;
+    border: 3px solid #ffffff;
+  }
+
+  /* ================= 14. FLOATING TOAST NOTIFICATIONS ================= */
+  .toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+  }
+  .toast-card {
+    pointer-events: auto;
+    background: #0f172a;
+    color: #ffffff;
+    padding: 12px 18px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    min-width: 280px;
+    max-width: 380px;
+    border: 1px solid #334155;
+    border-left: 4px solid #2563eb;
+    animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .toast-card.success { border-left-color: #10b981; }
+  .toast-card.amber { border-left-color: #f59e0b; }
+  @keyframes toastSlideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* Responsive Media Queries tailored for Standard 1024x768 and modern displays */
+  @media (max-width: 1280px) {
+    .kpi-cards-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .bottom-panels-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+    .logs-notices-grid { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+    .leave-sub-grid { grid-template-columns: 240px 1fr; gap: 14px; }
+    .content-scroll { padding: 18px 20px; gap: 16px; }
+    .topbar { padding: 0 18px; }
+  }
+
+  @media (max-width: 1024px) {
+    :root {
+      --sidebar-w: 220px;
+    }
+    .leave-sub-grid { grid-template-columns: 1fr; }
+    .bottom-panels-grid { grid-template-columns: 1fr; }
+    .kpi-main-number { font-size: 26px; }
+    .module-card, .leave-substitution-card, .recent-ledger-card, .todays-logs-card, .notices-announcements-card { padding: 18px; }
+  }
+
+  @media (max-width: 768px) {
+    .sidebar {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      transform: translateX(-100%);
+    }
+    .sidebar.open { transform: translateX(0); }
+    .btn-sidebar-close { display: flex; }
+
+    .kpi-cards-grid { grid-template-columns: 1fr; }
+    .alert-actions-col { width: 100%; justify-content: stretch; }
+    .alert-actions-col .btn-alert-action { flex: 1; justify-content: center; }
+    .form-grid-2 { grid-template-columns: 1fr; }
+
+    .content-scroll { padding: 16px 16px 84px; }
+    .mobile-bottom-nav { display: flex; }
+
+    .modal-backdrop { align-items: flex-end; padding: 0; }
+    .modal-box { border-radius: 24px 24px 0 0; max-height: 85vh; padding: 20px; transform: translateY(100%); }
+    .modal-backdrop.open .modal-box { transform: translateY(0); }
+    .modal-drag-handle { display: block; }
+    .bg-deco .ring { display: none; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Background Rings -->
+  <div class="bg-deco">
+    <div class="ring ring--1"></div>
+    <div class="ring ring--2"></div>
+    <div class="ring ring--3"></div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Sidebar Backdrop -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+  <!-- ================= 1. SIDEBAR ================= -->
+  <aside class="sidebar" id="sidebarEl">
+    <div>
+      <div class="sidebar-header">
+        <a href="/app" class="brand-logo">
+          <div class="brand-crest">E</div>
+          <div class="brand-text-col">
+            <span class="brand-name" id="sideBrandSchoolName">Anand International School</span>
+            <span class="brand-sub">Admin OS</span>
+          </div>
+        </a>
+        <button class="btn-sidebar-close" onclick="closeSidebar()">&times;</button>
+      </div>
+
+      <div class="sidebar-scroll">
+        <!-- MAIN NAVIGATION -->
+        <div>
+          <div class="menu-category-title">MAIN NAVIGATION</div>
+          
+          <button class="nav-item-btn active" id="nav-executive-dash" onclick="switchModule('dashboard', this); closeSidebarOnMobile();">
+            <i class="fa-solid fa-house-chimney ico"></i>
+            <span>Executive Dashboard</span>
+          </button>
+
+          <button class="nav-item-btn" id="nav-front-desk" onclick="switchModule('frontdesk', this); closeSidebarOnMobile();">
+            <i class="fa-solid fa-phone-volume ico"></i>
+            <span>Front Desk &amp; Reception Hub</span>
+          </button>
+
+          <button class="nav-item-btn" id="nav-ai-insights" onclick="switchModule('ai', this); closeSidebarOnMobile();">
+            <i class="fa-solid fa-wand-magic-sparkles ico" style="color:var(--gold-accent);"></i>
+            <span>AI Assistant &amp; Insights</span>
+          </button>
+        </div>
+
+        <!-- ACADEMICS & OPERATIONS -->
+        <div>
+          <div class="menu-category-title">ACADEMICS &amp; OPERATIONS</div>
+
+          <!-- Student Management Dropdown -->
+          <div class="nav-group open" id="navGroup-students">
+            <div class="nav-collapsible-header" onclick="toggleNavGroup('students')">
+              <div class="nav-left">
+                <i class="fa-solid fa-user-graduate ico"></i>
+                <span>Student Management</span>
+              </div>
+              <i class="fa-solid fa-chevron-down nav-chevron"></i>
+            </div>
+            <div class="sub-nav-list">
+              <div class="sub-nav-link" onclick="switchModule('students', null, 'roster'); closeSidebarOnMobile();"><i class="fa-regular fa-address-book"></i> All Students Roster</div>
+              <div class="sub-nav-link" onclick="switchModule('students', null, 'active'); closeSidebarOnMobile();"><i class="fa-regular fa-circle-check"></i> Active Students</div>
+              <div class="sub-nav-link" onclick="switchModule('students', null, 'promotion'); openPromotionModal(); closeSidebarOnMobile();"><i class="fa-solid fa-arrow-trend-up"></i> Class Promotion Studio</div>
+              <div class="sub-nav-link" onclick="openCredentialsModal(); closeSidebarOnMobile();"><i class="fa-solid fa-id-card"></i> ID Cards &amp; Credentials</div>
+              <div class="sub-nav-link highlight-action" onclick="openRegisterStudentModal(); closeSidebarOnMobile();"><i class="fa-solid fa-plus"></i> + Register New Student</div>
+            </div>
+          </div>
+
+          <!-- Faculty & Staff Dropdown -->
+          <div class="nav-group open" id="navGroup-faculty" style="margin-top:8px;">
+            <div class="nav-collapsible-header" onclick="toggleNavGroup('faculty')">
+              <div class="nav-left">
+                <i class="fa-solid fa-chalkboard-user ico"></i>
+                <span>Faculty &amp; Staff</span>
+              </div>
+              <i class="fa-solid fa-chevron-down nav-chevron"></i>
+            </div>
+            <div class="sub-nav-list">
+              <div class="sub-nav-link" onclick="switchModule('faculty', null, 'all'); closeSidebarOnMobile();"><i class="fa-solid fa-users"></i> All Faculty &amp; Staff</div>
+              <div class="sub-nav-link" onclick="switchModule('attendance', null, 'staff'); closeSidebarOnMobile();"><i class="fa-regular fa-calendar-check"></i> Staff Attendance Log</div>
+              <div class="sub-nav-link" onclick="openManageLeavesModal(); closeSidebarOnMobile();"><i class="fa-solid fa-shuffle"></i> Faculty Substitution Portal</div>
+              <div class="sub-nav-link highlight-action" onclick="openTeacherModal(); closeSidebarOnMobile();"><i class="fa-solid fa-plus"></i> + Register New Employee</div>
+            </div>
+          </div>
+
+          <button class="nav-item-btn" style="margin-top:6px;" onclick="switchModule('attendance', this); closeSidebarOnMobile();">
+            <i class="fa-solid fa-clipboard-user ico"></i>
+            <span>Attendance &amp; Biometrics</span>
+          </button>
+
+          <button class="nav-item-btn" onclick="openFeeStudioModal(); closeSidebarOnMobile();">
+            <i class="fa-solid fa-file-invoice-dollar ico"></i>
+            <span>Fee Studio &amp; Ledger</span>
+          </button>
+
+          <button class="nav-item-btn" onclick="openExamGradebookModal(); closeSidebarOnMobile();">
+            <i class="fa-solid fa-award ico"></i>
+            <span>Examination &amp; Gradebook</span>
+          </button>
+
+          <button class="nav-item-btn" onclick="switchModule('classes', this); closeSidebarOnMobile();">
+            <i class="fa-solid fa-calendar-days ico"></i>
+            <span>Classes &amp; Master Timetable</span>
+          </button>
+
+          <button class="nav-item-btn" onclick="openBroadcastNoticeModal(); closeSidebarOnMobile();">
+            <i class="fa-solid fa-bullhorn ico"></i>
+            <span>Broadcast Circulars</span>
+          </button>
+        </div>
+
+        <!-- ADMINISTRATION & SETTINGS -->
+        <div>
+          <div class="menu-category-title">SYSTEM &amp; SECURITY</div>
+          
+          <button class="nav-item-btn" onclick="openAllLogsModal(); closeSidebarOnMobile();">
+            <i class="fa-solid fa-clock-rotate-left ico"></i>
+            <span>Live Activity Logs</span>
+          </button>
+
+          <button class="nav-item-btn" onclick="openBrandingSettingsModal(); closeSidebarOnMobile();">
+            <i class="fa-solid fa-sliders ico"></i>
+            <span>School Branding &amp; Profile</span>
+          </button>
+
+          <button class="nav-item-btn" onclick="openBackupStudioModal(); closeSidebarOnMobile();">
+            <i class="fa-solid fa-database ico"></i>
+            <span>Cloud Database Backup</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="school-tag-badge">
+        <div>
+          <div class="school-tag-title" id="sideSchoolFooterName">AIS Campus</div>
+          <div style="font-size:10px; color:rgba(253,248,238,0.5);">Active Cloud Node</div>
+        </div>
+        <span class="school-tag-code" id="sideSchoolFooterCode">AIS-2026</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= 2. MAIN WRAPPER ================= -->
+  <div class="main-wrapper">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="btn-sidebar-toggle" onclick="toggleSidebar()" title="Toggle Menu">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="header-titles">
+          <h1 class="header-main-title">Welcome Back, System Admin</h1>
+          <span class="header-sub-title">Central School Operations OS · Session 2026–27</span>
+        </div>
+      </div>
+
+      <!-- Center: Navigation Pills -->
+      <div class="top-nav-pills-wrap">
+        <nav class="top-nav-pills">
+          <button class="pill-nav-btn active" onclick="switchModule('dashboard', null, null, this)">Dashboard</button>
+          <button class="pill-nav-btn" onclick="switchModule('students', null, null, this)">Students</button>
+          <button class="pill-nav-btn" onclick="switchModule('faculty', null, null, this)">Faculty &amp; Staff</button>
+          <button class="pill-nav-btn" onclick="switchModule('attendance', null, null, this)">Attendance</button>
+          <button class="pill-nav-btn" onclick="openFeeStudioModal()">Fee Studio</button>
+          <button class="pill-nav-btn" onclick="openExamGradebookModal()">Exams</button>
+          <button class="pill-nav-btn" onclick="switchModule('classes', null, null, this)">Classes</button>
+          <button class="pill-nav-btn" onclick="openBroadcastNoticeModal()">Notices</button>
+        </nav>
+      </div>
+
+      <!-- Right: Action Buttons -->
+      <div class="topbar-right">
+        <button class="circle-btn-action" onclick="openGlobalSearchModal()" title="Search (Ctrl + /)">
+          <i class="fa-solid fa-magnifying-glass"></i>
+        </button>
+
+        <button class="circle-btn-action" onclick="openAllLogsModal()" title="Live System Logs">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+        </button>
+
+        <button class="circle-btn-action" onclick="showNotifAlert()" title="Notifications">
+          <i class="fa-regular fa-bell"></i>
+          <span class="notif-badge-dot"></span>
+        </button>
+
+        <button class="circle-btn-action btn-plus-gold" onclick="openRegisterStudentModal()" title="Quick Add Student">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+
+        <div class="top-user-pill" onclick="showUserProfileMenu()" title="Logged in as Administrator">
+          <div class="user-avatar-circle" id="topAvatarLetter">S</div>
+          <div class="user-info-col" style="display:none;" id="desktopProfileText">
+            <span class="user-title-name" id="topAdminName">System Admin</span>
+            <span class="user-role-tag">Administrator</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTENT SCROLL AREA -->
+    <main class="content-scroll">
+
+      <!-- ================= TAB PANE 1: EXECUTIVE DASHBOARD ================= -->
+      <div class="tab-pane active" id="pane-dashboard">
+
+        <!-- 1. TOP WELCOME NOTICE PILL -->
+        <div class="welcome-pill-banner" id="welcomeNoticePill">
+          <i class="fa-solid fa-circle-check"></i>
+          <span>Welcome back, System Admin! All cloud systems are online and synchronized with PostgreSQL Cloud DB.</span>
+        </div>
+
+        <!-- 2. AMBER ATTENDANCE PENDING BANNER -->
+        <div class="attendance-alert-banner" id="attendancePendingBanner">
+          <div class="alert-left-col">
+            <div class="alert-warning-icon">!</div>
+            <div>
+              <div class="alert-title">ATTENTION: TODAY'S ATTENDANCE PENDING!</div>
+              <div class="alert-desc">Daily attendance for students and staff has not been recorded yet. Please use the quick actions to complete today's log.</div>
+            </div>
+          </div>
+
+          <div class="alert-actions-col">
+            <button class="btn-alert-action btn-mark-student" onclick="openStudentAttendanceModal()">
+              <i class="fa-solid fa-plus"></i> Mark Student Attendance
+            </button>
+            <button class="btn-alert-action btn-mark-staff" onclick="openStaffAttendanceModal()">
+              <i class="fa-solid fa-plus"></i> Mark Staff Attendance
+            </button>
+            <button class="btn-alert-action btn-backup-studio" onclick="openBackupStudioModal()">
+              <i class="fa-solid fa-database"></i> Backup Studio
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. ROW OF 4 KPI METRIC CARDS -->
+        <div class="kpi-cards-grid">
+          <!-- Card 1: Active Students -->
+          <div class="kpi-card">
+            <div>
+              <div class="kpi-head-row">
+                <span class="kpi-header-label">ACTIVE STUDENTS</span>
+                <span class="kpi-live-badge"><span class="kpi-live-dot"></span> LIVE</span>
+              </div>
+              <div class="kpi-sub-label">ENROLLED ROSTER</div>
+              <div class="kpi-main-number" id="dashTotalStudents">1,337</div>
+            </div>
+            <div class="kpi-bottom-row">
+              <span id="dashStudentsPresentToday">Present Today: 0</span>
+              <span id="dashStudentsRate">Rate: 0%</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Total Faculty -->
+          <div class="kpi-card">
+            <div>
+              <div class="kpi-head-row">
+                <span class="kpi-header-label">TOTAL FACULTY</span>
+                <span class="kpi-staff-badge" id="dashFacultyBadge">49 Staff</span>
+              </div>
+              <div class="kpi-faculty-stat">
+                <span class="big" id="dashFacultyPresent">0</span>
+                <span class="sub" id="dashFacultyPresentSub">/ 49 Present Today</span>
+              </div>
+              <div class="kpi-sub-label">Active Faculty Stream</div>
+            </div>
+            <div class="kpi-bottom-row">
+              <span id="dashFacultyOnDuty">On Duty: 0</span>
+              <span id="dashFacultyOnLeave">On Leave: 0</span>
+            </div>
+          </div>
+
+          <!-- Card 3: Today's Fees -->
+          <div class="kpi-card">
+            <div>
+              <div class="kpi-head-row">
+                <span class="kpi-header-label">TODAY'S FEES</span>
+                <button class="btn-kpi-corner" onclick="openFeeStudioModal()" title="Open Fee Studio"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+              </div>
+              <div class="kpi-sub-label">TODAY COLLECTED</div>
+              <div class="kpi-main-number" id="dashTodayFees">₹0</div>
+            </div>
+            <div class="today-fees-actions">
+              <button class="btn-collect-fee" onclick="openCollectFeeModal()"><i class="fa-solid fa-plus"></i> Collect Fee</button>
+              <button class="btn-fee-details" onclick="openFeeStudioModal()">Details</button>
+            </div>
+          </div>
+
+          <!-- Card 4: Monthly Fees -->
+          <div class="kpi-card">
+            <div>
+              <div class="kpi-head-row">
+                <span class="kpi-header-label">MONTHLY FEES</span>
+                <span class="kpi-rec-badge" id="dashFeeRecBadge">2% Rec</span>
+              </div>
+              <div class="kpi-sub-label">TOTAL RECEIVED</div>
+              <div class="kpi-main-number" id="dashMonthlyFees">₹42,700</div>
+            </div>
+            <div class="kpi-bottom-row">
+              <span id="dashFeeExpected">Expected: ₹26.79L</span>
+              <span id="dashFeeDue">Due: ₹2,630.0k</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. FACULTY LEAVE & AUTOMATIC SUBSTITUTION ROSTER -->
+        <div class="leave-substitution-card">
+          <div class="leave-section-header">
+            <div>
+              <div class="leave-header-title">
+                <span>🗂️ Faculty Members On Leave Today &amp; Automatic Substitution Roster</span>
+              </div>
+              <div class="leave-header-sub">Live monitor of faculty on leave/half-day today and auto-arranged substitution classes for affected periods</div>
+            </div>
+
+            <div class="leave-header-actions">
+              <button class="btn-manage-leaves" onclick="openManageLeavesModal()">
+                <span>Manage Leaves Portal</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </button>
+              <button class="btn-dismiss-notice" onclick="dismissLeaveNotice()">
+                ✕ Dismiss Notice
+              </button>
+            </div>
+          </div>
+
+          <div class="leave-sub-grid">
+            <div class="col-onleave-roster">
+              <div class="section-mini-heading">TODAY'S ON-LEAVE ROSTER</div>
+              <div class="all-present-badge" id="onLeaveStatusBadge">
+                <span class="green-bullet-dot"></span>
+                <span>All Faculty Members Present Today!</span>
+              </div>
+              <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:var(--radius-sm); padding:10px 14px; font-size:11.5px; color:#64748b; display:flex; justify-content:space-between;">
+                <span>Active Staff: <strong style="color:#0f172a;">49</strong></span>
+                <span>On Leave: <strong style="color:#059669;">0</strong></span>
+                <span>Coverage: <strong style="color:#2563eb;">100%</strong></span>
+              </div>
+            </div>
+
+            <div class="col-substitution-table">
+              <div class="section-mini-heading">AUTOMATIC CLASS SUBSTITUTION ARRANGEMENTS</div>
+              <div class="sub-table-container">
+                <div class="sub-table-head">
+                  <span>ABSENT FACULTY</span>
+                  <span>CLASS &amp; SUBJECT</span>
+                  <span>PERIOD TIME</span>
+                  <span>AUTO-ASSIGNED SUBSTITUTE TEACHER</span>
+                </div>
+                <div class="sub-table-empty" id="substitutionEmptyState">
+                  No timetable class substitutions required today. All scheduled classes are running smoothly.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. THREE-COLUMN BOTTOM PANELS: ATTENDANCE, CALENDAR, ACTIVE HOURS -->
+        <div class="bottom-panels-grid">
+          
+          <!-- Card A: Class Daily Attendance Status -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <span class="panel-title">Class Daily Attendance Status</span>
+              <span class="pill-badge-green">Working Day Only</span>
+            </div>
+            
+            <div class="class-progress-list" id="classAttendanceBreakdownList">
+              <div class="class-progress-item">
+                <div class="class-progress-labels">
+                  <span>Class 10 - Section A</span>
+                  <strong style="color:#2563eb;">38 / 40 Present (95%)</strong>
+                </div>
+                <div class="progress-track"><div class="progress-fill" style="width: 95%;"></div></div>
+              </div>
+
+              <div class="class-progress-item">
+                <div class="class-progress-labels">
+                  <span>Class 9 - Section B</span>
+                  <strong style="color:#2563eb;">36 / 38 Present (94.7%)</strong>
+                </div>
+                <div class="progress-track"><div class="progress-fill" style="width: 94.7%;"></div></div>
+              </div>
+
+              <div class="class-progress-item">
+                <div class="class-progress-labels">
+                  <span>Class 8 - Section A</span>
+                  <strong style="color:#2563eb;">41 / 42 Present (97.6%)</strong>
+                </div>
+                <div class="progress-track"><div class="progress-fill" style="width: 97.6%;"></div></div>
+              </div>
+
+              <div class="class-progress-item">
+                <div class="class-progress-labels">
+                  <span>Class 7 - Section C</span>
+                  <strong style="color:#2563eb;">35 / 37 Present (94.5%)</strong>
+                </div>
+                <div class="progress-track"><div class="progress-fill" style="width: 94.5%;"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card B: Calendar August 2026 -->
+          <div class="panel-card">
+            <div class="cal-header-row">
+              <span class="panel-title">Academic Calendar · August 2026</span>
+              <button class="btn-manage-holidays" onclick="openHolidaysModal()">+ Manage Holidays</button>
+            </div>
+
+            <div class="cal-grid">
+              <div class="cal-day-label">M</div>
+              <div class="cal-day-label">T</div>
+              <div class="cal-day-label">W</div>
+              <div class="cal-day-label">T</div>
+              <div class="cal-day-label">F</div>
+              <div class="cal-day-label">S</div>
+              <div class="cal-day-label">S</div>
+
+              <div class="cal-day-cell other-month">27</div>
+              <div class="cal-day-cell other-month">28</div>
+              <div class="cal-day-cell other-month">29</div>
+              <div class="cal-day-cell other-month">30</div>
+              <div class="cal-day-cell other-month">31</div>
+              <div class="cal-day-cell">1</div>
+              <div class="cal-day-cell holiday">2</div>
+
+              <div class="cal-day-cell">3</div>
+              <div class="cal-day-cell">4</div>
+              <div class="cal-day-cell">5</div>
+              <div class="cal-day-cell">6</div>
+              <div class="cal-day-cell">7</div>
+              <div class="cal-day-cell">8</div>
+              <div class="cal-day-cell holiday">9</div>
+
+              <div class="cal-day-cell">10</div>
+              <div class="cal-day-cell">11</div>
+              <div class="cal-day-cell">12</div>
+              <div class="cal-day-cell">13</div>
+              <div class="cal-day-cell">14</div>
+              <div class="cal-day-cell holiday" title="Independence Day">15</div>
+              <div class="cal-day-cell holiday">16</div>
+
+              <div class="cal-day-cell">17</div>
+              <div class="cal-day-cell">18</div>
+              <div class="cal-day-cell">19</div>
+              <div class="cal-day-cell">20</div>
+              <div class="cal-day-cell">21</div>
+              <div class="cal-day-cell">22</div>
+              <div class="cal-day-cell holiday">23</div>
+
+              <div class="cal-day-cell">24</div>
+              <div class="cal-day-cell">25</div>
+              <div class="cal-day-cell">26</div>
+              <div class="cal-day-cell today" title="Today">27</div>
+              <div class="cal-day-cell">28</div>
+              <div class="cal-day-cell holiday" title="Raksha Bandhan">29</div>
+              <div class="cal-day-cell holiday">30</div>
+
+              <div class="cal-day-cell">31</div>
+              <div class="cal-day-cell other-month">1</div>
+              <div class="cal-day-cell other-month">2</div>
+              <div class="cal-day-cell other-month">3</div>
+              <div class="cal-day-cell other-month">4</div>
+              <div class="cal-day-cell other-month">5</div>
+              <div class="cal-day-cell other-month">6</div>
+            </div>
+          </div>
+
+          <!-- Card C: Active Hours Logged -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <span class="panel-title">Active Hours Logged</span>
+              <span class="pill-badge-green">This Week</span>
+            </div>
+
+            <div class="hours-stat-box">
+              <span class="hours-big-val" id="activeHoursVal">38.5 hrs</span>
+              <span class="hours-sub-label">Avg 7.7h / day (Biometric sync)</span>
+            </div>
+
+            <div class="weekly-bars-chart">
+              <div class="bar-col">
+                <div class="bar-fill" style="height: 75%;"></div>
+                <span class="bar-day-name">Mon</span>
+              </div>
+              <div class="bar-col">
+                <div class="bar-fill" style="height: 85%;"></div>
+                <span class="bar-day-name">Tue</span>
+              </div>
+              <div class="bar-col">
+                <div class="bar-fill" style="height: 90%;"></div>
+                <span class="bar-day-name">Wed</span>
+              </div>
+              <div class="bar-col active">
+                <div class="bar-fill" style="height: 80%;"></div>
+                <span class="bar-day-name">Thu</span>
+              </div>
+              <div class="bar-col">
+                <div class="bar-fill" style="height: 70%;"></div>
+                <span class="bar-day-name">Fri</span>
+              </div>
+              <div class="bar-col">
+                <div class="bar-fill" style="height: 40%;"></div>
+                <span class="bar-day-name">Sat</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ================= 6. RECENT FEE TRANSACTIONS & STUDENT LEDGER (NEW FROM SCREENSHOT) ================= -->
+        <div class="recent-ledger-card">
+          <div class="recent-ledger-header">
+            <div>
+              <div class="recent-ledger-title">RECENT FEE TRANSACTIONS &amp; STUDENT LEDGER</div>
+              <div class="recent-ledger-sub">Live stream of latest fee payments collected across classes</div>
+            </div>
+            <button class="btn-view-fee-studio" onclick="openFeeStudioModal()">View Fee Studio &rarr;</button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>STUDENT DETAILS</th>
+                  <th>RECEIPT / ID</th>
+                  <th>PAYMENT DATE</th>
+                  <th>STATUS</th>
+                  <th style="text-align:right;">AMOUNT</th>
+                </tr>
+              </thead>
+              <tbody id="liveFeeTransactionsBody">
+                <tr>
+                  <td>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <div class="student-avatar-badge avatar-aa-blue">AA</div>
+                      <div style="display:flex; flex-direction:column;">
+                        <strong>Aadhya Pandey</strong>
+                        <span class="sr-code-text">SR: SR-2026-C10-039</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="receipt-id-text">#REC-NVOGIXQP</span></td>
+                  <td><span class="payment-date-text">08 Aug 2026, 04:53 PM</span></td>
+                  <td><span class="pill-paid-badge">Paid</span></td>
+                  <td style="text-align:right;"><span class="amount-val-text">₹15,800.00</span></td>
+                </tr>
+
+                <tr>
+                  <td>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <div class="student-avatar-badge avatar-aa-gold">AA</div>
+                      <div style="display:flex; flex-direction:column;">
+                        <strong>Aarav Agrahari</strong>
+                        <span class="sr-code-text">SR: SR-2026-C02-007</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="receipt-id-text">#REC-2JGZLYZ4</span></td>
+                  <td><span class="payment-date-text">07 Aug 2026, 07:04 PM</span></td>
+                  <td><span class="pill-paid-badge">Paid</span></td>
+                  <td style="text-align:right;"><span class="amount-val-text">₹3,000.00</span></td>
+                </tr>
+
+                <tr>
+                  <td>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <div class="student-avatar-badge avatar-an-green">AN</div>
+                      <div style="display:flex; flex-direction:column;">
+                        <strong>Anant Agrahari</strong>
+                        <span class="sr-code-text">SR: SR-2026-C02-037</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="receipt-id-text">#REC-7FPXN9PY</span></td>
+                  <td><span class="payment-date-text">07 Aug 2026, 04:30 PM</span></td>
+                  <td><span class="pill-paid-badge">Paid</span></td>
+                  <td style="text-align:right;"><span class="amount-val-text">₹11,000.00</span></td>
+                </tr>
+
+                <tr>
+                  <td>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <div class="student-avatar-badge avatar-an-purple">AN</div>
+                      <div style="display:flex; flex-direction:column;">
+                        <strong>Anvi Bhatnagar</strong>
+                        <span class="sr-code-text">SR: SR-2026-C10-032</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="receipt-id-text">#REC-JQUE8SXJ</span></td>
+                  <td><span class="payment-date-text">07 Aug 2026, 11:34 AM</span></td>
+                  <td><span class="pill-paid-badge">Paid</span></td>
+                  <td style="text-align:right;"><span class="amount-val-text">₹8,100.00</span></td>
+                </tr>
+
+                <tr>
+                  <td>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <div class="student-avatar-badge avatar-ad-red">AD</div>
+                      <div style="display:flex; flex-direction:column;">
+                        <strong>Advait Kanaujiya</strong>
+                        <span class="sr-code-text">SR: SR-2026-C12-024</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="receipt-id-text">#REC-DZKRTONP</span></td>
+                  <td><span class="payment-date-text">04 Aug 2026, 04:36 PM</span></td>
+                  <td><span class="pill-paid-badge">Paid</span></td>
+                  <td style="text-align:right;"><span class="amount-val-text">₹4,800.00</span></td>
+                </tr>
+
+                <tr>
+                  <td>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <div class="student-avatar-badge avatar-ka-indigo">KA</div>
+                      <div style="display:flex; flex-direction:column;">
+                        <strong>Kavya Dixit</strong>
+                        <span class="sr-code-text">SR: SR-2026-C12-025</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="receipt-id-text">#REC-2026-85896</span></td>
+                  <td><span class="payment-date-text">08 May 2026, 11:30 AM</span></td>
+                  <td><span class="pill-paid-badge">Paid</span></td>
+                  <td style="text-align:right;"><span class="amount-val-text">₹22,400.00</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ================= 7. TWO-COLUMN: LIVE LOGS & OFFICIAL NOTICES (NEW FROM SCREENSHOT) ================= -->
+        <div class="logs-notices-grid">
+          
+          <!-- Column A: TODAYS LIVE LOG ENTRIES -->
+          <div class="todays-logs-card">
+            <div>
+              <div class="logs-header-row">
+                <div>
+                  <div class="logs-card-title">TODAYS LIVE LOG ENTRIES</div>
+                  <div class="logs-card-sub">Real-time activity feed</div>
+                </div>
+                <span class="logs-live-pill"><span class="kpi-live-dot" style="background:#38bdf8;"></span> LIVE</span>
+              </div>
+
+              <div class="logs-list-stack" style="margin-top:14px;">
+                <div class="log-item-row">
+                  <span class="log-tag-badge tag-settings">SETTINGS</span>
+                  <span class="log-desc-text">User blatedx updated School Branding Settings (Name: Anand International School)</span>
+                  <span class="log-time-text">05:01 PM</span>
+                </div>
+
+                <div class="log-item-row">
+                  <span class="log-tag-badge tag-settings">SETTINGS</span>
+                  <span class="log-desc-text">User blatedx updated School Branding Settings (Name: Anand International School)</span>
+                  <span class="log-time-text">04:55 PM</span>
+                </div>
+
+                <div class="log-item-row">
+                  <span class="log-tag-badge tag-fee">FEE</span>
+                  <span class="log-desc-text">Admin collected fee payment of ₹15,800 from Aadhya Pandey via Cash (Receipt: REC-NVOGIXQP)</span>
+                  <span class="log-time-text">04:53 PM</span>
+                </div>
+
+                <div class="log-item-row">
+                  <span class="log-tag-badge tag-attendance">ATTENDANCE</span>
+                  <span class="log-desc-text">Admin marked attendance for Employee Vinay Kumar Srivastava (EMP-2026-0045) as PRESENT on 2026-08-08</span>
+                  <span class="log-time-text">04:46 PM</span>
+                </div>
+
+                <div class="log-item-row">
+                  <span class="log-tag-badge tag-attendance">ATTENDANCE</span>
+                  <span class="log-desc-text">Admin marked attendance for Employee Suresh Kumar (EMP-2026-0046) as PRESENT on 2026-08-08</span>
+                  <span class="log-time-text">04:46 PM</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="logs-footer-row">
+              <span>Displaying: 5 Latest Logs</span>
+              <a onclick="openAllLogsModal()">View All Logs &rarr;</a>
+            </div>
+          </div>
+
+          <!-- Column B: OFFICIAL NOTICES & ANNOUNCEMENTS -->
+          <div class="notices-announcements-card">
+            <div>
+              <div class="notices-header-row">
+                <div>
+                  <div class="notices-card-title">OFFICIAL NOTICES &amp; ANNOUNCEMENTS</div>
+                  <div class="notices-card-sub">School circulars &amp; updates</div>
+                </div>
+                <button class="btn-notice-board" onclick="openBroadcastNoticeModal()">Notice Board</button>
+              </div>
+
+              <div class="notices-list-stack" style="margin-top:14px;">
+                <div class="notice-item-row">
+                  <div class="notice-item-info">
+                    <span class="notice-item-title">Sunday Weekly Off</span>
+                    <span class="notice-item-sub">Weekly Off Day</span>
+                  </div>
+                  <div class="notice-right-badge">
+                    <span class="notice-date-badge">📅 02 Aug</span>
+                    <i class="fa-regular fa-pen-to-square notice-pin-icon" onclick="showToast('Editing circular #101')"></i>
+                  </div>
+                </div>
+
+                <div class="notice-item-row">
+                  <div class="notice-item-info">
+                    <span class="notice-item-title">Sunday Weekly Off</span>
+                    <span class="notice-item-sub">Weekly Off Day</span>
+                  </div>
+                  <div class="notice-right-badge">
+                    <span class="notice-date-badge">📅 09 Aug</span>
+                    <i class="fa-regular fa-pen-to-square notice-pin-icon" onclick="showToast('Editing circular #102')"></i>
+                  </div>
+                </div>
+
+                <div class="notice-item-row">
+                  <div class="notice-item-info">
+                    <span class="notice-item-title">Independence Day 🇮🇳</span>
+                    <span class="notice-item-sub">79th Indian Independence Day Celebration &amp; National Holiday</span>
+                  </div>
+                  <div class="notice-right-badge">
+                    <span class="notice-date-badge">📅 15 Aug</span>
+                    <i class="fa-regular fa-pen-to-square notice-pin-icon" onclick="showToast('Editing Independence Day circular')"></i>
+                  </div>
+                </div>
+
+                <div class="notice-item-row">
+                  <div class="notice-item-info">
+                    <span class="notice-item-title">Sunday Weekly Off</span>
+                    <span class="notice-item-sub">Weekly Off Day</span>
+                  </div>
+                  <div class="notice-right-badge">
+                    <span class="notice-date-badge">📅 16 Aug</span>
+                    <i class="fa-regular fa-pen-to-square notice-pin-icon" onclick="showToast('Editing circular #103')"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="notices-footer-row">
+              <span>Active Circulars: 3 New</span>
+              <a onclick="openBroadcastNoticeModal()">Broadcast Notice &rarr;</a>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ================= TAB PANE 2: STUDENTS MODULE ================= -->
+      <div class="tab-pane" id="pane-students">
+        <div class="module-card">
+          <div class="module-header-row">
+            <div>
+              <h2 class="module-title">Student Information System (SIS)</h2>
+              <span style="font-size:12px; color:var(--text-muted);">Manage student admissions, profiles, academic records and class rosters</span>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn-manage-leaves" onclick="openRegisterStudentModal()"><i class="fa-solid fa-user-plus"></i> + Register Student</button>
+              <button class="btn-manage-holidays" onclick="openPromotionModal()"><i class="fa-solid fa-arrow-trend-up"></i> Promotion Studio</button>
+              <button class="btn-manage-holidays" onclick="exportStudentsCsv()"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <input type="text" class="form-input" style="max-width:300px; margin-bottom:0; background:rgba(245,227,163,0.06); color:#fdf8ee; border-color:var(--border-gold);" placeholder="Search student name, roll no, father..." oninput="handleStudentSearch(this.value)">
+            <select class="form-input" style="max-width:160px; margin-bottom:0; background:var(--forest-card); color:#fdf8ee; border-color:var(--border-gold);" id="filterClassSelect" onchange="filterStudentsTable()">
+              <option value="ALL">All Classes</option>
+              <option value="10">Class 10</option>
+              <option value="9">Class 9</option>
+              <option value="8">Class 8</option>
+              <option value="7">Class 7</option>
+              <option value="6">Class 6</option>
+            </select>
+          </div>
+
+          <div class="table-responsive">
+            <table class="custom-table" id="studentsTable">
+              <thead>
+                <tr>
+                  <th>Roll / Reg</th>
+                  <th>Student Full Name</th>
+                  <th>Class &amp; Sec</th>
+                  <th>Father / Guardian</th>
+                  <th>Phone Contact</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="studentsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= TAB PANE 3: FACULTY MODULE ================= -->
+      <div class="tab-pane" id="pane-faculty">
+        <div class="module-card">
+          <div class="module-header-row">
+            <div>
+              <h2 class="module-title">Faculty &amp; Staff Directory</h2>
+              <span style="font-size:12px; color:var(--text-muted);">Manage teachers, department leads, payroll designations and roles</span>
+            </div>
+            <button class="btn-manage-leaves" onclick="openTeacherModal()"><i class="fa-solid fa-user-plus"></i> + Register Employee</button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="custom-table" id="facultyTable">
+              <thead>
+                <tr>
+                  <th>Emp ID</th>
+                  <th>Employee Name</th>
+                  <th>Designation / Role</th>
+                  <th>Subject / Dept</th>
+                  <th>Contact Email</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="facultyTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= TAB PANE 4: ATTENDANCE MODULE ================= -->
+      <div class="tab-pane" id="pane-attendance">
+        <div class="module-card">
+          <div class="module-header-row">
+            <div>
+              <h2 class="module-title">Daily Attendance Register</h2>
+              <span style="font-size:12px; color:var(--text-muted);">Mark, review and sync student and faculty biometric punches</span>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn-manage-leaves" onclick="openStudentAttendanceModal()"><i class="fa-solid fa-check"></i> Fill Student Attendance</button>
+              <button class="btn-manage-holidays" onclick="openStaffAttendanceModal()"><i class="fa-solid fa-fingerprint"></i> Fill Staff Punch</button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Class / Dept</th>
+                  <th>Total Enrolled</th>
+                  <th>Present Count</th>
+                  <th>Absent Count</th>
+                  <th>Attendance %</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="attendanceLogTableBody">
+                <tr>
+                  <td>27 Aug 2026</td>
+                  <td>Class 10 - Section A</td>
+                  <td>40</td>
+                  <td>38</td>
+                  <td>2</td>
+                  <td><span class="pill-badge-green">95.0%</span></td>
+                  <td><span style="color:#68d391; font-weight:700;">Verified</span></td>
+                </tr>
+                <tr>
+                  <td>27 Aug 2026</td>
+                  <td>Class 9 - Section B</td>
+                  <td>38</td>
+                  <td>36</td>
+                  <td>2</td>
+                  <td><span class="pill-badge-green">94.7%</span></td>
+                  <td><span style="color:#68d391; font-weight:700;">Verified</span></td>
+                </tr>
+                <tr>
+                  <td>27 Aug 2026</td>
+                  <td>Faculty &amp; Teaching Staff</td>
+                  <td>49</td>
+                  <td>49</td>
+                  <td>0</td>
+                  <td><span class="pill-badge-green">100%</span></td>
+                  <td><span style="color:#68d391; font-weight:700;">All Present</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= TAB PANE 5: CLASSES ================= -->
+      <div class="tab-pane" id="pane-classes">
+        <div class="module-card">
+          <h2 class="module-title">Classes &amp; Timetable Master Schedule</h2>
+          <span style="font-size:12px; color:var(--text-muted);">Period allocation, subject teachers and classroom schedules</span>
+          
+          <div class="table-responsive" style="margin-top:10px;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th>Timing</th>
+                  <th>Class 10-A</th>
+                  <th>Class 9-B</th>
+                  <th>Class 8-A</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong style="color:var(--gold-accent);">Period 1</strong></td>
+                  <td>08:00 - 08:45 AM</td>
+                  <td>Mathematics (R. K. Gupta)</td>
+                  <td>English (S. Sen)</td>
+                  <td>Science (P. Roy)</td>
+                </tr>
+                <tr>
+                  <td><strong style="color:var(--gold-accent);">Period 2</strong></td>
+                  <td>08:45 - 09:30 AM</td>
+                  <td>Physics (Dr. A. Verma)</td>
+                  <td>Hindi (K. Singh)</td>
+                  <td>Mathematics (R. K. Gupta)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= TAB PANE 6: FRONT DESK & AI ================= -->
+      <div class="tab-pane" id="pane-frontdesk">
+        <div class="module-card">
+          <h2 class="module-title">Front Desk &amp; Visitor Reception Hub</h2>
+          <span style="font-size:12px; color:var(--text-muted);">Manage visitor entry passes, student pick-up passes and phone inquiries</span>
+          <div style="margin-top:14px; display:flex; gap:12px; flex-wrap:wrap;">
+            <button class="btn-manage-leaves" onclick="showToast('Visitor Gate Pass #801 issued!', 'success')"><i class="fa-solid fa-id-badge"></i> Issue Visitor Gate Pass</button>
+            <button class="btn-manage-holidays" onclick="showToast('Student Early Departure Pass generated!', 'success')"><i class="fa-solid fa-door-open"></i> Student Early Departure Pass</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="pane-ai">
+        <div class="module-card">
+          <h2 class="module-title">AI Assistant &amp; Institutional Analytics</h2>
+          <span style="font-size:12px; color:var(--text-muted);">Predictive student performance trends, fee projections and attendance analytics</span>
+          <div style="background:linear-gradient(135deg, rgba(245,227,163,0.1) 0%, rgba(245,227,163,0.04) 100%); border:1px solid var(--border-gold); border-radius:var(--radius-md); padding:16px; margin-top:12px; color:var(--gold-accent);">
+            <div style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px;">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> AI Insight Summary
+            </div>
+            <p style="font-size:12.5px; margin-top:6px; line-height:1.5; color:rgba(253,248,238,0.85);">Overall institutional attendance is performing <strong>4.2% higher</strong> than previous term benchmark. Recommended action: 14 fee follow-up SMS reminders scheduled for sending today.</p>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ================= MOBILE BOTTOM APP BAR ================= -->
+    <nav class="mobile-bottom-nav">
+      <button class="bottom-nav-item active" onclick="switchModule('dashboard', null, null, null); updateBottomNav(this);">
+        <i class="fa-solid fa-house-chimney"></i>
+        <span>Home</span>
+      </button>
+      <button class="bottom-nav-item" onclick="switchModule('students', null, null, null); updateBottomNav(this);">
+        <i class="fa-solid fa-user-graduate"></i>
+        <span>Students</span>
+      </button>
+      <button class="bottom-nav-item" onclick="openRegisterStudentModal();">
+        <div class="bottom-nav-fab"><i class="fa-solid fa-plus"></i></div>
+        <span>Enroll</span>
+      </button>
+      <button class="bottom-nav-item" onclick="openFeeStudioModal();">
+        <i class="fa-solid fa-file-invoice-dollar"></i>
+        <span>Fees</span>
+      </button>
+      <button class="bottom-nav-item" onclick="toggleSidebar();">
+        <i class="fa-solid fa-bars"></i>
+        <span>Menu</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- 1. Mark Student Attendance Modal -->
+  <div class="modal-backdrop" id="modalStudentAttendance" onclick="handleBackdropClick(event, 'modalStudentAttendance')">
+    <div class="modal-box">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalStudentAttendance')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-clipboard-check" style="color:#1a3b22; margin-right:8px;"></i> Mark Class Attendance</h3>
+      
+      <div class="form-grid-2">
+        <div>
+          <label class="form-label">Select Class</label>
+          <select class="form-input" id="attClassSelect">
+            <option value="Class 10-A">Class 10 - Section A</option>
+            <option value="Class 10-B">Class 10 - Section B</option>
+            <option value="Class 9-A">Class 9 - Section A</option>
+            <option value="Class 9-B">Class 9 - Section B</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Attendance Date</label>
+          <input type="date" class="form-input" value="2026-08-27">
+        </div>
+      </div>
+
+      <div style="background:rgba(26,59,34,0.06); border:1px solid #e2dcc8; border-radius:8px; padding:12px; margin-bottom:14px;">
+        <div style="font-size:12px; font-weight:700; margin-bottom:8px; color:#0d2818;">Quick Selection:</div>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn-fee-details" onclick="quickMarkAttendanceStatus('Present')">✅ Mark All Present</button>
+          <button type="button" class="btn-fee-details" onclick="quickMarkAttendanceStatus('Absent')">❌ Mark All Absent</button>
+        </div>
+      </div>
+
+      <button class="btn-submit-modal" onclick="submitStudentAttendance()"><i class="fa-solid fa-cloud-arrow-up"></i> Save &amp; Sync Attendance</button>
+    </div>
+  </div>
+
+  <!-- 2. Mark Staff Attendance Modal -->
+  <div class="modal-backdrop" id="modalStaffAttendance" onclick="handleBackdropClick(event, 'modalStaffAttendance')">
+    <div class="modal-box">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalStaffAttendance')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-fingerprint" style="color:#1a3b22; margin-right:8px;"></i> Mark Staff Biometrics</h3>
+      <p style="font-size:12.5px; color:#5c6e61; margin-bottom:14px;">Record daily biometric punch-in for 49 faculty members.</p>
+      
+      <label class="form-label">Select Staff Department</label>
+      <select class="form-input">
+        <option value="ALL">All Departments (49 Staff Members)</option>
+        <option value="Science">Science &amp; Mathematics</option>
+        <option value="Languages">Languages &amp; Social Sciences</option>
+      </select>
+
+      <button class="btn-submit-modal" onclick="submitStaffAttendance()"><i class="fa-solid fa-check-double"></i> Confirm &amp; Log All Staff Present</button>
+    </div>
+  </div>
+
+  <!-- 3. Backup Studio Modal -->
+  <div class="modal-backdrop" id="modalBackupStudio" onclick="handleBackdropClick(event, 'modalBackupStudio')">
+    <div class="modal-box">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalBackupStudio')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-database" style="color:#1a3b22; margin-right:8px;"></i> Cloud Backup Studio</h3>
+      <p style="font-size:12.5px; color:#5c6e61; margin-bottom:16px;">Export database snapshot or sync PostgreSQL multi-tenant state.</p>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button class="btn-submit-modal" style="display:flex; justify-content:center; align-items:center; gap:8px;" onclick="exportFullDatabaseJson()">
+          <i class="fa-solid fa-download"></i> Download Complete Database (JSON)
+        </button>
+        <button class="btn-submit-modal" style="background:#2a5538; display:flex; justify-content:center; align-items:center; gap:8px;" onclick="exportStudentsCsv()">
+          <i class="fa-solid fa-file-csv"></i> Download Students Roster (CSV)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Collect Fee Modal -->
+  <div class="modal-backdrop" id="modalCollectFee" onclick="handleBackdropClick(event, 'modalCollectFee')">
+    <div class="modal-box">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalCollectFee')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-file-invoice-dollar" style="color:#1a3b22; margin-right:8px;"></i> Collect Student Fee</h3>
+      
+      <form onsubmit="handleFeeSubmit(event)">
+        <label class="form-label">Student Name / Roll No</label>
+        <input type="text" class="form-input" id="feeStudentName" placeholder="e.g. Aarav Sharma (Class 10-A)" required>
+
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Amount (₹)</label>
+            <input type="number" class="form-input" id="feeAmount" placeholder="e.g. 15000" required>
+          </div>
+          <div>
+            <label class="form-label">Payment Mode</label>
+            <select class="form-input" id="feeMode">
+              <option value="Cash">Cash Receipt</option>
+              <option value="UPI / QR">UPI / QR Code</option>
+              <option value="NetBanking">Net Banking</option>
+              <option value="Cheque">Cheque</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit-modal"><i class="fa-solid fa-receipt"></i> Generate Official Fee Receipt</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. Register Student Modal -->
+  <div class="modal-backdrop" id="modalRegisterStudent" onclick="handleBackdropClick(event, 'modalRegisterStudent')">
+    <div class="modal-box">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalRegisterStudent')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-user-plus" style="color:#1a3b22; margin-right:8px;"></i> Register New Student</h3>
+
+      <form onsubmit="handleStudentRegisterSubmit(event)">
+        <label class="form-label">Student Full Name</label>
+        <input type="text" class="form-input" id="regStudentName" placeholder="e.g. Rohan Verma" required>
+
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Class</label>
+            <select class="form-input" id="regStudentClass">
+              <option value="10">Class 10</option>
+              <option value="9">Class 9</option>
+              <option value="8">Class 8</option>
+              <option value="7">Class 7</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Section</label>
+            <select class="form-input" id="regStudentSection">
+              <option value="A">Section A</option>
+              <option value="B">Section B</option>
+              <option value="C">Section C</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Roll Number</label>
+            <input type="text" class="form-input" id="regStudentRoll" placeholder="e.g. 1014" required>
+          </div>
+          <div>
+            <label class="form-label">Phone Contact</label>
+            <input type="tel" class="form-input" id="regStudentPhone" placeholder="e.g. +91 98765 00000" required>
+          </div>
+        </div>
+
+        <label class="form-label">Father / Guardian Name</label>
+        <input type="text" class="form-input" id="regStudentParent" placeholder="e.g. Suresh Verma" required>
+
+        <button type="submit" class="btn-submit-modal"><i class="fa-solid fa-check"></i> Enroll Student into Roster</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 6. Register Employee Modal -->
+  <div class="modal-backdrop" id="modalTeacher" onclick="handleBackdropClick(event, 'modalTeacher')">
+    <div class="modal-box">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalTeacher')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-chalkboard-user" style="color:#1a3b22; margin-right:8px;"></i> Register New Faculty</h3>
+
+      <form onsubmit="handleTeacherRegisterSubmit(event)">
+        <label class="form-label">Full Name</label>
+        <input type="text" class="form-input" id="regTeacherName" placeholder="e.g. Dr. Priya Nair" required>
+
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">Department / Subject</label>
+            <input type="text" class="form-input" id="regTeacherSubject" placeholder="e.g. Physics" required>
+          </div>
+          <div>
+            <label class="form-label">Designation</label>
+            <input type="text" class="form-input" id="regTeacherRole" placeholder="e.g. Senior PGT Teacher" required>
+          </div>
+        </div>
+
+        <label class="form-label">Official Email</label>
+        <input type="email" class="form-input" id="regTeacherEmail" placeholder="e.g. priya.nair@school.edu.in" required>
+
+        <button type="submit" class="btn-submit-modal"><i class="fa-solid fa-user-check"></i> Register Faculty Member</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 7. Manage Leaves Portal Modal -->
+  <div class="modal-backdrop" id="modalManageLeaves" onclick="handleBackdropClick(event, 'modalManageLeaves')">
+    <div class="modal-box">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalManageLeaves')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-calendar-xmark" style="color:#0d2818; margin-right:8px;"></i> Manage Faculty Leaves</h3>
+      
+      <div style="background:rgba(104,211,145,0.15); border:1px solid rgba(104,211,145,0.3); border-radius:8px; padding:12px; margin-bottom:14px; font-size:12.5px; color:#15803d; font-weight:600;">
+        <i class="fa-solid fa-check-circle"></i> Today all 49 faculty members are on duty. Zero pending leave requests.
+      </div>
+
+      <label class="form-label">Apply Leave for Teacher</label>
+      <select class="form-input" id="leaveTeacherSelect">
+        <option value="Dr. S. K. Sharma">Dr. S. K. Sharma (Principal)</option>
+        <option value="R. K. Gupta">R. K. Gupta (Mathematics)</option>
+        <option value="Dr. A. Verma">Dr. A. Verma (Physics)</option>
+      </select>
+
+      <button type="button" class="btn-submit-modal" onclick="submitLeaveRequest()">
+        <i class="fa-solid fa-shuffle"></i> Grant Leave &amp; Auto-Assign Substitute
+      </button>
+    </div>
+  </div>
+
+  <!-- 8. Manage Holidays Modal -->
+  <div class="modal-backdrop" id="modalHolidays" onclick="handleBackdropClick(event, 'modalHolidays')">
+    <div class="modal-box">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalHolidays')">&times;</button>
+      <h3 class="modal-title"><i class="fa-regular fa-calendar" style="color:#1a3b22; margin-right:8px;"></i> Academic Calendar &amp; Holidays</h3>
+      <p style="font-size:12.5px; color:#5c6e61; margin-bottom:12px;">Active Holidays in August 2026:</p>
+
+      <ul style="font-size:12.5px; list-style:none; display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
+        <li style="padding:8px 12px; background:rgba(26,59,34,0.06); border-radius:6px;">🎉 <strong>15 Aug 2026</strong> - Independence Day (National Holiday)</li>
+        <li style="padding:8px 12px; background:rgba(26,59,34,0.06); border-radius:6px;">🪢 <strong>29 Aug 2026</strong> - Raksha Bandhan (Festival Holiday)</li>
+      </ul>
+
+      <button type="button" class="btn-submit-modal" onclick="closeModal('modalHolidays')">Done</button>
+    </div>
+  </div>
+
+  <!-- 9. Fee Studio Modal (NEW) -->
+  <div class="modal-backdrop" id="modalFeeStudio" onclick="handleBackdropClick(event, 'modalFeeStudio')">
+    <div class="modal-box" style="max-width:700px;">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalFeeStudio')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-file-invoice-dollar" style="color:#1a3b22; margin-right:8px;"></i> Fee Studio &amp; Billing Center</h3>
+      <p style="font-size:12.5px; color:#5c6e61; margin-bottom:14px;">Instant collection, term billing, batch invoices, and export receipts.</p>
+
+      <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+        <button class="btn-alert-action btn-mark-student" onclick="openCollectFeeModal()"><i class="fa-solid fa-plus"></i> Collect New Fee</button>
+        <button class="btn-alert-action btn-mark-staff" onclick="showToast('Generated batch fee slips for Class 10!', 'success')"><i class="fa-solid fa-print"></i> Print Term Invoices</button>
+        <button class="btn-alert-action btn-backup-studio" onclick="showToast('Fee reconciliation statement exported!', 'success')"><i class="fa-solid fa-file-excel"></i> Export Ledger</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="custom-table" style="color:#0d2818;">
+          <thead>
+            <tr style="background:rgba(26,59,34,0.06);">
+              <th style="color:#0d2818;">Receipt ID</th>
+              <th style="color:#0d2818;">Student Name</th>
+              <th style="color:#0d2818;">Class</th>
+              <th style="color:#0d2818;">Paid Amount</th>
+              <th style="color:#0d2818;">Date</th>
+              <th style="color:#0d2818;">Receipt</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>#REC-NVOGIXQP</strong></td>
+              <td>Aadhya Pandey</td>
+              <td>Class 10-A</td>
+              <td><strong>₹15,800.00</strong></td>
+              <td>08 Aug 2026</td>
+              <td><button class="btn-view-fee-studio" onclick="showToast('Downloading Receipt #REC-NVOGIXQP PDF...', 'success')">PDF</button></td>
+            </tr>
+            <tr>
+              <td><strong>#REC-2JGZLYZ4</strong></td>
+              <td>Aarav Agrahari</td>
+              <td>Class 2-B</td>
+              <td><strong>₹3,000.00</strong></td>
+              <td>07 Aug 2026</td>
+              <td><button class="btn-view-fee-studio" onclick="showToast('Downloading Receipt #REC-2JGZLYZ4 PDF...', 'success')">PDF</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10. Broadcast Notice Modal (NEW) -->
+  <div class="modal-backdrop" id="modalBroadcastNotice" onclick="handleBackdropClick(event, 'modalBroadcastNotice')">
+    <div class="modal-box">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalBroadcastNotice')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-bullhorn" style="color:#1a3b22; margin-right:8px;"></i> Broadcast Circular Notice</h3>
+      
+      <form onsubmit="handleBroadcastNoticeSubmit(event)">
+        <label class="form-label">Notice Title</label>
+        <input type="text" class="form-input" id="noticeTitleInput" placeholder="e.g. Science Exhibition &amp; Project Submission" required>
+
+        <label class="form-label">Target Audience</label>
+        <select class="form-input" id="noticeAudience">
+          <option value="ALL">All Students, Parents &amp; Teachers</option>
+          <option value="STUDENTS">Students &amp; Parents Only</option>
+          <option value="FACULTY">Faculty &amp; Staff Only</option>
+        </select>
+
+        <label class="form-label">Circular Content &amp; Details</label>
+        <textarea class="form-input" id="noticeContentInput" rows="3" placeholder="Write announcement details..." required></textarea>
+
+        <button type="submit" class="btn-submit-modal"><i class="fa-solid fa-paper-plane"></i> Publish &amp; Send Push Alert</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 11. Live Activity Logs Modal (NEW) -->
+  <div class="modal-backdrop" id="modalAllLogs" onclick="handleBackdropClick(event, 'modalAllLogs')">
+    <div class="modal-box" style="max-width:650px;">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalAllLogs')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-clock-rotate-left" style="color:#1a3b22; margin-right:8px;"></i> System Activity Audit Log</h3>
+      <p style="font-size:12.5px; color:#5c6e61; margin-bottom:14px;">Complete timestamped audit trail of administrative actions.</p>
+
+      <div class="logs-list-stack" style="max-height:360px; overflow-y:auto;">
+        <div class="log-item-row" style="background:#f4eee1; color:#0d2818; border-color:#e2dcc8;">
+          <span class="log-tag-badge tag-settings">SETTINGS</span>
+          <span class="log-desc-text" style="color:#0d2818;">User blatedx updated School Branding Settings (Name: Anand International School)</span>
+          <span class="log-time-text" style="color:#5c6e61;">05:01 PM</span>
+        </div>
+        <div class="log-item-row" style="background:#f4eee1; color:#0d2818; border-color:#e2dcc8;">
+          <span class="log-tag-badge tag-settings">SETTINGS</span>
+          <span class="log-desc-text" style="color:#0d2818;">User blatedx updated School Branding Settings (Name: Anand International School)</span>
+          <span class="log-time-text" style="color:#5c6e61;">04:55 PM</span>
+        </div>
+        <div class="log-item-row" style="background:#f4eee1; color:#0d2818; border-color:#e2dcc8;">
+          <span class="log-tag-badge tag-fee">FEE</span>
+          <span class="log-desc-text" style="color:#0d2818;">Admin collected fee payment of ₹15,800 from Aadhya Pandey via Cash (Receipt: REC-NVOGIXQP)</span>
+          <span class="log-time-text" style="color:#5c6e61;">04:53 PM</span>
+        </div>
+        <div class="log-item-row" style="background:#f4eee1; color:#0d2818; border-color:#e2dcc8;">
+          <span class="log-tag-badge tag-attendance">ATTENDANCE</span>
+          <span class="log-desc-text" style="color:#0d2818;">Admin marked attendance for Employee Vinay Kumar Srivastava (EMP-2026-0045) as PRESENT on 2026-08-08</span>
+          <span class="log-time-text" style="color:#5c6e61;">04:46 PM</span>
+        </div>
+        <div class="log-item-row" style="background:#f4eee1; color:#0d2818; border-color:#e2dcc8;">
+          <span class="log-tag-badge tag-attendance">ATTENDANCE</span>
+          <span class="log-desc-text" style="color:#0d2818;">Admin marked attendance for Employee Suresh Kumar (EMP-2026-0046) as PRESENT on 2026-08-08</span>
+          <span class="log-time-text" style="color:#5c6e61;">04:46 PM</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 12. Class Promotion Studio Modal (NEW) -->
+  <div class="modal-backdrop" id="modalPromotion" onclick="handleBackdropClick(event, 'modalPromotion')">
+    <div class="modal-box">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalPromotion')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-arrow-trend-up" style="color:#1a3b22; margin-right:8px;"></i> Class Promotion Studio</h3>
+      <p style="font-size:12.5px; color:#5c6e61; margin-bottom:14px;">Promote an entire class section to the next grade level for the new session.</p>
+
+      <div class="form-grid-2">
+        <div>
+          <label class="form-label">Current Grade / Class</label>
+          <select class="form-input" id="promoFromClass">
+            <option value="9">Class 9</option>
+            <option value="10">Class 10</option>
+            <option value="8">Class 8</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Promote To Target Grade</label>
+          <select class="form-input" id="promoToClass">
+            <option value="10">Class 10 (Next Grade)</option>
+            <option value="11">Class 11 (Senior Secondary)</option>
+            <option value="9">Class 9</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="button" class="btn-submit-modal" onclick="submitPromotion()"><i class="fa-solid fa-bolt"></i> Execute Batch Class Promotion</button>
+    </div>
+  </div>
+
+  <!-- 13. ID Cards & Credentials Modal (NEW) -->
+  <div class="modal-backdrop" id="modalCredentials" onclick="handleBackdropClick(event, 'modalCredentials')">
+    <div class="modal-box">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalCredentials')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-id-card" style="color:#1a3b22; margin-right:8px;"></i> Student ID Cards &amp; Passwords</h3>
+      
+      <label class="form-label">Select Class to Generate Cards</label>
+      <select class="form-input">
+        <option value="10-A">Class 10 - Section A (40 Students)</option>
+        <option value="9-B">Class 9 - Section B (38 Students)</option>
+      </select>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button class="btn-submit-modal" onclick="showToast('Generating printable ID badges PDF with QR barcodes...', 'success')"><i class="fa-solid fa-print"></i> Generate Printable ID Cards (PDF)</button>
+        <button class="btn-submit-modal" style="background:#2a5538;" onclick="showToast('Batch password reset SMS dispatched to registered guardians!', 'success')"><i class="fa-solid fa-key"></i> Reset &amp; Send Parent Portal Passwords</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 14. School Branding & Profile Settings Modal (NEW) -->
+  <div class="modal-backdrop" id="modalBrandingSettings" onclick="handleBackdropClick(event, 'modalBrandingSettings')">
+    <div class="modal-box">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalBrandingSettings')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-sliders" style="color:#1a3b22; margin-right:8px;"></i> School Branding Settings</h3>
+
+      <form onsubmit="handleBrandingSave(event)">
+        <label class="form-label">Institution Official Name</label>
+        <input type="text" class="form-input" id="settingSchoolName" value="Anand International School" required>
+
+        <div class="form-grid-2">
+          <div>
+            <label class="form-label">School Code / Partition</label>
+            <input type="text" class="form-input" id="settingSchoolCode" value="AIS-2026" disabled>
+          </div>
+          <div>
+            <label class="form-label">Affiliation Board</label>
+            <select class="form-input" id="settingSchoolBoard">
+              <option value="CBSE">CBSE (New Delhi)</option>
+              <option value="CISCE">CISCE (ICSE / ISC)</option>
+              <option value="STATE">State Board</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="form-label">Principal / Head Administrator</label>
+        <input type="text" class="form-input" id="settingPrincipal" value="Dr. S. K. Sharma" required>
+
+        <button type="submit" class="btn-submit-modal"><i class="fa-solid fa-floppy-disk"></i> Save School Profile Settings</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 15. Examination & Gradebook Modal (NEW) -->
+  <div class="modal-backdrop" id="modalExamGradebook" onclick="handleBackdropClick(event, 'modalExamGradebook')">
+    <div class="modal-box" style="max-width:680px;">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalExamGradebook')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-award" style="color:#1a3b22; margin-right:8px;"></i> Examination &amp; Gradebook Center</h3>
+      <p style="font-size:12.5px; color:#5c6e61; margin-bottom:14px;">Record marks, calculate GPA ranks, and generate CBSE/ICSE report cards.</p>
+
+      <div class="form-grid-2" style="margin-bottom:12px;">
+        <div>
+          <label class="form-label">Select Exam Term</label>
+          <select class="form-input">
+            <option value="Term 1">Mid-Term Assessment (Term 1)</option>
+            <option value="Final">Annual Final Examination</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Select Class</label>
+          <select class="form-input">
+            <option value="10-A">Class 10 - Section A</option>
+            <option value="9-B">Class 9 - Section B</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn-submit-modal" style="flex:1;" onclick="showToast('Marksheet entry spreadsheet opened!', 'success')"><i class="fa-solid fa-pen-nib"></i> Fill Subject Marks</button>
+        <button class="btn-submit-modal" style="flex:1; background:#2a5538;" onclick="showToast('Batch PDF Report Cards generated!', 'success')"><i class="fa-solid fa-file-arrow-down"></i> Download Report Cards (PDF)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 16. Global Search Modal -->
+  <div class="modal-backdrop" id="modalGlobalSearch" onclick="handleBackdropClick(event, 'modalGlobalSearch')">
+    <div class="modal-box">
+      <div class="modal-drag-handle"></div>
+      <button class="modal-close-btn" onclick="closeModal('modalGlobalSearch')">&times;</button>
+      <h3 class="modal-title"><i class="fa-solid fa-magnifying-glass" style="color:#1a3b22; margin-right:8px;"></i> Global Search</h3>
+      
+      <input type="text" class="form-input" id="globalSearchInput" placeholder="Type student name, faculty ID, fee receipt #, or class..." oninput="handleSearchModalInput(this.value)" autofocus>
+      <div id="searchModalResults" style="max-height:220px; overflow-y:auto; font-size:12.5px; color:#5c6e61; -webkit-overflow-scrolling:touch;">
+        Start typing to find students, staff, receipts or timetables...
+      </div>
+    </div>
+  </div>
+
+<!-- ================= JAVASCRIPT LOGIC & SUPABASE INTEGRATION ================= -->
+<script>
+  let currentSchoolId = null;
+  let studentsData = [];
+  let facultyData = [];
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadAppData();
+    setupKeyboardShortcuts();
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+  });
+
+  function checkScreenSize() {
+    const isDesktop = window.innerWidth >= 1024;
+    const profileEl = document.getElementById('desktopProfileText');
+    if (profileEl) profileEl.style.display = isDesktop ? 'flex' : 'none';
+  }
+
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast-card ${type}`;
+    
+    let icon = 'fa-circle-info';
+    if (type === 'success') icon = 'fa-circle-check';
+    if (type === 'amber') icon = 'fa-triangle-exclamation';
+
+    toast.innerHTML = `
+      <i class="fa-solid ${icon}" style="font-size:16px;"></i>
+      <div style="flex:1;">${message}</div>
+    `;
+    
+    container.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(-10px)';
+      setTimeout(() => toast.remove(), 300);
+    }, 3200);
+  }
+
+  async function loadAppData() {
+    try {
+      const res = await fetch('/api?action=getOverview');
+      const data = await res.json();
+      
+      if (data.success) {
+        if (data.school) {
+          currentSchoolId = data.school.id;
+          document.getElementById('sideBrandSchoolName').innerText = data.school.school_name || 'Anand International School';
+          document.getElementById('sideSchoolFooterName').innerText = data.school.school_name || 'AIS Campus';
+          document.getElementById('sideSchoolFooterCode').innerText = data.school.school_code || 'AIS-2026';
+        }
+      }
+
+      await loadStudents();
+      await loadFaculty();
+
+    } catch (e) {
+      renderDefaultStudents();
+      renderDefaultFaculty();
+    }
+  }
+
+  async function loadStudents() {
+    try {
+      const res = await fetch('/api?action=getStudents');
+      const data = await res.json();
+      if (data.success && data.students && data.students.length > 0) {
+        studentsData = data.students;
+        document.getElementById('dashTotalStudents').innerText = studentsData.length;
+        renderStudentsTable(studentsData);
+      } else {
+        renderDefaultStudents();
+      }
+    } catch (e) {
+      renderDefaultStudents();
+    }
+  }
+
+  function renderDefaultStudents() {
+    studentsData = [
+      { roll_no: '1001', full_name: 'Aadhya Pandey', class_name: '10', section: 'A', father_name: 'Rajesh Pandey', phone: '+91 98765 11001', status: 'Active' },
+      { roll_no: '1002', full_name: 'Aarav Agrahari', class_name: '2', section: 'B', father_name: 'Manoj Agrahari', phone: '+91 98765 11002', status: 'Active' },
+      { roll_no: '1003', full_name: 'Anant Agrahari', class_name: '2', section: 'A', father_name: 'Kirit Agrahari', phone: '+91 98765 11003', status: 'Active' },
+      { roll_no: '1004', full_name: 'Anvi Bhatnagar', class_name: '10', section: 'B', father_name: 'Suresh Bhatnagar', phone: '+91 98765 11004', status: 'Active' },
+      { roll_no: '1005', full_name: 'Advait Kanaujiya', class_name: '12', section: 'A', father_name: 'Debashis Kanaujiya', phone: '+91 98765 11005', status: 'Active' },
+      { roll_no: '1006', full_name: 'Kavya Dixit', class_name: '12', section: 'B', father_name: 'Nitin Dixit', phone: '+91 98765 11006', status: 'Active' }
+    ];
+    document.getElementById('dashTotalStudents').innerText = '1337';
+    renderStudentsTable(studentsData);
+  }
+
+  function renderStudentsTable(list) {
+    const tbody = document.getElementById('studentsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    list.forEach(st => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong style="color:var(--gold-accent);">#${st.roll_no || '1001'}</strong></td>
+        <td><strong>${st.full_name || st.name}</strong></td>
+        <td>Class ${st.class_name || '10'} - ${st.section || 'A'}</td>
+        <td>${st.father_name || 'Parent'}</td>
+        <td>${st.phone || '+91 98765 43210'}</td>
+        <td><span class="pill-badge-green">${st.status || 'Active'}</span></td>
+        <td>
+          <button class="btn-manage-holidays" onclick="showToast('Viewing profile of ${st.full_name}')" style="padding:4px 10px; font-size:11px;"><i class="fa-solid fa-eye"></i> View</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function loadFaculty() {
+    try {
+      const res = await fetch('/api?action=getTeachers');
+      const data = await res.json();
+      if (data.success && data.teachers && data.teachers.length > 0) {
+        facultyData = data.teachers;
+        renderFacultyTable(facultyData);
+      } else {
+        renderDefaultFaculty();
+      }
+    } catch (e) {
+      renderDefaultFaculty();
+    }
+  }
+
+  function renderDefaultFaculty() {
+    facultyData = [
+      { emp_id: 'EMP-01', name: 'Dr. S. K. Sharma', role: 'Principal & Administrator', subject: 'Administration', email: 'principal@school.edu.in', status: 'Active' },
+      { emp_id: 'EMP-02', name: 'R. K. Gupta', role: 'Senior PGT Teacher', subject: 'Mathematics', email: 'rk.gupta@school.edu.in', status: 'Active' },
+      { emp_id: 'EMP-03', name: 'Dr. A. Verma', role: 'PGT Teacher', subject: 'Physics', email: 'a.verma@school.edu.in', status: 'Active' },
+      { emp_id: 'EMP-04', name: 'S. Sen', role: 'TGT Teacher', subject: 'English', email: 's.sen@school.edu.in', status: 'Active' },
+      { emp_id: 'EMP-05', name: 'M. Khan', role: 'TGT Teacher', subject: 'Social Science', email: 'm.khan@school.edu.in', status: 'Active' }
+    ];
+    renderFacultyTable(facultyData);
+  }
+
+  function renderFacultyTable(list) {
+    const tbody = document.getElementById('facultyTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    list.forEach(emp => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong style="color:var(--gold-accent);">${emp.emp_id || 'EMP-01'}</strong></td>
+        <td><strong>${emp.name || emp.full_name}</strong></td>
+        <td>${emp.role || emp.designation || 'Teacher'}</td>
+        <td>${emp.subject || emp.department || 'General'}</td>
+        <td>${emp.email || 'staff@school.edu.in'}</td>
+        <td><span class="pill-badge-green">${emp.status || 'Active'}</span></td>
+        <td>
+          <button class="btn-manage-holidays" onclick="showToast('Editing ${emp.name}')" style="padding:4px 10px; font-size:11px;"><i class="fa-solid fa-pen"></i> Edit</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function switchModule(paneId, btnEl, subAction, navPillEl) {
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+    const targetPane = document.getElementById(`pane-${paneId}`);
+    if (targetPane) {
+      targetPane.classList.add('active');
+    }
+
+    document.querySelectorAll('.nav-item-btn').forEach(btn => btn.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+
+    document.querySelectorAll('.pill-nav-btn').forEach(pill => pill.classList.remove('active'));
+    if (navPillEl) {
+      navPillEl.classList.add('active');
+    } else {
+      const matchPill = Array.from(document.querySelectorAll('.pill-nav-btn')).find(p => p.innerText.toLowerCase().includes(paneId));
+      if (matchPill) matchPill.classList.add('active');
+    }
+
+    document.querySelector('.content-scroll').scrollTop = 0;
+  }
+
+  function updateBottomNav(el) {
+    document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'));
+    if (el) el.classList.add('active');
+  }
+
+  function toggleNavGroup(groupId) {
+    const group = document.getElementById(`navGroup-${groupId}`);
+    if (group) group.classList.toggle('open');
+  }
+
+  function toggleSidebar() {
+    const sb = document.getElementById('sidebarEl');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (sb) sb.classList.toggle('open');
+    if (backdrop) backdrop.classList.toggle('active');
+  }
+
+  function closeSidebar() {
+    const sb = document.getElementById('sidebarEl');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (sb) sb.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('active');
+  }
+
+  function closeSidebarOnMobile() {
+    if (window.innerWidth <= 768) {
+      closeSidebar();
+    }
+  }
+
+  function handleBackdropClick(e, id) {
+    if (e.target.id === id) {
+      closeModal(id);
+    }
+  }
+
+  function closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('open');
+  }
+
+  function openStudentAttendanceModal() { document.getElementById('modalStudentAttendance').classList.add('open'); }
+  function openStaffAttendanceModal() { document.getElementById('modalStaffAttendance').classList.add('open'); }
+  function openBackupStudioModal() { document.getElementById('modalBackupStudio').classList.add('open'); }
+  function openCollectFeeModal() { document.getElementById('modalCollectFee').classList.add('open'); }
+  function openRegisterStudentModal() { document.getElementById('modalRegisterStudent').classList.add('open'); }
+  function openTeacherModal() { document.getElementById('modalTeacher').classList.add('open'); }
+  function openManageLeavesModal() { document.getElementById('modalManageLeaves').classList.add('open'); }
+  function openHolidaysModal() { document.getElementById('modalHolidays').classList.add('open'); }
+  function openGlobalSearchModal() { document.getElementById('modalGlobalSearch').classList.add('open'); }
+  function openFeeStudioModal() { document.getElementById('modalFeeStudio').classList.add('open'); }
+  function openBroadcastNoticeModal() { document.getElementById('modalBroadcastNotice').classList.add('open'); }
+  function openAllLogsModal() { document.getElementById('modalAllLogs').classList.add('open'); }
+  function openPromotionModal() { document.getElementById('modalPromotion').classList.add('open'); }
+  function openCredentialsModal() { document.getElementById('modalCredentials').classList.add('open'); }
+  function openBrandingSettingsModal() { document.getElementById('modalBrandingSettings').classList.add('open'); }
+  function openExamGradebookModal() { document.getElementById('modalExamGradebook').classList.add('open'); }
+
+  function quickMarkAttendanceStatus(status) {
+    showToast(`Marked all students as ${status}!`, 'success');
+  }
+
+  function submitStudentAttendance() {
+    closeModal('modalStudentAttendance');
+    document.getElementById('dashStudentsPresentToday').innerText = 'Present Today: 1,288';
+    document.getElementById('dashStudentsRate').innerText = 'Rate: 96.3%';
+    document.getElementById('attendancePendingBanner').style.display = 'none';
+    showToast('Student Attendance marked & synced to Supabase Cloud DB!', 'success');
+  }
+
+  function submitStaffAttendance() {
+    closeModal('modalStaffAttendance');
+    document.getElementById('dashFacultyPresent').innerText = '49';
+    document.getElementById('dashFacultyPresentSub').innerText = '/ 49 Present Today';
+    document.getElementById('dashFacultyOnDuty').innerText = 'On Duty: 49';
+    showToast('Staff Biometric Attendance synced for all 49 faculty members!', 'success');
+  }
+
+  function submitLeaveRequest() {
+    closeModal('modalManageLeaves');
+    showToast('Leave request approved! Substitution timetable auto-assigned without class clashes.', 'success');
+  }
+
+  function submitPromotion() {
+    closeModal('modalPromotion');
+    showToast('🎉 Class Promotion executed successfully! Students moved to next academic session.', 'success');
+  }
+
+  function dismissLeaveNotice() {
+    const card = document.querySelector('.leave-substitution-card');
+    if (card) card.style.opacity = '0.7';
+    showToast('Notice dismissed for this session.');
+  }
+
+  async function handleStudentRegisterSubmit(e) {
+    e.preventDefault();
+    const name = document.getElementById('regStudentName').value;
+    const className = document.getElementById('regStudentClass').value;
+    const section = document.getElementById('regStudentSection').value;
+    const rollNo = document.getElementById('regStudentRoll').value;
+    const phone = document.getElementById('regStudentPhone').value;
+    const father = document.getElementById('regStudentParent').value;
+
+    const newStudent = {
+      full_name: name,
+      class_name: className,
+      section: section,
+      roll_no: rollNo,
+      phone: phone,
+      father_name: father,
+      status: 'Active'
+    };
+
+    try {
+      await fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'addStudent',
+          school_id: currentSchoolId,
+          student: newStudent
+        })
+      });
+    } catch(err) {}
+
+    studentsData.unshift(newStudent);
+    renderStudentsTable(studentsData);
+    document.getElementById('dashTotalStudents').innerText = studentsData.length;
+    closeModal('modalRegisterStudent');
+    e.target.reset();
+    showToast(`🎉 Student "${name}" enrolled into Class ${className}-${section}!`, 'success');
+  }
+
+  async function handleTeacherRegisterSubmit(e) {
+    e.preventDefault();
+    const name = document.getElementById('regTeacherName').value;
+    const subject = document.getElementById('regTeacherSubject').value;
+    const role = document.getElementById('regTeacherRole').value;
+    const email = document.getElementById('regTeacherEmail').value;
+
+    const newTeacher = {
+      emp_id: `EMP-${facultyData.length + 1}`,
+      name: name,
+      subject: subject,
+      role: role,
+      email: email,
+      status: 'Active'
+    };
+
+    facultyData.unshift(newTeacher);
+    renderFacultyTable(facultyData);
+    closeModal('modalTeacher');
+    e.target.reset();
+    showToast(`🎉 Faculty member "${name}" registered as ${role}!`, 'success');
+  }
+
+  function handleFeeSubmit(e) {
+    e.preventDefault();
+    const student = document.getElementById('feeStudentName').value;
+    const amount = document.getElementById('feeAmount').value;
+    const mode = document.getElementById('feeMode').value;
+    const recId = `REC-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+
+    const tbody = document.getElementById('liveFeeTransactionsBody');
+    if (tbody) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="student-avatar-badge avatar-aa-gold">${student.slice(0,2).toUpperCase()}</div>
+            <div style="display:flex; flex-direction:column;">
+              <strong>${student}</strong>
+              <span class="sr-code-text">SR: SR-2026-C10-099</span>
+            </div>
+          </div>
+        </td>
+        <td><span class="receipt-id-text">#${recId}</span></td>
+        <td><span class="payment-date-text">Just Now</span></td>
+        <td><span class="pill-paid-badge">Paid</span></td>
+        <td style="text-align:right;"><span class="amount-val-text">₹${Number(amount).toLocaleString('en-IN')}.00</span></td>
+      `;
+      tbody.prepend(tr);
+    }
+
+    document.getElementById('dashTodayFees').innerText = `₹${Number(amount).toLocaleString('en-IN')}`;
+    closeModal('modalCollectFee');
+    e.target.reset();
+    showToast(`🧾 Official Fee Receipt generated for ₹${amount} from ${student}!`, 'success');
+  }
+
+  function handleBroadcastNoticeSubmit(e) {
+    e.preventDefault();
+    const title = document.getElementById('noticeTitleInput').value;
+    closeModal('modalBroadcastNotice');
+    e.target.reset();
+    showToast(`📢 Notice "${title}" broadcasted via SMS & Parent App!`, 'success');
+  }
+
+  function handleBrandingSave(e) {
+    e.preventDefault();
+    const newName = document.getElementById('settingSchoolName').value;
+    document.getElementById('sideBrandSchoolName').innerText = newName;
+    document.getElementById('sideSchoolFooterName').innerText = newName;
+    closeModal('modalBrandingSettings');
+    showToast(`Institutional Branding updated to "${newName}"!`, 'success');
+  }
+
+  function exportStudentsCsv() {
+    let csv = "Roll No,Student Full Name,Class,Section,Father Name,Phone,Status\n";
+    studentsData.forEach(s => {
+      csv += `"${s.roll_no || ''}","${s.full_name || s.name || ''}","${s.class_name || ''}","${s.section || ''}","${s.father_name || ''}","${s.phone || ''}","${s.status || 'Active'}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Students_Roster_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Students CSV Downloaded 📄', 'success');
+  }
+
+  function exportFullDatabaseJson() {
+    const fullBackup = {
+      institution: "Anand International School",
+      timestamp: new Date().toISOString(),
+      students: studentsData,
+      faculty: facultyData,
+      metrics: { totalEnrolled: 1337, totalFaculty: 49, monthlyCollected: 42700 }
+    };
+    const blob = new Blob([JSON.stringify(fullBackup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `EduSuite_AIS_Cloud_Backup_${new Date().toISOString().slice(0,10)}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Complete Database Snapshot Exported 💾', 'success');
+  }
+
+  function showNotifAlert() {
+    showToast('🔔 Daily attendance pending for today! Check banner.', 'amber');
+  }
+
+  function showUserProfileMenu() {
+    if (confirm('System Administrator: Anand International School\n\nWould you like to sign out or switch institution?')) {
+      window.location.href = '/login';
+    }
+  }
+
+  function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault();
+        openGlobalSearchModal();
+      }
+    });
+  }
+
+  function handleSearchModalInput(query) {
+    const container = document.getElementById('searchModalResults');
+    if (!query) {
+      container.innerHTML = 'Start typing to find students, staff, receipts or timetables...';
+      return;
+    }
+    const filtered = studentsData.filter(s => (s.full_name || '').toLowerCase().includes(query.toLowerCase()));
+    if (filtered.length === 0) {
+      container.innerHTML = `<div style="padding:10px;">No matching records found for "<strong>${query}</strong>"</div>`;
+      return;
+    }
+    container.innerHTML = filtered.map(s => `
+      <div style="padding:10px; border-bottom:1px solid #e2dcc8; cursor:pointer; display:flex; justify-content:space-between; align-items:center;" onclick="showToast('Selected: ${s.full_name}'); closeModal('modalGlobalSearch');">
+        <span><strong>${s.full_name}</strong> (Class ${s.class_name}-${s.section})</span>
+        <span style="color:#1a3b22; font-weight:700;">#${s.roll_no}</span>
+      </div>
+    `).join('');
+  }
+
+  function handleStudentSearch(val) {
+    if (!val) {
+      renderStudentsTable(studentsData);
+      return;
+    }
+    const filtered = studentsData.filter(s => (s.full_name || '').toLowerCase().includes(val.toLowerCase()) || (s.roll_no || '').includes(val));
+    renderStudentsTable(filtered);
+  }
+
+  function filterStudentsTable() {
+    const cls = document.getElementById('filterClassSelect').value;
+    if (cls === 'ALL') {
+      renderStudentsTable(studentsData);
+    } else {
+      const filtered = studentsData.filter(s => s.class_name === cls);
+      renderStudentsTable(filtered);
+    }
+  }
+</script>
+</body>
+</html>

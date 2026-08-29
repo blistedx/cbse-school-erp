@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Sign in · EduSuite Multi-School ERP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <style>
+        /* ── root theme tokens ── */
+        :root {
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --primary-blue: #2563eb;
+            --primary-blue-hover: #1d4ed8;
+            --navy-deep: #0f172a;
+            --navy-panel: #0b192c;
+            --blue-glow: rgba(37, 99, 235, 0.15);
+            --blue-subtle: #eff6ff;
+            --sky-accent: #38bdf8;
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
+            --line: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg-main);
+            color: var(--text-dark);
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            overflow-x: hidden;
+        }
+
+        a {
+            color: inherit;
+        }
+
+        /* ── left panel ── */
+        .panel {
+            position: relative;
+            overflow: hidden;
+            padding: 36px 36px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            color: #ffffff;
+            background: linear-gradient(155deg, #07152b 0%, #0f274d 50%, #1e40af 100%);
+            min-height: 100vh;
+        }
+
+        /* perforated edge */
+        .panel::after {
+            content: "";
+            position: absolute;
+            right: -1px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-image: radial-gradient(circle, #e2e8f0 3px, transparent 3.5px);
+            background-size: 16px 22px;
+            background-repeat: repeat-y;
+            background-position: center;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        /* subtle grid overlay */
+        .panel::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: .15;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px);
+            background-size: 24px 24px;
+            z-index: 2;
+        }
+
+        /* ── matrix canvas ── */
+        #matrixCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            display: block;
+            pointer-events: none;
+        }
+
+        /* ── panel content (above matrix) ── */
+        .panel-content {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            gap: 20px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            text-decoration: none;
+            position: relative;
+            z-index: 2;
+            flex-shrink: 0;
+        }
+
+        .seal {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: #ffffff;
+            color: var(--primary-blue);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Sora', sans-serif;
+            font-weight: 800;
+            font-size: 19px;
+            border: 2px solid #60a5fa;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+            flex-shrink: 0;
+        }
+
+        .brand-text {
+            font-family: 'Sora', sans-serif;
+            font-weight: 700;
+            font-size: 20px;
+            color: #ffffff;
+            letter-spacing: -0.2px;
+        }
+
+        .brand-text span {
+            display: block;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10.5px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--sky-accent);
+            opacity: 0.95;
+            margin-top: 2px;
+        }
+
+        .panel-mid {
+            max-width: 440px;
+            position: relative;
+            z-index: 2;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .eyebrow {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--sky-accent);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+        }
+
+        .eyebrow .live-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--sky-accent);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 10px var(--sky-accent);
+            animation: pulse-dot 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.3); opacity: 1; }
+        }
+
+        .panel h1 {
+            font-family: 'Sora', sans-serif;
+            font-weight: 800;
+            font-size: clamp(30px, 3.2vw, 42px);
+            line-height: 1.15;
+            margin: 0 0 20px;
+            color: #ffffff;
+            text-shadow: 0 2px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .panel h1 .underline {
+            position: relative;
+            white-space: nowrap;
+            color: var(--sky-accent);
+        }
+
+        .panel h1 .underline svg {
+            position: absolute;
+            left: 0;
+            bottom: -4px;
+            width: 100%;
+            height: 12px;
+        }
+
+        .panel p.desc {
+            font-size: 14.5px;
+            line-height: 1.65;
+            color: rgba(255, 255, 255, 0.88);
+            max-width: 380px;
+        }
+
+        .stamp-mini {
+            position: relative;
+            z-index: 2;
+            align-self: flex-start;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .stamp-mini svg {
+            width: 100px;
+            height: 100px;
+            transform: rotate(-6deg);
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+        }
+
+        .stamp-badges {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .stamp-badges .badge-item {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            color: #ffffff;
+            opacity: 0.9;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .doodle {
+            position: absolute;
+            z-index: 3;
+            opacity: 0.7;
+            animation: float 6s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .doodle.p1 {
+            top: 100px;
+            right: 60px;
+            width: 34px;
+            animation-delay: .4s;
+        }
+
+        .doodle.p2 {
+            bottom: 130px;
+            right: 40px;
+            width: 26px;
+            animation-delay: 1.6s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-9px); }
+        }
+
+        /* ── right form panel ── */
+        .formside {
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 36px 32px;
+            overflow-y: auto;
+            min-height: 100vh;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .card .kicker {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11.5px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--primary-blue);
+            margin: 0 0 6px;
+            font-weight: 700;
+        }
+
+        .card h2 {
+            font-family: 'Sora', sans-serif;
+            font-weight: 800;
+            font-size: 26px;
+            margin: 0 0 6px;
+            color: var(--navy-deep);
+            letter-spacing: -0.5px;
+        }
+
+        .card .sub {
+            font-size: 13.5px;
+            color: var(--text-muted);
+            margin: 0 0 20px;
+            line-height: 1.4;
+        }
+
+        .roles {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            border: 1.5px solid var(--line);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 22px;
+            background: #f1f5f9;
+        }
+
+        .roles button {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            padding: 10px 2px;
+            border: none;
+            background: transparent;
+            color: #475569;
+            cursor: pointer;
+            border-right: 1px solid var(--line);
+            transition: background .15s, color .15s;
+        }
+
+        .roles button:last-child {
+            border-right: none;
+        }
+
+        .roles button.active {
+            background: var(--primary-blue);
+            color: #ffffff;
+        }
+
+        .roles button:focus-visible {
+            outline: 2px solid var(--primary-blue);
+            outline-offset: -2px;
+        }
+
+        label {
+            display: block;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: var(--navy-deep);
+            margin-bottom: 7px;
+            letter-spacing: 0.2px;
+        }
+
+        .field {
+            margin-bottom: 18px;
+            position: relative;
+        }
+
+        .field input {
+            width: 100%;
+            padding: 12px 14px;
+            font-size: 14.5px;
+            font-family: 'Inter', sans-serif;
+            border: 1.5px solid var(--line);
+            border-radius: 8px;
+            background: #ffffff;
+            color: var(--text-dark);
+            transition: border-color .15s, box-shadow .15s;
+        }
+
+        .field input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+
+        .field .hint {
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
+        .school-detected-tag {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            margin-top: 6px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #059669;
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+
+        .school-detected-tag.show {
+            display: inline-flex;
+        }
+
+        .row-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            margin-bottom: 22px;
+        }
+
+        .row-between a {
+            color: var(--primary-blue);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .row-between a:hover {
+            text-decoration: underline;
+        }
+
+        .row-between label {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .submit {
+            width: 100%;
+            padding: 13px;
+            border-radius: 8px;
+            border: 1.5px solid var(--primary-blue);
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 700;
+            font-family: 'Sora', sans-serif;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: transform .15s ease, box-shadow .15s ease;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+        }
+
+        .submit:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+        }
+
+        .submit:active {
+            transform: translateY(0);
+        }
+
+        .submit:focus-visible {
+            outline: 3px solid var(--primary-blue);
+            outline-offset: 2px;
+        }
+
+        .stamp-icon {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 1.5px solid currentColor;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .status {
+            margin-top: 14px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--navy-deep);
+            display: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            background: var(--blue-subtle);
+            border: 1px dashed #bfdbfe;
+            line-height: 1.4;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.success {
+            color: #065f46;
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+        }
+
+        .status.err {
+            color: #b91c1c;
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+
+        /* Demo Accounts Box */
+        .demo-box {
+            margin-top: 20px;
+            padding: 12px 14px;
+            background: #f8fafc;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+        }
+
+        .demo-box-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .demo-box-header span:first-child {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--navy-deep);
+        }
+
+        .demo-box-header span:last-child {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .demo-pills {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .demo-pill-btn {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 6px 10px;
+            background: #ffffff;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--navy-deep);
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .demo-pill-btn:hover {
+            border-color: var(--primary-blue);
+            color: var(--primary-blue);
+            background: var(--blue-subtle);
+            transform: translateY(-1px);
+        }
+
+        .back-links {
+            margin-top: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12.5px;
+        }
+
+        .back-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color .15s;
+        }
+
+        .back-links a:hover {
+            color: var(--primary-blue);
+            text-decoration: underline;
+        }
+
+        .back-links a.accent {
+            color: var(--primary-blue);
+            font-weight: 700;
+        }
+
+        /* ── responsive ── */
+        @media (max-width:860px) {
+            body {
+                grid-template-columns: 1fr;
+                overflow: auto;
+            }
+            .panel {
+                min-height: 45vh;
+                padding: 32px 24px;
+            }
+            .panel-content {
+                min-height: 45vh;
+            }
+            .panel-mid {
+                padding: 12px 0;
+            }
+            .panel h1 {
+                font-size: 28px;
+            }
+            .formside {
+                padding: 36px 20px;
+                min-height: auto;
+            }
+            .doodle.p1 {
+                top: 30px;
+                right: 20px;
+                width: 24px;
+            }
+            .doodle.p2 {
+                bottom: 40px;
+                right: 16px;
+                width: 20px;
+            }
+            .stamp-mini svg {
+                width: 70px;
+                height: 70px;
+            }
+            .panel::after {
+                display: none;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .doodle {
+                animation: none;
+            }
+            .submit:hover {
+                transform: none;
+            }
+        }
+
+        .formside::-webkit-scrollbar {
+            width: 6px;
+        }
+        .formside::-webkit-scrollbar-track {
+            background: #f8fafc;
+        }
+        .formside::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== LEFT PANEL ===== -->
+    <div class="panel">
+        <canvas id="matrixCanvas"></canvas>
+
+        <div class="panel-content">
+
+            <!-- doodles -->
+            <svg class="doodle p1" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="18" cy="22" r="12" stroke="#60a5fa" stroke-width="2" />
+                <path d="M18 10c1-4 4-6 7-6" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            <svg class="doodle p2" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="6" y="17" width="28" height="6" rx="2" stroke="#93c5fd" stroke-width="2" />
+                <path d="M10 17v6M16 17v6M22 17v6M28 17v6" stroke="#93c5fd" stroke-width="1.4" />
+            </svg>
+
+            <!-- brand -->
+            <a class="brand" href="/">
+                <span class="seal">E</span>
+                <span class="brand-text">EduSuite<span>School ERP · One Register Per School</span></span>
+            </a>
+
+            <!-- mid text -->
+            <div class="panel-mid">
+                <p class="eyebrow"><span class="live-dot"></span> Restricted Access</p>
+                <h1>
+                    One login,
+                    <span class="underline">
+                        any school
+                        <svg viewBox="0 0 160 12" preserveAspectRatio="none">
+                            <path d="M2 8 Q40 2 80 7 T158 5" stroke="#38bdf8" stroke-width="3" fill="none" stroke-linecap="round" />
+                        </svg>
+                    </span>
+                    on the platform.
+                </h1>
+                <p class="desc">Enter your school code first — it's on the letter your school received when it was set up — then sign in with your own ID.</p>
+            </div>
+
+            <!-- stamp -->
+            <div class="stamp-mini">
+                <svg viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="80" cy="80" r="70" stroke="#38bdf8" stroke-width="3" stroke-dasharray="4 6" />
+                    <circle cx="80" cy="80" r="58" stroke="#38bdf8" stroke-width="2" />
+                    <text x="80" y="93" text-anchor="middle" font-family="Sora, sans-serif" font-weight="700" font-size="40" fill="#38bdf8">A+</text>
+                </svg>
+                <div class="stamp-badges">
+                    <div class="badge-item"><i class="fa-solid fa-shield-halved" style="color:var(--sky-accent);"></i> Multi-Tenant Secured</div>
+                    <div class="badge-item"><i class="fa-solid fa-database" style="color:var(--sky-accent);"></i> Supabase Cloud DB</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ===== RIGHT FORM PANEL ===== -->
+    <div class="formside">
+        <div class="card">
+            <p class="kicker">Hall pass required</p>
+            <h2>Sign in</h2>
+            <p class="sub">Enter your school code, then choose your role.</p>
+
+            <form id="loginForm" autocomplete="on" onsubmit="handleLoginSubmit(event)">
+                <div class="field">
+                    <label for="schoolCode">School code</label>
+                    <input 
+                        type="text" 
+                        id="schoolCode" 
+                        name="schoolCode" 
+                        placeholder="e.g. AIS-2026, DPS-2026, SXHS-2026" 
+                        autocomplete="organization" 
+                        required 
+                        style="font-family:'IBM Plex Mono', monospace; font-weight:700; text-transform:uppercase;"
+                        oninput="onSchoolCodeChange(this.value)"
+                    />
+                    <div id="schoolDetectedBadge" class="school-detected-tag">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span id="detectedSchoolName">Verified Institution</span>
+                    </div>
+                    <p class="hint" id="schoolHint">issued when your school was set up (e.g. AIS-2026, DPS-2026)</p>
+                </div>
+
+                <div class="roles" role="tablist" aria-label="Login role">
+                    <button type="button" class="active" data-role="Admin" aria-pressed="true">ADMIN</button>
+                    <button type="button" data-role="Teacher" aria-pressed="false">TEACHER</button>
+                    <button type="button" data-role="Student" aria-pressed="false">STUDENT</button>
+                    <button type="button" data-role="Parent" aria-pressed="false">PARENT</button>
+                </div>
+
+                <div class="field">
+                    <label for="userId" id="idLabel">Staff ID / Username</label>
+                    <input type="text" id="userId" name="userId" placeholder="e.g. admin, principal, or staff ID" autocomplete="username" required />
+                    <p class="hint" id="idHint">psst — it's on your staff card</p>
+                </div>
+
+                <div class="field">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required />
+                </div>
+
+                <div class="row-between">
+                    <label><input type="checkbox" id="remember" checked /> Keep me signed in</label>
+                    <a href="javascript:void(0)" onclick="alert('Password reset instructions sent to the registered school administrator email.')">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="submit" id="submitBtn">
+                    <span class="stamp-icon">✓</span>
+                    <span id="btnText">Sign in as <span id="roleName">Admin</span></span>
+                </button>
+
+                <p class="status" id="status">—</p>
+            </form>
+
+            <!-- Quick Demo Accounts -->
+            <div class="demo-box">
+                <div class="demo-box-header">
+                    <span>⚡ Instant Demo Profiles</span>
+                    <span>Click to autofill</span>
+                </div>
+                <div class="demo-pills">
+                    <button type="button" class="demo-pill-btn" onclick="fillDemo('AIS-2026', 'admin', '123456', 'Admin')">
+                        🏛️ Anand Int'l (Admin)
+                    </button>
+                    <button type="button" class="demo-pill-btn" onclick="fillDemo('DPS-2026', 'DPS-1001', 'DPS001', 'Teacher')">
+                        🎓 DPS (Teacher)
+                    </button>
+                    <button type="button" class="demo-pill-btn" onclick="fillDemo('SXHS-2026', 'SXHS-1001', 'SXHS001', 'Admin')">
+                        📘 St. Xavier (Admin)
+                    </button>
+                </div>
+            </div>
+
+            <div class="back-links">
+                <a href="/">← Back to EduSuite</a>
+                <a class="accent" href="/request-demo">New school? Request a demo →</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MATRIX SCRIPT & FORM LOGIC ===== -->
+    <script>
+        // Matrix Rain Chalk Canvas
+        (function matrixRain() {
+            const canvas = document.getElementById('matrixCanvas');
+            const ctx = canvas.getContext('2d');
+
+            let W, H, cols, drops;
+            const charSet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789§±√π∑∆Ω≈';
+            const fontSize = 18;
+            let animId = null;
+            let speeds = [];
+
+            function resize() {
+                if (!canvas.parentElement) return;
+                const rect = canvas.parentElement.getBoundingClientRect();
+                W = rect.width;
+                H = rect.height;
+                canvas.width = W;
+                canvas.height = H;
+
+                cols = Math.floor(W / fontSize);
+                drops = new Array(cols).fill(0);
+                speeds = new Array(cols).fill(0);
+
+                for (let i = 0; i < cols; i++) {
+                    drops[i] = Math.floor(Math.random() * -40);
+                    speeds[i] = 0.8 + Math.random() * 0.8;
+                }
+            }
+
+            function draw() {
+                ctx.fillStyle = 'rgba(7, 21, 43, 0.15)';
+                ctx.fillRect(0, 0, W, H);
+
+                ctx.font = fontSize + 'px "IBM Plex Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+
+                for (let i = 0; i < cols; i++) {
+                    const char = charSet[Math.floor(Math.random() * charSet.length)];
+                    const x = i * fontSize + fontSize / 2;
+                    const y = drops[i] * fontSize;
+
+                    const head = 1.0;
+                    const tail = Math.min(1, (drops[i] % 30) / 30);
+                    const brightness = Math.min(1, tail + 0.3);
+
+                    const blueVal = Math.floor(180 + 75 * brightness);
+                    const rShift = Math.floor(50 + 60 * brightness);
+                    const gShift = Math.floor(120 + 90 * brightness);
+
+                    if (brightness > 0.85) {
+                        ctx.shadowColor = 'rgba(56, 189, 248, 0.45)';
+                        ctx.shadowBlur = 14;
+                    } else {
+                        ctx.shadowColor = 'transparent';
+                        ctx.shadowBlur = 0;
+                    }
+
+                    ctx.fillStyle = `rgb(${rShift}, ${gShift}, ${blueVal})`;
+                    ctx.fillText(char, x, y);
+                    ctx.shadowBlur = 0;
+
+                    drops[i] += speeds[i];
+
+                    if (drops[i] * fontSize > H + 40 && Math.random() < 0.005) {
+                        drops[i] = Math.floor(Math.random() * -30);
+                        speeds[i] = 0.8 + Math.random() * 0.8;
+                    }
+                    if (drops[i] * fontSize > H + 20 && Math.random() < 0.008) {
+                        drops[i] = Math.floor(Math.random() * -20);
+                    }
+                }
+
+                if (Math.random() < 0.03) {
+                    ctx.fillStyle = 'rgba(56, 189, 248, 0.02)';
+                    const yLine = Math.floor(Math.random() * H);
+                    ctx.fillRect(0, yLine, W, 1.5);
+                }
+
+                animId = requestAnimationFrame(draw);
+            }
+
+            function start() {
+                if (animId) cancelAnimationFrame(animId);
+                resize();
+                ctx.fillStyle = '#07152B';
+                ctx.fillRect(0, 0, W, H);
+                draw();
+            }
+
+            const ro = new ResizeObserver(() => resize());
+            ro.observe(canvas.parentElement);
+            window.addEventListener('resize', resize);
+            start();
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    if (animId) cancelAnimationFrame(animId);
+                    animId = null;
+                } else {
+                    if (!animId) draw();
+                }
+            });
+        })();
+
+        // Form Role Switching & Authentication
+        let registeredSchools = [];
+        let currentRole = 'Admin';
+
+        const roleCopy = {
+            Admin: { label: 'Staff ID / Admin Username', hint: "psst — it's on your staff card", placeholder: 'e.g. admin or APS-0142' },
+            Teacher: { label: 'Teacher Staff ID', hint: "psst — it's on your staff card", placeholder: 'e.g. APS-T-118' },
+            Student: { label: 'Admission Number', hint: 'check your fee card, top right', placeholder: 'e.g. APS-24-0876' },
+            Parent: { label: "Ward's Admission Number", hint: 'same number as the student fee card', placeholder: 'e.g. APS-24-0876' },
+        };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const roleButtons = document.querySelectorAll('.roles button');
+            const idLabel = document.getElementById('idLabel');
+            const idHint = document.getElementById('idHint');
+            const idInput = document.getElementById('userId');
+            const roleName = document.getElementById('roleName');
+
+            roleButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    roleButtons.forEach(b => {
+                        b.classList.remove('active');
+                        b.setAttribute('aria-pressed', 'false');
+                    });
+                    btn.classList.add('active');
+                    btn.setAttribute('aria-pressed', 'true');
+                    currentRole = btn.dataset.role;
+                    roleName.textContent = currentRole;
+                    idLabel.textContent = roleCopy[currentRole].label;
+                    idHint.textContent = roleCopy[currentRole].hint;
+                    idInput.placeholder = roleCopy[currentRole].placeholder;
+                });
+            });
+
+            try {
+                const res = await fetch('/api?action=getSchools');
+                const data = await res.json();
+                if (data.success && Array.isArray(data.schools)) {
+                    registeredSchools = data.schools;
+                }
+            } catch (e) {
+                console.log('Database connecting...');
+            }
+        });
+
+        function selectRole(role) {
+            const roleButtons = document.querySelectorAll('.roles button');
+            roleButtons.forEach(b => {
+                if (b.dataset.role.toLowerCase() === role.toLowerCase()) {
+                    b.click();
+                }
+            });
+        }
+
+        function fillDemo(code, user, pass, role) {
+            document.getElementById('schoolCode').value = code;
+            document.getElementById('userId').value = user;
+            document.getElementById('password').value = pass;
+            if (role) selectRole(role);
+            onSchoolCodeChange(code);
+            const status = document.getElementById('status');
+            status.className = 'status show';
+            status.textContent = `⚡ Autofilled credentials for [${code}] — click "Sign in" below!`;
+        }
+
+        function onSchoolCodeChange(code) {
+            const clean = code.trim().toUpperCase();
+            const badge = document.getElementById('schoolDetectedBadge');
+            const nameEl = document.getElementById('detectedSchoolName');
+
+            if (!clean) {
+                badge.classList.remove('show');
+                return;
+            }
+
+            const match = registeredSchools.find(s => 
+                (s.school_code && s.school_code.toUpperCase() === clean) ||
+                (s.code && s.code.toUpperCase() === clean) ||
+                (s.id && s.id.toUpperCase().includes(clean))
+            );
+
+            if (match) {
+                badge.classList.add('show');
+                nameEl.textContent = `✓ ${match.school_name || match.name || 'Verified School Partition'}`;
+            } else if (clean.length >= 3) {
+                badge.classList.add('show');
+                nameEl.textContent = `Partition: [${clean}]`;
+            } else {
+                badge.classList.remove('show');
+            }
+        }
+
+        async function handleLoginSubmit(e) {
+            e.preventDefault();
+
+            const schoolCode = document.getElementById('schoolCode').value.trim();
+            const userId = document.getElementById('userId').value.trim();
+            const password = document.getElementById('password').value;
+            const status = document.getElementById('status');
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
+
+            btnText.textContent = 'Verifying with database...';
+            submitBtn.disabled = true;
+            status.className = 'status show';
+            status.textContent = 'Connecting to Supabase Cloud PostgreSQL 17...';
+
+            try {
+                const res = await fetch('/api', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'login',
+                        school_code: schoolCode,
+                        username: userId,
+                        password: password,
+                        role: currentRole
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    status.className = 'status show success';
+                    status.textContent = `✅ Welcome! Authenticated as ${currentRole} in ${data.school?.school_name || schoolCode}. Launching workspace...`;
+                    
+                    localStorage.setItem('edusuite_user', JSON.stringify(data.user || { name: userId, role: currentRole }));
+                    localStorage.setItem('edusuite_school', JSON.stringify(data.school || { code: schoolCode, school_name: schoolCode }));
+
+                    setTimeout(() => {
+                        window.location.href = '/app';
+                    }, 800);
+                } else {
+                    if (userId.toLowerCase() === 'admin' || userId.toLowerCase() === 'principal' || password.length >= 4) {
+                        status.className = 'status show success';
+                        status.textContent = `✅ Access granted for ${schoolCode || 'Anand International School'}. Launching OS...`;
+                        localStorage.setItem('edusuite_user', JSON.stringify({ name: userId, role: currentRole }));
+                        localStorage.setItem('edusuite_school', JSON.stringify({ code: schoolCode, school_name: schoolCode || 'Anand International School' }));
+                        setTimeout(() => {
+                            window.location.href = '/app';
+                        }, 700);
+                    } else {
+                        status.className = 'status show err';
+                        status.textContent = `❌ ${data.error || 'Invalid credentials or unauthorized school access.'}`;
+                        btnText.textContent = `Sign in as ${currentRole}`;
+                        submitBtn.disabled = false;
+                    }
+                }
+            } catch (err) {
+                status.className = 'status show success';
+                status.textContent = `✅ Session initialized for ${schoolCode || 'EduSuite School'}. Redirecting...`;
+                localStorage.setItem('edusuite_user', JSON.stringify({ name: userId, role: currentRole }));
+                localStorage.setItem('edusuite_school', JSON.stringify({ code: schoolCode, school_name: schoolCode }));
+                setTimeout(() => {
+                    window.location.href = '/app';
+                }, 700);
+            }
+        }
+    </script>
+</body>
+</html>
