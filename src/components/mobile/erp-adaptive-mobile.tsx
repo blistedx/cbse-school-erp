@@ -33,7 +33,7 @@ export default function ERPAdaptiveMobile({
 
   const schoolName = selectedSchool?.school_name || 'DPS International — CBSE';
   const firstStudent = students[0];
-  const studentDisplayName = firstStudent ? `${firstStudent.name} (${firstStudent.class_name || 'VI-A'})` : 'Aarav Sharma (VI-A)';
+  const studentDisplayName = firstStudent ? `${firstStudent.full_name || (firstStudent as any).name} (${firstStudent.class_name || 'VI-A'})` : 'Aarav Sharma (VI-A)';
 
   return (
     <div className="min-h-screen bg-neutral-900 flex flex-col items-center">
