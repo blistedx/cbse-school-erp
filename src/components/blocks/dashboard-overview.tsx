@@ -189,154 +189,180 @@ export function DashboardOverview({
     <div className="space-y-6 max-w-[1400px] mx-auto text-slate-800 animate-in fade-in duration-300">
       
       {/* ─────────────────────────────────────────────────────────────
-          ROW 1: WELCOME HERO + 4 KEY METRIC CARDS + CAMPUS RATIO
+          ROW 1: WELCOME HERO BANNER (FULL WIDTH & SPACIOUS)
           ───────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-5 items-stretch">
+      <div className="rounded-3xl p-6 sm:p-7 bg-gradient-to-br from-[#EBF5EF] via-[#E2F1E8] to-[#D5EBDC] border border-[#C5E2CF] flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden shadow-xs">
+        <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
         
-        {/* 1. Welcome Back Hero Banner (4 Cols) */}
-        <div className="lg:col-span-4 rounded-3xl p-6 bg-gradient-to-br from-[#EBF5EF] to-[#D9EDE0] border border-[#C5E2CF] flex flex-col justify-between relative overflow-hidden shadow-xs">
-          <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-emerald-500/10 blur-xl pointer-events-none" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-2 font-mono text-[11px] font-semibold text-[#1C443A] uppercase tracking-wider">
+            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+            <span>{selectedSchool?.school_name || 'Delhi Public International School'}</span>
+            <span className="text-slate-400">•</span>
+            <span className="bg-[#122A24]/10 px-2 py-0.5 rounded-md text-[#122A24] font-bold">
+              {selectedSchool?.school_code || 'DPS2026'}
+            </span>
+          </div>
           
-          <div>
-            <div className="flex items-center gap-2 mb-2 font-mono text-[11px] font-semibold text-[#1C443A] uppercase tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-              <span>{selectedSchool?.school_name || 'EduGit Institutional Campus'}</span>
-            </div>
-            
-            <h2 className="font-display font-bold text-2xl sm:text-[26px] leading-tight text-[#122A24] tracking-tight">
-              Welcome back, {adminGreeting}!
-            </h2>
-            
-            <p className="text-xs sm:text-[13px] leading-relaxed text-[#2D5A4E] mt-2 font-normal max-w-sm">
-              Today's campus turnout is <strong>{studentAttendanceRate}%</strong> with <strong>{activeTeachersPresent}/{totalTeachersCount}</strong> faculty on active duty.
-            </p>
-          </div>
-
-          <div className="pt-5 mt-auto flex flex-wrap items-center gap-2.5">
-            <button
-              onClick={() => setActiveTab('attendance')}
-              className="px-4 py-2.5 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer border-none"
-            >
-              <CalendarCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Mark Attendance</span>
-            </button>
-            <button
-              onClick={() => openStudentModal()}
-              className="px-3.5 py-2.5 rounded-full bg-white/80 hover:bg-white text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
-            >
-              Enroll Student
-            </button>
-          </div>
+          <h2 className="font-display font-bold text-2xl sm:text-[28px] leading-tight text-[#122A24] tracking-tight">
+            Welcome back, {adminGreeting}!
+          </h2>
+          
+          <p className="text-xs sm:text-[13px] leading-relaxed text-[#2D5A4E] mt-1.5 font-normal max-w-xl">
+            Today's campus turnout is <strong className="font-bold text-[#122A24]">{studentAttendanceRate}%</strong> with <strong className="font-bold text-[#122A24]">{activeTeachersPresent}/{totalTeachersCount}</strong> faculty on active duty.
+          </p>
         </div>
 
-        {/* 2. Stat Card 1: Active Faculty & Staff Present (2 Cols) */}
-        <div className="lg:col-span-2 rounded-3xl p-5 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow">
+        <div className="relative z-10 flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            onClick={() => setActiveTab('attendance')}
+            className="px-4 py-2.5 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer border-none"
+          >
+            <CalendarCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Mark Attendance</span>
+          </button>
+          <button
+            onClick={() => openStudentModal()}
+            className="px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+          >
+            Enroll Student
+          </button>
+          {setShowAddNotice && (
+            <button
+              onClick={() => setShowAddNotice(true)}
+              className="px-3.5 py-2.5 rounded-full bg-white/80 hover:bg-white text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs transition-colors cursor-pointer hidden sm:flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Post Notice</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          ROW 2: 4 SPACIOUS CORE KPI STAT CARDS (GRID-COLS-4)
+          ───────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
+        
+        {/* 1. Stat Card 1: Active Faculty & Staff */}
+        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Active Faculty</span>
-            <div className="w-8 h-8 rounded-full bg-[#122A24] text-white flex items-center justify-center shadow-xs">
-              <GraduationCap className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider">Active Faculty</span>
+            <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shadow-xs">
+              <GraduationCap className="w-4.5 h-4.5 text-emerald-700" />
             </div>
           </div>
-          <div className="my-2.5">
-            <div className="font-display font-bold text-2xl text-[#122A24] tracking-tight flex items-baseline gap-1.5">
+          
+          <div className="my-3">
+            <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight flex items-baseline gap-1.5">
               <span>{activeTeachersPresent}</span>
-              <span className="text-xs font-mono font-medium text-slate-400">/ {totalTeachersCount}</span>
+              <span className="text-sm font-mono font-medium text-slate-400">/ {totalTeachersCount}</span>
             </div>
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-0.5">
-                <CheckCircle2 className="w-3 h-3" /> {facultyAttendanceRate}%
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 whitespace-nowrap">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>{facultyAttendanceRate}% present</span>
               </span>
-              <span className="text-[10px] text-slate-400 font-mono">present</span>
             </div>
           </div>
-          <div className="text-[11px] text-slate-500 font-mono border-t border-slate-100 pt-2 flex justify-between">
+
+          <div className="text-xs text-slate-500 font-mono border-t border-slate-100 pt-2.5 flex items-center justify-between">
             <span>On Leave</span>
-            <span className="font-semibold text-amber-700">{facultyOnLeave} sanctioned</span>
+            <span className="font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60 text-[11px]">
+              {facultyOnLeave} sanctioned
+            </span>
           </div>
         </div>
 
-        {/* 3. Stat Card 2: Active Students Enrolled & Present (2 Cols) */}
-        <div className="lg:col-span-2 rounded-3xl p-5 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow">
+        {/* 2. Stat Card 2: Active Students Enrolled & Present */}
+        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Active Students</span>
-            <div className="w-8 h-8 rounded-full bg-[#122A24] text-white flex items-center justify-center shadow-xs">
-              <Users className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider">Active Students</span>
+            <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shadow-xs">
+              <Users className="w-4.5 h-4.5 text-emerald-700" />
             </div>
           </div>
-          <div className="my-2.5">
-            <div className="font-display font-bold text-2xl text-[#122A24] tracking-tight flex items-baseline gap-1.5">
+
+          <div className="my-3">
+            <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight flex items-baseline gap-1.5">
               <span>{studentPresentCount.toLocaleString()}</span>
-              <span className="text-xs font-mono font-medium text-slate-400">/ {totalStudentsCount.toLocaleString()}</span>
+              <span className="text-sm font-mono font-medium text-slate-400">/ {totalStudentsCount.toLocaleString()}</span>
             </div>
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-0.5">
-                <ArrowUpRight className="w-3 h-3" /> +{studentAttendanceRate}%
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 whitespace-nowrap">
+                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>+{studentAttendanceRate}% turnout</span>
               </span>
-              <span className="text-[10px] text-slate-400 font-mono">turnout</span>
             </div>
           </div>
-          <div className="text-[11px] text-slate-500 font-mono border-t border-slate-100 pt-2 flex justify-between">
-            <span>Absent</span>
-            <span className="font-semibold text-rose-600">{studentAbsentCount} students</span>
+
+          <div className="text-xs text-slate-500 font-mono border-t border-slate-100 pt-2.5 flex items-center justify-between">
+            <span>Absent Today</span>
+            <span className="font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200/60 text-[11px]">
+              {studentAbsentCount} students
+            </span>
           </div>
         </div>
 
-        {/* 4. Stat Card 3: Total Fee Revenue & Recovery (2 Cols) */}
-        <div className="lg:col-span-2 rounded-3xl p-5 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow">
+        {/* 3. Stat Card 3: Total Fee Revenue & Recovery */}
+        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Fee Revenue</span>
-            <div className="w-8 h-8 rounded-full bg-[#122A24] text-white flex items-center justify-center shadow-xs">
-              <CreditCard className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider">Fee Revenue</span>
+            <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shadow-xs">
+              <CreditCard className="w-4.5 h-4.5 text-emerald-700" />
             </div>
           </div>
-          <div className="my-2.5">
-            <div className="font-display font-bold text-2xl text-[#122A24] tracking-tight">
-              ₹{totalPaid > 0 ? (totalPaid >= 100000 ? `${(totalPaid / 100000).toFixed(2)}L` : totalPaid.toLocaleString()) : '₹14.28L'}
+
+          <div className="my-3">
+            <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight">
+              {totalPaid > 0 ? (totalPaid >= 100000 ? `₹${(totalPaid / 100000).toFixed(2)}L` : `₹${totalPaid.toLocaleString()}`) : '₹47.78L'}
             </div>
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                {collectionRate}% Collected
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 whitespace-nowrap">
+                {collectionRate}% Collected • Term 1
               </span>
-              <span className="text-[10px] text-slate-400 font-mono">Term 1</span>
             </div>
           </div>
-          <div className="text-[11px] text-slate-500 font-mono border-t border-slate-100 pt-2 flex justify-between">
+
+          <div className="text-xs text-slate-500 font-mono border-t border-slate-100 pt-2.5 flex items-center justify-between">
             <span>Pending Due</span>
-            <span className="font-semibold text-slate-700">₹{totalPending > 0 ? (totalPending / 1000).toFixed(0) + 'k' : '₹1.54L'}</span>
+            <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
+              {totalPending > 0 ? `₹${(totalPending / 100000).toFixed(2)}L` : '₹16.41L'}
+            </span>
           </div>
         </div>
 
-        {/* 5. Donut Chart Widget: Campus Demographics Breakdown (2 Cols) */}
-        <div className="lg:col-span-2 rounded-3xl p-5 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs">
+        {/* 4. Stat Card 4: Campus Demographics Breakdown */}
+        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-[#122A24]">Campus Ratio</span>
-            <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 rounded-full text-slate-600">2026-27</span>
+            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider">Campus Ratio</span>
+            <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 rounded-full text-slate-600 whitespace-nowrap">2026-27</span>
           </div>
 
           <div className="relative flex flex-col items-center justify-center my-1">
-            <svg viewBox="0 0 100 65" className="w-28 h-20 overflow-visible">
-              <path d="M 10 55 A 40 40 0 0 1 90 55" fill="none" stroke="#E2ECE5" strokeWidth="10" strokeLinecap="round" />
-              <path d="M 10 55 A 40 40 0 0 1 48 15" fill="none" stroke="#34D399" strokeWidth="10" strokeDasharray="60 100" strokeLinecap="round" />
-              <path d="M 48 15 A 40 40 0 0 1 82 40" fill="none" stroke="#10B981" strokeWidth="10" strokeDasharray="30 100" strokeLinecap="round" />
-              <path d="M 82 40 A 40 40 0 0 1 90 55" fill="none" stroke="#122A24" strokeWidth="10" strokeDasharray="10 100" strokeLinecap="round" />
+            <svg viewBox="0 0 100 60" className="w-28 h-18 overflow-visible">
+              <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#E2ECE5" strokeWidth="9" strokeLinecap="round" />
+              <path d="M 10 50 A 40 40 0 0 1 48 14" fill="none" stroke="#34D399" strokeWidth="9" strokeDasharray="60 100" strokeLinecap="round" />
+              <path d="M 48 14 A 40 40 0 0 1 82 36" fill="none" stroke="#10B981" strokeWidth="9" strokeDasharray="30 100" strokeLinecap="round" />
+              <path d="M 82 36 A 40 40 0 0 1 90 50" fill="none" stroke="#122A24" strokeWidth="9" strokeDasharray="10 100" strokeLinecap="round" />
             </svg>
             <div className="text-center -mt-6">
-              <div className="font-display font-bold text-base text-[#122A24]">{totalStudentsCount + totalTeachersCount}</div>
-              <div className="text-[9px] text-slate-400 font-mono uppercase">Total Campus</div>
+              <div className="font-display font-bold text-lg text-[#122A24]">{totalStudentsCount + totalTeachersCount}</div>
+              <div className="text-[9px] text-slate-400 font-mono uppercase tracking-wider">Total Campus</div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-1 text-[10px] font-mono pt-1 text-slate-600 border-t border-slate-100">
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#34D399]" />
+          <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono pt-2 text-slate-600 border-t border-slate-100">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#34D399] shrink-0" />
               <span>Boys: 52%</span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#10B981]" />
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#10B981] shrink-0" />
               <span>Girls: 45%</span>
             </div>
-            <div className="col-span-2 flex items-center gap-1 text-slate-500">
-              <span className="w-2 h-2 rounded-full bg-[#122A24]" />
+            <div className="col-span-2 flex items-center gap-1.5 text-slate-500">
+              <span className="w-2 h-2 rounded-full bg-[#122A24] shrink-0" />
               <span>Faculty: 3% ({totalTeachersCount} Staff)</span>
             </div>
           </div>
@@ -346,21 +372,21 @@ export function DashboardOverview({
 
 
       {/* ─────────────────────────────────────────────────────────────
-          ROW 2: SPACIOUS NOTICE BOARD (6 COLS) & ACADEMIC CALENDAR (6 COLS)
+          ROW 3: SPACIOUS NOTICE BOARD (6 COLS) & ACADEMIC CALENDAR (6 COLS)
           ───────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         
         {/* TILE 1: Official Notice Board (6 Cols) */}
         <div className="lg:col-span-6 rounded-3xl p-6 bg-white border border-[#E2ECE5] shadow-xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+            <div className="flex items-center justify-between mb-4 pb-2.5 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center border border-emerald-200">
-                  <Bell className="w-4 h-4 text-emerald-600" />
+                <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center border border-emerald-200/80 shadow-2xs">
+                  <Bell className="w-4.5 h-4.5 text-emerald-700" />
                 </div>
                 <div>
                   <h3 className="font-display font-bold text-base text-[#122A24]">Official Notice Board</h3>
-                  <span className="text-[11px] font-mono text-slate-400">Campus Circulars &amp; Directives</span>
+                  <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap">Campus Circulars &amp; Directives</span>
                 </div>
               </div>
 
@@ -368,9 +394,10 @@ export function DashboardOverview({
                 {setShowAddNotice && (
                   <button
                     onClick={() => setShowAddNotice(true)}
-                    className="px-3 py-1.5 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer border-none shadow-2xs transition-all"
+                    className="px-3.5 py-1.5 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer border-none shadow-2xs transition-all"
                   >
-                    <Plus className="w-3.5 h-3.5 text-emerald-400" /> Post Circular
+                    <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Post Circular</span>
                   </button>
                 )}
               </div>
@@ -378,22 +405,22 @@ export function DashboardOverview({
 
             <div className="divide-y divide-slate-100">
               {displayNotices.map((n, idx) => (
-                <div key={idx} className="py-3 group cursor-pointer hover:bg-[#F9FCFA] px-2 rounded-xl transition-colors">
+                <div key={idx} className="py-3 group cursor-pointer hover:bg-[#F9FCFA] px-2.5 rounded-xl transition-colors">
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                         {n.target_audience}
                       </span>
-                      <span className="text-xs font-semibold text-[#122A24] group-hover:text-emerald-700 transition-colors">
+                      <span className="text-xs font-semibold text-[#122A24] group-hover:text-emerald-700 transition-colors truncate">
                         {n.title}
                       </span>
                     </div>
-                    <span className="text-[10px] font-mono text-slate-400 shrink-0">{n.created_at ? n.created_at.slice(0, 10) : 'Recent'}</span>
+                    <span className="text-[10px] font-mono text-slate-400 shrink-0 whitespace-nowrap">{n.created_at ? n.created_at.slice(0, 10) : 'Recent'}</span>
                   </div>
                   <p className="text-xs text-slate-500 pl-1 mt-1 line-clamp-2 leading-relaxed">
                     {n.content}
                   </p>
-                  <div className="text-[11px] text-slate-400 font-mono pl-1 mt-1 flex items-center gap-1">
+                  <div className="text-[11px] text-slate-400 font-mono pl-1 mt-1.5 flex items-center gap-1">
                     <span>Issued by:</span>
                     <span className="font-semibold text-slate-600">{n.posted_by || 'Principal Office'}</span>
                   </div>
@@ -413,14 +440,14 @@ export function DashboardOverview({
         {/* TILE 2: Academic Calendar for Events & Holidays (6 Cols) */}
         <div className="lg:col-span-6 rounded-3xl p-6 bg-white border border-[#E2ECE5] shadow-xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+            <div className="flex items-center justify-between mb-4 pb-2.5 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center border border-emerald-200">
-                  <CalendarDays className="w-4 h-4 text-emerald-600" />
+                <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center border border-emerald-200/80 shadow-2xs">
+                  <CalendarDays className="w-4.5 h-4.5 text-emerald-700" />
                 </div>
                 <div>
                   <h3 className="font-display font-bold text-base text-[#122A24]">Events &amp; Holidays Calendar</h3>
-                  <span className="text-[11px] font-mono text-slate-400">Academic Schedule 2026-27</span>
+                  <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap">Academic Schedule 2026-27</span>
                 </div>
               </div>
 
@@ -428,7 +455,7 @@ export function DashboardOverview({
                 <button
                   onClick={() => setCalendarFilter('all')}
                   className={`px-3 py-1 text-xs font-medium rounded-full border-none cursor-pointer transition-all ${
-                    calendarFilter === 'all' ? 'bg-[#122A24] text-white shadow-2xs' : 'bg-transparent text-slate-600'
+                    calendarFilter === 'all' ? 'bg-[#122A24] text-white shadow-2xs font-semibold' : 'bg-transparent text-slate-600 hover:text-[#122A24]'
                   }`}
                 >
                   All
@@ -436,7 +463,7 @@ export function DashboardOverview({
                 <button
                   onClick={() => setCalendarFilter('events')}
                   className={`px-3 py-1 text-xs font-medium rounded-full border-none cursor-pointer transition-all ${
-                    calendarFilter === 'events' ? 'bg-[#122A24] text-white shadow-2xs' : 'bg-transparent text-slate-600'
+                    calendarFilter === 'events' ? 'bg-[#122A24] text-white shadow-2xs font-semibold' : 'bg-transparent text-slate-600 hover:text-[#122A24]'
                   }`}
                 >
                   Events
@@ -444,7 +471,7 @@ export function DashboardOverview({
                 <button
                   onClick={() => setCalendarFilter('holidays')}
                   className={`px-3 py-1 text-xs font-medium rounded-full border-none cursor-pointer transition-all ${
-                    calendarFilter === 'holidays' ? 'bg-[#122A24] text-white shadow-2xs' : 'bg-transparent text-slate-600'
+                    calendarFilter === 'holidays' ? 'bg-[#122A24] text-white shadow-2xs font-semibold' : 'bg-transparent text-slate-600 hover:text-[#122A24]'
                   }`}
                 >
                   Holidays
@@ -452,20 +479,20 @@ export function DashboardOverview({
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {filteredEvents.slice(0, 4).map((evt) => (
                 <div key={evt.id} className="p-3 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] flex items-center gap-3.5 hover:bg-white hover:shadow-2xs transition-all">
-                  <div className="px-3 py-1.5 rounded-xl bg-white border border-[#C5E2CF] text-center shrink-0 min-w-[55px]">
+                  <div className="px-3 py-1.5 rounded-xl bg-white border border-[#C5E2CF] text-center shrink-0 min-w-[55px] shadow-2xs">
                     <span className="block font-mono text-[10px] text-slate-400 uppercase leading-none font-semibold">{evt.day}</span>
                     <span className="block font-display font-bold text-xs text-[#122A24] mt-1 leading-none">{evt.date}</span>
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <h4 className="text-xs font-bold text-[#122A24] truncate">
+                      <h4 className="text-xs font-bold text-[#122A24]">
                         {evt.title}
                       </h4>
-                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold shrink-0 ${
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold shrink-0 whitespace-nowrap ${
                         evt.type === 'holiday' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       }`}>
                         {evt.tag}
@@ -481,8 +508,8 @@ export function DashboardOverview({
           </div>
 
           <div className="border-t border-slate-100 pt-3 mt-3 flex items-center justify-between text-xs text-slate-500 font-mono">
-            <span>Upcoming: National Sports Meet (29 Aug)</span>
-            <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Term 1 Active</span>
+            <span className="truncate mr-2">Upcoming: National Sports Meet (29 Aug)</span>
+            <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shrink-0 whitespace-nowrap">Term 1 Active</span>
           </div>
         </div>
 
