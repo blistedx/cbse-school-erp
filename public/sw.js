@@ -1,4 +1,4 @@
-const CACHE_NAME = 'edusuite-cache-v1';
+const CACHE_NAME = 'edugit-cache-v1';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [

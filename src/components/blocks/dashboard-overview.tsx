@@ -200,7 +200,7 @@ export function DashboardOverview({
           <div>
             <div className="flex items-center gap-2 mb-2 font-mono text-[11px] font-semibold text-[#1C443A] uppercase tracking-wider">
               <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-              <span>{selectedSchool?.school_name || 'EduSuite Institutional Campus'}</span>
+              <span>{selectedSchool?.school_name || 'EduGit Institutional Campus'}</span>
             </div>
             
             <h2 className="font-display font-bold text-2xl sm:text-[26px] leading-tight text-[#122A24] tracking-tight">

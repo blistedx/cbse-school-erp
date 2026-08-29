@@ -3,14 +3,14 @@ import './globals.css';
 import PWAProvider from '@/components/pwa-provider';
 
 export const metadata: Metadata = {
-  title: 'EduSuite — School ERP Platform',
-  description: 'EduSuite runs attendance, fees, timetables and report cards for any number of schools — each with its own data, its own staff, and its own login, on one shared platform.',
+  title: 'EduGit — School ERP Platform',
+  description: 'EduGit runs attendance, fees, timetables and report cards for any number of schools — each with its own data, its own staff, and its own login, on one shared platform.',
   manifest: '/manifest.webmanifest',
-  applicationName: 'EduSuite ERP',
+  applicationName: 'EduGit ERP',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'EduSuite',
+    title: 'EduGit',
   },
   icons: {
     icon: '/icons/icon.svg',

@@ -1,4 +1,4 @@
-# 🎓 EduSuite — Multi-School Enterprise ERP Platform (PWA)
+# 🎓 EduGit — Multi-School Enterprise ERP Platform (PWA)
 
 A high-performance, installable Progressive Web App (PWA) and multi-tenant School ERP suite hosted on **Netlify** and powered by an online **MongoDB Atlas** cloud database.
 
@@ -19,13 +19,13 @@ A high-performance, installable Progressive Web App (PWA) and multi-tenant Schoo
 1. Push this repository to your GitHub account:
    ```bash
    git add .
-   git commit -m "feat: EduSuite PWA ERP with MongoDB Atlas & Netlify"
+   git commit -m "feat: EduGit PWA ERP with MongoDB Atlas & Netlify"
    git branch -M main
    git push -u origin main
    ```
 2. Go to **[https://app.netlify.com](https://app.netlify.com)** → **Add new site** → **Import an existing project**.
 3. In the **Site configuration > Environment variables** section, add:
-   - **`MONGODB_URI`**: `mongodb+srv://blistedx_db_user:b7TGgj57Xu8jX3C1@aierp.3kejnhw.mongodb.net/edusuite?retryWrites=true&w=majority&appName=AIERP`
+   - **`MONGODB_URI`**: `mongodb+srv://blistedx_db_user:b7TGgj57Xu8jX3C1@aierp.3kejnhw.mongodb.net/edugit?retryWrites=true&w=majority&appName=AIERP`
    - **`ADMIN_NOTIFICATION_EMAIL`**: `blistedx@gmail.com`
    - **`SMTP_HOST`**: `smtp.gmail.com`
    - **`SMTP_PORT`**: `465`
@@ -51,7 +51,7 @@ netlify deploy --build --prod
 ---
 
 ## 📋 Core Modules & Routes
-- `/` — EduSuite Landing Page & Institutional Register
+- `/` — EduGit Landing Page & Institutional Register
 - `/login` — School Portal Sign-In (Admin, Faculty, Students)
 - `/agency` — Super-Admin / Agency Hub & School Onboarding Approvals
 - `/request-demo` — Instant school workspace registration

@@ -15,7 +15,7 @@ async function testMongo() {
   if (!uri || (!uri.startsWith('mongodb://') && !uri.startsWith('mongodb+srv://'))) {
     console.log('ℹ️  No MONGODB_URI found in .env.');
     console.log('👉 To connect live MongoDB Atlas, add:');
-    console.log('   MONGODB_URI="mongodb+srv://<user>:<password>@cluster0.xxx.mongodb.net/edusuite?retryWrites=true&w=majority"\n');
+    console.log('   MONGODB_URI="mongodb+srv://<user>:<password>@cluster0.xxx.mongodb.net/edugit?retryWrites=true&w=majority"\n');
     console.log('✅ In-memory/JSON fallback is active and fully functional for local development!');
     process.exit(0);
   }
@@ -29,7 +29,7 @@ async function testMongo() {
     await client.connect();
     console.log('✅ Successfully connected to MongoDB!');
 
-    const db = client.db('edusuite');
+    const db = client.db('edugit');
     const collections = await db.listCollections().toArray();
     console.log(`📂 Collections found in database: ${collections.map(c => c.name).join(', ') || 'None yet (will be created automatically)'}`);
 

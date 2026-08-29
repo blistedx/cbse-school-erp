@@ -143,9 +143,9 @@ async function seedFullSchool() {
   const client = new MongoClient(uri);
   try {
     await client.connect();
-    const db = client.db('edusuite');
+    const db = client.db('edugit');
 
-    console.log('🔗 Connected to MongoDB Atlas: edusuite');
+    console.log('🔗 Connected to MongoDB Atlas: edugit');
 
     // 1. Clean existing records for DPS2026 to ensure clean state
     console.log('🧹 Clearing existing records for DPS2026...');

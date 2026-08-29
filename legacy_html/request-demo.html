@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Onboard School · EduSuite Multi-School ERP</title>
+    <title>Onboard School · EduGit Multi-School ERP</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -484,7 +484,7 @@
             <!-- brand -->
             <a class="brand" href="/">
                 <span class="seal">E</span>
-                <span class="brand-text">EduSuite<span>School ERP · Provision New Campus</span></span>
+                <span class="brand-text">EduGit<span>School ERP · Provision New Campus</span></span>
             </a>
 
             <!-- mid text -->
@@ -716,8 +716,8 @@
                 status.className = 'status show success';
                 status.textContent = `🎉 School [${schoolCode}] created! Launching your ERP workspace...`;
 
-                localStorage.setItem('edusuite_school', JSON.stringify(data.school || newSchool));
-                localStorage.setItem('edusuite_user', JSON.stringify({ name: 'System Admin', role: 'Admin' }));
+                localStorage.setItem('edugit_school', JSON.stringify(data.school || newSchool));
+                localStorage.setItem('edugit_user', JSON.stringify({ name: 'System Admin', role: 'Admin' }));
 
                 setTimeout(() => {
                     window.location.href = '/app';
@@ -726,8 +726,8 @@
             } catch (err) {
                 status.className = 'status show success';
                 status.textContent = `🎉 School [${schoolCode}] registered! Launching ERP workspace...`;
-                localStorage.setItem('edusuite_school', JSON.stringify(newSchool));
-                localStorage.setItem('edusuite_user', JSON.stringify({ name: 'System Admin', role: 'Admin' }));
+                localStorage.setItem('edugit_school', JSON.stringify(newSchool));
+                localStorage.setItem('edugit_user', JSON.stringify({ name: 'System Admin', role: 'Admin' }));
                 setTimeout(() => {
                     window.location.href = '/app';
                 }, 800);

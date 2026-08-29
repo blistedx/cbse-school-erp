@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Sign in · EduSuite Multi-School ERP</title>
+    <title>Sign in · EduGit Multi-School ERP</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -696,7 +696,7 @@
             <!-- brand -->
             <a class="brand" href="/">
                 <span class="seal">E</span>
-                <span class="brand-text">EduSuite<span>School ERP · One Register Per School</span></span>
+                <span class="brand-text">EduGit<span>School ERP · One Register Per School</span></span>
             </a>
 
             <!-- mid text -->
@@ -809,7 +809,7 @@
             </div>
 
             <div class="back-links">
-                <a href="/">← Back to EduSuite</a>
+                <a href="/">← Back to EduGit</a>
                 <a class="accent" href="/request-demo">New school? Request a demo →</a>
             </div>
         </div>
@@ -1048,8 +1048,8 @@
                     status.className = 'status show success';
                     status.textContent = `✅ Welcome! Authenticated as ${currentRole} in ${data.school?.school_name || schoolCode}. Launching workspace...`;
                     
-                    localStorage.setItem('edusuite_user', JSON.stringify(data.user || { name: userId, role: currentRole }));
-                    localStorage.setItem('edusuite_school', JSON.stringify(data.school || { code: schoolCode, school_name: schoolCode }));
+                    localStorage.setItem('edugit_user', JSON.stringify(data.user || { name: userId, role: currentRole }));
+                    localStorage.setItem('edugit_school', JSON.stringify(data.school || { code: schoolCode, school_name: schoolCode }));
 
                     setTimeout(() => {
                         window.location.href = '/app';
@@ -1058,8 +1058,8 @@
                     if (userId.toLowerCase() === 'admin' || userId.toLowerCase() === 'principal' || password.length >= 4) {
                         status.className = 'status show success';
                         status.textContent = `✅ Access granted for ${schoolCode || 'Anand International School'}. Launching OS...`;
-                        localStorage.setItem('edusuite_user', JSON.stringify({ name: userId, role: currentRole }));
-                        localStorage.setItem('edusuite_school', JSON.stringify({ code: schoolCode, school_name: schoolCode || 'Anand International School' }));
+                        localStorage.setItem('edugit_user', JSON.stringify({ name: userId, role: currentRole }));
+                        localStorage.setItem('edugit_school', JSON.stringify({ code: schoolCode, school_name: schoolCode || 'Anand International School' }));
                         setTimeout(() => {
                             window.location.href = '/app';
                         }, 700);
@@ -1072,9 +1072,9 @@
                 }
             } catch (err) {
                 status.className = 'status show success';
-                status.textContent = `✅ Session initialized for ${schoolCode || 'EduSuite School'}. Redirecting...`;
-                localStorage.setItem('edusuite_user', JSON.stringify({ name: userId, role: currentRole }));
-                localStorage.setItem('edusuite_school', JSON.stringify({ code: schoolCode, school_name: schoolCode }));
+                status.textContent = `✅ Session initialized for ${schoolCode || 'EduGit School'}. Redirecting...`;
+                localStorage.setItem('edugit_user', JSON.stringify({ name: userId, role: currentRole }));
+                localStorage.setItem('edugit_school', JSON.stringify({ code: schoolCode, school_name: schoolCode }));
                 setTimeout(() => {
                     window.location.href = '/app';
                 }, 700);

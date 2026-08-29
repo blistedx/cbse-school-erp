@@ -62,7 +62,7 @@ async function seedClasses() {
   const client = new MongoClient(uri);
   try {
     await client.connect();
-    const db = client.db('edusuite');
+    const db = client.db('edugit');
 
     console.log('Clearing old classes for DPS2026...');
     await db.collection('classes').deleteMany({ school_id: { $in: ['DPS2026', 'DPS-2026', 'SCH-DEMO-2026'] } });

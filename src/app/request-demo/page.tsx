@@ -64,7 +64,7 @@ export default function RequestDemoPage() {
         <Link className="brand" href="/">
           <span className="seal">E</span>
           <span className="brand-text">
-            EduSuite
+            EduGit
             <span>School ERP, one register per school</span>
           </span>
         </Link>
@@ -218,7 +218,7 @@ export default function RequestDemoPage() {
             )}
           </form>
 
-          <Link className="back" href="/">← Back to EduSuite</Link>
+          <Link className="back" href="/">← Back to EduGit</Link>
         </div>
       </div>
     </div>

@@ -68,7 +68,7 @@ export async function sendDemoRequestEmail(payload: DemoRequestPayload): Promise
         <div style="max-width: 600px; margin: 0 auto; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
           <div style="border-bottom: 2px solid #C4432B; padding-bottom: 15px; margin-bottom: 20px;">
             <h2 style="color: #122A24; margin: 0; font-size: 22px;">🏫 New Demo & Onboarding Request</h2>
-            <p style="color: #C4432B; margin: 5px 0 0; font-size: 13px; font-weight: bold; text-transform: uppercase;">EduSuite Multi-School Platform</p>
+            <p style="color: #C4432B; margin: 5px 0 0; font-size: 13px; font-weight: bold; text-transform: uppercase;">EduGit Multi-School Platform</p>
           </div>
 
           <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 20px;">
@@ -119,7 +119,7 @@ export async function sendDemoRequestEmail(payload: DemoRequestPayload): Promise
     `;
 
     await transporter.sendMail({
-      from: `"EduSuite Notifications" <${smtpUser}>`,
+      from: `"EduGit Notifications" <${smtpUser}>`,
       to: adminEmail,
       replyTo: payload.email,
       subject: `🚨 New Demo Request: ${payload.schoolName} (${payload.city})`,

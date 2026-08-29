@@ -15,7 +15,7 @@ async function seed() {
   const client = new MongoClient(uri);
   try {
     await client.connect();
-    const db = client.db('edusuite');
+    const db = client.db('edugit');
 
     const schoolsCol = db.collection('schools');
     const existingCount = await schoolsCol.countDocuments();

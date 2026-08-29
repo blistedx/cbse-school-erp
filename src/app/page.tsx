@@ -19,7 +19,7 @@ export default async function HomePage() {
             </span>
             <div>
               <span className="font-display font-semibold text-lg sm:text-xl text-[var(--ink-navy)] tracking-tight block">
-                EduSuite
+                EduGit
               </span>
               <span className="font-mono text-[10px] font-normal tracking-[1.5px] uppercase text-[var(--board-2)] block -mt-0.5 opacity-85">
                 School ERP, one register per school
@@ -91,7 +91,7 @@ export default async function HomePage() {
             </h1>
 
             <p className="text-base sm:text-lg leading-relaxed text-slate-200 max-w-xl my-7 font-normal">
-              EduSuite runs attendance, fees, timetables and report cards for any number of schools — each with its own data, its own staff, and its own login, on one shared platform.
+              EduGit runs attendance, fees, timetables and report cards for any number of schools — each with its own data, its own staff, and its own login, on one shared platform.
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -382,7 +382,7 @@ export default async function HomePage() {
       {/* Footer */}
       <footer className="border-t border-[var(--line)] py-9 bg-white" id="contact">
         <div className="max-w-[1160px] mx-auto px-6 sm:px-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
-          <p className="m-0">EduSuite · School ERP for multiple schools, one platform</p>
+          <p className="m-0">EduGit · School ERP for multiple schools, one platform</p>
           <div className="flex gap-6 text-[13.5px]">
             <Link href="/login" className="hover:text-[var(--ink-navy)] no-underline">
               School Login

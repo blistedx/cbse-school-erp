@@ -91,7 +91,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`\n======================================================`);
-  console.log(`🎓 EduSuite Multi-School ERP Server Live on http://localhost:${PORT}`);
+  console.log(`🎓 EduGit Multi-School ERP Server Live on http://localhost:${PORT}`);
   console.log(`👉 Landing Page:      http://localhost:${PORT}`);
   console.log(`👉 School Sign In:    http://localhost:${PORT}/login`);
   console.log(`👉 Onboard School:    http://localhost:${PORT}/request-demo`);

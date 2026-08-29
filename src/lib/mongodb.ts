@@ -71,7 +71,7 @@ export async function getMongoClient(): Promise<MongoClient | null> {
   }
 }
 
-export async function getDatabase(dbName = 'edusuite'): Promise<Db | null> {
+export async function getDatabase(dbName = 'edugit'): Promise<Db | null> {
   try {
     const client = await getMongoClient();
     if (!client) return null;
@@ -97,7 +97,7 @@ export async function checkMongoStatus(): Promise<{ connected: boolean; error: s
       tlsAllowInvalidCertificates: true
     });
     await client.connect();
-    const db = client.db('edusuite');
+    const db = client.db('edugit');
     const ping = await db.command({ ping: 1 });
     await client.close();
     return { connected: ping.ok === 1, error: null, uriMasked };

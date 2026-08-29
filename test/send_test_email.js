@@ -13,21 +13,21 @@ async function testEmail() {
   });
 
   const info = await transporter.sendMail({
-    from: `"EduSuite Notifications" <${process.env.SMTP_USER}>`,
+    from: `"EduGit Notifications" <${process.env.SMTP_USER}>`,
     to: process.env.ADMIN_NOTIFICATION_EMAIL,
-    subject: '🎉 EduSuite Email Notification Setup Verified!',
+    subject: '🎉 EduGit Email Notification Setup Verified!',
     html: `
       <div style="font-family: Arial, sans-serif; padding: 25px; background: #F3E8CE; color: #16233F;">
         <div style="background: #FBF6E9; border: 2px solid rgba(22,35,63,0.2); padding: 25px; border-radius: 10px; max-width: 550px; margin: 0 auto;">
-          <h2 style="color: #122A24; margin-top: 0;">🏫 EduSuite Notification Connected</h2>
+          <h2 style="color: #122A24; margin-top: 0;">🏫 EduGit Notification Connected</h2>
           <p style="font-size: 14px; line-height: 1.5; color: #1E1C16;">
-            Your Gmail notification setup for <strong>EduSuite ERP</strong> is working properly.
+            Your Gmail notification setup for <strong>EduGit ERP</strong> is working properly.
           </p>
           <div style="background: #122A24; color: #F3EFDD; padding: 12px; border-radius: 6px; font-size: 13px; margin: 20px 0;">
             ✓ You will receive all demo & onboarding requests directly at <strong>blistedx@gmail.com</strong>.
           </div>
           <p style="font-size: 12px; color: #7d7a6c; margin-bottom: 0;">
-            Sent automatically by EduSuite Cloud Platform.
+            Sent automatically by EduGit Cloud Platform.
           </p>
         </div>
       </div>

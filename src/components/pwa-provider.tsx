@@ -129,7 +129,7 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
           <RefreshCw className="w-5 h-5 text-emerald-400 shrink-0 animate-spin" />
           <div className="flex-1">
             <p className="font-display font-semibold text-white">App Update Available</p>
-            <p className="text-xs text-slate-300">A new version of EduSuite is ready.</p>
+            <p className="text-xs text-slate-300">A new version of EduGit is ready.</p>
           </div>
           <button
             onClick={handleUpdateApp}
@@ -143,11 +143,12 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
       {/* Install PWA Prompt Banner */}
       {showInstallBanner && deferredPrompt && (
         <div className="fixed bottom-5 right-4 sm:right-6 z-50 flex items-center gap-3.5 bg-[var(--board-1)] text-white border border-white/20 backdrop-blur-xl p-4 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-5 duration-300 max-w-sm">
-          <div className="w-10 h-10 rounded-xl bg-[var(--board-2)] border border-white/20 flex items-center justify-center text-white shrink-0 shadow-md">
-            <Download className="w-5 h-5 text-white" />
+          <div className="w-11 h-11 rounded-xl overflow-hidden border border-white/20 shrink-0 shadow-md bg-[#232e1a] flex items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/icon-192.png" alt="EduGit Logo" className="w-full h-full object-cover" />
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="text-xs font-display font-semibold text-white truncate">Install EduSuite App</h4>
+            <h4 className="text-xs font-display font-semibold text-white truncate">Install EduGit App</h4>
             <p className="text-[11px] text-slate-300 line-clamp-1">Install to your home screen or desktop for fast offline access.</p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">

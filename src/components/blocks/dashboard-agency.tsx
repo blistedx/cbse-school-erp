@@ -145,7 +145,7 @@ export function DashboardAgency() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-display font-semibold text-lg text-[var(--ink-navy)] tracking-tight">
-                  EduSuite AgencyOS
+                  EduGit AgencyOS
                 </span>
                 <span className="font-mono text-[10.5px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--board-1)] text-white font-semibold">
                   Admin Console
@@ -515,7 +515,7 @@ export function DashboardAgency() {
       {/* Footer */}
       <footer className="border-t border-[var(--line)] py-7 bg-white">
         <div className="max-w-[1160px] mx-auto px-6 sm:px-10 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
-          <p className="m-0">EduSuite AgencyOS · Multi-Tenant School ERP Cloud</p>
+          <p className="m-0">EduGit AgencyOS · Multi-Tenant School ERP Cloud</p>
           <div className="flex gap-6 text-[13px]">
             <Link href="/" className="hover:text-[var(--ink-navy)] no-underline">
               Public Home

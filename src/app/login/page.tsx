@@ -77,7 +77,7 @@ export default function LoginPage() {
         <Link className="brand" href="/">
           <span className="seal">E</span>
           <span className="brand-text">
-            EduSuite
+            EduGit
             <span>School ERP, one register per school</span>
           </span>
         </Link>
@@ -208,7 +208,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <Link className="back" href="/">← Back to EduSuite</Link>
+          <Link className="back" href="/">← Back to EduGit</Link>
           <Link className="back" href="/request-demo" style={{ marginTop: '8px' }}>
             New school? Request a demo →
           </Link>

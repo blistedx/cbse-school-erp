@@ -21,7 +21,7 @@ async function migrateData() {
   const client = new MongoClient(uri);
   try {
     await client.connect();
-    const db = client.db('edusuite');
+    const db = client.db('edugit');
 
     // 1. Schools Collection: Update DPS-2026 to DPS2026
     console.log('🏫 Updating schools collection...');
