@@ -1,4 +1,4 @@
-const CACHE_NAME = 'edugit-cache-v1';
+const CACHE_NAME = 'edugit-cache-v2';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
@@ -8,7 +8,12 @@ const PRECACHE_ASSETS = [
   '/agency',
   '/offline.html',
   '/icons/icon.svg',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/apple-touch-icon.png',
+  '/logo.png',
   '/manifest.json',
+  '/manifest.webmanifest',
 ];
 
 // Install Event: Precache essential assets

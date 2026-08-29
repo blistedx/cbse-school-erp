@@ -13,14 +13,23 @@ export const metadata: Metadata = {
     title: 'EduGit',
   },
   icons: {
-    icon: '/icons/icon.svg',
-    shortcut: '/icons/icon.svg',
-    apple: '/icons/icon.svg',
+    icon: [
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/icon.png', type: 'image/png' },
+      { url: '/icons/icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/icons/icon-192.png',
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#0f172a',
+  themeColor: '#232e1a',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
@@ -41,9 +50,25 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap"
           rel="stylesheet"
         />
+        {/* iOS Safari Home Screen Icons */}
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png" />
+        
+        {/* Android / PWA Icons */}
+        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
+        <link rel="shortcut icon" href="/icons/icon-192.png" />
+        
+        {/* Mobile PWA Metas */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="EduGit ERP" />
+        <meta name="application-name" content="EduGit ERP" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="theme-color" content="#232e1a" />
+        <meta name="msapplication-TileColor" content="#232e1a" />
       </head>
       <body className="antialiased font-sans">
         <PWAProvider>

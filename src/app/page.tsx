@@ -14,9 +14,8 @@ export default async function HomePage() {
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-[var(--line)]">
         <div className="max-w-[1160px] mx-auto px-6 sm:px-8 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 no-underline">
-            <span className="w-10 h-10 rounded-full bg-[var(--board-1)] text-white flex items-center justify-center font-display font-bold text-base border-2 border-white/40 shadow-sm">
-              E
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/icon-192.png" alt="EduGit Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm border border-[#122A24]/30" />
             <div>
               <span className="font-display font-semibold text-lg sm:text-xl text-[var(--ink-navy)] tracking-tight block">
                 EduGit

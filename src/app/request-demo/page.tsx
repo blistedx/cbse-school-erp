@@ -62,7 +62,8 @@ export default function RequestDemoPage() {
       {/* Left chalkboard panel */}
       <div className="panel">
         <Link className="brand" href="/">
-          <span className="seal">E</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/icon-192.png" alt="EduGit Logo" className="w-10 h-10 rounded-xl object-cover shadow-sm border border-white/20" />
           <span className="brand-text">
             EduGit
             <span>School ERP, one register per school</span>
