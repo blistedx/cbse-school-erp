@@ -2341,31 +2341,6 @@ function ERPWorkspaceContent() {
               </div>
             )}
 
-            {/* Academic Session Switcher Widget (Mobile Drawer) */}
-            <div className="mb-3 p-3 bg-white/10 rounded-2xl border border-emerald-400/30 space-y-1.5 shadow-xs">
-              <div className="flex items-center justify-between text-[10px] font-mono text-emerald-300 font-bold">
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="h-3 w-3 text-emerald-400" />
-                  <span>ACADEMIC SESSION:</span>
-                </span>
-                <span className="text-[9px] bg-emerald-400/20 px-1.5 py-0.5 rounded text-emerald-200 border border-emerald-400/30">
-                  {selectedSession}
-                </span>
-              </div>
-              <select
-                value={selectedSession}
-                onChange={(e) => { handleSwitchSession(e.target.value); setMobileMenuOpen(false); }}
-                className="w-full bg-[#122A24] text-white text-xs font-semibold rounded-xl px-2.5 py-2 border border-white/20 focus:outline-none cursor-pointer font-mono"
-                title="Switch Academic Session"
-              >
-                {AVAILABLE_SESSIONS.map((sess) => (
-                  <option key={sess} value={sess} className="bg-[#122A24] text-white">
-                    Session {sess} {sess === '2026-27' ? '(Current Academic Year)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="text-[10.5px] font-semibold text-emerald-200/70 uppercase tracking-wider px-3 mb-1.5 font-mono">
               Academic Modules
             </div>
