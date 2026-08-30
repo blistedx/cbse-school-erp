@@ -33,21 +33,12 @@ export default async function HomePage() {
             <a href="#modules" className="opacity-75 hover:opacity-100 transition-opacity no-underline">
               Modules
             </a>
-            <Link href="/mobile" className="opacity-90 hover:opacity-100 text-emerald-800 font-bold transition-opacity no-underline flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-              📱 Mobile App
-            </Link>
             <Link href="/agency" className="opacity-75 hover:opacity-100 transition-opacity no-underline">
               Agency Hub
             </Link>
           </nav>
 
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            <Link
-              href="/mobile"
-              className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-emerald-900 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 transition-colors no-underline shadow-xs whitespace-nowrap"
-            >
-              📱 Mobile App
-            </Link>
             <Link
               href="/login"
               className="inline-flex items-center justify-center px-2.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-[var(--ink-navy)] border border-[var(--line)] bg-white hover:bg-slate-50 transition-colors no-underline shadow-xs whitespace-nowrap"
