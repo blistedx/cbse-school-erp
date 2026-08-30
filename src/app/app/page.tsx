@@ -51,10 +51,19 @@ import {
   Bus,
   Award,
   Radio,
-  User
+  User,
+  EyeOff,
+  Edit3,
+  RotateCcw,
+  PlusCircle,
+  Sparkles,
+  BookCheck
 } from 'lucide-react';
-import { School, Student, Teacher, ClassRoom, Notice, FeeInvoice, AttendanceRecord, SchoolOverview } from '@/lib/types';
+import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview } from '@/lib/types';
+import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
 import { DashboardOverview } from '@/components/blocks/dashboard-overview';
+import { DashboardSubjects } from '@/components/blocks/dashboard-subjects';
+import { DashboardAttendance } from '@/components/blocks/dashboard-attendance';
 import { DashboardTransport } from '@/components/blocks/dashboard-transport';
 import { DashboardExams } from '@/components/blocks/dashboard-exams';
 import { DashboardHomework } from '@/components/blocks/dashboard-homework';
@@ -65,7 +74,7 @@ function ERPWorkspaceContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'teachers' | 'classes' | 'attendance' | 'fees' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'teachers' | 'classes' | 'subjects' | 'attendance' | 'fees' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile'>('overview');
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [overview, setOverview] = useState<SchoolOverview | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
@@ -76,6 +85,11 @@ function ERPWorkspaceContent() {
   const [invoices, setInvoices] = useState<FeeInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // PIN visibility states
+  const [showSettingsPin, setShowSettingsPin] = useState(false);
+  const [showProfilePin, setShowProfilePin] = useState(false);
+  const [showModalPin, setShowModalPin] = useState(false);
 
   // Modals & Active Edit States
   const [showStudentModal, setShowStudentModal] = useState(false);
@@ -88,6 +102,30 @@ function ERPWorkspaceContent() {
 
   const [showAddClass, setShowAddClass] = useState(false);
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
+
+  // CBSE Subjects Management State
+  const [manageSubjectsClass, setManageSubjectsClass] = useState<ClassRoom | null>(null);
+  const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
+  const [showAddSubjectInline, setShowAddSubjectInline] = useState(false);
+  const [subjectForm, setSubjectForm] = useState<{
+    id: string;
+    name: string;
+    code: string;
+    type: 'COMPULSORY' | 'ELECTIVE' | 'SKILL' | 'INTERNAL_ASSESSMENT' | 'LANGUAGE';
+    weekly_periods: number;
+    assigned_teacher: string;
+    max_marks: number;
+  }>({
+    id: '',
+    name: '',
+    code: '',
+    type: 'COMPULSORY',
+    weekly_periods: 6,
+    assigned_teacher: '',
+    max_marks: 100
+  });
+  const [subjectSaving, setSubjectSaving] = useState(false);
+
   const [showAddNotice, setShowAddNotice] = useState(false);
   const [showAddInvoice, setShowAddInvoice] = useState(false);
   const [viewInvoice, setViewInvoice] = useState<FeeInvoice | null>(null);
@@ -185,8 +223,43 @@ function ERPWorkspaceContent() {
   const [mongoSyncData, setMongoSyncData] = useState<any>(null);
   const [mongoSyncMsg, setMongoSyncMsg] = useState('');
 
+  // Academic Session Management State
+  const [selectedSession, setSelectedSession] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('giterp_active_session') || '2026-27';
+    }
+    return '2026-27';
+  });
+  const AVAILABLE_SESSIONS = ['2026-27', '2025-26', '2027-28', '2024-25'];
+
   // Notices Controls & Filters
   const [noticeAudienceFilter, setNoticeAudienceFilter] = useState<'ALL' | 'TEACHERS' | 'STUDENTS' | 'PARENTS'>('ALL');
+
+  // PWA Offline-First & Live MongoDB Network Sync State
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      showAdminToast('Internet restored: Live MongoDB real-time sync active!');
+      if (selectedSchool) {
+        loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession);
+      }
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+    };
+
+    if (typeof window !== 'undefined') {
+      setIsOffline(!navigator.onLine);
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
+    }
+  }, [selectedSchool, selectedSession]);
 
   // Clean time-based greeting without emojis
   const getISTGreeting = () => {
@@ -396,6 +469,7 @@ function ERPWorkspaceContent() {
   const [noticeForm, setNoticeForm] = useState({
     title: '',
     content: '',
+    matter_category: 'ACAD',
     target_audience: 'ALL' as 'ALL' | 'TEACHERS' | 'STUDENTS' | 'PARENTS',
     posted_by: 'Principal Office'
   });
@@ -450,6 +524,10 @@ function ERPWorkspaceContent() {
               parsed.id = 'DPS2026';
               localStorage.setItem('current_school', JSON.stringify(parsed));
             }
+            if (parsed.admin_pin === 'admin@4317') {
+              parsed.admin_pin = '123456';
+              localStorage.setItem('current_school', JSON.stringify(parsed));
+            }
             if (!schoolParam || parsed.school_code === schoolParam || parsed.id === schoolParam || parsed.school_code?.replace(/[^A-Z0-9]/gi, '') === schoolParam?.replace(/[^A-Z0-9]/gi, '')) {
               targetSchool = parsed;
             }
@@ -478,6 +556,9 @@ function ERPWorkspaceContent() {
       }
 
       if (targetSchool) {
+        if (targetSchool.admin_pin === 'admin@4317') {
+          targetSchool.admin_pin = '123456';
+        }
         setSelectedSchool(targetSchool);
         const storedUser = typeof window !== 'undefined' ? localStorage.getItem('current_user') : null;
         let activeUserObj: any = null;
@@ -489,23 +570,25 @@ function ERPWorkspaceContent() {
         }
         
         const activePrincipalName = targetSchool.principal_name || targetSchool.admin_name || activeUserObj?.full_name || 'Dr. Rajesh Sharma';
+        const cleanAdminPin = (targetSchool.admin_pin === 'admin@4317' ? '123456' : targetSchool.admin_pin) || '123456';
         
         setSettingsForm({
           school_name: targetSchool.school_name,
           principal_name: activePrincipalName,
           board: targetSchool.board || 'CBSE',
           city: targetSchool.city || '',
-          admin_pin: targetSchool.admin_pin || '123456'
+          admin_pin: cleanAdminPin
         });
         setProfileForm({
           full_name: activePrincipalName,
           username: targetSchool.admin_id || activeUserObj?.username || 'admin',
-          admin_pin: targetSchool.admin_pin || '123456',
+          admin_pin: cleanAdminPin,
           email: activeUserObj?.email || `admin@${(targetSchool.school_code || 'dps2026').toLowerCase()}.edu`,
           phone: activeUserObj?.phone || ''
         });
         if (typeof window !== 'undefined') {
           localStorage.setItem('current_school', JSON.stringify(targetSchool));
+          localStorage.setItem('last_active_school_id', targetSchool.school_code || targetSchool.id);
           if (!activeUserObj) {
             const defaultUser = {
               id: targetSchool.admin_id || 'admin',
@@ -535,9 +618,13 @@ function ERPWorkspaceContent() {
     setLoading(true);
     const target = availableSchools.find(s => s.id === schoolCodeOrId || s.school_code === schoolCodeOrId);
     if (target) {
+      if (target.admin_pin === 'admin@4317') {
+        target.admin_pin = '123456';
+      }
       setSelectedSchool(target);
       if (typeof window !== 'undefined') {
         localStorage.setItem('current_school', JSON.stringify(target));
+        localStorage.setItem('last_active_school_id', target.school_code || target.id);
       }
       await loadSchoolData(target.school_code || target.id);
       router.replace(`/app?school=${target.school_code}`);
@@ -549,6 +636,7 @@ function ERPWorkspaceContent() {
     e.preventDefault();
     if (!selectedSchool) return;
     try {
+      const sanitizedPin = profileForm.admin_pin === 'admin@4317' ? '123456' : profileForm.admin_pin;
       const res = await fetch('/api/school/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -557,11 +645,14 @@ function ERPWorkspaceContent() {
           principal_name: profileForm.full_name,
           admin_name: profileForm.full_name,
           admin_id: profileForm.username,
-          admin_pin: profileForm.admin_pin
+          admin_pin: sanitizedPin
         })
       });
       const data = await res.json();
       if (data.success && data.school) {
+        if (data.school.admin_pin === 'admin@4317') {
+          data.school.admin_pin = '123456';
+        }
         const updatedUser = {
           ...(currentUser || {}),
           full_name: profileForm.full_name,
@@ -574,31 +665,55 @@ function ERPWorkspaceContent() {
         setSettingsForm(prev => ({
           ...prev,
           principal_name: profileForm.full_name,
-          admin_pin: profileForm.admin_pin
+          admin_pin: sanitizedPin
         }));
         if (typeof window !== 'undefined') {
           localStorage.setItem('current_user', JSON.stringify(updatedUser));
           localStorage.setItem('current_school', JSON.stringify(data.school));
         }
         setShowProfileModal(false);
+        showAdminToast('Profile credentials saved successfully.');
       }
     } catch (e) {
       console.error(e);
     }
   };
 
-  const loadSchoolData = async (schoolId: string) => {
-    const cleanId = (schoolId || '').replace(/[^A-Z0-9]/gi, '') || 'DPS2026';
+  const loadSchoolData = async (schoolId?: string, sessionParam?: string) => {
+    const activeSchool = schoolId || selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+    const cleanId = (activeSchool || '').replace(/[^A-Z0-9]/gi, '') || 'DPS2026';
+    const targetSession = sessionParam || selectedSession || '2026-27';
     setLoading(true);
+
+    // If device is offline, restore from offline backup of last real MongoDB session
+    if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && !navigator.onLine) {
+      const offlineBackup = localStorage.getItem(`giterp_offline_backup_${cleanId}_${targetSession}`) || localStorage.getItem(`giterp_offline_backup_${cleanId}`);
+      if (offlineBackup) {
+        try {
+          const cachedData = JSON.parse(offlineBackup);
+          if (cachedData.overview) setOverview(cachedData.overview);
+          if (Array.isArray(cachedData.students)) setStudents(cachedData.students);
+          if (Array.isArray(cachedData.teachers)) setTeachers(cachedData.teachers);
+          if (Array.isArray(cachedData.classes)) setClasses(cachedData.classes);
+          if (Array.isArray(cachedData.notices)) setNotices(cachedData.notices);
+          if (Array.isArray(cachedData.attendance)) setAttendance(cachedData.attendance);
+          if (Array.isArray(cachedData.invoices)) setInvoices(cachedData.invoices);
+        } catch (e) {}
+      }
+      setLoading(false);
+      return;
+    }
+
     try {
+      const fetchOpts = { cache: 'no-store' as RequestCache };
       const [ovRes, stRes, tcRes, clRes, noRes, atRes, inRes] = await Promise.all([
-        fetch(`/api/overview?school_id=${cleanId}`),
-        fetch(`/api/students?school_id=${cleanId}`),
-        fetch(`/api/teachers?school_id=${cleanId}`),
-        fetch(`/api/classes?school_id=${cleanId}`),
-        fetch(`/api/notices?school_id=${cleanId}`),
-        fetch(`/api/attendance?school_id=${cleanId}`),
-        fetch(`/api/fees?school_id=${cleanId}`)
+        fetch(`/api/overview?school_id=${cleanId}&session=${targetSession}`, fetchOpts),
+        fetch(`/api/students?school_id=${cleanId}&session=${targetSession}`, fetchOpts),
+        fetch(`/api/teachers?school_id=${cleanId}&session=${targetSession}`, fetchOpts),
+        fetch(`/api/classes?school_id=${cleanId}&session=${targetSession}`, fetchOpts),
+        fetch(`/api/notices?school_id=${cleanId}&session=${targetSession}`, fetchOpts),
+        fetch(`/api/attendance?school_id=${cleanId}&session=${targetSession}`, fetchOpts),
+        fetch(`/api/fees?school_id=${cleanId}&session=${targetSession}`, fetchOpts)
       ]);
 
       const [ovData, stData, tcData, clData, noData, atData, inData] = await Promise.all([
@@ -611,18 +726,71 @@ function ERPWorkspaceContent() {
         inRes.json()
       ]);
 
-      if (ovData.success) setOverview(ovData.overview);
-      if (stData.success) setStudents(stData.students || []);
-      if (tcData.success) setTeachers(tcData.teachers || []);
-      if (clData.success) setClasses(clData.classes || []);
-      if (noData.success) setNotices(noData.notices || []);
-      if (atData.success) setAttendance(atData.attendance || []);
-      if (inData.success) setInvoices(inData.invoices || []);
+      const freshOverview = ovData.success ? ovData : null;
+      const freshStudents = stData.success ? (stData.students || []) : [];
+      const freshTeachers = tcData.success ? (tcData.teachers || []) : [];
+      const freshClasses: ClassRoom[] = clData.success ? sortClassesChronologically<ClassRoom>(clData.classes || []) : [];
+      const freshNotices = noData.success ? (noData.notices || []) : [];
+      const freshAttendance = atData.success ? (atData.attendance || []) : [];
+      const freshInvoices = inData.success ? (inData.invoices || []) : [];
+
+      setOverview(freshOverview);
+      setStudents(freshStudents);
+      setTeachers(freshTeachers);
+      setClasses(freshClasses);
+      setNotices(freshNotices);
+      setAttendance(freshAttendance);
+      setInvoices(freshInvoices);
+
+      // Save real MongoDB session data as offline backup
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`giterp_offline_backup_${cleanId}_${targetSession}`, JSON.stringify({
+          overview: freshOverview,
+          students: freshStudents,
+          teachers: freshTeachers,
+          classes: freshClasses,
+          notices: freshNotices,
+          attendance: freshAttendance,
+          invoices: freshInvoices,
+          session: targetSession,
+          timestamp: Date.now()
+        }));
+        localStorage.setItem('last_active_school_id', cleanId);
+        localStorage.setItem('giterp_active_session', targetSession);
+        // Remove legacy cache keys
+        localStorage.removeItem(`giterp_cache_${cleanId}`);
+      }
     } catch (e) {
-      console.error('Failed to load school data:', e);
+      console.error('Failed to load live school data from MongoDB, attempting offline recovery:', e);
+      if (typeof window !== 'undefined') {
+        const offlineBackup = localStorage.getItem(`giterp_offline_backup_${cleanId}_${targetSession}`) || localStorage.getItem(`giterp_offline_backup_${cleanId}`);
+        if (offlineBackup) {
+          try {
+            const cachedData = JSON.parse(offlineBackup);
+            if (cachedData.overview) setOverview(cachedData.overview);
+            if (Array.isArray(cachedData.students)) setStudents(cachedData.students);
+            if (Array.isArray(cachedData.teachers)) setTeachers(cachedData.teachers);
+            if (Array.isArray(cachedData.classes)) setClasses(cachedData.classes);
+            if (Array.isArray(cachedData.notices)) setNotices(cachedData.notices);
+            if (Array.isArray(cachedData.attendance)) setAttendance(cachedData.attendance);
+            if (Array.isArray(cachedData.invoices)) setInvoices(cachedData.invoices);
+          } catch (err) {}
+        }
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSwitchSession = async (newSession: string) => {
+    setSelectedSession(newSession);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('giterp_active_session', newSession);
+    }
+    if (selectedSchool) {
+      await loadSchoolData(selectedSchool.school_code || selectedSchool.id, newSession);
+    }
+    showAdminToast(`Switched to Academic Session ${newSession}`);
   };
 
   // Student Actions: Add or Edit CBSE Profile
@@ -634,8 +802,8 @@ function ERPWorkspaceContent() {
       const url = '/api/students';
       const method = isEditing ? 'PATCH' : 'POST';
       const payload = isEditing
-        ? { id: editingStudentId, school_id: selectedSchool.id, ...studentForm }
-        : { school_id: selectedSchool.id, ...studentForm };
+        ? { id: editingStudentId, school_id: selectedSchool.id, academic_session: studentForm.academic_session || selectedSession, ...studentForm }
+        : { school_id: selectedSchool.id, academic_session: studentForm.academic_session || selectedSession, ...studentForm };
 
       const res = await fetch(url, {
         method,
@@ -782,8 +950,8 @@ function ERPWorkspaceContent() {
       const url = '/api/teachers';
       const method = isEditing ? 'PATCH' : 'POST';
       const payload = isEditing
-        ? { id: editingTeacherId, school_id: selectedSchool.id, ...teacherForm }
-        : { school_id: selectedSchool.id, ...teacherForm };
+        ? { id: editingTeacherId, school_id: selectedSchool.id, academic_session: teacherForm.academic_session || selectedSession, ...teacherForm }
+        : { school_id: selectedSchool.id, academic_session: teacherForm.academic_session || selectedSession, ...teacherForm };
 
       const res = await fetch(url, {
         method,
@@ -916,8 +1084,8 @@ function ERPWorkspaceContent() {
       const url = '/api/classes';
       const method = editingClassId ? 'PUT' : 'POST';
       const payload = editingClassId 
-        ? { id: editingClassId, ...classForm } 
-        : { school_id: selectedSchool.id, ...classForm };
+        ? { id: editingClassId, academic_session: selectedSession, ...classForm } 
+        : { school_id: selectedSchool.id, academic_session: selectedSession, ...classForm };
 
       const res = await fetch(url, {
         method,
@@ -944,6 +1112,124 @@ function ERPWorkspaceContent() {
       if (selectedSchool) loadSchoolData(selectedSchool.id);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  // Subject Management Handlers
+  const handleOpenSubjectManager = (cls: ClassRoom) => {
+    setManageSubjectsClass(cls);
+    setEditingSubjectId(null);
+    setShowAddSubjectInline(false);
+    setSubjectForm({
+      id: '',
+      name: '',
+      code: '',
+      type: 'COMPULSORY',
+      weekly_periods: 6,
+      assigned_teacher: cls.class_teacher || '',
+      max_marks: 100
+    });
+  };
+
+  const handleSaveSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manageSubjectsClass || !subjectForm.name.trim()) return;
+    setSubjectSaving(true);
+    try {
+      const isEditing = Boolean(editingSubjectId);
+      const url = '/api/classes/subjects';
+      const method = isEditing ? 'PUT' : 'POST';
+      const payload = isEditing
+        ? {
+            class_id: manageSubjectsClass.id,
+            subject_id: editingSubjectId,
+            name: subjectForm.name.trim(),
+            code: subjectForm.code.trim(),
+            type: subjectForm.type,
+            weekly_periods: Number(subjectForm.weekly_periods) || 5,
+            assigned_teacher: subjectForm.assigned_teacher,
+            max_marks: Number(subjectForm.max_marks) || 100
+          }
+        : {
+            class_id: manageSubjectsClass.id,
+            name: subjectForm.name.trim(),
+            code: subjectForm.code.trim(),
+            type: subjectForm.type,
+            weekly_periods: Number(subjectForm.weekly_periods) || 5,
+            assigned_teacher: subjectForm.assigned_teacher,
+            max_marks: Number(subjectForm.max_marks) || 100
+          };
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success && data.class) {
+        setManageSubjectsClass(data.class);
+        setClasses(prev => prev.map(c => c.id === data.class.id ? data.class : c));
+        setEditingSubjectId(null);
+        setShowAddSubjectInline(false);
+        setSubjectForm({
+          id: '',
+          name: '',
+          code: '',
+          type: 'COMPULSORY',
+          weekly_periods: 6,
+          assigned_teacher: '',
+          max_marks: 100
+        });
+        showAdminToast(isEditing ? 'Subject updated successfully.' : 'New subject added to class curriculum.');
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSubjectSaving(false);
+    }
+  };
+
+  const handleDeleteSubject = async (subjectId: string, subjectName: string) => {
+    if (!manageSubjectsClass) return;
+    if (!confirm(`Are you sure you want to remove "${subjectName}" from ${manageSubjectsClass.class_name} - Section ${manageSubjectsClass.section}?`)) return;
+    setSubjectSaving(true);
+    try {
+      const res = await fetch(`/api/classes/subjects?class_id=${manageSubjectsClass.id}&subject_id=${subjectId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success && data.class) {
+        setManageSubjectsClass(data.class);
+        setClasses(prev => prev.map(c => c.id === data.class.id ? data.class : c));
+        showAdminToast(`"${subjectName}" removed from curriculum.`);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSubjectSaving(false);
+    }
+  };
+
+  const handleResetCbseSubjects = async () => {
+    if (!manageSubjectsClass) return;
+    if (!confirm(`Reset subjects to prescribed CBSE curriculum standards for ${manageSubjectsClass.class_name}? This will restore all standard CBSE subjects.`)) return;
+    setSubjectSaving(true);
+    try {
+      const res = await fetch('/api/classes/subjects', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: manageSubjectsClass.id })
+      });
+      const data = await res.json();
+      if (data.success && data.class) {
+        setManageSubjectsClass(data.class);
+        setClasses(prev => prev.map(c => c.id === data.class.id ? data.class : c));
+        showAdminToast(`Restored standard CBSE curriculum subjects for ${manageSubjectsClass.class_name}.`);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSubjectSaving(false);
     }
   };
 
@@ -1011,12 +1297,12 @@ function ERPWorkspaceContent() {
       const res = await fetch('/api/notices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ school_id: selectedSchool.id, ...noticeForm })
+        body: JSON.stringify({ school_id: selectedSchool.id, academic_session: selectedSession, ...noticeForm })
       });
       const data = await res.json();
       if (data.success) {
         setShowAddNotice(false);
-        setNoticeForm({ title: '', content: '', target_audience: 'ALL', posted_by: 'Principal Office' });
+        setNoticeForm({ title: '', content: '', matter_category: 'ACAD', target_audience: 'ALL', posted_by: 'Principal Office' });
         loadSchoolData(selectedSchool.id);
       }
     } catch (e) {
@@ -1045,6 +1331,7 @@ function ERPWorkspaceContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           school_id: selectedSchool.id,
+          academic_session: selectedSession,
           student_name: invoiceForm.student_name,
           admission_no: invoiceForm.admission_no,
           class_name: invoiceForm.class_name,
@@ -1169,6 +1456,7 @@ function ERPWorkspaceContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           school_id: selectedSchool.id,
+          academic_session: selectedSession,
           date: selectedAttendanceDate,
           class_name: selectedAttendanceClass,
           section: selectedAttendanceSection,
@@ -1236,9 +1524,10 @@ function ERPWorkspaceContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           school_id: selectedSchool.id,
+          academic_session: selectedSession,
           date: selectedAttendanceDate,
-          class_name: 'Faculty & Staff Roster',
-          section: 'All Depts',
+          class_name: 'Faculty',
+          section: 'Staff',
           total_students: activeFaculty.length,
           present_count: presentCount,
           absent_count: absentCount,
@@ -1613,14 +1902,16 @@ function ERPWorkspaceContent() {
     if (studentSortBy === 'roll-asc') return (Number(a.roll_no) || 0) - (Number(b.roll_no) || 0);
     if (studentSortBy === 'roll-desc') return (Number(b.roll_no) || 0) - (Number(a.roll_no) || 0);
     if (studentSortBy === 'class-asc') {
-      const ca = CLASS_HIERARCHY[(a.class_name || '').toLowerCase()] ?? 99;
-      const cb = CLASS_HIERARCHY[(b.class_name || '').toLowerCase()] ?? 99;
-      return ca - cb;
+      const ca = getClassWeight(a.class_name || '');
+      const cb = getClassWeight(b.class_name || '');
+      if (ca !== cb) return ca - cb;
+      return (a.section || '').localeCompare(b.section || '');
     }
     if (studentSortBy === 'class-desc') {
-      const ca = CLASS_HIERARCHY[(a.class_name || '').toLowerCase()] ?? 99;
-      const cb = CLASS_HIERARCHY[(b.class_name || '').toLowerCase()] ?? 99;
-      return cb - ca;
+      const ca = getClassWeight(a.class_name || '');
+      const cb = getClassWeight(b.class_name || '');
+      if (ca !== cb) return cb - ca;
+      return (b.section || '').localeCompare(a.section || '');
     }
     if (studentSortBy === 'sec-asc') return (a.section || '').localeCompare(b.section || '');
     if (studentSortBy === 'sec-desc') return (b.section || '').localeCompare(a.section || '');
@@ -1693,10 +1984,10 @@ function ERPWorkspaceContent() {
     if (classWingFilter !== 'ALL') {
       const cls = (c.class_name || '').toLowerCase();
       if (classWingFilter === 'PRE_PRIMARY' && !(cls.includes('nursery') || cls.includes('lkg') || cls.includes('ukg') || cls.includes('kg') || cls.includes('prep'))) return false;
-      if (classWingFilter === 'PRIMARY' && !(cls.includes('class 1') || cls.includes('class 2') || cls.includes('class 3') || cls.includes('class 4') || cls.includes('class 5') || cls === '1' || cls === '2' || cls === '3' || cls === '4' || cls === '5')) return false;
-      if (classWingFilter === 'MIDDLE' && !(cls.includes('class 6') || cls.includes('class 7') || cls.includes('class 8') || cls === '6' || cls === '7' || cls === '8')) return false;
-      if (classWingFilter === 'SECONDARY' && !(cls.includes('class 9') || cls.includes('class 10') || cls === '9' || cls === '10')) return false;
-      if (classWingFilter === 'SR_SECONDARY' && !(cls.includes('class 11') || cls.includes('class 12') || cls === '11' || cls === '12')) return false;
+      if (classWingFilter === 'PRIMARY' && !(/\b(class\s*1|class\s*2|class\s*3|class\s*4|class\s*5|class\s*i|class\s*ii|class\s*iii|class\s*iv|class\s*v|i|ii|iii|iv|v|1|2|3|4|5)\b/i.test(cls))) return false;
+      if (classWingFilter === 'MIDDLE' && !(/\b(class\s*6|class\s*7|class\s*8|class\s*vi|class\s*vii|class\s*viii|vi|vii|viii|6|7|8)\b/i.test(cls))) return false;
+      if (classWingFilter === 'SECONDARY' && !(/\b(class\s*9|class\s*10|class\s*ix|class\s*x|ix|x|9|10)\b/i.test(cls) && !/\b(xi|xii|11|12)\b/i.test(cls))) return false;
+      if (classWingFilter === 'SR_SECONDARY' && !(/\b(class\s*11|class\s*12|class\s*xi|class\s*xii|xi|xii|11|12)\b/i.test(cls))) return false;
     }
     
     if (!searchQuery.trim()) return true;
@@ -1709,14 +2000,16 @@ function ERPWorkspaceContent() {
     return name.includes(q) || sec.includes(q) || code.includes(q) || teacher.includes(q) || room.includes(q);
   }).sort((a, b) => {
     if (classSortBy === 'A-Z' || classSortBy === 'class-asc') {
-      const ca = CLASS_HIERARCHY[(a.class_name || '').toLowerCase()] ?? 99;
-      const cb = CLASS_HIERARCHY[(b.class_name || '').toLowerCase()] ?? 99;
-      return ca - cb;
+      const ca = getClassWeight(a.class_name || '');
+      const cb = getClassWeight(b.class_name || '');
+      if (ca !== cb) return ca - cb;
+      return (a.section || '').localeCompare(b.section || '');
     }
     if (classSortBy === 'Z-A' || classSortBy === 'class-desc') {
-      const ca = CLASS_HIERARCHY[(a.class_name || '').toLowerCase()] ?? 99;
-      const cb = CLASS_HIERARCHY[(b.class_name || '').toLowerCase()] ?? 99;
-      return cb - ca;
+      const ca = getClassWeight(a.class_name || '');
+      const cb = getClassWeight(b.class_name || '');
+      if (ca !== cb) return cb - ca;
+      return (b.section || '').localeCompare(a.section || '');
     }
     if (classSortBy === 'ID-Asc' || classSortBy === 'code-asc') return (a.class_code || a.id || '').localeCompare(b.class_code || b.id || '', undefined, { numeric: true });
     if (classSortBy === 'code-desc') return (b.class_code || b.id || '').localeCompare(a.class_code || a.id || '', undefined, { numeric: true });
@@ -1815,7 +2108,20 @@ function ERPWorkspaceContent() {
   const totalPending = invoices.filter(i => i.status !== 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased">
+    <div className="h-[100dvh] max-h-[100dvh] w-full max-w-full flex flex-col overflow-hidden bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased">
+      {/* PWA Offline Mode Notice Banner */}
+      {isOffline && (
+        <div className="bg-[#122A24] text-amber-300 px-3.5 sm:px-6 py-2 text-xs font-mono font-bold flex items-center justify-between shadow-xs border-b border-white/20 z-50 shrink-0 animate-fade-in">
+          <span className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+            <span>Offline Mode • Displaying Last Synced Session Data ({selectedSession})</span>
+          </span>
+          <span className="text-[10.5px] text-slate-300 hidden sm:inline">
+            Live MongoDB sync will resume automatically once internet is connected
+          </span>
+        </div>
+      )}
+
       {/* Top Header: Responsive with Mobile Drawer Toggle */}
       {/* Top Header Navigation Bar */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#DCE8E0] px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between shadow-2xs">
@@ -1839,7 +2145,7 @@ function ERPWorkspaceContent() {
             />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="font-display font-bold text-xs sm:text-base lg:text-lg text-[#122A24] tracking-tight truncate max-w-[130px] xs:max-w-[180px] sm:max-w-md">
+                <span className="font-display font-bold text-xs sm:text-base lg:text-lg text-[#122A24] tracking-tight truncate max-w-[150px] xs:max-w-[220px] sm:max-w-md">
                   {selectedSchool?.school_name || 'Delhi Public International School'}
                 </span>
                 {selectedSchool && (
@@ -1855,7 +2161,7 @@ function ERPWorkspaceContent() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {/* Desktop Multi-School Switcher for Super Admin */}
           {isSuperAdmin ? (
             <div className="hidden lg:flex items-center gap-2">
@@ -1884,12 +2190,25 @@ function ERPWorkspaceContent() {
                 <span>↗</span>
               </Link>
             </div>
-          ) : (
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-[#EBF5EF] border border-[#C5E2CF] text-xs text-[#1C443A] font-medium font-mono">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>{selectedSchool?.school_code || 'DPS2026'} • Active Session</span>
-            </div>
-          )}
+          ) : null}
+
+          {/* Academic Session Switcher Dropdown (Responsive Compact Pill) */}
+          <div className="flex items-center gap-1 px-2 sm:px-3 py-1 bg-[#EBF5EF] hover:bg-[#D8EEDF] border border-[#C5E2CF] text-[#122A24] rounded-full text-xs font-bold font-mono shadow-2xs transition-colors shrink-0">
+            <Calendar className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+            <span className="hidden md:inline text-[10px] text-[#2D5A4E] uppercase font-bold tracking-wider">Session:</span>
+            <select
+              value={selectedSession}
+              onChange={(e) => handleSwitchSession(e.target.value)}
+              className="bg-transparent border-none text-[11px] sm:text-xs font-bold font-mono text-[#122A24] focus:outline-none cursor-pointer pr-0.5 max-w-[68px] sm:max-w-none"
+              title="Switch Academic Session"
+            >
+              {AVAILABLE_SESSIONS.map((sess) => (
+                <option key={sess} value={sess}>
+                  {sess}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* User Profile Avatar / Chip */}
           <button
@@ -2022,6 +2341,31 @@ function ERPWorkspaceContent() {
               </div>
             )}
 
+            {/* Academic Session Switcher Widget (Mobile Drawer) */}
+            <div className="mb-3 p-3 bg-white/10 rounded-2xl border border-emerald-400/30 space-y-1.5 shadow-xs">
+              <div className="flex items-center justify-between text-[10px] font-mono text-emerald-300 font-bold">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="h-3 w-3 text-emerald-400" />
+                  <span>ACADEMIC SESSION:</span>
+                </span>
+                <span className="text-[9px] bg-emerald-400/20 px-1.5 py-0.5 rounded text-emerald-200 border border-emerald-400/30">
+                  {selectedSession}
+                </span>
+              </div>
+              <select
+                value={selectedSession}
+                onChange={(e) => { handleSwitchSession(e.target.value); setMobileMenuOpen(false); }}
+                className="w-full bg-[#122A24] text-white text-xs font-semibold rounded-xl px-2.5 py-2 border border-white/20 focus:outline-none cursor-pointer font-mono"
+                title="Switch Academic Session"
+              >
+                {AVAILABLE_SESSIONS.map((sess) => (
+                  <option key={sess} value={sess} className="bg-[#122A24] text-white">
+                    Session {sess} {sess === '2026-27' ? '(Current Academic Year)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="text-[10.5px] font-semibold text-emerald-200/70 uppercase tracking-wider px-3 mb-1.5 font-mono">
               Academic Modules
             </div>
@@ -2074,12 +2418,28 @@ function ERPWorkspaceContent() {
               }`}
             >
               <span className="flex items-center gap-3">
-                <BookOpen className="h-4 w-4 shrink-0" /> Classes &amp; Sections
+                <Layers className="h-4 w-4 shrink-0" /> Classes &amp; Sections
               </span>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
                 activeTab === 'classes' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
               }`}>
                 {classes.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('subjects'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                activeTab === 'subjects' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <BookOpen className="h-4 w-4 shrink-0 text-emerald-300" /> Subjects
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                activeTab === 'subjects' ? 'bg-[#122A24] text-white' : 'bg-emerald-400/30 text-emerald-200'
+              }`}>
+                Curriculum
               </span>
             </button>
 
@@ -2227,7 +2587,7 @@ function ERPWorkspaceContent() {
       )}
 
       {/* Main Workspace Layout */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-w-0 w-full">
         {/* Navigation Sidebar (Desktop Only) */}
         <aside className="hidden lg:flex w-64 bg-[#122A24] text-white p-4 flex-col gap-1 shrink-0 border-r border-white/10 overflow-y-auto">
           {/* Giterp Brand Badge */}
@@ -2333,6 +2693,22 @@ function ERPWorkspaceContent() {
               activeTab === 'classes' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
             }`}>
               {classes.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('subjects')}
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+              activeTab === 'subjects' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <span className="flex items-center gap-3">
+              <BookOpen className="h-4 w-4 shrink-0 text-emerald-300" /> Subjects
+            </span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+              activeTab === 'subjects' ? 'bg-[#122A24] text-white' : 'bg-emerald-400/30 text-emerald-200'
+            }`}>
+              Curriculum
             </span>
           </button>
 
@@ -2489,7 +2865,7 @@ function ERPWorkspaceContent() {
         </aside>
 
         {/* Dynamic Content Area with Bottom Padding for Mobile Bar */}
-        <main className="flex-1 overflow-y-auto p-3.5 sm:p-6 lg:p-8 pb-24 lg:pb-8 bg-[#F8FAF9]">
+        <main className="flex-1 overflow-y-auto min-w-0 w-full p-3.5 sm:p-5 lg:p-6 xl:p-8 pb-24 lg:pb-8 bg-[#F8FAF9] focus:outline-none">
           {/* TAB 1: OVERVIEW (STRAVIX MODERN MINT/SAGE THEME WITH ANIMATED CHARTS) */}
           {activeTab === 'overview' && (
             <DashboardOverview
@@ -4666,6 +5042,12 @@ function ERPWorkspaceContent() {
                           </th>
                           <th className="py-3 px-4">
                             <div className="flex items-center gap-1">
+                              <BookOpen className="h-3.5 w-3.5 text-[#2D5A4E]" />
+                              <span>CBSE Subjects</span>
+                            </div>
+                          </th>
+                          <th className="py-3 px-4">
+                            <div className="flex items-center gap-1">
                               <span>Room No</span>
                             </div>
                           </th>
@@ -4761,6 +5143,20 @@ function ERPWorkspaceContent() {
                                 </span>
                               </td>
 
+                              {/* CBSE Subjects Pill & Studio Trigger */}
+                              <td className="py-3.5 px-4 font-mono">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenSubjectManager(c)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] hover:bg-emerald-100 text-[#122A24] border border-[#C5E2CF] transition-all cursor-pointer shadow-2xs group"
+                                  title="View, rename, add, or delete subjects for this class"
+                                >
+                                  <BookOpen className="h-3.5 w-3.5 text-emerald-700 group-hover:scale-110 transition-transform" />
+                                  <span>{c.subjects?.length || c.no_of_subjects || 6} Subjects</span>
+                                  <span className="text-[10px] text-emerald-800 font-sans font-semibold underline ml-0.5">Manage →</span>
+                                </button>
+                              </td>
+
                               {/* Room No */}
                               <td className="py-3.5 px-4 text-[#2D5A4E] font-mono text-xs">
                                 {c.room_no || 'Room 101'}
@@ -4799,7 +5195,18 @@ function ERPWorkspaceContent() {
                                   </button>
 
                                   {activeClassMenuId === c.id && (
-                                    <div className="absolute right-0 mt-1 w-48 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
+                                    <div className="absolute right-0 mt-1 w-52 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveClassMenuId(null);
+                                          handleOpenSubjectManager(c);
+                                        }}
+                                        className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24] font-semibold"
+                                      >
+                                        <BookOpen className="h-3.5 w-3.5 text-emerald-700" />
+                                        <span>Manage CBSE Subjects</span>
+                                      </button>
                                       <button
                                         onClick={() => {
                                           setActiveClassMenuId(null);
@@ -4816,7 +5223,7 @@ function ERPWorkspaceContent() {
                                         className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
                                       >
                                         <Edit className="h-3.5 w-3.5 text-emerald-700" />
-                                        <span>Edit Class</span>
+                                        <span>Edit Class Info</span>
                                       </button>
                                       <button
                                         onClick={() => {
@@ -4946,889 +5353,30 @@ function ERPWorkspaceContent() {
             </div>
           )}
 
-          {/* TAB 5: ATTENDANCE HUB (INTERACTIVE CLASSROOM & FACULTY ROSTERS) */}
+          {/* TAB 4.5: CBSE CURRICULUM & SUBJECTS STUDIO */}
+          {activeTab === 'subjects' && (
+            <DashboardSubjects
+              selectedSchool={selectedSchool}
+              classes={classes}
+              teachers={teachers}
+              selectedSession={selectedSession}
+              onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.id, selectedSession)}
+              showAdminToast={showAdminToast}
+            />
+          )}
+
+          {/* TAB 5: ATTENDANCE HUB (3 USER-SPECIFIED PANELS) */}
           {activeTab === 'attendance' && (
-            <div className="space-y-6 max-w-7xl mx-auto animate-fade-in">
-              <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-6">
-                {/* 1. Top Header & Attendance Mode Switcher */}
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-[#E8F0EA]">
-                  <div>
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
-                        Attendance Hub &amp; Daily Ledgers
-                      </h1>
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                        {attendanceMode === 'students' ? '👨‍🎓 Classroom Roster' : attendanceMode === 'faculty' ? '👩‍🏫 Faculty Directorate' : '📜 Verification Logs'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#2D5A4E] mt-1 font-mono">
-                      Institutional daily roll call, staff biometric registry, and real-time ledger synchronization
-                    </p>
-                  </div>
-
-                  {/* Mode Switcher Tabs */}
-                  <div className="flex items-center bg-[#F4F8F5] p-1 rounded-full border border-[#DCE8E0] shadow-2xs self-start lg:self-auto overflow-x-auto no-scrollbar">
-                    <button
-                      onClick={() => setAttendanceMode('students')}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border-none cursor-pointer flex items-center gap-1.5 transition-all ${
-                        attendanceMode === 'students'
-                          ? 'bg-[#122A24] text-white shadow-xs'
-                          : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24]'
-                      }`}
-                    >
-                      <Users className="h-3.5 w-3.5" />
-                      <span>Class Students</span>
-                    </button>
-                    <button
-                      onClick={() => setAttendanceMode('faculty')}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border-none cursor-pointer flex items-center gap-1.5 transition-all ${
-                        attendanceMode === 'faculty'
-                          ? 'bg-[#122A24] text-white shadow-xs'
-                          : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24]'
-                      }`}
-                    >
-                      <GraduationCap className="h-3.5 w-3.5" />
-                      <span>Faculty &amp; Staff</span>
-                    </button>
-                    <button
-                      onClick={() => setAttendanceMode('logs')}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border-none cursor-pointer flex items-center gap-1.5 transition-all ${
-                        attendanceMode === 'logs'
-                          ? 'bg-[#122A24] text-white shadow-xs'
-                          : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24]'
-                      }`}
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                      <span>Ledger Logs ({filteredAttendance.length})</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* 2. MODE: CLASSROOM STUDENTS ATTENDANCE */}
-                {attendanceMode === 'students' && (() => {
-                  const targetStudents = students.filter(s => {
-                    const clsMatch = s.class_name?.toLowerCase().replace(/^class\s*/i, '').trim() === selectedAttendanceClass.toLowerCase().replace(/^class\s*/i, '').trim() || s.class_name?.toLowerCase() === selectedAttendanceClass.toLowerCase();
-                    const secMatch = (s.section || 'A').toUpperCase() === selectedAttendanceSection.toUpperCase();
-                    return clsMatch && secMatch;
-                  });
-
-                  let presentCount = 0;
-                  let absentCount = 0;
-                  let lateCount = 0;
-                  let halfDayCount = 0;
-
-                  targetStudents.forEach(s => {
-                    const st = studentAttendanceMap[s.id] || 'PRESENT';
-                    if (st === 'PRESENT') presentCount++;
-                    else if (st === 'ABSENT') absentCount++;
-                    else if (st === 'LATE') lateCount++;
-                    else if (st === 'HALF_DAY') halfDayCount++;
-                  });
-
-                  const effectivePresent = presentCount + lateCount + halfDayCount;
-                  const rate = targetStudents.length > 0 ? Math.round((effectivePresent / targetStudents.length) * 100) : 100;
-
-                  return (
-                    <div className="space-y-5">
-                      {/* Selectors Bar & Action Controls */}
-                      <div className="bg-[#F9FCFA] rounded-2xl border border-[#DCE8E0] p-3.5 sm:p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full xl:w-auto">
-                          {/* Class Select */}
-                          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24] shadow-2xs">
-                            <span className="text-[#2D5A4E] text-[11px] font-mono font-bold shrink-0">Class:</span>
-                            <select
-                              value={selectedAttendanceClass}
-                              onChange={(e) => setSelectedAttendanceClass(e.target.value)}
-                              className="w-full bg-transparent border-none text-xs font-bold text-[#122A24] focus:outline-none cursor-pointer pr-1"
-                            >
-                              <optgroup label="Pre-Primary">
-                                <option value="Nursery">Nursery</option>
-                                <option value="LKG">LKG</option>
-                                <option value="UKG">UKG</option>
-                              </optgroup>
-                              <optgroup label="Primary (1-5)">
-                                <option value="Class 1">Class 1</option>
-                                <option value="Class 2">Class 2</option>
-                                <option value="Class 3">Class 3</option>
-                                <option value="Class 4">Class 4</option>
-                                <option value="Class 5">Class 5</option>
-                              </optgroup>
-                              <optgroup label="Middle & Secondary (6-10)">
-                                <option value="Class 6">Class 6</option>
-                                <option value="Class 7">Class 7</option>
-                                <option value="Class 8">Class 8</option>
-                                <option value="Class 9">Class 9</option>
-                                <option value="Class 10">Class 10</option>
-                              </optgroup>
-                              <optgroup label="Senior Secondary (11-12)">
-                                <option value="Class 11">Class 11</option>
-                                <option value="Class 12">Class 12</option>
-                              </optgroup>
-                            </select>
-                          </div>
-
-                          {/* Section Select */}
-                          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24] shadow-2xs">
-                            <span className="text-[#2D5A4E] text-[11px] font-mono font-bold shrink-0">Section:</span>
-                            <select
-                              value={selectedAttendanceSection}
-                              onChange={(e) => setSelectedAttendanceSection(e.target.value)}
-                              className="w-full bg-transparent border-none text-xs font-bold text-[#122A24] focus:outline-none cursor-pointer pr-1"
-                            >
-                              <option value="A">Section A</option>
-                              <option value="B">Section B</option>
-                              <option value="C">Section C</option>
-                              <option value="D">Section D</option>
-                            </select>
-                          </div>
-
-                          {/* Date Select */}
-                          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24] shadow-2xs">
-                            <Calendar className="h-4 w-4 text-[#2D5A4E] shrink-0" />
-                            <input
-                              type="date"
-                              value={selectedAttendanceDate}
-                              onChange={(e) => setSelectedAttendanceDate(e.target.value)}
-                              className="w-full bg-transparent border-none text-xs font-mono font-bold text-[#122A24] focus:outline-none cursor-pointer"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Batch Action Buttons */}
-                        <div className="flex items-center gap-2 flex-wrap justify-between sm:justify-start">
-                          <button
-                            onClick={() => handleMarkAllClassStudents('PRESENT')}
-                            className="flex-1 sm:flex-none px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold cursor-pointer transition-colors shadow-2xs flex items-center justify-center gap-1"
-                          >
-                            <span>✓</span>
-                            <span>All Present</span>
-                          </button>
-                          <button
-                            onClick={() => handleMarkAllClassStudents('ABSENT')}
-                            className="flex-1 sm:flex-none px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold cursor-pointer transition-colors shadow-2xs flex items-center justify-center gap-1"
-                          >
-                            <span>✗</span>
-                            <span>All Absent</span>
-                          </button>
-                          <button
-                            onClick={handleSaveClassAttendance}
-                            disabled={attendanceSaving || targetStudents.length === 0}
-                            className="w-full sm:w-auto px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-semibold border-none cursor-pointer shadow-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
-                          >
-                            <Save className="h-3.5 w-3.5" />
-                            <span>{attendanceSaving ? 'Saving...' : 'Save & Sync Attendance'}</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Live Class KPI Cards */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
-                        <div className="bg-[#F9FCFA] p-3 sm:p-3.5 rounded-2xl border border-[#DCE8E0]">
-                          <div className="text-[10.5px] sm:text-[11px] font-mono text-[#2D5A4E]">Class Strength</div>
-                          <div className="text-lg sm:text-xl font-bold font-display text-[#122A24] mt-0.5">{targetStudents.length} Scholars</div>
-                        </div>
-                        <div className="bg-[#EBF5EF] p-3 sm:p-3.5 rounded-2xl border border-[#C5E2CF]">
-                          <div className="text-[10.5px] sm:text-[11px] font-mono text-emerald-800 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /> Present Today
-                          </div>
-                          <div className="text-lg sm:text-xl font-bold font-display text-emerald-900 mt-0.5">{effectivePresent} Present</div>
-                        </div>
-                        <div className="bg-rose-50/70 p-3 sm:p-3.5 rounded-2xl border border-rose-200">
-                          <div className="text-[10.5px] sm:text-[11px] font-mono text-rose-700 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-600" /> Absent Today
-                          </div>
-                          <div className="text-lg sm:text-xl font-bold font-display text-rose-900 mt-0.5">{absentCount} Absent</div>
-                        </div>
-                        <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-[#DCE8E0]">
-                          <div className="text-[10.5px] sm:text-[11px] font-mono text-[#2D5A4E]">Attendance Rate</div>
-                          <div className="text-lg sm:text-xl font-bold font-display text-[#122A24] mt-0.5">{rate}%</div>
-                        </div>
-                      </div>
-
-                      {/* MOBILE-NATIVE ROLL CALL CARDS (VISIBLE ON SCREENS < LG) */}
-                      <div className="block lg:hidden space-y-3">
-                        <div className="flex items-center justify-between px-1 text-xs font-mono text-[#2D5A4E]">
-                          <span className="font-bold text-[#122A24]">
-                            {selectedAttendanceClass} — Sec {selectedAttendanceSection} ({targetStudents.length} Scholars)
-                          </span>
-                          <span>Tap status to toggle</span>
-                        </div>
-
-                        {targetStudents.map((s, idx) => {
-                          const currentStatus = studentAttendanceMap[s.id] || 'PRESENT';
-                          const initials = (s.full_name || 'Student').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-
-                          return (
-                            <div
-                              key={s.id}
-                              className={`p-3.5 rounded-2xl border transition-all space-y-3 bg-white shadow-2xs ${
-                                currentStatus === 'PRESENT'
-                                  ? 'border-[#C5E2CF]'
-                                  : currentStatus === 'ABSENT'
-                                  ? 'border-rose-200 bg-rose-50/20'
-                                  : currentStatus === 'LATE'
-                                  ? 'border-amber-200 bg-amber-50/20'
-                                  : 'border-sky-200 bg-sky-50/20'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2.5">
-                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                  <div className="w-9 h-9 rounded-xl bg-[#EBF5EF] text-[#122A24] font-display font-bold text-xs flex items-center justify-center border border-[#C5E2CF] shrink-0">
-                                    {initials}
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="font-display font-bold text-sm text-[#122A24] truncate">
-                                      {s.full_name}
-                                    </div>
-                                    <div className="text-[10.5px] font-mono text-[#2D5A4E] truncate">
-                                      Adm: {s.admission_no} • {s.guardian_name || 'Parent'}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="flex flex-col items-end shrink-0">
-                                  <span className="px-2 py-0.5 rounded-md bg-[#F4F8F5] text-[#122A24] text-[11px] font-mono font-bold border border-[#DCE8E0]">
-                                    #{s.roll_no || (idx + 1).toString().padStart(2, '0')}
-                                  </span>
-                                  <span className="text-[9.5px] font-mono text-emerald-700 mt-0.5 font-semibold">
-                                    {s.attendance_percent || 96}% avg
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Mobile 4-Button Segmented Touch Bar */}
-                              <div className="grid grid-cols-4 gap-1.5 p-1 bg-[#F4F8F5] rounded-xl border border-[#DCE8E0]">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleStudentAttendanceStatus(s.id, 'PRESENT')}
-                                  className={`py-2 px-1 rounded-lg text-xs font-mono font-bold flex flex-col items-center justify-center transition-all cursor-pointer border-none ${
-                                    currentStatus === 'PRESENT'
-                                      ? 'bg-emerald-600 text-white shadow-xs'
-                                      : 'bg-transparent text-[#2D5A4E] hover:bg-white'
-                                  }`}
-                                >
-                                  <span className="text-sm leading-none">✓</span>
-                                  <span className="text-[10px] mt-0.5">Present</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleStudentAttendanceStatus(s.id, 'ABSENT')}
-                                  className={`py-2 px-1 rounded-lg text-xs font-mono font-bold flex flex-col items-center justify-center transition-all cursor-pointer border-none ${
-                                    currentStatus === 'ABSENT'
-                                      ? 'bg-rose-600 text-white shadow-xs'
-                                      : 'bg-transparent text-[#2D5A4E] hover:bg-white'
-                                  }`}
-                                >
-                                  <span className="text-sm leading-none">✗</span>
-                                  <span className="text-[10px] mt-0.5">Absent</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleStudentAttendanceStatus(s.id, 'LATE')}
-                                  className={`py-2 px-1 rounded-lg text-xs font-mono font-bold flex flex-col items-center justify-center transition-all cursor-pointer border-none ${
-                                    currentStatus === 'LATE'
-                                      ? 'bg-amber-500 text-white shadow-xs'
-                                      : 'bg-transparent text-[#2D5A4E] hover:bg-white'
-                                  }`}
-                                >
-                                  <span className="text-sm leading-none">⏰</span>
-                                  <span className="text-[10px] mt-0.5">Late</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleStudentAttendanceStatus(s.id, 'HALF_DAY')}
-                                  className={`py-2 px-1 rounded-lg text-xs font-mono font-bold flex flex-col items-center justify-center transition-all cursor-pointer border-none ${
-                                    currentStatus === 'HALF_DAY'
-                                      ? 'bg-sky-600 text-white shadow-xs'
-                                      : 'bg-transparent text-[#2D5A4E] hover:bg-white'
-                                  }`}
-                                >
-                                  <span className="text-sm leading-none">½</span>
-                                  <span className="text-[10px] mt-0.5">Half Day</span>
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {targetStudents.length === 0 && (
-                          <div className="py-12 text-center text-xs font-mono text-[#2D5A4E] bg-[#F9FCFA] rounded-2xl border border-[#DCE8E0] p-4">
-                            No students enrolled in {selectedAttendanceClass} - Section {selectedAttendanceSection}. Select another class or add students.
-                          </div>
-                        )}
-                      </div>
-
-                      {/* DESKTOP ROLL CALL TABLE (VISIBLE ON SCREENS >= LG) */}
-                      <div className="hidden lg:block rounded-2xl border border-[#DCE8E0] overflow-hidden bg-white shadow-2xs">
-                        <div className="p-3.5 bg-[#F3F7F5] border-b border-[#DCE8E0] font-mono text-[11px] font-bold text-[#1C443A] uppercase tracking-wider flex justify-between items-center">
-                          <span>{selectedAttendanceClass} — Section {selectedAttendanceSection} Student Roll Call</span>
-                          <span>{targetStudents.length} Students Enrolled</span>
-                        </div>
-
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs border-collapse">
-                            <thead className="bg-[#F9FCFA] font-mono text-[10.5px] font-bold text-[#2D5A4E] uppercase border-b border-[#E8F0EA]">
-                              <tr>
-                                <th className="py-2.5 px-4 w-16">Roll</th>
-                                <th className="py-2.5 px-4">Adm No</th>
-                                <th className="py-2.5 px-4">Scholar Name</th>
-                                <th className="py-2.5 px-4">Guardian / Phone</th>
-                                <th className="py-2.5 px-4 text-center">Term Record</th>
-                                <th className="py-2.5 px-4 text-center">Daily Status Toggle</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[#EBF2ED]">
-                              {targetStudents.map((s, idx) => {
-                                const currentStatus = studentAttendanceMap[s.id] || 'PRESENT';
-                                const initials = (s.full_name || 'Student').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-
-                                return (
-                                  <tr key={s.id} className="hover:bg-[#F9FCFA] transition-colors">
-                                    <td className="py-3 px-4 font-mono font-bold text-[#122A24]">
-                                      #{s.roll_no || (idx + 1).toString().padStart(2, '0')}
-                                    </td>
-                                    <td className="py-3 px-4 font-mono text-[#2D5A4E]">
-                                      {s.admission_no}
-                                    </td>
-                                    <td className="py-3 px-4">
-                                      <div className="flex items-center gap-2.5">
-                                        <div className="w-7 h-7 rounded-full bg-[#EBF5EF] text-[#122A24] font-bold text-[10px] flex items-center justify-center border border-[#C5E2CF]">
-                                          {initials}
-                                        </div>
-                                        <div>
-                                          <div className="font-semibold text-[#122A24]">{s.full_name}</div>
-                                          <div className="text-[10px] text-[#2D5A4E]">{s.gender || 'Scholar'}</div>
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td className="py-3 px-4 text-[#2D5A4E] font-mono text-[11px]">
-                                      <div>{s.guardian_name || 'Parent'}</div>
-                                      <div className="text-[10px] text-slate-400">{s.guardian_phone || s.father_phone || '—'}</div>
-                                    </td>
-                                    <td className="py-3 px-4 text-center font-mono">
-                                      <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                                        {s.attendance_percent || 96}%
-                                      </span>
-                                    </td>
-                                    <td className="py-3 px-4">
-                                      <div className="flex items-center justify-center gap-1.5">
-                                        <button
-                                          onClick={() => handleToggleStudentAttendanceStatus(s.id, 'PRESENT')}
-                                          className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold border cursor-pointer transition-all ${
-                                            currentStatus === 'PRESENT'
-                                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                                              : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'
-                                          }`}
-                                        >
-                                          ✓ Present
-                                        </button>
-                                        <button
-                                          onClick={() => handleToggleStudentAttendanceStatus(s.id, 'ABSENT')}
-                                          className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold border cursor-pointer transition-all ${
-                                            currentStatus === 'ABSENT'
-                                              ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-                                              : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
-                                          }`}
-                                        >
-                                          ✗ Absent
-                                        </button>
-                                        <button
-                                          onClick={() => handleToggleStudentAttendanceStatus(s.id, 'LATE')}
-                                          className={`px-2 py-1 rounded-full text-[10.5px] font-mono font-bold border cursor-pointer transition-all ${
-                                            currentStatus === 'LATE'
-                                              ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                                              : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50'
-                                          }`}
-                                        >
-                                          Late
-                                        </button>
-                                        <button
-                                          onClick={() => handleToggleStudentAttendanceStatus(s.id, 'HALF_DAY')}
-                                          className={`px-2 py-1 rounded-full text-[10.5px] font-mono font-bold border cursor-pointer transition-all ${
-                                            currentStatus === 'HALF_DAY'
-                                              ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
-                                              : 'bg-white text-sky-700 border-sky-200 hover:bg-sky-50'
-                                          }`}
-                                        >
-                                          Half Day
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                              {targetStudents.length === 0 && (
-                                <tr>
-                                  <td colSpan={6} className="py-12 text-center text-xs font-mono text-[#2D5A4E]">
-                                    No students enrolled in {selectedAttendanceClass} - Section {selectedAttendanceSection}. Select another class or add students.
-                                  </td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      {/* FLOATING MOBILE SAVE DOCK (STICKY AT BOTTOM FOR QUICK 1-TAP SAVE) */}
-                      {targetStudents.length > 0 && (
-                        <div className="fixed bottom-20 lg:hidden left-4 right-4 z-40 bg-[#122A24]/95 text-white p-3 rounded-2xl shadow-2xl backdrop-blur-md border border-white/20 flex items-center justify-between gap-3 animate-fade-up">
-                          <div>
-                            <div className="text-[11px] font-mono text-emerald-300 font-bold">
-                              {effectivePresent} / {targetStudents.length} Present ({rate}%)
-                            </div>
-                            <div className="text-[10px] text-slate-300 font-mono">
-                              {selectedAttendanceClass} - Sec {selectedAttendanceSection}
-                            </div>
-                          </div>
-                          <button
-                            onClick={handleSaveClassAttendance}
-                            disabled={attendanceSaving}
-                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl border-none cursor-pointer shadow-md flex items-center gap-1.5 transition-all disabled:opacity-50"
-                          >
-                            <Save className="h-3.5 w-3.5" />
-                            <span>{attendanceSaving ? 'Saving...' : 'Save & Sync'}</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* 3. MODE: FACULTY & STAFF ATTENDANCE */}
-                {attendanceMode === 'faculty' && (() => {
-                  const activeFaculty = teachers.filter(t => {
-                    if (t.status === 'INACTIVE') return false;
-                    if (attendanceFacultyDeptFilter !== 'ALL' && !t.department?.toLowerCase().includes(attendanceFacultyDeptFilter.toLowerCase())) return false;
-                    return true;
-                  });
-
-                  let onDutyCount = 0;
-                  let onLeaveCount = 0;
-                  let halfDayCount = 0;
-                  let absentCount = 0;
-
-                  activeFaculty.forEach(t => {
-                    const st = facultyAttendanceMap[t.id] || 'PRESENT';
-                    if (st === 'PRESENT') onDutyCount++;
-                    else if (st === 'LEAVE') onLeaveCount++;
-                    else if (st === 'HALF_DAY') halfDayCount++;
-                    else if (st === 'ABSENT') absentCount++;
-                  });
-
-                  const effectiveOnDuty = onDutyCount + halfDayCount;
-                  const rate = activeFaculty.length > 0 ? Math.round((effectiveOnDuty / activeFaculty.length) * 100) : 100;
-
-                  return (
-                    <div className="space-y-5">
-                      {/* Selectors Bar & Action Controls */}
-                      <div className="bg-[#F9FCFA] rounded-2xl border border-[#DCE8E0] p-3.5 sm:p-4 flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full xl:w-auto">
-                          {/* Date Select */}
-                          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24] shadow-2xs">
-                            <Calendar className="h-4 w-4 text-[#2D5A4E] shrink-0" />
-                            <input
-                              type="date"
-                              value={selectedAttendanceDate}
-                              onChange={(e) => setSelectedAttendanceDate(e.target.value)}
-                              className="w-full bg-transparent border-none text-xs font-mono font-bold text-[#122A24] focus:outline-none cursor-pointer"
-                            />
-                          </div>
-
-                          {/* Department Filter */}
-                          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24] shadow-2xs">
-                            <span className="text-[#2D5A4E] text-[11px] font-mono font-bold shrink-0">Dept:</span>
-                            <select
-                              value={attendanceFacultyDeptFilter}
-                              onChange={(e) => setAttendanceFacultyDeptFilter(e.target.value)}
-                              className="w-full bg-transparent border-none text-xs font-bold text-[#122A24] focus:outline-none cursor-pointer pr-1"
-                            >
-                              <option value="ALL">All Departments</option>
-                              <option value="Mathematics">Mathematics</option>
-                              <option value="Science">Science</option>
-                              <option value="English">English</option>
-                              <option value="Hindi">Hindi &amp; Sanskrit</option>
-                              <option value="Social">Social Science</option>
-                              <option value="Computer">Computer &amp; AI</option>
-                              <option value="Commerce">Commerce</option>
-                              <option value="Physical">Physical Education</option>
-                              <option value="Pre-Primary">Pre-Primary</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {/* Batch Action Buttons */}
-                        <div className="flex items-center gap-2 flex-wrap justify-between sm:justify-start">
-                          <button
-                            onClick={() => handleMarkAllFaculty('PRESENT')}
-                            className="flex-1 sm:flex-none px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold cursor-pointer transition-colors shadow-2xs flex items-center justify-center gap-1"
-                          >
-                            <span>✓</span>
-                            <span>All On Duty</span>
-                          </button>
-                          <button
-                            onClick={() => handleMarkAllFaculty('LEAVE')}
-                            className="flex-1 sm:flex-none px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-semibold cursor-pointer transition-colors shadow-2xs flex items-center justify-center gap-1"
-                          >
-                            <span>🏖</span>
-                            <span>All On Leave</span>
-                          </button>
-                          <button
-                            onClick={handleSaveFacultyAttendance}
-                            disabled={attendanceSaving || activeFaculty.length === 0}
-                            className="w-full sm:w-auto px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-semibold border-none cursor-pointer shadow-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-60"
-                          >
-                            <Save className="h-3.5 w-3.5" />
-                            <span>{attendanceSaving ? 'Saving...' : 'Save Faculty Ledger'}</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Live Faculty KPI Cards */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5">
-                        <div className="bg-[#F9FCFA] p-3 sm:p-3.5 rounded-2xl border border-[#DCE8E0]">
-                          <div className="text-[10.5px] sm:text-[11px] font-mono text-[#2D5A4E]">Faculty Strength</div>
-                          <div className="text-lg sm:text-xl font-bold font-display text-[#122A24] mt-0.5">{activeFaculty.length} Certified</div>
-                        </div>
-                        <div className="bg-[#EBF5EF] p-3 sm:p-3.5 rounded-2xl border border-[#C5E2CF]">
-                          <div className="text-[10.5px] sm:text-[11px] font-mono text-emerald-800 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" /> On Duty Today
-                          </div>
-                          <div className="text-lg sm:text-xl font-bold font-display text-emerald-900 mt-0.5">{effectiveOnDuty} On Duty</div>
-                        </div>
-                        <div className="bg-amber-50/70 p-3 sm:p-3.5 rounded-2xl border border-amber-200">
-                          <div className="text-[10.5px] sm:text-[11px] font-mono text-amber-800 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-600" /> Approved Leave
-                          </div>
-                          <div className="text-lg sm:text-xl font-bold font-display text-amber-900 mt-0.5">{onLeaveCount} Leave</div>
-                        </div>
-                        <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-[#DCE8E0]">
-                          <div className="text-[10.5px] sm:text-[11px] font-mono text-[#2D5A4E]">Presence Rate</div>
-                          <div className="text-lg sm:text-xl font-bold font-display text-[#122A24] mt-0.5">{rate}%</div>
-                        </div>
-                      </div>
-
-                      {/* MOBILE-NATIVE FACULTY CARDS (VISIBLE ON SCREENS < LG) */}
-                      <div className="block lg:hidden space-y-3">
-                        <div className="flex items-center justify-between px-1 text-xs font-mono text-[#2D5A4E]">
-                          <span className="font-bold text-[#122A24]">
-                            Faculty Directorate ({activeFaculty.length} Staff)
-                          </span>
-                          <span>Tap status to toggle</span>
-                        </div>
-
-                        {activeFaculty.map((t) => {
-                          const currentStatus = facultyAttendanceMap[t.id] || 'PRESENT';
-                          const initials = (t.full_name || 'Faculty').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-
-                          return (
-                            <div
-                              key={t.id}
-                              className={`p-3.5 rounded-2xl border transition-all space-y-3 bg-white shadow-2xs ${
-                                currentStatus === 'PRESENT'
-                                  ? 'border-[#C5E2CF]'
-                                  : currentStatus === 'LEAVE'
-                                  ? 'border-amber-200 bg-amber-50/20'
-                                  : currentStatus === 'HALF_DAY'
-                                  ? 'border-sky-200 bg-sky-50/20'
-                                  : 'border-rose-200 bg-rose-50/20'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2.5">
-                                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                  <div className="w-9 h-9 rounded-xl bg-[#EBF5EF] text-[#122A24] font-display font-bold text-xs flex items-center justify-center border border-[#C5E2CF] shrink-0">
-                                    {initials}
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="font-display font-bold text-sm text-[#122A24] truncate">
-                                      {t.full_name}
-                                    </div>
-                                    <div className="text-[10.5px] font-mono text-[#2D5A4E] truncate">
-                                      {t.designation || 'Faculty'} • {t.department || 'Academic'}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <span className="px-2 py-0.5 rounded-md bg-[#F4F8F5] text-[#122A24] text-[11px] font-mono font-bold border border-[#DCE8E0] shrink-0">
-                                  {t.staff_code}
-                                </span>
-                              </div>
-
-                              {/* Mobile 4-Button Segmented Touch Bar */}
-                              <div className="grid grid-cols-4 gap-1.5 p-1 bg-[#F4F8F5] rounded-xl border border-[#DCE8E0]">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleFacultyAttendanceStatus(t.id, 'PRESENT')}
-                                  className={`py-2 px-1 rounded-lg text-xs font-mono font-bold flex flex-col items-center justify-center transition-all cursor-pointer border-none ${
-                                    currentStatus === 'PRESENT'
-                                      ? 'bg-emerald-600 text-white shadow-xs'
-                                      : 'bg-transparent text-[#2D5A4E] hover:bg-white'
-                                  }`}
-                                >
-                                  <span className="text-sm leading-none">●</span>
-                                  <span className="text-[10px] mt-0.5">On Duty</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleFacultyAttendanceStatus(t.id, 'LEAVE')}
-                                  className={`py-2 px-1 rounded-lg text-xs font-mono font-bold flex flex-col items-center justify-center transition-all cursor-pointer border-none ${
-                                    currentStatus === 'LEAVE'
-                                      ? 'bg-amber-500 text-white shadow-xs'
-                                      : 'bg-transparent text-[#2D5A4E] hover:bg-white'
-                                  }`}
-                                >
-                                  <span className="text-sm leading-none">🏖</span>
-                                  <span className="text-[10px] mt-0.5">Leave</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleFacultyAttendanceStatus(t.id, 'HALF_DAY')}
-                                  className={`py-2 px-1 rounded-lg text-xs font-mono font-bold flex flex-col items-center justify-center transition-all cursor-pointer border-none ${
-                                    currentStatus === 'HALF_DAY'
-                                      ? 'bg-sky-600 text-white shadow-xs'
-                                      : 'bg-transparent text-[#2D5A4E] hover:bg-white'
-                                  }`}
-                                >
-                                  <span className="text-sm leading-none">½</span>
-                                  <span className="text-[10px] mt-0.5">Half Day</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleFacultyAttendanceStatus(t.id, 'ABSENT')}
-                                  className={`py-2 px-1 rounded-lg text-xs font-mono font-bold flex flex-col items-center justify-center transition-all cursor-pointer border-none ${
-                                    currentStatus === 'ABSENT'
-                                      ? 'bg-rose-600 text-white shadow-xs'
-                                      : 'bg-transparent text-[#2D5A4E] hover:bg-white'
-                                  }`}
-                                >
-                                  <span className="text-sm leading-none">✗</span>
-                                  <span className="text-[10px] mt-0.5">Absent</span>
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* DESKTOP FACULTY TABLE (VISIBLE ON SCREENS >= LG) */}
-                      <div className="hidden lg:block rounded-2xl border border-[#DCE8E0] overflow-hidden bg-white shadow-2xs">
-                        <div className="p-3.5 bg-[#F3F7F5] border-b border-[#DCE8E0] font-mono text-[11px] font-bold text-[#1C443A] uppercase tracking-wider flex justify-between items-center">
-                          <span>Faculty &amp; Staff Attendance Roll Call</span>
-                          <span>{activeFaculty.length} Active Faculty</span>
-                        </div>
-
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs border-collapse">
-                            <thead className="bg-[#F9FCFA] font-mono text-[10.5px] font-bold text-[#2D5A4E] uppercase border-b border-[#E8F0EA]">
-                              <tr>
-                                <th className="py-2.5 px-4 w-20">Code</th>
-                                <th className="py-2.5 px-4">Faculty Member</th>
-                                <th className="py-2.5 px-4">Role &amp; Department</th>
-                                <th className="py-2.5 px-4">Shift Timings</th>
-                                <th className="py-2.5 px-4 text-center">Daily Status Toggle</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[#EBF2ED]">
-                              {activeFaculty.map((t) => {
-                                const currentStatus = facultyAttendanceMap[t.id] || 'PRESENT';
-                                const initials = (t.full_name || 'Faculty').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-
-                                return (
-                                  <tr key={t.id} className="hover:bg-[#F9FCFA] transition-colors">
-                                    <td className="py-3 px-4 font-mono font-bold text-[#122A24]">
-                                      {t.staff_code}
-                                    </td>
-                                    <td className="py-3 px-4">
-                                      <div className="flex items-center gap-2.5">
-                                        <div className="w-7 h-7 rounded-full bg-[#EBF5EF] text-[#122A24] font-bold text-[10px] flex items-center justify-center border border-[#C5E2CF]">
-                                          {initials}
-                                        </div>
-                                        <div>
-                                          <div className="font-semibold text-[#122A24]">{t.full_name}</div>
-                                          <div className="text-[10px] text-[#2D5A4E]">{t.email}</div>
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td className="py-3 px-4">
-                                      <div className="font-medium text-[#122A24]">{t.designation || 'Faculty'}</div>
-                                      <div className="text-[10px] text-[#2D5A4E]">{t.department || t.subject_specialization || 'General'}</div>
-                                    </td>
-                                    <td className="py-3 px-4 font-mono text-[11px] text-[#2D5A4E]">
-                                      <div>08:00 AM — 02:30 PM</div>
-                                      <div className="text-[10px] text-emerald-700">Biometric Sync OK</div>
-                                    </td>
-                                    <td className="py-3 px-4">
-                                      <div className="flex items-center justify-center gap-1.5">
-                                        <button
-                                          onClick={() => handleToggleFacultyAttendanceStatus(t.id, 'PRESENT')}
-                                          className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold border cursor-pointer transition-all ${
-                                            currentStatus === 'PRESENT'
-                                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                                              : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'
-                                          }`}
-                                        >
-                                          ● On Duty
-                                        </button>
-                                        <button
-                                          onClick={() => handleToggleFacultyAttendanceStatus(t.id, 'LEAVE')}
-                                          className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold border cursor-pointer transition-all ${
-                                            currentStatus === 'LEAVE'
-                                              ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                                              : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50'
-                                          }`}
-                                        >
-                                          🏖 On Leave
-                                        </button>
-                                        <button
-                                          onClick={() => handleToggleFacultyAttendanceStatus(t.id, 'HALF_DAY')}
-                                          className={`px-2 py-1 rounded-full text-[10.5px] font-mono font-bold border cursor-pointer transition-all ${
-                                            currentStatus === 'HALF_DAY'
-                                              ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
-                                              : 'bg-white text-sky-700 border-sky-200 hover:bg-sky-50'
-                                          }`}
-                                        >
-                                          Half Day
-                                        </button>
-                                        <button
-                                          onClick={() => handleToggleFacultyAttendanceStatus(t.id, 'ABSENT')}
-                                          className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold border cursor-pointer transition-all ${
-                                            currentStatus === 'ABSENT'
-                                              ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-                                              : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
-                                          }`}
-                                        >
-                                          ✗ Absent
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      {/* FLOATING MOBILE SAVE DOCK FOR FACULTY */}
-                      {activeFaculty.length > 0 && (
-                        <div className="fixed bottom-20 lg:hidden left-4 right-4 z-40 bg-[#122A24]/95 text-white p-3 rounded-2xl shadow-2xl backdrop-blur-md border border-white/20 flex items-center justify-between gap-3 animate-fade-up">
-                          <div>
-                            <div className="text-[11px] font-mono text-emerald-300 font-bold">
-                              {effectiveOnDuty} / {activeFaculty.length} On Duty ({rate}%)
-                            </div>
-                            <div className="text-[10px] text-slate-300 font-mono">
-                              Faculty Directorate
-                            </div>
-                          </div>
-                          <button
-                            onClick={handleSaveFacultyAttendance}
-                            disabled={attendanceSaving}
-                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl border-none cursor-pointer shadow-md flex items-center gap-1.5 transition-all disabled:opacity-50"
-                          >
-                            <Save className="h-3.5 w-3.5" />
-                            <span>{attendanceSaving ? 'Saving...' : 'Save Ledger'}</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* 4. MODE: DAILY LEDGER VERIFICATION LOGS */}
-                {attendanceMode === 'logs' && (
-                  <div className="space-y-5">
-                    {/* Filters Bar */}
-                    <div className="bg-[#F9FCFA] rounded-2xl border border-[#DCE8E0] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        {/* Class Filter */}
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-full text-xs font-medium text-[#122A24] shadow-2xs">
-                          <span className="text-[#2D5A4E] text-[11px] font-mono">Class:</span>
-                          <select
-                            value={attendanceClassFilter}
-                            onChange={(e) => setAttendanceClassFilter(e.target.value)}
-                            className="bg-transparent border-none text-xs font-semibold text-[#122A24] focus:outline-none cursor-pointer pr-1"
-                          >
-                            <option value="ALL">All Classes</option>
-                            <option value="Faculty & Staff Roster">Faculty &amp; Staff</option>
-                            <option value="Nursery">Nursery</option>
-                            <option value="LKG">LKG</option>
-                            <option value="UKG">UKG</option>
-                            {Array.from({ length: 12 }, (_, i) => i + 1).map(num => (
-                              <option key={num} value={`Class ${num}`}>{`Class ${num}`}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Date Filter */}
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-full text-xs font-medium text-[#122A24] shadow-2xs">
-                          <Calendar className="h-3.5 w-3.5 text-[#2D5A4E]" />
-                          <input
-                            type="date"
-                            value={attendanceDateFilter}
-                            onChange={(e) => setAttendanceDateFilter(e.target.value)}
-                            className="bg-transparent border-none text-xs font-mono text-[#122A24] focus:outline-none cursor-pointer"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Search Bar */}
-                      <div className="relative w-full sm:w-72">
-                        <Search className="absolute left-3.5 top-2.5 h-3.5 w-3.5 text-[#2D5A4E]" />
-                        <input
-                          type="text"
-                          placeholder="Search logs by class, section, teacher..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-9 pr-4 py-1.5 bg-white border border-[#DCE8E0] rounded-full text-xs text-[#122A24] placeholder-slate-400 focus:outline-none focus:border-[#10B981] transition-all shadow-2xs"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Attendance Logs List */}
-                    <div className="bg-white rounded-2xl border border-[#DCE8E0] overflow-hidden shadow-2xs">
-                      <div className="p-3.5 border-b border-[#DCE8E0] bg-[#F3F7F5] font-mono text-[11px] font-bold uppercase tracking-wider text-[#1C443A] flex justify-between items-center">
-                        <span>Live Verification Session Logs</span>
-                        <span>{filteredAttendance.length} Entries Recorded</span>
-                      </div>
-                      <div className="divide-y divide-[#EBF2ED]">
-                        {filteredAttendance.map(a => (
-                          <div key={a.id} className="p-4 flex items-center justify-between text-xs hover:bg-[#F9FCFA] transition-colors group">
-                            <div>
-                              <div className="font-semibold text-[#122A24] text-sm">
-                                {a.class_name} {a.section && a.section !== 'All' ? `— Section ${a.section}` : ''}
-                              </div>
-                              <div className="text-[#2D5A4E] font-mono text-[11px] mt-0.5">
-                                Date: {formatDateDisplay(a.date)} • Verified By: <span className="font-semibold">{a.marked_by || 'Admin'}</span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3 font-mono">
-                              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                                ✓ {a.present_count} Present
-                              </span>
-                              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                ✗ {a.absent_count} Absent
-                              </span>
-                              <span className="text-[#2D5A4E] text-xs font-semibold">Total: {a.total_students}</span>
-                              <button
-                                onClick={() => handleDeleteAttendanceLog(a.id)}
-                                className="p-1.5 text-slate-300 hover:text-rose-600 rounded-full border-none bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                                title="Delete Log Record"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                        {filteredAttendance.length === 0 && (
-                          <div className="py-12 text-center text-xs font-mono text-[#2D5A4E]">
-                            No attendance verification records found matching your filters.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <DashboardAttendance
+              selectedSchool={selectedSchool}
+              students={students}
+              teachers={teachers}
+              classes={classes}
+              attendance={attendance}
+              selectedSession={selectedSession}
+              onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.id, selectedSession)}
+              showAdminToast={showAdminToast}
+            />
           )}
 
           {/* TAB 6: FEES & INVOICE MANAGEMENT (THEME-ALIGNED WITH ADVANCED FILTERS) */}
@@ -6217,21 +5765,38 @@ function ERPWorkspaceContent() {
                 {/* Circulars List */}
                 <div className="space-y-4">
                   {filteredNotices.map(n => (
-                    <div key={n.id} className="bg-white p-5 sm:p-6 rounded-2xl border border-[#DCE8E0] shadow-2xs space-y-2.5 relative group hover:border-[#10B981] transition-all">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
+                    <div key={n.id} className="bg-white p-5 sm:p-6 rounded-2xl border border-[#DCE8E0] shadow-2xs space-y-3 relative group hover:border-[#10B981] transition-all">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-[#F0F5F2]">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-[11px] font-bold px-3 py-1 rounded-full bg-[#122A24] text-white shadow-2xs">
+                            {n.reference_no || `DPS/2026/30/8/${n.matter_category || 'ACAD'}/0001`}
+                          </span>
                           <span className="font-mono text-[10.5px] uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#EBF5EF] text-[#1C443A] font-bold border border-[#C5E2CF]">
                             {n.target_audience}
                           </span>
-                          <span className="text-xs text-[#2D5A4E] font-mono">Posted by {n.posted_by}</span>
                         </div>
-                        <button
-                          onClick={() => handleDeleteNotice(n.id)}
-                          className="text-slate-400 hover:text-rose-600 border-none bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                          title="Delete Notice"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <div className="text-[11px] text-[#2D5A4E] font-mono flex items-center gap-2">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5 text-emerald-700 inline shrink-0" />
+                              <span>{formatDateDisplay(n.date || (n.created_at ? n.created_at.split('T')[0] : '2026-08-30'))}</span>
+                            </span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3.5 w-3.5 text-slate-400 inline shrink-0" />
+                              <span>{n.created_at ? new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:00 AM'}</span>
+                            </span>
+                            <span>•</span>
+                            <span className="font-semibold text-slate-700">By {n.posted_by}</span>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteNotice(n.id)}
+                            className="text-slate-400 hover:text-rose-600 border-none bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                            title="Delete Circular"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                       <h3 className="font-display font-semibold text-lg text-[#122A24]">{n.title}</h3>
                       <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{n.content}</p>
@@ -6426,14 +5991,24 @@ function ERPWorkspaceContent() {
                       />
                     </div>
                     <div>
-                      <label className="block font-semibold text-[#122A24] mb-1">Admin Master Security PIN *</label>
-                      <input
-                        type="text"
-                        required
-                        value={settingsForm.admin_pin}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, admin_pin: e.target.value })}
-                        className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl font-mono text-xs font-bold text-[#122A24]"
-                      />
+                      <label className="block font-semibold text-[#122A24] mb-1">School Admin Security PIN / Passcode *</label>
+                      <div className="relative">
+                        <input
+                          type={showSettingsPin ? "text" : "password"}
+                          required
+                          value={settingsForm.admin_pin}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, admin_pin: e.target.value })}
+                          className="w-full px-3.5 py-2.5 pr-10 border border-[#DCE8E0] rounded-xl font-mono text-xs font-bold text-[#122A24]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSettingsPin(!showSettingsPin)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 bg-transparent border-none cursor-pointer flex items-center justify-center"
+                          title={showSettingsPin ? "Hide PIN" : "Show PIN"}
+                        >
+                          {showSettingsPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -6686,14 +6261,24 @@ function ERPWorkspaceContent() {
 
                       <div className="space-y-3.5 text-xs">
                         <div>
-                          <label className="block font-semibold text-[#122A24] mb-1">Master Security PIN / Password *</label>
-                          <input
-                            type="text"
-                            required
-                            value={profileForm.admin_pin}
-                            onChange={(e) => setProfileForm({ ...profileForm, admin_pin: e.target.value })}
-                            className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl font-mono text-xs font-bold text-[#122A24] bg-emerald-50/50"
-                          />
+                          <label className="block font-semibold text-[#122A24] mb-1">School Admin Security PIN / Passcode *</label>
+                          <div className="relative">
+                            <input
+                              type={showProfilePin ? "text" : "password"}
+                              required
+                              value={profileForm.admin_pin}
+                              onChange={(e) => setProfileForm({ ...profileForm, admin_pin: e.target.value })}
+                              className="w-full px-3.5 py-2.5 pr-10 border border-[#DCE8E0] rounded-xl font-mono text-xs font-bold text-[#122A24] bg-emerald-50/50"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowProfilePin(!showProfilePin)}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 bg-transparent border-none cursor-pointer flex items-center justify-center"
+                              title={showProfilePin ? "Hide PIN" : "Show PIN"}
+                            >
+                              {showProfilePin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
                           <p className="text-[10.5px] text-[#2D5A4E] mt-1 font-mono">
                             Used to log into the administrative portal alongside School Code.
                           </p>
@@ -8420,6 +8005,314 @@ function ERPWorkspaceContent() {
         </div>
       )}
 
+      {/* MODAL: CBSE CURRICULUM & SUBJECTS STUDIO */}
+      {manageSubjectsClass && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl border border-[#DCE8E0] p-5 sm:p-7 max-w-4xl w-full shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8F0EA]">
+              <div>
+                <div className="flex items-center gap-2 font-mono text-[11px] text-[#2D5A4E] font-bold uppercase tracking-wider">
+                  <BookOpen className="h-3.5 w-3.5 text-emerald-700" />
+                  <span>CBSE Curriculum &amp; Subject Scheme</span>
+                  <span>•</span>
+                  <span>Section {manageSubjectsClass.section}</span>
+                </div>
+                <h2 className="font-display font-bold text-xl sm:text-2xl text-[#122A24] mt-0.5 flex items-center gap-2 flex-wrap">
+                  <span>{manageSubjectsClass.class_name} - Section {manageSubjectsClass.section}</span>
+                  <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                    {manageSubjectsClass.subjects?.length || 0} Subjects Prescribed
+                  </span>
+                </h2>
+                <p className="text-[11px] text-[#2D5A4E] mt-0.5">
+                  Class Teacher: <strong className="text-[#122A24]">{manageSubjectsClass.class_teacher || 'Assigned Faculty'}</strong> • Room: <span className="font-mono">{manageSubjectsClass.room_no || 'Room 101'}</span>
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-center flex-wrap">
+                {/* Reset to CBSE Standards Button */}
+                <button
+                  type="button"
+                  onClick={handleResetCbseSubjects}
+                  disabled={subjectSaving}
+                  className="px-3 py-1.5 bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-full text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                  title="Restore standard CBSE subjects for this class"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 text-[#1C443A]" />
+                  <span>Reset CBSE</span>
+                </button>
+
+                {/* Add New Subject Toggle */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingSubjectId(null);
+                    setShowAddSubjectInline(!showAddSubjectInline);
+                    setSubjectForm({
+                      id: '',
+                      name: '',
+                      code: '',
+                      type: 'COMPULSORY',
+                      weekly_periods: 6,
+                      assigned_teacher: manageSubjectsClass.class_teacher || '',
+                      max_marks: 100
+                    });
+                  }}
+                  className="px-3.5 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 cursor-pointer border-none shadow-xs transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add Subject</span>
+                </button>
+
+                {/* Close Modal */}
+                <button
+                  type="button"
+                  onClick={() => setManageSubjectsClass(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 border-none bg-transparent cursor-pointer transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Inline Add / Edit Subject Form */}
+            {(showAddSubjectInline || editingSubjectId) && (
+              <form onSubmit={handleSaveSubject} className="p-4 bg-[#F8FAF9] rounded-2xl border border-[#C5E2CF] space-y-3 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <div className="font-display font-bold text-sm text-[#122A24] flex items-center gap-1.5">
+                    <Edit3 className="h-4 w-4 text-emerald-700" />
+                    <span>{editingSubjectId ? 'Edit / Rename Subject' : 'Add New Subject to Curriculum'}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddSubjectInline(false);
+                      setEditingSubjectId(null);
+                    }}
+                    className="text-slate-400 hover:text-slate-700 border-none bg-transparent cursor-pointer text-xs"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="sm:col-span-2">
+                    <label className="block font-semibold text-[#122A24] mb-1">Subject Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Mathematics (Standard), Physics, Computer Science"
+                      value={subjectForm.name}
+                      onChange={(e) => setSubjectForm({ ...subjectForm, name: e.target.value })}
+                      className="w-full px-3 py-2 border border-[#DCE8E0] rounded-xl font-medium text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-[#122A24] mb-1">CBSE Subject Code</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 041, 086, 184"
+                      value={subjectForm.code}
+                      onChange={(e) => setSubjectForm({ ...subjectForm, code: e.target.value })}
+                      className="w-full px-3 py-2 border border-[#DCE8E0] rounded-xl font-mono text-xs bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <label className="block font-semibold text-[#122A24] mb-1">Subject Type</label>
+                    <select
+                      value={subjectForm.type}
+                      onChange={(e) => setSubjectForm({ ...subjectForm, type: e.target.value as any })}
+                      className="w-full px-2.5 py-2 border border-[#DCE8E0] rounded-xl text-xs bg-white font-medium"
+                    >
+                      <option value="COMPULSORY">Compulsory</option>
+                      <option value="LANGUAGE">Language</option>
+                      <option value="ELECTIVE">Elective / Optional</option>
+                      <option value="SKILL">Skill / Vocational</option>
+                      <option value="INTERNAL_ASSESSMENT">Internal Assessment</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-[#122A24] mb-1">Weekly Periods</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={subjectForm.weekly_periods}
+                      onChange={(e) => setSubjectForm({ ...subjectForm, weekly_periods: Number(e.target.value) })}
+                      className="w-full px-2.5 py-2 border border-[#DCE8E0] rounded-xl font-mono text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-[#122A24] mb-1">Max Marks</label>
+                    <input
+                      type="number"
+                      min={10}
+                      max={200}
+                      value={subjectForm.max_marks}
+                      onChange={(e) => setSubjectForm({ ...subjectForm, max_marks: Number(e.target.value) })}
+                      className="w-full px-2.5 py-2 border border-[#DCE8E0] rounded-xl font-mono text-xs bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-[#122A24] mb-1">Assigned Teacher</label>
+                    <select
+                      value={subjectForm.assigned_teacher}
+                      onChange={(e) => setSubjectForm({ ...subjectForm, assigned_teacher: e.target.value })}
+                      className="w-full px-2.5 py-2 border border-[#DCE8E0] rounded-xl text-xs bg-white truncate"
+                    >
+                      <option value="">-- Select Teacher --</option>
+                      {teachers.map(t => (
+                        <option key={t.id} value={t.full_name}>{t.full_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-[#DCE8E0]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddSubjectInline(false);
+                      setEditingSubjectId(null);
+                    }}
+                    className="px-3.5 py-1.5 border border-[#DCE8E0] rounded-full text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={subjectSaving}
+                    className="px-5 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold shadow-xs cursor-pointer border-none"
+                  >
+                    {subjectSaving ? 'Saving...' : (editingSubjectId ? 'Save Subject Changes' : 'Add Subject to Class')}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Subjects Table */}
+            <div className="rounded-2xl border border-[#DCE8E0] overflow-hidden bg-white shadow-2xs">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-[#F3F7F5] font-mono text-[11px] font-bold text-[#1C443A] uppercase tracking-wider border-b border-[#DCE8E0]">
+                  <tr>
+                    <th className="py-2.5 px-3 w-10 text-center">#</th>
+                    <th className="py-2.5 px-3.5">Code</th>
+                    <th className="py-2.5 px-4">Subject Name</th>
+                    <th className="py-2.5 px-3">Type</th>
+                    <th className="py-2.5 px-3 text-center">Periods/Wk</th>
+                    <th className="py-2.5 px-3 text-center">Max Marks</th>
+                    <th className="py-2.5 px-4">Subject Teacher</th>
+                    <th className="py-2.5 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#EBF2ED] font-sans">
+                  {(manageSubjectsClass.subjects || []).length > 0 ? (
+                    manageSubjectsClass.subjects!.map((subj, idx) => {
+                      const typeBadge = {
+                        COMPULSORY: { bg: 'bg-emerald-50 text-emerald-800 border-emerald-200', label: 'Compulsory' },
+                        LANGUAGE: { bg: 'bg-teal-50 text-teal-800 border-teal-200', label: 'Language' },
+                        SKILL: { bg: 'bg-blue-50 text-blue-800 border-blue-200', label: 'Skill / Vocational' },
+                        ELECTIVE: { bg: 'bg-purple-50 text-purple-800 border-purple-200', label: 'Elective' },
+                        INTERNAL_ASSESSMENT: { bg: 'bg-amber-50 text-amber-800 border-amber-200', label: 'Internal' }
+                      }[subj.type || 'COMPULSORY'] || { bg: 'bg-slate-50 text-slate-700 border-slate-200', label: subj.type || 'Standard' };
+
+                      return (
+                        <tr key={subj.id || idx} className="hover:bg-[#F9FCFA] transition-colors">
+                          <td className="py-3 px-3 text-center font-mono text-slate-400 text-[11px]">
+                            {idx + 1}
+                          </td>
+                          <td className="py-3 px-3.5 font-mono font-bold text-[#1C443A]">
+                            {subj.code || '—'}
+                          </td>
+                          <td className="py-3 px-4 font-semibold text-[#122A24]">
+                            <div className="flex items-center gap-1.5">
+                              <span>{subj.name}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold border ${typeBadge.bg}`}>
+                              {typeBadge.label}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center font-mono font-bold text-[#122A24]">
+                            {subj.weekly_periods || 6}
+                          </td>
+                          <td className="py-3 px-3 text-center font-mono text-slate-600">
+                            {subj.max_marks || 100}
+                          </td>
+                          <td className="py-3 px-4 text-xs text-slate-700">
+                            {subj.assigned_teacher || manageSubjectsClass.class_teacher || '—'}
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Edit Subject */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingSubjectId(subj.id);
+                                  setShowAddSubjectInline(false);
+                                  setSubjectForm({
+                                    id: subj.id,
+                                    name: subj.name,
+                                    code: subj.code || '',
+                                    type: subj.type || 'COMPULSORY',
+                                    weekly_periods: subj.weekly_periods || 6,
+                                    assigned_teacher: subj.assigned_teacher || '',
+                                    max_marks: subj.max_marks || 100
+                                  });
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-emerald-700 hover:bg-[#EBF5EF] rounded-lg transition-colors border-none bg-transparent cursor-pointer"
+                                title="Rename or edit subject"
+                              >
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </button>
+
+                              {/* Delete Subject */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSubject(subj.id, subj.name)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border-none bg-transparent cursor-pointer"
+                                title="Delete subject from class"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-400 font-mono text-xs">
+                        No subjects assigned to this class yet. Click &quot;Reset CBSE&quot; to restore standard CBSE subjects or &quot;Add Subject&quot; to create custom subjects.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Footer Summary */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-[#E8F0EA] text-xs text-[#2D5A4E]">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>All changes auto-sync to CBSE Academic Registers &amp; MongoDB database.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setManageSubjectsClass(null)}
+                className="px-5 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white font-semibold rounded-full shadow-xs cursor-pointer border-none text-xs"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL: ADD NOTICE */}
       {showAddNotice && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -8435,6 +8328,19 @@ function ERPWorkspaceContent() {
             </div>
 
             <form onSubmit={handleAddNotice} className="space-y-3.5 text-xs">
+              {/* Autogenerated Reference & Date Stamp Banner */}
+              <div className="p-3 bg-[#F8FAF9] rounded-2xl border border-[#DCE8E0] space-y-1 font-mono text-[11px]">
+                <div className="flex items-center justify-between text-[#1C443A] font-bold flex-wrap gap-1">
+                  <span>Ref No: DPS/2026/{new Date().getDate()}/{new Date().getMonth() + 1}/{noticeForm.matter_category || 'ACAD'}/[AUTO]</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF]">
+                    Immutable &amp; Autogenerated
+                  </span>
+                </div>
+                <div className="text-slate-500 text-[10.5px]">
+                  Date: Today ({formatDateDisplay(new Date().toISOString().split('T')[0])}) • ISO Realtime Timestamp
+                </div>
+              </div>
+
               <div>
                 <label className="block font-semibold text-[#122A24] mb-1">Notice Title *</label>
                 <input
@@ -8447,13 +8353,29 @@ function ERPWorkspaceContent() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div>
+                  <label className="block font-semibold text-[#122A24] mb-1">Matter Category *</label>
+                  <select
+                    value={noticeForm.matter_category || 'ACAD'}
+                    onChange={(e) => setNoticeForm({ ...noticeForm, matter_category: e.target.value })}
+                    className="w-full px-2.5 py-2.5 border border-[#DCE8E0] rounded-xl bg-white font-semibold text-xs text-[#122A24]"
+                  >
+                    <option value="ACAD">ACAD (Academic)</option>
+                    <option value="EXAM">EXAM (Exams &amp; Tests)</option>
+                    <option value="OFFICE">OFFICE (Admin Order)</option>
+                    <option value="CBSE">CBSE (Board Directive)</option>
+                    <option value="HOLIDAY">HOLIDAY (Closures)</option>
+                    <option value="FEES">FEES (Fee Dues)</option>
+                    <option value="EVENT">EVENT (Sports/Cultural)</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block font-semibold text-[#122A24] mb-1">Target Audience</label>
                   <select
                     value={noticeForm.target_audience}
                     onChange={(e) => setNoticeForm({ ...noticeForm, target_audience: e.target.value as any })}
-                    className="w-full px-3 py-2.5 border border-[#DCE8E0] rounded-xl bg-white font-medium text-xs"
+                    className="w-full px-2.5 py-2.5 border border-[#DCE8E0] rounded-xl bg-white font-medium text-xs text-[#122A24]"
                   >
                     <option value="ALL">All (Everyone)</option>
                     <option value="TEACHERS">Teachers &amp; Staff</option>
@@ -8467,7 +8389,7 @@ function ERPWorkspaceContent() {
                     type="text"
                     value={noticeForm.posted_by}
                     onChange={(e) => setNoticeForm({ ...noticeForm, posted_by: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[#DCE8E0] rounded-xl text-xs"
+                    className="w-full px-2.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24]"
                   />
                 </div>
               </div>
@@ -8542,14 +8464,24 @@ function ERPWorkspaceContent() {
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[#122A24] mb-1">Security PIN / Password</label>
-                  <input
-                    type="text"
-                    required
-                    value={profileForm.admin_pin}
-                    onChange={(e) => setProfileForm({ ...profileForm, admin_pin: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[#DCE8E0] rounded-xl font-mono"
-                  />
+                  <label className="block font-semibold text-[#122A24] mb-1">Security PIN / Passcode</label>
+                  <div className="relative">
+                    <input
+                      type={showModalPin ? "text" : "password"}
+                      required
+                      value={profileForm.admin_pin}
+                      onChange={(e) => setProfileForm({ ...profileForm, admin_pin: e.target.value })}
+                      className="w-full px-3 py-2.5 pr-9 border border-[#DCE8E0] rounded-xl font-mono text-xs font-bold text-[#122A24]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowModalPin(!showModalPin)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 bg-transparent border-none cursor-pointer flex items-center justify-center"
+                      title={showModalPin ? "Hide PIN" : "Show PIN"}
+                    >
+                      {showModalPin ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
                 </div>
               </div>
 

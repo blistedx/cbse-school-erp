@@ -1,4 +1,5 @@
-const CACHE_NAME = 'edugit-cache-v2';
+const CACHE_NAME = 'giterp-core-v3';
+const API_CACHE_NAME = 'giterp-api-session-v3';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
@@ -33,7 +34,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name !== CACHE_NAME)
+          .filter((name) => name !== CACHE_NAME && name !== API_CACHE_NAME)
           .map((name) => {
             console.log('[PWA SW] Removing old cache:', name);
             return caches.delete(name);
@@ -43,7 +44,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event: Network-first for navigation, Stale-while-revalidate for static assets
+// Fetch Event: Strictly Network-First for API/DB data
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -53,7 +54,38 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy A: HTML Page Navigations (Network-first with offline fallback)
+  // Strategy A: API Routes (Strict Live Network First - Never serve stale cache when online!)
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(request, { cache: 'no-store' })
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(API_CACHE_NAME).then((cache) => {
+              cache.put(request, clone);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(async (error) => {
+          console.warn('[PWA SW] Network failed for API, falling back to last session cache:', url.pathname);
+          const cached = await caches.match(request);
+          if (cached) {
+            return cached;
+          }
+          return new Response(
+            JSON.stringify({ success: false, error: 'Offline Mode: No network connection and no previous session cached', offline: true }),
+            {
+              status: 503,
+              headers: { 'Content-Type': 'application/json', 'X-Offline': 'true' }
+            }
+          );
+        })
+    );
+    return;
+  }
+
+  // Strategy B: HTML Page Navigations (Network-first with offline fallback)
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -76,7 +108,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy B: Static assets (_next/static, fonts, icons, images, css)
+  // Strategy C: Static assets (_next/static, fonts, icons, images, css)
   if (
     url.pathname.startsWith('/_next/static') ||
     url.pathname.startsWith('/icons') ||
@@ -100,24 +132,6 @@ self.addEventListener('fetch', (event) => {
           .catch(() => cachedResponse);
 
         return cachedResponse || fetchPromise;
-      })
-    );
-    return;
-  }
-
-  // Strategy C: API Routes & dynamic data (Network-first)
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request).catch(async () => {
-        const cached = await caches.match(request);
-        if (cached) return cached;
-        return new Response(
-          JSON.stringify({ error: 'Offline mode: Network request failed', offline: true }),
-          {
-            status: 503,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
       })
     );
     return;

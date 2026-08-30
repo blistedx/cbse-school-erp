@@ -5,7 +5,8 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const schoolId = searchParams.get('school_id') || searchParams.get('schoolId') || undefined;
-    const teachers = await Database.getTeachers(schoolId);
+    const session = searchParams.get('session') || searchParams.get('academic_session') || undefined;
+    const teachers = await Database.getTeachers(schoolId, session);
     return NextResponse.json({ success: true, count: teachers.length, teachers });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

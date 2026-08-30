@@ -4,9 +4,10 @@ import { Database } from '@/lib/db';
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const school_id = searchParams.get('school_id') || undefined;
-    const classes = await Database.getClasses(school_id);
-    return NextResponse.json({ success: true, classes });
+    const school_id = searchParams.get('school_id') || searchParams.get('schoolId') || undefined;
+    const session = searchParams.get('session') || searchParams.get('academic_session') || undefined;
+    const classes = await Database.getClasses(school_id, session);
+    return NextResponse.json({ success: true, count: classes.length, classes });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
@@ -15,7 +16,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { school_id, class_name, section, class_teacher, room_no, capacity } = body;
+    const { school_id, class_name, section, class_teacher, room_no, capacity, subjects, academic_session } = body;
 
     if (!school_id || !class_name) {
       return NextResponse.json({ success: false, error: 'School ID and Class Name are required' }, { status: 400 });
@@ -23,11 +24,13 @@ export async function POST(req: Request) {
 
     const newClass = await Database.createClass({
       school_id,
+      academic_session: academic_session || body.session || '2026-27',
       class_name,
       section: section || 'A',
       class_teacher,
       room_no,
-      capacity: Number(capacity) || 40
+      capacity: Number(capacity) || 40,
+      subjects
     });
 
     return NextResponse.json({ success: true, class: newClass });

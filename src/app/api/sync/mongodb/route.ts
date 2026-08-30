@@ -73,6 +73,9 @@ export async function POST(req: Request) {
     function cleanDoc(doc: any) {
       if (!doc) return doc;
       const { _id, ...rest } = doc;
+      if (!rest.academic_session) {
+        rest.academic_session = '2026-27';
+      }
       return rest;
     }
 

@@ -4,9 +4,10 @@ import { Database } from '@/lib/db';
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const school_id = searchParams.get('school_id') || undefined;
-    const notices = await Database.getNotices(school_id);
-    return NextResponse.json({ success: true, notices });
+    const school_id = searchParams.get('school_id') || searchParams.get('schoolId') || undefined;
+    const session = searchParams.get('session') || searchParams.get('academic_session') || undefined;
+    const notices = await Database.getNotices(school_id, session);
+    return NextResponse.json({ success: true, count: notices.length, notices });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

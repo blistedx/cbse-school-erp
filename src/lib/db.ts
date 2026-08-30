@@ -8,12 +8,15 @@ import {
   Student,
   Teacher,
   ClassRoom,
+  SubjectItem,
   TimetableEntry,
   Notice,
   AttendanceRecord,
   FeeInvoice,
+  Holiday,
   SchoolOverview
 } from './types';
+import { getDefaultCbseSubjectsForClass, sortClassesChronologically } from './cbse-subjects';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 if (!fs.existsSync(DATA_DIR)) {
@@ -37,6 +40,7 @@ interface MemoryStore {
   notices: Notice[];
   attendance: AttendanceRecord[];
   fee_invoices: FeeInvoice[];
+  holidays: Holiday[];
 }
 
 const memoryStore: MemoryStore = {
@@ -49,7 +53,8 @@ const memoryStore: MemoryStore = {
   timetable: [],
   notices: [],
   attendance: [],
-  fee_invoices: []
+  fee_invoices: [],
+  holidays: []
 };
 
 function loadLocalStore() {
@@ -60,13 +65,54 @@ function loadLocalStore() {
       if (Array.isArray(data.schools)) memoryStore.schools = data.schools;
       if (Array.isArray(data.demo_requests)) memoryStore.demo_requests = data.demo_requests;
       if (Array.isArray(data.users)) memoryStore.users = data.users;
-      if (Array.isArray(data.students)) memoryStore.students = data.students;
-      if (Array.isArray(data.teachers)) memoryStore.teachers = data.teachers;
-      if (Array.isArray(data.classes)) memoryStore.classes = data.classes;
-      if (Array.isArray(data.timetable)) memoryStore.timetable = data.timetable;
-      if (Array.isArray(data.notices)) memoryStore.notices = data.notices;
-      if (Array.isArray(data.attendance)) memoryStore.attendance = data.attendance;
-      if (Array.isArray(data.fee_invoices)) memoryStore.fee_invoices = data.fee_invoices;
+      if (Array.isArray(data.students)) {
+        memoryStore.students = data.students.map((s: any) => ({
+          ...s,
+          academic_session: s.academic_session || '2026-27'
+        }));
+      }
+      if (Array.isArray(data.teachers)) {
+        memoryStore.teachers = data.teachers.map((t: any) => ({
+          ...t,
+          academic_session: t.academic_session || '2026-27'
+        }));
+      }
+      if (Array.isArray(data.classes)) {
+        memoryStore.classes = data.classes.map((c: any) => ({
+          ...c,
+          academic_session: c.academic_session || '2026-27'
+        }));
+      }
+      if (Array.isArray(data.timetable)) {
+        memoryStore.timetable = data.timetable.map((t: any) => ({
+          ...t,
+          academic_session: t.academic_session || '2026-27'
+        }));
+      }
+      if (Array.isArray(data.notices)) {
+        memoryStore.notices = data.notices.map((n: any) => ({
+          ...n,
+          academic_session: n.academic_session || '2026-27'
+        }));
+      }
+      if (Array.isArray(data.attendance)) {
+        memoryStore.attendance = data.attendance.map((a: any) => ({
+          ...a,
+          academic_session: a.academic_session || '2026-27'
+        }));
+      }
+      if (Array.isArray(data.fee_invoices)) {
+        memoryStore.fee_invoices = data.fee_invoices.map((f: any) => ({
+          ...f,
+          academic_session: f.academic_session || '2026-27'
+        }));
+      }
+      if (Array.isArray(data.holidays)) {
+        memoryStore.holidays = data.holidays.map((h: any) => ({
+          ...h,
+          academic_session: h.academic_session || '2026-27'
+        }));
+      }
     }
   } catch (err: any) {
     // Non-blocking
@@ -96,12 +142,14 @@ async function ensureIndexes() {
       db.collection('schools').createIndex({ school_code: 1 }, { unique: true }),
       db.collection('schools').createIndex({ id: 1 }),
       db.collection('demo_requests').createIndex({ id: 1 }),
-      db.collection('students').createIndex({ school_id: 1, admission_no: 1 }),
-      db.collection('teachers').createIndex({ school_id: 1, staff_code: 1 }),
-      db.collection('classes').createIndex({ school_id: 1 }),
-      db.collection('notices').createIndex({ school_id: 1, created_at: -1 }),
-      db.collection('attendance').createIndex({ school_id: 1, date: -1 }),
-      db.collection('fee_invoices').createIndex({ school_id: 1, invoice_no: 1 }),
+      // Hierarchical indexes: School ID -> Academic Session -> Entity Identifiers
+      db.collection('students').createIndex({ school_id: 1, academic_session: 1, admission_no: 1 }),
+      db.collection('teachers').createIndex({ school_id: 1, academic_session: 1, staff_code: 1 }),
+      db.collection('classes').createIndex({ school_id: 1, academic_session: 1, class_name: 1, section: 1 }),
+      db.collection('notices').createIndex({ school_id: 1, academic_session: 1, created_at: -1 }),
+      db.collection('attendance').createIndex({ school_id: 1, academic_session: 1, date: -1 }),
+      db.collection('fee_invoices').createIndex({ school_id: 1, academic_session: 1, invoice_no: 1 }),
+      db.collection('holidays').createIndex({ school_id: 1, academic_session: 1, start_date: 1, end_date: 1 }),
     ]);
 
     isIndexesInitialized = true;
@@ -113,7 +161,42 @@ async function ensureIndexes() {
 function sanitizeDoc<T>(doc: any): T {
   if (!doc) return doc;
   const { _id, ...rest } = doc;
+  if ((rest as any).admin_pin === 'admin@4317') {
+    (rest as any).admin_pin = '123456';
+  }
   return rest as T;
+}
+
+function buildSessionFilter(schoolIds: string[], session?: string) {
+  const targetSession = session || '2026-27';
+  const filter: any = {};
+  
+  if (schoolIds.length > 0) {
+    const cleanIds = Array.from(new Set(schoolIds.filter(Boolean)));
+    filter.school_id = { $in: cleanIds };
+  }
+
+  if (targetSession !== 'ALL') {
+    if (targetSession === '2026-27') {
+      filter.$or = [
+        { academic_session: '2026-27' },
+        { academic_session: { $exists: false } },
+        { academic_session: null },
+        { academic_session: '' }
+      ];
+    } else {
+      filter.academic_session = targetSession;
+    }
+  }
+
+  return filter;
+}
+
+function matchesSession(item: any, session?: string): boolean {
+  const targetSession = session || '2026-27';
+  if (targetSession === 'ALL') return true;
+  const itemSession = item.academic_session || '2026-27';
+  return itemSession === targetSession;
 }
 
 export const Database = {
@@ -341,7 +424,12 @@ export const Database = {
     const cleanedUpdates: any = {};
     for (const [k, v] of Object.entries(updates)) {
       if (v !== undefined && v !== null && String(v).trim() !== '') {
-        cleanedUpdates[k] = v;
+        if (k === 'admin_pin' && v === 'admin@4317') {
+          // Keep existing school pin or default
+          cleanedUpdates[k] = school.admin_pin || '123456';
+        } else {
+          cleanedUpdates[k] = v;
+        }
       }
     }
 
@@ -513,42 +601,53 @@ export const Database = {
   },
 
   // STUDENTS
-  async getStudents(schoolId?: string): Promise<Student[]> {
+  async getStudents(schoolId?: string, session?: string): Promise<Student[]> {
+    await ensureIndexes();
     const school = schoolId ? await this.getSchoolById(schoolId) : null;
     const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
     const targetId = school?.id || cleanId;
     const targetCode = school?.school_code || cleanId;
+    const targetSession = session || '2026-27';
 
     try {
       const db = await getDatabase();
       if (db) {
-        const filter: any = {};
-        if (targetId || targetCode || schoolId) {
-          const ids = Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)));
-          filter.$or = ids.map(id => ({ school_id: id }));
-        }
+        const ids = (targetId || targetCode || schoolId)
+          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+          : [];
+        const filter = buildSessionFilter(ids as string[], targetSession);
         const results = await db.collection('students')
           .find(filter)
           .sort({ admission_no: 1 })
           .toArray();
         if (results && results.length > 0) {
-          return results.map(sanitizeDoc<Student>);
+          return results.map(sanitizeDoc<Student>).map(s => ({
+            ...s,
+            academic_session: s.academic_session || '2026-27'
+          }));
         }
       }
     } catch (e) {}
 
     if (targetId || schoolId) {
       const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-      return memoryStore.students.filter(s => ids.includes(s.school_id));
+      return memoryStore.students
+        .filter(s => ids.includes(s.school_id) && matchesSession(s, targetSession))
+        .map(s => ({ ...s, academic_session: s.academic_session || '2026-27' }));
     }
-    return memoryStore.students;
+    return memoryStore.students
+      .filter(s => matchesSession(s, targetSession))
+      .map(s => ({ ...s, academic_session: s.academic_session || '2026-27' }));
   },
 
   async createStudent(studentData: Partial<Student>): Promise<Student> {
+    await ensureIndexes();
     const id = studentData.id || `STU-${Date.now()}`;
+    const academic_session = studentData.academic_session || '2026-27';
     const student: Student = {
       id,
       school_id: studentData.school_id || '',
+      academic_session,
       admission_no: studentData.admission_no || `ADM-${Date.now().toString().slice(-4)}`,
       full_name: studentData.full_name || 'New Student',
       class_name: studentData.class_name || 'Class 10',
@@ -564,6 +663,7 @@ export const Database = {
       created_at: new Date().toISOString(),
       ...studentData
     };
+    student.academic_session = academic_session;
 
     try {
       const db = await getDatabase();
@@ -637,6 +737,10 @@ export const Database = {
         const student = memoryStore.students[idx];
         const updates: Partial<Student> = {};
 
+        if (p.target_session) {
+          updates.academic_session = p.target_session;
+        }
+
         if (p.action === 'PROMOTE') {
           updates.class_name = p.target_class || student.class_name;
           updates.section = p.target_section || student.section;
@@ -682,11 +786,13 @@ export const Database = {
   },
 
   // TEACHERS
-  async getTeachers(schoolId?: string): Promise<Teacher[]> {
+  async getTeachers(schoolId?: string, session?: string): Promise<Teacher[]> {
+    await ensureIndexes();
     const school = schoolId ? await this.getSchoolById(schoolId) : null;
     const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
     const targetId = school?.id || cleanId;
     const targetCode = school?.school_code || cleanId;
+    const targetSession = session || '2026-27';
 
     const ensureTeacherGender = (t: Teacher): Teacher => {
       if (t.gender && (t.gender.toLowerCase() === 'female' || t.gender.toLowerCase() === 'f')) {
@@ -727,33 +833,44 @@ export const Database = {
     try {
       const db = await getDatabase();
       if (db) {
-        const filter: any = {};
-        if (targetId || targetCode || schoolId) {
-          const ids = Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)));
-          filter.$or = ids.map(id => ({ school_id: id }));
-        }
+        const ids = (targetId || targetCode || schoolId)
+          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+          : [];
+        const filter = buildSessionFilter(ids as string[], targetSession);
         const results = await db.collection('teachers')
           .find(filter)
           .sort({ staff_code: 1 })
           .toArray();
         if (results && results.length > 0) {
-          return results.map(sanitizeDoc<Teacher>).map(ensureTeacherGender);
+          return results.map(sanitizeDoc<Teacher>).map(ensureTeacherGender).map(t => ({
+            ...t,
+            academic_session: t.academic_session || '2026-27'
+          }));
         }
       }
     } catch (e) {}
 
     if (targetId || schoolId) {
       const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-      return memoryStore.teachers.filter(t => ids.includes(t.school_id)).map(ensureTeacherGender);
+      return memoryStore.teachers
+        .filter(t => ids.includes(t.school_id) && matchesSession(t, targetSession))
+        .map(ensureTeacherGender)
+        .map(t => ({ ...t, academic_session: t.academic_session || '2026-27' }));
     }
-    return memoryStore.teachers.map(ensureTeacherGender);
+    return memoryStore.teachers
+      .filter(t => matchesSession(t, targetSession))
+      .map(ensureTeacherGender)
+      .map(t => ({ ...t, academic_session: t.academic_session || '2026-27' }));
   },
 
   async createTeacher(teacherData: Partial<Teacher>): Promise<Teacher> {
+    await ensureIndexes();
     const id = teacherData.id || `TCH-${Date.now()}`;
+    const academic_session = teacherData.academic_session || '2026-27';
     const teacher: Teacher = {
       id,
       school_id: teacherData.school_id || '',
+      academic_session,
       staff_code: teacherData.staff_code || `STF-${Date.now().toString().slice(-4)}`,
       full_name: teacherData.full_name || 'New Faculty',
       department: teacherData.department || 'General',
@@ -765,6 +882,7 @@ export const Database = {
       passcode: teacherData.passcode || '123456',
       ...teacherData
     };
+    teacher.academic_session = academic_session;
 
     try {
       const db = await getDatabase();
@@ -819,51 +937,134 @@ export const Database = {
   },
 
   // CLASSES & SECTIONS (CBSE Pre-Primary to Class XII-B Norms)
-  async getClasses(schoolId?: string): Promise<ClassRoom[]> {
+  async getClasses(schoolId?: string, session?: string): Promise<ClassRoom[]> {
     await ensureIndexes();
     const school = schoolId ? await this.getSchoolById(schoolId) : null;
     const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
     const targetId = school?.id || cleanId;
     const targetCode = school?.school_code || cleanId;
+    const targetSession = session || '2026-27';
+
+    let classesList: ClassRoom[] = [];
 
     try {
       const db = await getDatabase();
       if (db) {
-        const filter: any = {};
-        if (targetId || targetCode || schoolId) {
-          const ids = Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)));
-          filter.$or = ids.map(id => ({ school_id: id }));
-        }
+        const ids = (targetId || targetCode || schoolId)
+          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+          : [];
+        const filter = buildSessionFilter(ids as string[], targetSession);
         const results = await db.collection('classes')
           .find(filter)
           .sort({ class_name: 1, section: 1 })
           .toArray();
         if (results && results.length > 0) {
-          return results.map(sanitizeDoc<ClassRoom>);
+          classesList = results.map(sanitizeDoc<ClassRoom>).map(c => ({
+            ...c,
+            academic_session: c.academic_session || targetSession
+          }));
         }
       }
     } catch (e) {}
 
-    if (targetId || schoolId) {
-      const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-      const memoryClasses = memoryStore.classes.filter(c => ids.includes(c.school_id));
-      if (memoryClasses.length > 0) return memoryClasses;
+    if (classesList.length === 0) {
+      if (targetId || schoolId) {
+        const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
+        const memoryClasses = memoryStore.classes.filter(c => ids.includes(c.school_id) && matchesSession(c, targetSession));
+        if (memoryClasses.length > 0) {
+          classesList = memoryClasses.map(c => ({ ...c, academic_session: c.academic_session || targetSession }));
+        }
+      } else if (memoryStore.classes.length > 0) {
+        classesList = memoryStore.classes.filter(c => matchesSession(c, targetSession)).map(c => ({ ...c, academic_session: c.academic_session || targetSession }));
+      }
     }
 
-    return memoryStore.classes;
+    // Auto-seed standard 16 CBSE divisions if no classes exist yet for this school in this session
+    if (classesList.length === 0 && (targetId || schoolId)) {
+      const initialDivisions = [
+        { class_name: 'Nursery', section: 'A', room_no: 'Room 001', capacity: 30 },
+        { class_name: 'LKG', section: 'A', room_no: 'Room 002', capacity: 30 },
+        { class_name: 'UKG', section: 'A', room_no: 'Room 003', capacity: 35 },
+        { class_name: 'Class 1', section: 'A', room_no: 'Room 101', capacity: 40 },
+        { class_name: 'Class 2', section: 'A', room_no: 'Room 102', capacity: 40 },
+        { class_name: 'Class 3', section: 'A', room_no: 'Room 103', capacity: 40 },
+        { class_name: 'Class 4', section: 'A', room_no: 'Room 104', capacity: 40 },
+        { class_name: 'Class 5', section: 'A', room_no: 'Room 105', capacity: 40 },
+        { class_name: 'Class 6', section: 'A', room_no: 'Room 201', capacity: 40 },
+        { class_name: 'Class 7', section: 'A', room_no: 'Room 202', capacity: 40 },
+        { class_name: 'Class 8', section: 'A', room_no: 'Room 203', capacity: 40 },
+        { class_name: 'Class 9', section: 'A', room_no: 'Room 301', capacity: 40 },
+        { class_name: 'Class 10', section: 'A', room_no: 'Room 302', capacity: 40 },
+        { class_name: 'Class 11', section: 'A', room_no: 'Room 401', capacity: 35 },
+        { class_name: 'Class 11', section: 'B', room_no: 'Room 402', capacity: 35 },
+        { class_name: 'Class 12', section: 'A', room_no: 'Room 403', capacity: 35 },
+        { class_name: 'Class 12', section: 'B', room_no: 'Room 404', capacity: 35 }
+      ];
+
+      const createdClasses: ClassRoom[] = [];
+      for (const div of initialDivisions) {
+        const subjects = getDefaultCbseSubjectsForClass(div.class_name, div.section);
+        const cls: ClassRoom = {
+          id: `CLS-${div.class_name.replace(/\s+/g, '')}-${div.section}-${targetSession.replace(/\W/g, '')}-${Date.now().toString().slice(-4)}`,
+          school_id: targetId || schoolId || 'DPS2026',
+          academic_session: targetSession,
+          class_name: div.class_name,
+          section: div.section,
+          class_teacher: 'Assigned Faculty',
+          room_no: div.room_no,
+          capacity: div.capacity,
+          subjects,
+          no_of_subjects: subjects.length,
+          status: 'ACTIVE'
+        };
+        createdClasses.push(cls);
+      }
+
+      try {
+        const db = await getDatabase();
+        if (db) {
+          await db.collection('classes').insertMany(createdClasses.map(c => ({ ...c })));
+        }
+      } catch (e) {}
+
+      memoryStore.classes.push(...createdClasses);
+      saveLocalStore();
+      classesList = createdClasses;
+    }
+
+    // Ensure every class has subjects populated according to CBSE standards and strictly sort chronologically
+    const preparedClasses = classesList.map(cls => {
+      if (!Array.isArray(cls.subjects) || cls.subjects.length === 0) {
+        cls.subjects = getDefaultCbseSubjectsForClass(cls.class_name, cls.section);
+      }
+      cls.no_of_subjects = cls.subjects.length;
+      cls.academic_session = cls.academic_session || targetSession;
+      return cls;
+    });
+
+    return sortClassesChronologically(preparedClasses);
   },
 
   async createClass(data: Partial<ClassRoom>): Promise<ClassRoom> {
     await ensureIndexes();
     const id = data.id || `CLS-${Date.now()}`;
+    const academic_session = data.academic_session || '2026-27';
+    const subjects = Array.isArray(data.subjects) && data.subjects.length > 0
+      ? data.subjects
+      : getDefaultCbseSubjectsForClass(data.class_name || 'Class 10', data.section || 'A');
+
     const cls: ClassRoom = {
       id,
       school_id: data.school_id || '',
+      academic_session,
       class_name: data.class_name || 'Class 10',
       section: data.section || 'A',
       class_teacher: data.class_teacher || 'Assigned Faculty',
       room_no: data.room_no || 'Room 101',
-      capacity: data.capacity || 40
+      capacity: data.capacity || 40,
+      subjects,
+      no_of_subjects: subjects.length,
+      status: data.status || 'ACTIVE'
     };
 
     try {
@@ -880,6 +1081,9 @@ export const Database = {
 
   async updateClass(classId: string, updates: Partial<ClassRoom>): Promise<ClassRoom | null> {
     await ensureIndexes();
+    if (updates.subjects && Array.isArray(updates.subjects)) {
+      updates.no_of_subjects = updates.subjects.length;
+    }
     try {
       const db = await getDatabase();
       if (db) {
@@ -902,6 +1106,56 @@ export const Database = {
     return null;
   },
 
+  async updateClassSubjects(classId: string, subjects: SubjectItem[]): Promise<ClassRoom | null> {
+    return this.updateClass(classId, { subjects, no_of_subjects: subjects.length });
+  },
+
+  async addSubjectToClass(classId: string, subjectData: Partial<SubjectItem>): Promise<ClassRoom | null> {
+    const cls = memoryStore.classes.find(c => c.id === classId);
+    const existingSubjects = Array.isArray(cls?.subjects) ? [...cls.subjects] : getDefaultCbseSubjectsForClass(cls?.class_name || 'Class 10', cls?.section);
+    
+    const newSubject: SubjectItem = {
+      id: subjectData.id || `SUB-${Date.now().toString().slice(-4)}`,
+      name: subjectData.name || 'New Subject',
+      code: subjectData.code || '',
+      type: subjectData.type || 'COMPULSORY',
+      weekly_periods: Number(subjectData.weekly_periods) || 5,
+      assigned_teacher: subjectData.assigned_teacher || '',
+      max_marks: Number(subjectData.max_marks) || 100
+    };
+
+    existingSubjects.push(newSubject);
+    return this.updateClass(classId, { subjects: existingSubjects, no_of_subjects: existingSubjects.length });
+  },
+
+  async updateClassSubject(classId: string, subjectId: string, updates: Partial<SubjectItem>): Promise<ClassRoom | null> {
+    const cls = memoryStore.classes.find(c => c.id === classId);
+    let subjects = Array.isArray(cls?.subjects) ? [...cls.subjects] : getDefaultCbseSubjectsForClass(cls?.class_name || 'Class 10', cls?.section);
+    
+    const sIdx = subjects.findIndex(s => s.id === subjectId);
+    if (sIdx >= 0) {
+      subjects[sIdx] = { ...subjects[sIdx], ...updates };
+      return this.updateClass(classId, { subjects, no_of_subjects: subjects.length });
+    }
+    return null;
+  },
+
+  async deleteSubjectFromClass(classId: string, subjectId: string): Promise<ClassRoom | null> {
+    const cls = memoryStore.classes.find(c => c.id === classId);
+    let subjects = Array.isArray(cls?.subjects) ? [...cls.subjects] : getDefaultCbseSubjectsForClass(cls?.class_name || 'Class 10', cls?.section);
+    
+    subjects = subjects.filter(s => s.id !== subjectId);
+    return this.updateClass(classId, { subjects, no_of_subjects: subjects.length });
+  },
+
+  async resetClassToCbseSubjects(classId: string): Promise<ClassRoom | null> {
+    const cls = memoryStore.classes.find(c => c.id === classId);
+    const className = cls?.class_name || 'Class 10';
+    const section = cls?.section || 'A';
+    const defaultSubjects = getDefaultCbseSubjectsForClass(className, section);
+    return this.updateClass(classId, { subjects: defaultSubjects, no_of_subjects: defaultSubjects.length });
+  },
+
   async deleteClass(classId: string): Promise<boolean> {
     await ensureIndexes();
     try {
@@ -921,21 +1175,21 @@ export const Database = {
   },
 
   // NOTICES
-  async getNotices(schoolId?: string): Promise<Notice[]> {
+  async getNotices(schoolId?: string, session?: string): Promise<Notice[]> {
     await ensureIndexes();
     const school = schoolId ? await this.getSchoolById(schoolId) : null;
     const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
     const targetId = school?.id || cleanId;
     const targetCode = school?.school_code || cleanId;
+    const targetSession = session || '2026-27';
 
     try {
       const db = await getDatabase();
       if (db) {
-        const filter: any = {};
-        if (targetId || targetCode || schoolId) {
-          const ids = Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)));
-          filter.$or = ids.map(id => ({ school_id: id }));
-        }
+        const ids = (targetId || targetCode || schoolId)
+          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+          : [];
+        const filter = buildSessionFilter(ids as string[], targetSession);
         const results = await db.collection('notices')
           .find(filter)
           .sort({ created_at: -1 })
@@ -948,22 +1202,89 @@ export const Database = {
 
     if (targetId || schoolId) {
       const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-      return memoryStore.notices.filter(n => ids.includes(n.school_id));
+      return memoryStore.notices.filter(n => ids.includes(n.school_id) && matchesSession(n, targetSession));
     }
-    return memoryStore.notices;
+    return memoryStore.notices.filter(n => matchesSession(n, targetSession));
   },
 
   async createNotice(data: Partial<Notice>): Promise<Notice> {
     await ensureIndexes();
     const id = data.id || `NOT-${Date.now()}`;
+    const academic_session = data.academic_session || '2026-27';
+    const school_id = data.school_id || '';
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const isoTimestamp = now.toISOString();
+
+    // Fetch school to create official standard circular code
+    const school = school_id ? await this.getSchoolById(school_id) : null;
+    const targetSchoolId = school?.id || school_id || 'SCH';
+
+    // 1. School Name (DPS ONLY / school initials)
+    let shortSchoolName = 'DPS';
+    if (school) {
+      const sName = (school.name || school.school_name || '').trim();
+      if (/delhi\s+public\s+school/i.test(sName) || /dps/i.test(sName) || /dps/i.test(school.school_code || '')) {
+        shortSchoolName = 'DPS';
+      } else {
+        const words = sName.replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(Boolean);
+        if (words.length >= 2) {
+          shortSchoolName = words.map((w: string) => w[0].toUpperCase()).join('').slice(0, 6);
+        } else if (words.length === 1) {
+          shortSchoolName = words[0].toUpperCase().slice(0, 6);
+        }
+      }
+    }
+
+    // 2. Year (2026 only)
+    const yearOnly = now.getFullYear();
+
+    // 3. Date only month and date (e.g. 30/8)
+    const day = now.getDate();
+    const month = now.getMonth() + 1;
+    const dateMonth = `${day}/${month}`;
+
+    // Calculate sequential counter for this school and session
+    const existingSchoolNotices = (memoryStore.notices || []).filter(n => n.school_id === school_id && matchesSession(n, academic_session));
+    const seqNum = String(existingSchoolNotices.length + 1).padStart(4, '0');
+
+    // 4. Determine matter / subject code according to content or explicit field
+    let matterCategory = (data.matter_category || '').toUpperCase().trim();
+    if (!matterCategory) {
+      const text = `${data.title || ''} ${data.content || ''}`.toLowerCase();
+      if (/holiday|vacation|break|closure|autumn|winter|summer|diwali|festival|eid|christmas/i.test(text)) {
+        matterCategory = 'HOLIDAY';
+      } else if (/exam|datesheet|test|assessment|term|pre-board|result|marksheet/i.test(text)) {
+        matterCategory = 'EXAM';
+      } else if (/cbse|oasis|saras|board|circular|guideline|registration|loc/i.test(text)) {
+        matterCategory = 'CBSE';
+      } else if (/fee|tuition|dues|invoice|payment|accounts/i.test(text)) {
+        matterCategory = 'FEES';
+      } else if (/event|sports|annual day|competition|function|celebration/i.test(text)) {
+        matterCategory = 'EVENT';
+      } else if (/office|admin|principal|management|timing|discipline|transport/i.test(text)) {
+        matterCategory = 'OFFICE';
+      } else {
+        matterCategory = 'ACAD';
+      }
+    }
+
+    // Immutable Autogenerated Reference Number:
+    // Format: FIRST SCHOOL NAME (DPS)/YEAR/DATE(30/8)/MATTER/0001 (e.g. DPS/2026/30/8/HOLIDAY/0001)
+    const reference_no = `${shortSchoolName}/${yearOnly}/${dateMonth}/${matterCategory}/${seqNum}`;
+
     const notice: Notice = {
       id,
-      school_id: data.school_id || '',
+      school_id: targetSchoolId,
+      academic_session,
+      reference_no,
+      matter_category: matterCategory,
       title: data.title || 'Official Announcement',
       content: data.content || '',
       target_audience: data.target_audience || 'ALL',
       posted_by: data.posted_by || 'Principal Office',
-      created_at: new Date().toISOString()
+      date: dateStr,
+      created_at: isoTimestamp
     };
 
     try {
@@ -997,45 +1318,90 @@ export const Database = {
   },
 
   // ATTENDANCE
-  async getAttendance(schoolId?: string): Promise<AttendanceRecord[]> {
+  async getAttendance(schoolId?: string, session?: string): Promise<AttendanceRecord[]> {
+    await ensureIndexes();
     const school = schoolId ? await this.getSchoolById(schoolId) : null;
     const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
     const targetId = school?.id || cleanId;
     const targetCode = school?.school_code || cleanId;
+    const targetSession = session || '2026-27';
 
     try {
       const db = await getDatabase();
       if (db) {
-        const filter: any = {};
-        if (targetId || targetCode || schoolId) {
-          const ids = Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)));
-          filter.$or = ids.map(id => ({ school_id: id }));
-        }
+        const ids = (targetId || targetCode || schoolId)
+          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+          : [];
+        const filter = buildSessionFilter(ids as string[], targetSession);
         const results = await db.collection('attendance')
           .find(filter)
           .sort({ date: -1 })
           .toArray();
         if (results && results.length > 0) {
-          return results.map(sanitizeDoc<AttendanceRecord>);
+          const sanitized = results.map(sanitizeDoc<AttendanceRecord>);
+          const dedupMap = new Map<string, AttendanceRecord>();
+          sanitized.forEach(item => {
+            const key = `${item.date}_${(item.class_name || '').toLowerCase().trim()}_${(item.section || '').toLowerCase().trim()}`;
+            if (!dedupMap.has(key)) {
+              dedupMap.set(key, item);
+            }
+          });
+          return Array.from(dedupMap.values());
         }
       }
     } catch (e) {}
 
-    if (targetId || schoolId) {
-      const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-      return memoryStore.attendance.filter(a => ids.includes(a.school_id));
-    }
-    return memoryStore.attendance;
+    const rawList = (targetId || schoolId)
+      ? memoryStore.attendance.filter(a => [targetId, targetCode, schoolId, cleanId].filter(Boolean).includes(a.school_id) && matchesSession(a, targetSession))
+      : memoryStore.attendance.filter(a => matchesSession(a, targetSession));
+
+    const memDedupMap = new Map<string, AttendanceRecord>();
+    rawList.forEach(item => {
+      const key = `${item.date}_${(item.class_name || '').toLowerCase().trim()}_${(item.section || '').toLowerCase().trim()}`;
+      if (!memDedupMap.has(key)) {
+        memDedupMap.set(key, item);
+      }
+    });
+    return Array.from(memDedupMap.values());
   },
 
   async recordAttendance(data: Partial<AttendanceRecord>): Promise<AttendanceRecord> {
-    const id = data.id || `ATT-${Date.now()}`;
+    await ensureIndexes();
+    const academic_session = data.academic_session || '2026-27';
+    const date = data.date || new Date().toISOString().split('T')[0];
+    const rawClassName = (data.class_name || 'Class 10').trim();
+    const rawSection = (data.section || 'A').trim();
+    const school_id = data.school_id || '';
+
+    const isFaculty = /faculty|staff/i.test(rawClassName) || /faculty|staff/i.test(rawSection);
+    const class_name = isFaculty ? 'Faculty' : rawClassName;
+    const section = isFaculty ? 'Staff' : rawSection;
+
+    // Check if record already exists for this date, class, and section
+    const normClassName = class_name.toLowerCase();
+    const normSection = section.toLowerCase();
+
+    const existingMemIdx = memoryStore.attendance.findIndex(a => 
+      a.school_id === school_id &&
+      matchesSession(a, academic_session) &&
+      a.date === date &&
+      (isFaculty 
+        ? (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
+        : ((a.class_name || '').toLowerCase().trim() === normClassName && (a.section || '').toLowerCase().trim() === normSection))
+    );
+
+    const id = (existingMemIdx >= 0 && memoryStore.attendance[existingMemIdx].id) 
+      ? memoryStore.attendance[existingMemIdx].id 
+      : (data.id || `ATT-${Date.now()}`);
+
     const record: AttendanceRecord = {
+      ...data,
       id,
-      school_id: data.school_id || '',
-      date: data.date || new Date().toISOString().split('T')[0],
-      class_name: data.class_name || 'Class 10',
-      section: data.section || 'A',
+      school_id,
+      academic_session,
+      date,
+      class_name,
+      section,
       total_students: data.total_students || 30,
       present_count: data.present_count || 30,
       absent_count: data.absent_count || 0,
@@ -1045,11 +1411,38 @@ export const Database = {
     try {
       const db = await getDatabase();
       if (db) {
-        await db.collection('attendance').insertOne({ ...record });
+        if (isFaculty) {
+          await db.collection('attendance').deleteMany({
+            school_id: record.school_id,
+            academic_session: record.academic_session,
+            date: record.date,
+            $or: [
+              { class_name: /faculty|staff/i },
+              { section: /faculty|staff/i }
+            ]
+          });
+          await db.collection('attendance').insertOne({ ...record });
+        } else {
+          await db.collection('attendance').replaceOne(
+            {
+              school_id: record.school_id,
+              academic_session: record.academic_session,
+              date: record.date,
+              class_name: { $regex: new RegExp(`^${record.class_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+              section: { $regex: new RegExp(`^${record.section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+            },
+            { ...record },
+            { upsert: true }
+          );
+        }
       }
     } catch (e) {}
 
-    memoryStore.attendance.push(record);
+    if (existingMemIdx >= 0) {
+      memoryStore.attendance[existingMemIdx] = record;
+    } else {
+      memoryStore.attendance.push(record);
+    }
     saveLocalStore();
     return record;
   },
@@ -1072,21 +1465,21 @@ export const Database = {
   },
 
   // FEES & INVOICES
-  async getFeeInvoices(schoolId?: string): Promise<FeeInvoice[]> {
+  async getFeeInvoices(schoolId?: string, session?: string): Promise<FeeInvoice[]> {
     await ensureIndexes();
     const school = schoolId ? await this.getSchoolById(schoolId) : null;
     const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
     const targetId = school?.id || cleanId;
     const targetCode = school?.school_code || cleanId;
+    const targetSession = session || '2026-27';
 
     try {
       const db = await getDatabase();
       if (db) {
-        const filter: any = {};
-        if (targetId || targetCode || schoolId) {
-          const ids = Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)));
-          filter.$or = ids.map(id => ({ school_id: id }));
-        }
+        const ids = (targetId || targetCode || schoolId)
+          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+          : [];
+        const filter = buildSessionFilter(ids as string[], targetSession);
         const results = await db.collection('fee_invoices')
           .find(filter)
           .sort({ due_date: 1 })
@@ -1099,17 +1492,19 @@ export const Database = {
 
     if (targetId || schoolId) {
       const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-      return memoryStore.fee_invoices.filter(f => ids.includes(f.school_id));
+      return memoryStore.fee_invoices.filter(f => ids.includes(f.school_id) && matchesSession(f, targetSession));
     }
-    return memoryStore.fee_invoices;
+    return memoryStore.fee_invoices.filter(f => matchesSession(f, targetSession));
   },
 
   async createFeeInvoice(data: Partial<FeeInvoice>): Promise<FeeInvoice> {
     await ensureIndexes();
     const id = data.id || `INV-${Date.now()}`;
+    const academic_session = data.academic_session || '2026-27';
     const invoice: FeeInvoice = {
       id,
       school_id: data.school_id || '',
+      academic_session,
       invoice_no: data.invoice_no || `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
       student_name: data.student_name || 'Student',
       admission_no: data.admission_no || '',
@@ -1181,21 +1576,181 @@ export const Database = {
     return false;
   },
 
+  // HOLIDAYS & ACADEMIC CLOSURES
+  async getHolidays(schoolId?: string, session?: string): Promise<Holiday[]> {
+    await ensureIndexes();
+    const school = schoolId ? await this.getSchoolById(schoolId) : null;
+    const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
+    const targetId = school?.id || cleanId;
+    const targetCode = school?.school_code || cleanId;
+    const targetSession = session || '2026-27';
+
+    try {
+      const db = await getDatabase();
+      if (db) {
+        const ids = (targetId || targetCode || schoolId)
+          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+          : [];
+        const filter = buildSessionFilter(ids as string[], targetSession);
+        const results = await db.collection('holidays')
+          .find(filter)
+          .sort({ start_date: 1 })
+          .toArray();
+        if (results && results.length > 0) {
+          return results.map(sanitizeDoc<Holiday>);
+        }
+      }
+    } catch (e) {}
+
+    const rawList = (targetId || schoolId)
+      ? (memoryStore.holidays || []).filter(h => [targetId, targetCode, schoolId, cleanId].filter(Boolean).includes(h.school_id) && matchesSession(h, targetSession))
+      : (memoryStore.holidays || []).filter(h => matchesSession(h, targetSession));
+
+    return rawList.sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''));
+  },
+
+  async createHoliday(data: Partial<Holiday>, autoCreateNotice: boolean = true): Promise<Holiday> {
+    await ensureIndexes();
+    const id = data.id || `HOL-${Date.now()}`;
+    const academic_session = data.academic_session || '2026-27';
+    const startDate = data.start_date || new Date().toISOString().split('T')[0];
+    const endDate = data.end_date || startDate;
+    
+    // Calculate total days
+    const d1 = new Date(startDate);
+    const d2 = new Date(endDate);
+    const diffTime = Math.abs(d2.getTime() - d1.getTime());
+    const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    const holiday: Holiday = {
+      id,
+      school_id: data.school_id || '',
+      academic_session,
+      title: data.title || 'Institutional Holiday',
+      start_date: startDate,
+      end_date: endDate,
+      total_days: totalDays,
+      applicable_to: data.applicable_to || 'ALL',
+      category: data.category || 'GAZETTED',
+      reason: data.reason || 'Official Holiday Declared by Administration',
+      declared_by: data.declared_by || 'Admin Directorate',
+      auto_notice_published: autoCreateNotice,
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      const db = await getDatabase();
+      if (db) {
+        await db.collection('holidays').insertOne({ ...holiday });
+      }
+    } catch (e) {}
+
+    if (!Array.isArray(memoryStore.holidays)) memoryStore.holidays = [];
+    memoryStore.holidays.push(holiday);
+    saveLocalStore();
+
+    // Automatically publish official circular on Institutional Notice Board if enabled
+    if (autoCreateNotice) {
+      try {
+        const audMapping: Record<string, 'ALL' | 'TEACHERS' | 'STUDENTS' | 'PARENTS'> = {
+          'ALL': 'ALL',
+          'STUDENTS_ONLY': 'STUDENTS',
+          'TEACHERS_AND_STUDENTS': 'ALL',
+          'PRIMARY_ONLY': 'STUDENTS',
+          'SENIOR_ONLY': 'STUDENTS'
+        };
+        const aud = audMapping[holiday.applicable_to] || 'ALL';
+        const dateSpan = startDate === endDate ? startDate : `${startDate} to ${endDate} (${totalDays} Days)`;
+        await this.createNotice({
+          school_id: holiday.school_id,
+          academic_session: holiday.academic_session,
+          matter_category: 'HOLIDAY',
+          title: `Official Holiday Circular: ${holiday.title}`,
+          content: `Notice is hereby given that the institution will remain closed from ${dateSpan} on account of "${holiday.title}".\n\nApplicable Audience: ${holiday.applicable_to.replace(/_/g, ' ')}\nReason / Category: ${holiday.reason} (${holiday.category})\nDeclared By: ${holiday.declared_by}`,
+          target_audience: aud,
+          posted_by: holiday.declared_by
+        });
+      } catch (err) {
+        console.warn('Auto notice error:', err);
+      }
+    }
+
+    return holiday;
+  },
+
+  async deleteHoliday(id: string): Promise<boolean> {
+    try {
+      const db = await getDatabase();
+      if (db) {
+        await db.collection('holidays').deleteOne({ id });
+      }
+    } catch (e) {}
+
+    if (Array.isArray(memoryStore.holidays)) {
+      const idx = memoryStore.holidays.findIndex(h => h.id === id);
+      if (idx >= 0) {
+        memoryStore.holidays.splice(idx, 1);
+        saveLocalStore();
+        return true;
+      }
+    }
+    return false;
+  },
+
   // OVERVIEW STATS
-  async getSchoolOverview(schoolId: string): Promise<SchoolOverview> {
-    const students = await this.getStudents(schoolId);
-    const teachers = await this.getTeachers(schoolId);
-    const attendance = await this.getAttendance(schoolId);
-    const invoices = await this.getFeeInvoices(schoolId);
+  async getSchoolOverview(schoolId: string, session?: string): Promise<SchoolOverview> {
+    const targetSession = session || '2026-27';
+    const students = await this.getStudents(schoolId, targetSession);
+    const teachers = await this.getTeachers(schoolId, targetSession);
+    const attendance = await this.getAttendance(schoolId, targetSession);
+    const invoices = await this.getFeeInvoices(schoolId, targetSession);
 
     const totalStudents = students.length;
     const totalTeachers = teachers.length;
 
-    let attendanceToday = 0;
-    if (attendance.length > 0) {
-      const today = attendance[0];
-      attendanceToday = Math.round((today.present_count / (today.total_students || 1)) * 100);
-    }
+    // Today's date in YYYY-MM-DD
+    const todayDateStr = new Date().toISOString().split('T')[0];
+
+    // Deduplicate attendance records by class & section (keep newest record only)
+    const latestTodayMap = new Map<string, AttendanceRecord>();
+    attendance.forEach(a => {
+      if (a.date === todayDateStr) {
+        const key = `${(a.class_name || '').toLowerCase().trim()}_${(a.section || '').toLowerCase().trim()}`;
+        latestTodayMap.set(key, a);
+      }
+    });
+
+    const uniqueTodayRecords = Array.from(latestTodayMap.values());
+
+    // 1. Student Attendance strictly for TODAY (Deduplicated per class)
+    const studentTodayRecords = uniqueTodayRecords.filter(a => 
+      (a.class_name || '').toLowerCase() !== 'faculty' && 
+      (a.class_name || '').toLowerCase() !== 'staff'
+    );
+    const isStudentAttendanceMarkedToday = studentTodayRecords.length > 0;
+    const studentsPresentToday = isStudentAttendanceMarkedToday 
+      ? Math.min(totalStudents, studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0))
+      : 0;
+    const studentsTotalToday = totalStudents;
+    const studentAttendanceToday = isStudentAttendanceMarkedToday && totalStudents > 0
+      ? Number(((studentsPresentToday / totalStudents) * 100).toFixed(1))
+      : 0;
+
+    // 2. Faculty Attendance strictly for TODAY (Deduplicated, capped at total teachers)
+    const facultyTodayRecords = uniqueTodayRecords.filter(a => 
+      /faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || '')
+    );
+    const isFacultyAttendanceMarkedToday = facultyTodayRecords.length > 0;
+    const latestFacultyRecord = isFacultyAttendanceMarkedToday ? facultyTodayRecords[facultyTodayRecords.length - 1] : null;
+    const facultyPresentToday = latestFacultyRecord
+      ? Math.min(totalTeachers, Number(latestFacultyRecord.present_count) || 0)
+      : 0;
+    const facultyTotalToday = totalTeachers;
+    const facultyAttendanceToday = isFacultyAttendanceMarkedToday && totalTeachers > 0
+      ? Number(((facultyPresentToday / totalTeachers) * 100).toFixed(1))
+      : 0;
+
+    const attendanceToday = studentAttendanceToday;
 
     const paidInvoices = invoices.filter(i => i.status === 'PAID');
     const totalRevenue = paidInvoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
@@ -1204,10 +1759,19 @@ export const Database = {
     const feeCollectionRate = invoices.length > 0 ? Math.round((paidInvoices.length / invoices.length) * 100) : 0;
 
     return {
+      academic_session: targetSession,
       kpis: {
         totalStudents,
         totalTeachers,
         attendanceToday,
+        studentAttendanceToday,
+        facultyAttendanceToday,
+        studentsPresentToday,
+        studentsTotalToday,
+        facultyPresentToday,
+        facultyTotalToday,
+        isStudentAttendanceMarkedToday,
+        isFacultyAttendanceMarkedToday,
         feeCollectionRate,
         pendingFeeAmount,
         totalRevenue

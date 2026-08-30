@@ -6,10 +6,13 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const schoolId = searchParams.get('school_id') || searchParams.get('schoolId');
 
+    const session = searchParams.get('session') || searchParams.get('academic_session') || '2026-27';
+
     const targetSchoolId = schoolId || (await Database.getSchools())[0]?.id;
     if (!targetSchoolId) {
       return NextResponse.json({
         success: true,
+        academic_session: session,
         kpis: {
           totalStudents: 0,
           totalTeachers: 0,
@@ -23,7 +26,7 @@ export async function GET(req: Request) {
       });
     }
 
-    const overview = await Database.getSchoolOverview(targetSchoolId);
+    const overview = await Database.getSchoolOverview(targetSchoolId, session);
     return NextResponse.json({ success: true, ...overview });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

@@ -85,11 +85,11 @@ export default async function HomePage() {
               School ERP · Built for many schools
             </div>
 
-            <h1 className="font-display font-semibold text-4xl sm:text-6xl lg:text-[66px] leading-[1.08] tracking-tight text-white max-w-3xl mb-4">
-              One ERP.<br />
-              <span className="relative whitespace-nowrap inline-block">
+            <h1 className="font-display font-semibold text-3xl sm:text-5xl lg:text-[64px] leading-[1.15] sm:leading-[1.08] tracking-tight text-white max-w-3xl mb-4">
+              One ERP.<br className="hidden sm:inline" />{' '}
+              <span className="relative inline-block">
                 Every school, its own register.
-                <svg viewBox="0 0 460 16" preserveAspectRatio="none" className="absolute left-0 -bottom-1.5 w-full h-4">
+                <svg viewBox="0 0 460 16" preserveAspectRatio="none" className="absolute left-0 -bottom-1.5 w-full h-3 sm:h-4">
                   <path d="M2 10 Q60 2 120 9 T240 8 T360 11 T458 6" stroke="#C4432B" strokeWidth="3" fill="none" strokeLinecap="round" />
                 </svg>
               </span>
