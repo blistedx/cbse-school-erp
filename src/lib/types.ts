@@ -5,10 +5,21 @@ export interface School {
   board: string;
   city: string;
   state: string;
+  address?: string;
+  pincode?: string;
+  udise_code?: string;
+  oasis_code?: string;
+  affiliation_no?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  established_year?: string;
   principal_name?: string;
   admin_id?: string;
   admin_name?: string;
   admin_pin?: string;
+  logo?: string; // Base64 data URL or URL for School Icon / Logo up to 2MB
+  logo_url?: string;
   status: 'ACTIVE' | 'PENDING' | 'INACTIVE';
   created_at?: string;
 }
@@ -36,6 +47,8 @@ export interface User {
   full_name: string;
   email?: string;
   phone?: string;
+  avatar?: string; // Base64 data URL or image URL up to 2MB
+  theme?: string;  // Active Antigravity theme ID
   status?: string;
   is_god_admin?: boolean;
   permissions?: string[];
@@ -55,6 +68,7 @@ export interface Student {
   guardian_name: string;
   guardian_phone: string;
   guardian_email?: string;
+  phone?: string;
   fee_status: 'PAID' | 'PENDING' | 'OVERDUE' | 'PARTIAL';
   attendance_percent?: number;
   status: 'ACTIVE' | 'INACTIVE' | 'ALUMNI' | 'SUSPENDED';
@@ -119,6 +133,7 @@ export interface Teacher {
   school_id: string;
   academic_session?: string; // e.g. "2026-27"
   staff_code: string;
+  employee_code?: string;
   full_name: string;
   department: string;
   designation: string;
@@ -176,6 +191,7 @@ export interface ClassRoom {
   school_id: string;
   academic_session?: string; // e.g. "2026-27"
   class_name: string;
+  name?: string;
   section: string;
   class_code?: string;
   class_teacher?: string;
@@ -226,6 +242,20 @@ export interface AttendanceRecord {
   absent_count: number;
   leave_count?: number;
   marked_by?: string;
+  student_records?: Array<{
+    student_id: string;
+    admission_no?: string;
+    full_name: string;
+    roll_no?: string;
+    status: 'PRESENT' | 'ABSENT' | 'LEAVE' | 'LATE';
+  }>;
+  teacher_records?: Array<{
+    teacher_id: string;
+    staff_code?: string;
+    full_name: string;
+    status: 'PRESENT' | 'ABSENT' | 'LEAVE' | 'LATE';
+  }>;
+  created_at?: string;
 }
 
 export interface FeeInvoice {
@@ -233,10 +263,13 @@ export interface FeeInvoice {
   school_id: string;
   academic_session?: string;
   invoice_no: string;
+  student_id?: string;
   student_name: string;
   admission_no?: string;
   class_name: string;
+  month?: string;
   amount: number;
+  paid_amount?: number;
   tuition_fee?: number;
   transport_fee?: number;
   exam_fee?: number;

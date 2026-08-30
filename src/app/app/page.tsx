@@ -57,7 +57,15 @@ import {
   RotateCcw,
   PlusCircle,
   Sparkles,
-  BookCheck
+  BookCheck,
+  FileCheck,
+  Coins,
+  BarChart2,
+  Wallet,
+  ChevronDown,
+  ChevronUp,
+  UploadCloud,
+  ImageIcon
 } from 'lucide-react';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview } from '@/lib/types';
 import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
@@ -69,12 +77,16 @@ import { DashboardExams } from '@/components/blocks/dashboard-exams';
 import { DashboardHomework } from '@/components/blocks/dashboard-homework';
 import { DashboardApprovals } from '@/components/blocks/dashboard-approvals';
 import { DashboardBroadcast } from '@/components/blocks/dashboard-broadcast';
+import { DashboardCertificates } from '@/components/blocks/dashboard-certificates';
+import { DashboardFees } from '@/components/blocks/dashboard-fees';
 
 function ERPWorkspaceContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'teachers' | 'classes' | 'subjects' | 'attendance' | 'fees' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'teachers' | 'classes' | 'subjects' | 'attendance' | 'fees' | 'certificates' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile'>('overview');
+  const [feeMenuOpen, setFeeMenuOpen] = useState(true);
+  const [feeSubTab, setFeeSubTab] = useState<'overview' | 'monthly' | 'collect' | 'calendar' | 'structure' | 'payroll'>('overview');
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [overview, setOverview] = useState<SchoolOverview | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
@@ -489,14 +501,49 @@ function ERPWorkspaceContent() {
     status: 'PENDING' as 'PAID' | 'PENDING' | 'OVERDUE'
   });
 
-  // Settings Form
+  // Settings Form (Institutional & CBSE Compliance Parameters)
   const [settingsForm, setSettingsForm] = useState({
     school_name: '',
     principal_name: '',
     board: 'CBSE',
     city: '',
-    admin_pin: ''
+    state: '',
+    address: '',
+    pincode: '',
+    udise_code: '',
+    oasis_code: '',
+    affiliation_no: '',
+    phone: '',
+    email: '',
+    website: '',
+    established_year: '',
+    admin_pin: '',
+    logo: ''
   });
+
+  // School Logo Upload Handler (Max 2MB)
+  const handleSchoolLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const maxBytes = 2 * 1024 * 1024; // 2 MB limit
+    if (file.size > maxBytes) {
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+      alert(`Selected file is ${sizeMb} MB. School logo / icon must be 2 MB or smaller.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setSettingsForm(prev => ({ ...prev, logo: base64 }));
+      showAdminToast('School logo uploaded to preview. Click "Save Institutional Profile" to persist.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveSchoolLogo = () => {
+    setSettingsForm(prev => ({ ...prev, logo: '' }));
+    showAdminToast('School logo removed.');
+  };
 
   useEffect(() => {
     fetchAuthenticatedSchool();
@@ -573,11 +620,22 @@ function ERPWorkspaceContent() {
         const cleanAdminPin = (targetSchool.admin_pin === 'admin@4317' ? '123456' : targetSchool.admin_pin) || '123456';
         
         setSettingsForm({
-          school_name: targetSchool.school_name,
+          school_name: targetSchool.school_name || '',
           principal_name: activePrincipalName,
           board: targetSchool.board || 'CBSE',
-          city: targetSchool.city || '',
-          admin_pin: cleanAdminPin
+          city: targetSchool.city || 'New Delhi',
+          state: targetSchool.state || 'Delhi',
+          address: targetSchool.address || 'Sector 12, Dwarka, New Delhi',
+          pincode: targetSchool.pincode || '110075',
+          udise_code: targetSchool.udise_code || '07010100101',
+          oasis_code: targetSchool.oasis_code || '84001',
+          affiliation_no: targetSchool.affiliation_no || '2130042',
+          phone: targetSchool.phone || '+91 11 2789 0000',
+          email: targetSchool.email || `contact@${(targetSchool.school_code || 'dps2026').toLowerCase()}.edu`,
+          website: targetSchool.website || `https://${(targetSchool.school_code || 'dps2026').toLowerCase()}.edu`,
+          established_year: targetSchool.established_year || '1998',
+          admin_pin: cleanAdminPin,
+          logo: targetSchool.logo || ''
         });
         setProfileForm({
           full_name: activePrincipalName,
@@ -2124,8 +2182,8 @@ function ERPWorkspaceContent() {
 
       {/* Top Header: Responsive with Mobile Drawer Toggle */}
       {/* Top Header Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#DCE8E0] px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between shadow-2xs">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#DCE8E0] px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between shadow-2xs gap-3 sm:gap-6">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
           {/* Mobile Hamburger Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(true)}
@@ -2136,29 +2194,38 @@ function ERPWorkspaceContent() {
             <Menu className="h-5 w-5" />
           </button>
 
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1 border-none bg-transparent p-0 text-left cursor-pointer group"
+            title="Go to Overview Dashboard"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/giterp-logo.png"
-              alt="Giterp Logo"
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-contain bg-[#122A24] border border-[#122A24]/30 p-0.5 shadow-xs shrink-0"
-            />
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="font-display font-bold text-xs sm:text-base lg:text-lg text-[#122A24] tracking-tight truncate max-w-[150px] xs:max-w-[220px] sm:max-w-md">
-                  {selectedSchool?.school_name || 'Delhi Public International School'}
-                </span>
-                {selectedSchool && (
-                  <span className="hidden sm:inline-block font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#EBF5EF] text-[#1C443A] font-bold border border-[#C5E2CF] shrink-0">
-                    {selectedSchool.school_code}
-                  </span>
-                )}
+            {selectedSchool?.logo || settingsForm.logo ? (
+              <img
+                src={selectedSchool?.logo || settingsForm.logo}
+                alt="School Logo"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-contain bg-white border border-[#DCE8E0] p-0.5 shadow-xs shrink-0 group-hover:scale-105 transition-transform"
+              />
+            ) : (
+              <img
+                src="/giterp-logo.png"
+                alt="Giterp Logo"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-contain bg-[#122A24] border border-[#122A24]/30 p-0.5 shadow-xs shrink-0 group-hover:scale-105 transition-transform"
+              />
+            )}
+            <div className="min-w-0 flex-1 pr-2">
+              <h1 
+                className="font-display font-bold text-xs sm:text-sm md:text-base lg:text-lg text-[#122A24] tracking-tight leading-tight truncate m-0 group-hover:text-emerald-800 transition-colors"
+                title={selectedSchool?.school_name || 'Delhi Public International School'}
+              >
+                {selectedSchool?.school_name || 'Delhi Public International School'}
+              </h1>
+              <div className="font-mono text-[9.5px] sm:text-[10.5px] text-[#2D5A4E] leading-tight mt-0.5 truncate">
+                {selectedSchool?.city ? `${selectedSchool.city} • ` : ''}{selectedSchool?.board || 'CBSE'} Curriculum
               </div>
-              <span className="font-mono text-[9.5px] sm:text-[10px] text-[#2D5A4E] block -mt-0.5 truncate">
-                Giterp • {selectedSchool?.city ? `${selectedSchool.city} • ` : ''}{selectedSchool?.board || 'CBSE'} Curriculum
-              </span>
             </div>
-          </div>
+          </button>
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
@@ -2292,22 +2359,35 @@ function ERPWorkspaceContent() {
           <aside className="relative w-72 sm:w-80 bg-[#122A24] text-white p-5 flex flex-col gap-1 z-50 h-full overflow-y-auto shadow-2xl animate-slide-in">
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-4 mb-2 border-b border-white/15">
-              <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
+                className="flex items-center gap-2.5 border-none bg-transparent p-0 text-left cursor-pointer group"
+                title="Go to Overview Dashboard"
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/giterp-logo.png"
-                  alt="Giterp Logo"
-                  className="w-9 h-9 rounded-xl object-contain bg-[#122A24] border border-white/20 p-0.5 shadow-xs shrink-0"
-                />
+                {selectedSchool?.logo || settingsForm.logo ? (
+                  <img
+                    src={selectedSchool?.logo || settingsForm.logo}
+                    alt="School Logo"
+                    className="w-9 h-9 rounded-xl object-contain bg-white border border-white/20 p-0.5 shadow-xs shrink-0 group-hover:scale-105 transition-transform"
+                  />
+                ) : (
+                  <img
+                    src="/giterp-logo.png"
+                    alt="Giterp Logo"
+                    className="w-9 h-9 rounded-xl object-contain bg-[#122A24] border border-white/20 p-0.5 shadow-xs shrink-0 group-hover:scale-105 transition-transform"
+                  />
+                )}
                 <div>
-                  <div className="font-display font-bold text-sm text-white truncate max-w-[160px]">
-                    Giterp ERP
+                  <div className="font-display font-bold text-sm text-white truncate max-w-[160px] group-hover:text-emerald-300 transition-colors">
+                    {selectedSchool?.school_name || 'Giterp'}
                   </div>
                   <div className="text-[10px] font-mono text-emerald-300">
-                    {selectedSchool?.school_code || 'DPS2026'} • CBSE
+                    {selectedSchool?.school_code || 'DPS2026'} • {selectedSchool?.board || 'CBSE'}
                   </div>
                 </div>
-              </div>
+              </button>
               <button
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white border-none cursor-pointer"
@@ -2427,20 +2507,34 @@ function ERPWorkspaceContent() {
               <CalendarCheck className="h-4 w-4 shrink-0" /> Daily Attendance
             </button>
 
+            {/* Fee Management (Mobile) */}
             <button
-              onClick={() => { setActiveTab('fees'); setMobileMenuOpen(false); }}
+              onClick={() => {
+                setActiveTab('fees');
+                setMobileMenuOpen(false);
+              }}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
                 activeTab === 'fees' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
               }`}
             >
               <span className="flex items-center gap-3">
-                <CreditCard className="h-4 w-4 shrink-0" /> Fee Invoices
+                <Coins className="h-4 w-4 shrink-0 text-amber-300" /> Fee Management
               </span>
               <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
                 activeTab === 'fees' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
               }`}>
                 {invoices.length}
               </span>
+            </button>
+
+            {/* Certificate Studio (Mobile) */}
+            <button
+              onClick={() => { setActiveTab('certificates'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                activeTab === 'certificates' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <FileCheck className="h-4 w-4 shrink-0 text-amber-300" /> Certificate Studio
             </button>
 
             <button
@@ -2476,7 +2570,7 @@ function ERPWorkspaceContent() {
                 activeTab === 'approvals' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
               }`}
             >
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" /> Approvals Desk
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" /> Leave &amp; Approvals
             </button>
 
             <button
@@ -2544,7 +2638,7 @@ function ERPWorkspaceContent() {
               className="mt-auto p-3.5 rounded-2xl bg-white/10 border border-white/15 text-xs text-slate-200 space-y-2 cursor-pointer hover:bg-white/15 transition-colors"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/30 text-emerald-300 font-bold flex items-center justify-center text-xs shrink-0 border border-emerald-400/40">
+                <div className="w-8 h-8 rounded-full bg-emerald-500/30 text-emerald-300 font-bold flex items-center justify-center text-xs shrink-0 border border-emerald-400/40 font-display">
                   {(currentUser?.full_name || selectedSchool?.principal_name || 'A')[0]?.toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -2566,25 +2660,35 @@ function ERPWorkspaceContent() {
         {/* Navigation Sidebar (Desktop Only) */}
         <aside className="hidden lg:flex w-64 bg-[#122A24] text-white p-4 flex-col gap-1 shrink-0 border-r border-white/10 overflow-y-auto">
           {/* Giterp Brand Badge */}
-          <div className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-white/10 border border-white/15 mb-3">
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 mb-3 transition-colors text-left border-none cursor-pointer group w-full"
+            title="Go to Overview Dashboard"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/giterp-logo.png"
-              alt="Giterp Logo"
-              className="w-10 h-10 rounded-xl object-contain shadow-xs bg-[#122A24] border border-white/20 p-1 shrink-0"
-            />
+            {selectedSchool?.logo || settingsForm.logo ? (
+              <img
+                src={selectedSchool?.logo || settingsForm.logo}
+                alt="School Logo"
+                className="w-10 h-10 rounded-xl object-contain shadow-xs bg-white border border-white/20 p-0.5 shrink-0 group-hover:scale-105 transition-transform"
+              />
+            ) : (
+              <img
+                src="/giterp-logo.png"
+                alt="Giterp Logo"
+                className="w-10 h-10 rounded-xl object-contain shadow-xs bg-[#122A24] border border-white/20 p-1 shrink-0 group-hover:scale-105 transition-transform"
+              />
+            )}
             <div className="min-w-0 flex-1">
-              <div className="font-display font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
-                <span>Giterp</span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300 font-mono border border-emerald-400/30">
-                  ERP
-                </span>
+              <div className="font-display font-bold text-sm tracking-tight text-white flex items-center gap-1.5 group-hover:text-emerald-300 transition-colors">
+                <span className="truncate">{selectedSchool?.school_name || 'Giterp'}</span>
               </div>
               <div className="text-[10px] text-slate-300 font-mono truncate">
-                Manage • Integrate • Grow
+                {selectedSchool?.school_code || 'DPS2026'} • CBSE Console
               </div>
             </div>
-          </div>
+          </button>
 
           {/* Super Admin School Switcher Widget (Desktop Sidebar) */}
           {isSuperAdmin && (
@@ -2696,6 +2800,7 @@ function ERPWorkspaceContent() {
             <CalendarCheck className="h-4 w-4 shrink-0" /> Daily Attendance
           </button>
 
+          {/* Fee Management (Desktop) */}
           <button
             onClick={() => setActiveTab('fees')}
             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
@@ -2703,13 +2808,22 @@ function ERPWorkspaceContent() {
             }`}
           >
             <span className="flex items-center gap-3">
-              <CreditCard className="h-4 w-4 shrink-0" /> Fee Invoices
+              <Coins className="h-4 w-4 shrink-0 text-amber-300" /> Fee Management
             </span>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
               activeTab === 'fees' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
             }`}>
               {invoices.length}
             </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('certificates')}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+              activeTab === 'certificates' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <FileCheck className="h-4 w-4 shrink-0 text-amber-300" /> Certificate Studio
           </button>
 
           <button
@@ -2745,7 +2859,7 @@ function ERPWorkspaceContent() {
               activeTab === 'approvals' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
             }`}
           >
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" /> Approvals Desk
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" /> Leave &amp; Approvals
           </button>
 
           <button
@@ -2833,7 +2947,7 @@ function ERPWorkspaceContent() {
             <div className="flex items-center justify-between pt-1.5 border-t border-white/10 text-[10px] font-mono">
               <span className="truncate">ID: {currentUser?.username || selectedSchool?.admin_id || 'Admin'}</span>
               <span className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white text-[10px] font-semibold transition-colors">
-                View Profile →
+                Theme &amp; Profile →
               </span>
             </div>
           </div>
@@ -5118,18 +5232,12 @@ function ERPWorkspaceContent() {
                                 </span>
                               </td>
 
-                              {/* CBSE Subjects Pill & Studio Trigger */}
+                              {/* CBSE Subjects Pill */}
                               <td className="py-3.5 px-4 font-mono">
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenSubjectManager(c)}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] hover:bg-emerald-100 text-[#122A24] border border-[#C5E2CF] transition-all cursor-pointer shadow-2xs group"
-                                  title="View, rename, add, or delete subjects for this class"
-                                >
-                                  <BookOpen className="h-3.5 w-3.5 text-emerald-700 group-hover:scale-110 transition-transform" />
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                                  <BookOpen className="h-3 w-3 text-emerald-700" />
                                   <span>{c.subjects?.length || c.no_of_subjects || 6} Subjects</span>
-                                  <span className="text-[10px] text-emerald-800 font-sans font-semibold underline ml-0.5">Manage →</span>
-                                </button>
+                                </span>
                               </td>
 
                               {/* Room No */}
@@ -5170,18 +5278,7 @@ function ERPWorkspaceContent() {
                                   </button>
 
                                   {activeClassMenuId === c.id && (
-                                    <div className="absolute right-0 mt-1 w-52 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setActiveClassMenuId(null);
-                                          handleOpenSubjectManager(c);
-                                        }}
-                                        className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24] font-semibold"
-                                      >
-                                        <BookOpen className="h-3.5 w-3.5 text-emerald-700" />
-                                        <span>Manage CBSE Subjects</span>
-                                      </button>
+                                    <div className="absolute right-0 mt-1 w-48 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
                                       <button
                                         onClick={() => {
                                           setActiveClassMenuId(null);
@@ -5344,7 +5441,7 @@ function ERPWorkspaceContent() {
           {activeTab === 'attendance' && (
             <DashboardAttendance
               selectedSchool={selectedSchool}
-              students={students}
+                              students={students}
               teachers={teachers}
               classes={classes}
               attendance={attendance}
@@ -5354,301 +5451,18 @@ function ERPWorkspaceContent() {
             />
           )}
 
-          {/* TAB 6: FEES & INVOICE MANAGEMENT (THEME-ALIGNED WITH ADVANCED FILTERS) */}
+          {/* TAB 6: FEES & INVOICE MANAGEMENT */}
           {activeTab === 'fees' && (
-            <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
-              <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5">
-                {/* Header & Primary Action */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA]">
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
-                        Fee Management &amp; Invoices
-                      </h1>
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                        {filteredInvoices.length} Invoices
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#2D5A4E] mt-0.5 font-mono">
-                      Issue customized student fee slips, record dues, track receipts, and print invoices
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowAddInvoice(true)}
-                      className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all border-none cursor-pointer"
-                    >
-                      <Plus className="h-4 w-4" /> Issue Fee Invoice
-                    </button>
-                  </div>
-                </div>
-
-                {/* Financial KPI Summary Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-[#F9FCFA] p-4 sm:p-5 rounded-2xl border border-[#DCE8E0] shadow-2xs">
-                    <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#2D5A4E]">Total Billed</span>
-                    <div className="font-display font-bold text-2xl text-[#122A24] mt-1.5">
-                      ₹{totalBilled.toLocaleString()}
-                    </div>
-                    <div className="text-[11px] font-mono text-[#2D5A4E] mt-0.5">{invoices.length} Invoices Generated</div>
-                  </div>
-
-                  <div className="bg-[#F0FDF4] p-4 sm:p-5 rounded-2xl border border-[#BBF7D0] shadow-2xs">
-                    <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-emerald-800">Collected Amount</span>
-                    <div className="font-display font-bold text-2xl text-emerald-700 mt-1.5">
-                      ₹{totalPaid.toLocaleString()}
-                    </div>
-                    <div className="text-[11px] font-mono text-emerald-700 mt-0.5">Paid Receipts</div>
-                  </div>
-
-                  <div className="bg-rose-50/50 p-4 sm:p-5 rounded-2xl border border-rose-200 shadow-2xs">
-                    <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-rose-800">Outstanding Due</span>
-                    <div className="font-display font-bold text-2xl text-rose-600 mt-1.5">
-                      ₹{totalPending.toLocaleString()}
-                    </div>
-                    <div className="text-[11px] font-mono text-rose-600 mt-0.5">Pending Payments</div>
-                  </div>
-                </div>
-
-                {/* Fee Filters & Search Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 max-w-full flex-wrap sm:flex-nowrap">
-                    {/* Status Filter */}
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F4F8F5] border border-[#DCE8E0] rounded-full text-xs font-medium text-[#122A24] shadow-2xs">
-                      <span className="text-[#2D5A4E] text-[11px] font-mono">Status:</span>
-                      <select
-                        value={feeStatusFilter}
-                        onChange={(e) => { setFeeStatusFilter(e.target.value as any); setFeePage(1); }}
-                        className="bg-transparent border-none text-xs font-semibold text-[#122A24] focus:outline-none cursor-pointer pr-1"
-                      >
-                        <option value="ALL">All Invoices</option>
-                        <option value="PAID">Paid Only</option>
-                        <option value="PENDING">Pending Only</option>
-                        <option value="OVERDUE">Overdue Only</option>
-                      </select>
-                    </div>
-
-                    {/* Class Filter */}
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F4F8F5] border border-[#DCE8E0] rounded-full text-xs font-medium text-[#122A24] shadow-2xs">
-                      <span className="text-[#2D5A4E] text-[11px] font-mono">Class:</span>
-                      <select
-                        value={feeClassFilter}
-                        onChange={(e) => { setFeeClassFilter(e.target.value); setFeePage(1); }}
-                        className="bg-transparent border-none text-xs font-semibold text-[#122A24] focus:outline-none cursor-pointer pr-1"
-                      >
-                        <option value="ALL">All Classes</option>
-                        <option value="Nursery">Nursery</option>
-                        <option value="LKG">LKG</option>
-                        <option value="UKG">UKG</option>
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map(num => (
-                          <option key={num} value={`Class ${num}`}>{`Class ${num}`}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Payment Mode Filter */}
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F4F8F5] border border-[#DCE8E0] rounded-full text-xs font-medium text-[#122A24] shadow-2xs">
-                      <span className="text-[#2D5A4E] text-[11px] font-mono">Mode:</span>
-                      <select
-                        value={feePaymentModeFilter}
-                        onChange={(e) => { setFeePaymentModeFilter(e.target.value); setFeePage(1); }}
-                        className="bg-transparent border-none text-xs font-semibold text-[#122A24] focus:outline-none cursor-pointer pr-1"
-                      >
-                        <option value="ALL">All Modes</option>
-                        <option value="UPI">UPI / Online</option>
-                        <option value="Cash">Cash</option>
-                        <option value="Bank">Bank Transfer</option>
-                      </select>
-                    </div>
-
-                    {/* Sort Dropdown */}
-                    <div className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#F4F8F5] border border-[#DCE8E0] rounded-full text-xs font-medium text-[#122A24] shadow-2xs">
-                      <ArrowUpDown className="h-3 w-3 text-[#2D5A4E]" />
-                      <select
-                        value={feeSortBy}
-                        onChange={(e) => setFeeSortBy(e.target.value as any)}
-                        className="bg-transparent border-none text-xs font-medium text-[#122A24] focus:outline-none cursor-pointer pr-1"
-                      >
-                        <option value="Date-Desc">Due Date (Latest)</option>
-                        <option value="Date-Asc">Due Date (Oldest)</option>
-                        <option value="Amount-Desc">Amount (High - Low)</option>
-                        <option value="Amount-Asc">Amount (Low - High)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Search bar */}
-                  <div className="relative w-full sm:w-72">
-                    <Search className="absolute left-3.5 top-2.5 h-3.5 w-3.5 text-[#2D5A4E]" />
-                    <input
-                      type="text"
-                      placeholder="Search by student, invoice no, class..."
-                      value={searchQuery}
-                      onChange={(e) => { setSearchQuery(e.target.value); setFeePage(1); }}
-                      className="w-full pl-9 pr-4 py-1.5 bg-[#F4F8F5] border border-[#DCE8E0] rounded-full text-xs text-[#122A24] placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#10B981] transition-all shadow-2xs"
-                    />
-                  </div>
-                </div>
-
-                {/* Active Filter Badges */}
-                {(feeStatusFilter !== 'ALL' || feeClassFilter !== 'ALL' || feePaymentModeFilter !== 'ALL' || searchQuery.trim() !== '') && (
-                  <div className="flex flex-wrap items-center gap-2 px-1 text-xs">
-                    <span className="text-[11px] font-mono text-[#2D5A4E] font-bold">Active Filters:</span>
-                    {feeStatusFilter !== 'ALL' && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF]">
-                        Status: {feeStatusFilter}
-                        <button onClick={() => setFeeStatusFilter('ALL')} className="hover:text-rose-600 cursor-pointer border-none bg-transparent p-0">✕</button>
-                      </span>
-                    )}
-                    {feeClassFilter !== 'ALL' && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF]">
-                        Class: {feeClassFilter}
-                        <button onClick={() => setFeeClassFilter('ALL')} className="hover:text-rose-600 cursor-pointer border-none bg-transparent p-0">✕</button>
-                      </span>
-                    )}
-                    {feePaymentModeFilter !== 'ALL' && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF]">
-                        Mode: {feePaymentModeFilter}
-                        <button onClick={() => setFeePaymentModeFilter('ALL')} className="hover:text-rose-600 cursor-pointer border-none bg-transparent p-0">✕</button>
-                      </span>
-                    )}
-                    {searchQuery.trim() !== '' && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF]">
-                        Query: &ldquo;{searchQuery}&rdquo;
-                        <button onClick={() => setSearchQuery('')} className="hover:text-rose-600 cursor-pointer border-none bg-transparent p-0">✕</button>
-                      </span>
-                    )}
-                    <button
-                      onClick={() => {
-                        setFeeStatusFilter('ALL');
-                        setFeeClassFilter('ALL');
-                        setFeePaymentModeFilter('ALL');
-                        setSearchQuery('');
-                      }}
-                      className="text-[11px] font-mono font-bold text-rose-600 hover:underline border-none bg-transparent cursor-pointer px-1"
-                    >
-                      Clear All
-                    </button>
-                  </div>
-                )}
-
-                {/* Invoices Master Table */}
-                <div className="rounded-2xl border border-[#DCE8E0] overflow-hidden bg-white shadow-2xs">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-[#F3F7F5] font-mono text-[11px] font-bold text-[#1C443A] uppercase tracking-wider border-b border-[#DCE8E0]">
-                        <tr>
-                          <th className="py-3 px-4">Invoice No</th>
-                          <th className="py-3 px-4">Student &amp; Class</th>
-                          <th className="py-3 px-4">Breakdown</th>
-                          <th className="py-3 px-4">Total Amount</th>
-                          <th className="py-3 px-4">Due Date</th>
-                          <th className="py-3 px-4">Status</th>
-                          <th className="py-3 px-4 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#EBF2ED] font-sans">
-                        {paginatedInvoices.map(inv => (
-                          <tr key={inv.id} className="hover:bg-[#F9FCFA] transition-colors">
-                            <td className="py-3.5 px-4 font-mono font-bold text-[#122A24]">
-                              {inv.invoice_no}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <div className="font-semibold text-[#122A24]">{inv.student_name}</div>
-                              <div className="text-[#2D5A4E] font-mono text-[11px]">{inv.class_name} {inv.admission_no ? `• ${inv.admission_no}` : ''}</div>
-                            </td>
-                            <td className="py-3.5 px-4 text-[#2D5A4E] font-mono text-[11px]">
-                              Tuition: ₹{(inv.tuition_fee || inv.amount).toLocaleString()} {inv.transport_fee ? `+ Trans: ₹${inv.transport_fee}` : ''}
-                            </td>
-                            <td className="py-3.5 px-4 font-display font-bold text-sm text-[#122A24]">
-                              ₹{inv.amount.toLocaleString()}
-                            </td>
-                            <td className="py-3.5 px-4 font-mono text-[#2D5A4E]">
-                              {inv.due_date}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <button
-                                onClick={() => handleToggleInvoiceStatus(inv)}
-                                className={`font-mono text-[10px] px-2.5 py-1 rounded-full font-bold cursor-pointer border transition-colors ${
-                                  inv.status === 'PAID'
-                                    ? 'bg-[#EBF5EF] text-[#1C443A] border-[#C5E2CF] hover:bg-[#D9EDE0]'
-                                    : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
-                                }`}
-                                title="Click to toggle status"
-                              >
-                                {inv.status === 'PAID' ? '✓ PAID' : '⏳ PENDING'}
-                              </button>
-                            </td>
-                            <td className="py-3.5 px-4 text-right space-x-1.5">
-                              <button
-                                onClick={() => setViewInvoice(inv)}
-                                className="px-3 py-1 bg-[#122A24] hover:bg-[#1C443A] text-white text-[11px] font-semibold rounded-full shadow-xs cursor-pointer border-none inline-flex items-center gap-1 transition-colors"
-                                title="View & Print Official Slip"
-                              >
-                                <Printer className="h-3 w-3" /> Slip
-                              </button>
-                              <button
-                                onClick={() => handleDeleteInvoice(inv.id)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-full hover:bg-rose-50 border-none bg-transparent cursor-pointer inline-flex items-center transition-colors"
-                                title="Delete Invoice"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                        {paginatedInvoices.length === 0 && (
-                          <tr>
-                            <td colSpan={7} className="py-12 text-center text-xs text-[#2D5A4E] font-mono">
-                              No fee invoices found matching your filter criteria. Click "Issue Fee Invoice" to generate slips.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Fee Pagination */}
-                  <div className="p-3.5 border-t border-[#DCE8E0] bg-[#F8FAF9] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#2D5A4E]">
-                    <div>
-                      Showing {totalFeeEntries === 0 ? 0 : (feePage - 1) * feeRowsPerPage + 1} to {Math.min(feePage * feeRowsPerPage, totalFeeEntries)} of {totalFeeEntries} Invoices
-                    </div>
-
-                    <div className="flex items-center gap-1 self-end sm:self-auto">
-                      <button
-                        onClick={() => setFeePage(Math.max(1, feePage - 1))}
-                        disabled={feePage === 1}
-                        className="px-3 py-1 rounded-lg border border-[#DCE8E0] bg-white text-[#122A24] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#EBF5EF] cursor-pointer font-medium transition-colors"
-                      >
-                        Prev
-                      </button>
-
-                      {Array.from({ length: totalFeePages }, (_, i) => i + 1).slice(0, 5).map(pageNum => (
-                        <button
-                          key={pageNum}
-                          onClick={() => setFeePage(pageNum)}
-                          className={`w-7 h-7 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${
-                            feePage === pageNum
-                              ? 'bg-[#122A24] border-[#122A24] text-white shadow-xs'
-                              : 'bg-white border-[#DCE8E0] text-[#122A24] hover:bg-[#EBF5EF]'
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      ))}
-
-                      <button
-                        onClick={() => setFeePage(Math.min(totalFeePages, feePage + 1))}
-                        disabled={feePage === totalFeePages || totalFeePages === 0}
-                        className="px-3 py-1 rounded-lg border border-[#DCE8E0] bg-white text-[#122A24] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#EBF5EF] cursor-pointer font-medium transition-colors"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <DashboardFees
+              selectedSchool={selectedSchool}
+              students={students}
+              invoices={invoices}
+              classes={classes}
+              teachers={teachers}
+              selectedSession={selectedSession}
+              onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession)}
+              showAdminToast={showAdminToast}
+            />
           )}
 
           {/* TAB 7: NOTICES (THEME-ALIGNED WITH ADVANCED AUDIENCE FILTERS) */}
@@ -5787,6 +5601,32 @@ function ERPWorkspaceContent() {
             </div>
           )}
 
+          {/* TAB: CERTIFICATES & DOCKET STUDIO */}
+          {activeTab === 'certificates' && (
+            <div className="space-y-6 animate-fade-in">
+              <DashboardCertificates
+                selectedSchool={selectedSchool}
+                students={students}
+                teachers={teachers}
+                classes={classes}
+                selectedSession={selectedSession}
+                isSuperAdmin={isSuperAdmin}
+              />
+            </div>
+          )}
+
+          {/* TAB: EMPLOYEE LEAVE & APPROVALS STUDIO */}
+          {activeTab === 'approvals' && (
+            <div className="space-y-6 animate-fade-in">
+              <DashboardApprovals
+                selectedSchool={selectedSchool}
+                teachers={teachers}
+                selectedSession={selectedSession}
+                isSuperAdmin={isSuperAdmin}
+              />
+            </div>
+          )}
+
           {/* TAB 8: SETTINGS */}
           {activeTab === 'settings' && (
             <div className="space-y-6 max-w-5xl mx-auto animate-fade-in">
@@ -5912,68 +5752,306 @@ function ERPWorkspaceContent() {
               </div>
 
               {/* INSTITUTIONAL SETTINGS FORM */}
-              <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-5">
-                <div className="pb-3 border-b border-[#E8F0EA]">
-                  <h2 className="font-display font-bold text-base text-[#122A24]">
-                    Institutional Profile &amp; Security Credentials
-                  </h2>
-                  <p className="text-[11px] text-[#2D5A4E]">
-                    Update official school parameters stored on MongoDB Atlas.
-                  </p>
+              <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-6">
+                <div className="pb-3 border-b border-[#E8F0EA] flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h2 className="font-display font-bold text-base sm:text-lg text-[#122A24]">
+                      Institutional Profile &amp; CBSE/Government Compliance Registry
+                    </h2>
+                    <p className="text-[11px] text-[#2D5A4E] mt-0.5">
+                      Update official school codes (UDISE+, OASIS, CBSE Affiliation), campus location, and credentials.
+                    </p>
+                  </div>
+                  {settingsSuccess && (
+                    <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-fade-in">
+                      ✓ {settingsSuccess}
+                    </span>
+                  )}
                 </div>
 
-                <form onSubmit={handleUpdateSettings} className="space-y-4 text-xs">
-                  <div>
-                    <label className="block font-semibold text-[#122A24] mb-1">Official School Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={settingsForm.school_name}
-                      onChange={(e) => setSettingsForm({ ...settingsForm, school_name: e.target.value })}
-                      className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24]"
-                    />
+                <form onSubmit={handleUpdateSettings} className="space-y-6 text-xs">
+                  {/* GROUP 0: INSTITUTIONAL CREST & SCHOOL LOGO (MAX 2 MB) */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#F9FCFA] border border-[#DCE8E0] space-y-4">
+                    <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-[#E8F0EA]">
+                      <div className="font-display font-bold text-xs sm:text-sm text-[#122A24] flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-[#122A24] text-white flex items-center justify-center text-[10px] font-mono">1</span>
+                        <span>Institutional Crest &amp; School Logo</span>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        Max 2.0 MB • PNG, JPG, SVG, WebP
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                      {/* Logo Preview (Square & Circle) */}
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex flex-col items-center">
+                          <div className="w-20 h-20 rounded-2xl bg-white border-2 border-[#122A24] shadow-xs flex items-center justify-center overflow-hidden p-1">
+                            {settingsForm.logo ? (
+                              <img src={settingsForm.logo} alt="School Logo Preview" className="w-full h-full object-contain" />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center text-slate-400 text-center">
+                                <Building2 className="w-8 h-8 text-slate-300" />
+                                <span className="text-[9px] font-mono text-slate-400 mt-0.5">No Logo</span>
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-[9px] font-mono text-slate-500 mt-1">Navbar Crest</span>
+                        </div>
+
+                        <div className="flex flex-col items-center">
+                          <div className="w-20 h-20 rounded-full bg-white border-2 border-emerald-600 shadow-xs flex items-center justify-center overflow-hidden p-1">
+                            {settingsForm.logo ? (
+                              <img src={settingsForm.logo} alt="School Seal Preview" className="w-full h-full object-contain rounded-full" />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center text-slate-400 text-center">
+                                <Award className="w-8 h-8 text-slate-300" />
+                                <span className="text-[9px] font-mono text-slate-400 mt-0.5">Seal</span>
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-[9px] font-mono text-slate-500 mt-1">Official Seal</span>
+                        </div>
+                      </div>
+
+                      {/* Upload Controls */}
+                      <div className="flex-1 space-y-2.5 text-center sm:text-left">
+                        <div>
+                          <div className="font-bold text-xs text-[#122A24]">Upload Institutional Emblem</div>
+                          <p className="text-[11px] text-[#2D5A4E] leading-relaxed mt-0.5">
+                            This logo will automatically appear on the Top Navbar, Student &amp; Staff ID Cards, Transfer Certificates, Bonafides, and Institutional Invoices.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-center sm:justify-start gap-2.5 flex-wrap pt-1">
+                          <label className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors">
+                            <UploadCloud className="w-4 h-4" />
+                            <span>{settingsForm.logo ? 'Change School Logo (Max 2MB)' : 'Upload School Logo (Max 2MB)'}</span>
+                            <input
+                              type="file"
+                              accept="image/png, image/jpeg, image/jpg, image/svg+xml, image/webp"
+                              onChange={handleSchoolLogoUpload}
+                              className="hidden"
+                            />
+                          </label>
+
+                          {settingsForm.logo && (
+                            <button
+                              type="button"
+                              onClick={handleRemoveSchoolLogo}
+                              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Remove Logo</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block font-semibold text-[#122A24] mb-1">Campus City / Location</label>
-                      <input
-                        type="text"
-                        value={settingsForm.city}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, city: e.target.value })}
-                        className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs"
-                      />
+                  {/* GROUP 1: BASIC IDENTITY */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#F9FCFA] border border-[#DCE8E0] space-y-3.5">
+                    <div className="font-display font-bold text-xs sm:text-sm text-[#122A24] flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#122A24] text-white flex items-center justify-center text-[10px] font-mono">2</span>
+                      <span>School Identity &amp; Principal Leadership</span>
                     </div>
-                    <div>
-                      <label className="block font-semibold text-[#122A24] mb-1">Curriculum Board</label>
-                      <input
-                        type="text"
-                        value={settingsForm.board}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, board: e.target.value })}
-                        className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs font-mono"
-                      />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                      <div className="sm:col-span-2">
+                        <label className="block font-semibold text-[#122A24] mb-1">Official School Full Name *</label>
+                        <input
+                          type="text"
+                          required
+                          value={settingsForm.school_name}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, school_name: e.target.value })}
+                          placeholder="e.g. Delhi Public International School"
+                          className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs font-bold text-[#122A24] bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-[#122A24] mb-1">Established Year</label>
+                        <input
+                          type="text"
+                          value={settingsForm.established_year}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, established_year: e.target.value })}
+                          placeholder="e.g. 1998"
+                          className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs font-mono bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="block font-semibold text-[#122A24] mb-1">Principal / Head of Institution</label>
+                        <input
+                          type="text"
+                          value={settingsForm.principal_name}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, principal_name: e.target.value })}
+                          placeholder="e.g. Dr. Rajesh Sharma"
+                          className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-[#122A24] mb-1">Curriculum Board</label>
+                        <input
+                          type="text"
+                          value={settingsForm.board}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, board: e.target.value })}
+                          placeholder="e.g. CBSE / CISCE / State"
+                          className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs font-mono bg-white"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* GROUP 2: GOVERNMENT & BOARD CODES */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#EBF5EF]/50 border border-[#C5E2CF] space-y-3.5">
+                    <div className="font-display font-bold text-xs sm:text-sm text-[#1C443A] flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-[#1C443A] text-white flex items-center justify-center text-[10px] font-mono">2</span>
+                        <span>Government &amp; CBSE Compliance Codes</span>
+                      </div>
+                      <span className="text-[10px] font-mono uppercase font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                        OASIS &amp; UDISE+ Standard
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                      <div>
+                        <label className="block font-semibold text-[#122A24] mb-1">UDISE+ Code (Govt of India)</label>
+                        <input
+                          type="text"
+                          value={settingsForm.udise_code}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, udise_code: e.target.value })}
+                          placeholder="e.g. 07010100101"
+                          className="w-full px-3.5 py-2.5 border border-[#C5E2CF] rounded-xl text-xs font-mono font-bold text-emerald-900 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-[#122A24] mb-1">CBSE OASIS School Code</label>
+                        <input
+                          type="text"
+                          value={settingsForm.oasis_code}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, oasis_code: e.target.value })}
+                          placeholder="e.g. 84001"
+                          className="w-full px-3.5 py-2.5 border border-[#C5E2CF] rounded-xl text-xs font-mono font-bold text-emerald-900 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-[#122A24] mb-1">CBSE Affiliation Number</label>
+                        <input
+                          type="text"
+                          value={settingsForm.affiliation_no}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, affiliation_no: e.target.value })}
+                          placeholder="e.g. 2130042"
+                          className="w-full px-3.5 py-2.5 border border-[#C5E2CF] rounded-xl text-xs font-mono font-bold text-emerald-900 bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* GROUP 3: CAMPUS ADDRESS & CONTACT */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#F9FCFA] border border-[#DCE8E0] space-y-3.5">
+                    <div className="font-display font-bold text-xs sm:text-sm text-[#122A24] flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#122A24] text-white flex items-center justify-center text-[10px] font-mono">3</span>
+                      <span>Campus Address &amp; Official Contact</span>
+                    </div>
+
                     <div>
-                      <label className="block font-semibold text-[#122A24] mb-1">Principal / Administrator Name</label>
+                      <label className="block font-semibold text-[#122A24] mb-1">Campus Full Street Address</label>
                       <input
                         type="text"
-                        value={settingsForm.principal_name}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, principal_name: e.target.value })}
-                        className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs"
+                        value={settingsForm.address}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, address: e.target.value })}
+                        placeholder="e.g. Sector 12, Phase II, Dwarka"
+                        className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs bg-white font-medium"
                       />
                     </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                      <div>
+                        <label className="block font-semibold text-[#122A24] mb-1">City / District</label>
+                        <input
+                          type="text"
+                          value={settingsForm.city}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, city: e.target.value })}
+                          placeholder="e.g. New Delhi"
+                          className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-[#122A24] mb-1">State / Province</label>
+                        <input
+                          type="text"
+                          value={settingsForm.state}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, state: e.target.value })}
+                          placeholder="e.g. Delhi"
+                          className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-[#122A24] mb-1">PIN / Postal Code</label>
+                        <input
+                          type="text"
+                          value={settingsForm.pincode}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, pincode: e.target.value })}
+                          placeholder="e.g. 110075"
+                          className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs font-mono bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                      <div>
+                        <label className="block font-semibold text-[#122A24] mb-1">Official Phone / Helpline</label>
+                        <input
+                          type="tel"
+                          value={settingsForm.phone}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, phone: e.target.value })}
+                          placeholder="e.g. +91 11 2789 0000"
+                          className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs font-mono bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-[#122A24] mb-1">Institutional Email</label>
+                        <input
+                          type="email"
+                          value={settingsForm.email}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, email: e.target.value })}
+                          placeholder="e.g. principal@school.edu"
+                          className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-[#122A24] mb-1">Official Website</label>
+                        <input
+                          type="url"
+                          value={settingsForm.website}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, website: e.target.value })}
+                          placeholder="e.g. https://dps2026.edu"
+                          className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* GROUP 4: SECURITY */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#F9FCFA] border border-[#DCE8E0] space-y-3.5">
+                    <div className="font-display font-bold text-xs sm:text-sm text-[#122A24] flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#122A24] text-white flex items-center justify-center text-[10px] font-mono">4</span>
+                      <span>Administrator Master Passcode</span>
+                    </div>
+
                     <div>
-                      <label className="block font-semibold text-[#122A24] mb-1">School Admin Security PIN / Passcode *</label>
-                      <div className="relative">
+                      <label className="block font-semibold text-[#122A24] mb-1">Admin Security PIN / Passcode *</label>
+                      <div className="relative max-w-sm">
                         <input
                           type={showSettingsPin ? "text" : "password"}
                           required
                           value={settingsForm.admin_pin}
                           onChange={(e) => setSettingsForm({ ...settingsForm, admin_pin: e.target.value })}
-                          className="w-full px-3.5 py-2.5 pr-10 border border-[#DCE8E0] rounded-xl font-mono text-xs font-bold text-[#122A24]"
+                          className="w-full px-3.5 py-2.5 pr-10 border border-[#DCE8E0] rounded-xl font-mono text-xs font-bold text-[#122A24] bg-white"
                         />
                         <button
                           type="button"
@@ -5987,12 +6065,15 @@ function ERPWorkspaceContent() {
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-[#E8F0EA] flex justify-end">
+                  <div className="pt-3 border-t border-[#E8F0EA] flex items-center justify-between">
+                    <span className="text-[11px] text-[#2D5A4E] font-mono">
+                      All settings auto-sync to MongoDB Atlas Cloud.
+                    </span>
                     <button
                       type="submit"
-                      className="px-6 py-2.5 bg-[#122A24] hover:bg-[#1C443A] text-white font-semibold rounded-full shadow-xs cursor-pointer border-none text-xs transition-colors"
+                      className="px-7 py-3 bg-[#122A24] hover:bg-[#1C443A] text-white font-semibold rounded-full shadow-xs cursor-pointer border-none text-xs transition-colors"
                     >
-                      Save Configuration
+                      Save Institutional Profile
                     </button>
                   </div>
                 </form>
@@ -6115,7 +6196,7 @@ function ERPWorkspaceContent() {
               </div>
 
               {/* Profile Identity Hero Banner */}
-              <div className="bg-gradient-to-r from-[#122A24] to-[#1C443A] text-white p-6 sm:p-7 rounded-3xl shadow-md flex flex-col sm:flex-row items-center sm:items-start justify-between gap-5">
+              <div className="bg-gradient-to-r from-[#122A24] to-[#1C443A] text-white p-6 sm:p-7 rounded-3xl shadow-md flex flex-col sm:flex-row items-center sm:items-start justify-between gap-5 relative overflow-hidden">
                 <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
                   <div className="w-20 h-20 rounded-2xl bg-white/15 border-2 border-white/30 text-white font-display font-bold text-3xl flex items-center justify-center shadow-lg shrink-0">
                     {(profileForm.full_name || currentUser?.full_name || selectedSchool?.principal_name || 'A')[0]?.toUpperCase()}
@@ -6149,7 +6230,7 @@ function ERPWorkspaceContent() {
               {/* Profile Details & Security Form */}
               <form onSubmit={handleSaveProfile} className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Card 1: Personal Identity & Contact */}
+                  {/* Card 1: Personal Identity */}
                   <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
                     <div className="pb-3 border-b border-[#E8F0EA]">
                       <h3 className="font-display font-bold text-base text-[#122A24] flex items-center gap-2">
@@ -6347,13 +6428,6 @@ function ERPWorkspaceContent() {
           {activeTab === 'homework' && (
             <DashboardHomework
               students={students}
-              schoolName={selectedSchool?.school_name}
-            />
-          )}
-
-          {/* TAB: PRINCIPAL APPROVALS DESK */}
-          {activeTab === 'approvals' && (
-            <DashboardApprovals
               schoolName={selectedSchool?.school_name}
             />
           )}

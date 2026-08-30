@@ -246,38 +246,54 @@ export function DashboardAttendance({
   useEffect(() => {
     if (attendanceType === 'STUDENT') {
       if (!selectedClass) return;
+      const cName = (selectedClass.class_name || '').toLowerCase().trim();
+      const cSec = (selectedClass.section || '').toUpperCase().trim();
       const match = attendance.find(a => 
         a.date === attendanceDate && 
-        (a.class_name || '').toLowerCase() === (selectedClass.class_name || '').toLowerCase() &&
-        (a.section || '').toUpperCase() === (selectedClass.section || '').toUpperCase()
+        ((a.class_name || '').toLowerCase().trim() === cName || (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') === cName.replace(/^class\s*/i, '')) &&
+        (a.section || '').toUpperCase().trim() === cSec
       );
 
       const initialMap: Record<string, 'PRESENT' | 'ABSENT' | 'LEAVE' | 'LATE'> = {};
-      classStudents.forEach(stu => {
-        if (match && (match as any).student_records) {
-          const rec = (match as any).student_records.find((r: any) => r.student_id === stu.id);
+      if (match && Array.isArray((match as any).student_records) && (match as any).student_records.length > 0) {
+        classStudents.forEach(stu => {
+          const rec = (match as any).student_records.find((r: any) => r.student_id === stu.id || r.admission_no === stu.admission_no);
           initialMap[stu.id] = rec ? rec.status : 'PRESENT';
-        } else {
+        });
+      } else if (match && (Number(match.absent_count) || 0) > 0) {
+        const absCount = Number(match.absent_count) || 0;
+        classStudents.forEach((stu, idx) => {
+          initialMap[stu.id] = idx >= (classStudents.length - absCount) ? 'ABSENT' : 'PRESENT';
+        });
+      } else {
+        classStudents.forEach(stu => {
           initialMap[stu.id] = 'PRESENT';
-        }
-      });
+        });
+      }
       setStudentStatuses(initialMap);
     } else {
       // Faculty Roll Call
       const match = attendance.find(a => 
         a.date === attendanceDate && 
-        ((a.class_name || '').toLowerCase() === 'faculty' || (a.class_name || '').toLowerCase() === 'staff')
+        (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
       );
 
       const initialMap: Record<string, 'PRESENT' | 'ABSENT' | 'LEAVE' | 'LATE'> = {};
-      teachers.forEach(t => {
-        if (match && (match as any).teacher_records) {
-          const rec = (match as any).teacher_records.find((r: any) => r.teacher_id === t.id);
+      if (match && Array.isArray((match as any).teacher_records) && (match as any).teacher_records.length > 0) {
+        teachers.forEach(t => {
+          const rec = (match as any).teacher_records.find((r: any) => r.teacher_id === t.id || r.staff_code === t.staff_code);
           initialMap[t.id] = rec ? rec.status : 'PRESENT';
-        } else {
+        });
+      } else if (match && (Number(match.absent_count) || 0) > 0) {
+        const absCount = Number(match.absent_count) || 0;
+        teachers.forEach((t, idx) => {
+          initialMap[t.id] = idx >= (teachers.length - absCount) ? 'ABSENT' : 'PRESENT';
+        });
+      } else {
+        teachers.forEach(t => {
           initialMap[t.id] = 'PRESENT';
-        }
-      });
+        });
+      }
       setStudentStatuses(initialMap);
     }
   }, [selectedClass, attendanceDate, attendanceType, classStudents, teachers, attendance]);

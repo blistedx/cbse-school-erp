@@ -1402,10 +1402,14 @@ export const Database = {
       date,
       class_name,
       section,
-      total_students: data.total_students || 30,
-      present_count: data.present_count || 30,
-      absent_count: data.absent_count || 0,
-      marked_by: data.marked_by || 'Admin'
+      total_students: data.total_students !== undefined ? Number(data.total_students) : 30,
+      present_count: data.present_count !== undefined ? Number(data.present_count) : 30,
+      absent_count: data.absent_count !== undefined ? Number(data.absent_count) : 0,
+      leave_count: data.leave_count !== undefined ? Number(data.leave_count) : 0,
+      marked_by: data.marked_by || 'Admin',
+      student_records: Array.isArray(data.student_records) ? data.student_records : [],
+      teacher_records: Array.isArray(data.teacher_records) ? data.teacher_records : [],
+      created_at: data.created_at || new Date().toISOString()
     };
 
     try {
@@ -1506,10 +1510,13 @@ export const Database = {
       school_id: data.school_id || '',
       academic_session,
       invoice_no: data.invoice_no || `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
+      student_id: data.student_id || '',
       student_name: data.student_name || 'Student',
       admission_no: data.admission_no || '',
       class_name: data.class_name || 'Class 10 - A',
+      month: data.month || 'April 2026',
       amount: Number(data.amount) || 15000,
+      paid_amount: Number(data.paid_amount) || (data.status === 'PAID' ? (Number(data.amount) || 15000) : 0),
       tuition_fee: Number(data.tuition_fee) || Number(data.amount) || 15000,
       transport_fee: Number(data.transport_fee) || 0,
       exam_fee: Number(data.exam_fee) || 0,

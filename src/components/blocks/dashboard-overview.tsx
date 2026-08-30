@@ -220,12 +220,27 @@ export function DashboardOverview({
         <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
         
         <div className="relative z-10 min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-2 font-mono text-[11px] font-semibold text-[#1C443A] uppercase tracking-wider flex-wrap">
-            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-            <span className="truncate">{selectedSchool?.school_name || 'Delhi Public International School'}</span>
-            <span className="text-slate-400">•</span>
+          {/* Institutional Compliance & Location Badges */}
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-2 font-mono text-[10px] sm:text-[11px] font-semibold text-[#1C443A] uppercase tracking-wider flex-wrap">
+            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse shrink-0" />
+            <span className="whitespace-normal font-bold text-[#122A24]">
+              {selectedSchool?.school_name || 'Delhi Public International School'}
+            </span>
             <span className="bg-[#122A24]/10 px-2 py-0.5 rounded-md text-[#122A24] font-bold shrink-0">
               {selectedSchool?.school_code || 'DPS2026'}
+            </span>
+            <span className="text-slate-400 hidden sm:inline">•</span>
+            <span className="bg-white/90 px-2 py-0.5 rounded-md text-[#1C443A] font-bold border border-[#C5E2CF] shadow-2xs shrink-0" title="UDISE+ School Registry Code">
+              UDISE: {selectedSchool?.udise_code || '07010100101'}
+            </span>
+            <span className="bg-white/90 px-2 py-0.5 rounded-md text-[#1C443A] font-bold border border-[#C5E2CF] shadow-2xs shrink-0" title="CBSE Online Affiliated Schools Information System Code">
+              OASIS: {selectedSchool?.oasis_code || '84001'}
+            </span>
+            <span className="bg-white/90 px-2 py-0.5 rounded-md text-[#1C443A] font-bold border border-[#C5E2CF] shadow-2xs shrink-0" title="CBSE Board Affiliation Number">
+              CBSE AFFIL: {selectedSchool?.affiliation_no || '2130042'}
+            </span>
+            <span className="text-[#2D5A4E] text-[10.5px] font-sans font-medium flex items-center gap-1 shrink-0" title="Campus Address">
+              📍 {selectedSchool?.address || `${selectedSchool?.city || 'New Delhi'}, ${selectedSchool?.state || 'Delhi'}`}
             </span>
           </div>
           
@@ -273,21 +288,24 @@ export function DashboardOverview({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          ROW 2: 4 SPACIOUS CORE KPI STAT CARDS (GRID-COLS-4)
+          ROW 2: 4 SPACIOUS CORE KPI STAT CARDS (GRID-COLS-4) WITH SMOOTH ANIMATIONS
           ───────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4 sm:gap-5 items-stretch min-w-0">
         
         {/* 1. Stat Card 1: Student Attendance (Today) */}
-        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow">
+        <div 
+          onClick={() => setActiveTab('attendance')}
+          className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group cursor-pointer"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider">Student Attendance (Today)</span>
-            <div className={`w-9 h-9 rounded-2xl ${isStudentAttendanceMarkedToday ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70' : 'bg-amber-50 text-amber-700 border-amber-200/70'} border flex items-center justify-center shadow-xs`}>
+            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">Student Attendance (Today)</span>
+            <div className={`w-9 h-9 rounded-2xl ${isStudentAttendanceMarkedToday ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70' : 'bg-amber-50 text-amber-700 border-amber-200/70'} border flex items-center justify-center shadow-xs group-hover:scale-110 group-hover:rotate-6 transition-all duration-300`}>
               <UserCheck className="w-4.5 h-4.5" />
             </div>
           </div>
 
           <div className="my-3">
-            <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight flex items-baseline gap-1.5">
+            <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight flex items-baseline gap-1.5 group-hover:text-emerald-950 transition-colors">
               <span>{isStudentAttendanceMarkedToday ? studentAttendanceRate : 0}%</span>
               <span className="text-sm font-mono font-medium text-slate-400">
                 ({isStudentAttendanceMarkedToday ? studentPresentCount : 0}/{totalStudentsCount})
@@ -295,7 +313,7 @@ export function DashboardOverview({
             </div>
             <div className="flex items-center gap-2 mt-2">
               {isStudentAttendanceMarkedToday ? (
-                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 whitespace-nowrap">
+                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 whitespace-nowrap group-hover:bg-emerald-100 transition-colors">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <span>
                     {studentTodayRecords.length >= (classes.length || 1)
@@ -304,7 +322,7 @@ export function DashboardOverview({
                   </span>
                 </span>
               ) : (
-                <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 flex items-center gap-1 whitespace-nowrap">
+                <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 flex items-center gap-1 whitespace-nowrap group-hover:bg-amber-100 transition-colors">
                   <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                   <span>Not Marked Today (0%)</span>
                 </span>
@@ -321,16 +339,19 @@ export function DashboardOverview({
         </div>
 
         {/* 2. Stat Card 2: Faculty Attendance (Today) */}
-        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow">
+        <div 
+          onClick={() => setActiveTab('attendance')}
+          className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group cursor-pointer"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider">Faculty Attendance (Today)</span>
-            <div className={`w-9 h-9 rounded-2xl ${isFacultyAttendanceMarkedToday ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70' : 'bg-amber-50 text-amber-700 border-amber-200/70'} border flex items-center justify-center shadow-xs`}>
+            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">Faculty Attendance (Today)</span>
+            <div className={`w-9 h-9 rounded-2xl ${isFacultyAttendanceMarkedToday ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70' : 'bg-amber-50 text-amber-700 border-amber-200/70'} border flex items-center justify-center shadow-xs group-hover:scale-110 group-hover:-rotate-6 transition-all duration-300`}>
               <GraduationCap className="w-4.5 h-4.5" />
             </div>
           </div>
 
           <div className="my-3">
-            <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight flex items-baseline gap-1.5">
+            <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight flex items-baseline gap-1.5 group-hover:text-emerald-950 transition-colors">
               <span>{isFacultyAttendanceMarkedToday ? facultyAttendanceRate : 0}%</span>
               <span className="text-sm font-mono font-medium text-slate-400">
                 ({isFacultyAttendanceMarkedToday ? facultyPresentCount : 0}/{totalTeachersCount})
@@ -338,12 +359,12 @@ export function DashboardOverview({
             </div>
             <div className="flex items-center gap-2 mt-2">
               {isFacultyAttendanceMarkedToday ? (
-                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 whitespace-nowrap">
+                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 whitespace-nowrap group-hover:bg-emerald-100 transition-colors">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <span>Biometric Logged ({facultyAttendanceRate}%)</span>
                 </span>
               ) : (
-                <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 flex items-center gap-1 whitespace-nowrap">
+                <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 flex items-center gap-1 whitespace-nowrap group-hover:bg-amber-100 transition-colors">
                   <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                   <span>Not Marked Today (0%)</span>
                 </span>
@@ -360,20 +381,23 @@ export function DashboardOverview({
         </div>
 
         {/* 3. Stat Card 3: Total Fee Revenue & Recovery */}
-        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow">
+        <div 
+          onClick={() => setActiveTab('fees')}
+          className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group cursor-pointer"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider">Fee Revenue</span>
-            <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shadow-xs">
+            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">Fee Revenue</span>
+            <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shadow-xs group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
               <CreditCard className="w-4.5 h-4.5 text-emerald-700" />
             </div>
           </div>
 
           <div className="my-3">
-            <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight">
+            <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight group-hover:text-emerald-950 transition-colors">
               {totalPaid > 0 ? (totalPaid >= 100000 ? `₹${(totalPaid / 100000).toFixed(2)}L` : `₹${totalPaid.toLocaleString()}`) : '₹0'}
             </div>
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 whitespace-nowrap">
+              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 whitespace-nowrap group-hover:bg-emerald-100 transition-colors">
                 {collectionRate}% Collected • Term 1
               </span>
             </div>
@@ -388,15 +412,18 @@ export function DashboardOverview({
         </div>
 
         {/* 4. Stat Card 4: Total Campus Strength & CBSE Student-Teacher Ratio */}
-        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs hover:shadow-sm transition-shadow">
+        <div 
+          onClick={() => setActiveTab('students')}
+          className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group cursor-pointer"
+        >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider">Total Campus Strength</span>
-            <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full whitespace-nowrap">
+            <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">Total Campus Strength</span>
+            <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full whitespace-nowrap group-hover:bg-emerald-100 transition-colors">
               STR 1 : {Math.round(totalStudentsCount / (totalTeachersCount || 1))}
             </span>
           </div>
 
-          <div className="relative flex flex-col items-center justify-center my-1">
+          <div className="relative flex flex-col items-center justify-center my-1 group-hover:scale-105 transition-transform duration-300">
             <svg viewBox="0 0 100 60" className="w-28 h-18 overflow-visible">
               <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#E2ECE5" strokeWidth="9" strokeLinecap="round" />
               <path d="M 10 50 A 40 40 0 0 1 48 14" fill="none" stroke="#34D399" strokeWidth="9" strokeDasharray="60 100" strokeLinecap="round" />
@@ -434,15 +461,15 @@ export function DashboardOverview({
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch min-w-0">
         
         {/* TILE 1: Official Notice Board (6 Cols) */}
-        <div className="xl:col-span-6 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs flex flex-col justify-between min-w-0">
+        <div className="xl:col-span-6 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs tile-hover-card flex flex-col justify-between min-w-0 group">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2.5 mb-4 pb-2.5 border-b border-slate-100 min-w-0">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center border border-emerald-200/80 shadow-2xs shrink-0">
+                <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center border border-emerald-200/80 shadow-2xs shrink-0 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
                   <Bell className="w-4.5 h-4.5 text-emerald-700" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-display font-bold text-base text-[#122A24] truncate">Official Notice Board</h3>
+                  <h3 className="font-display font-bold text-base text-[#122A24] truncate group-hover:text-emerald-950 transition-colors">Official Notice Board</h3>
                   <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap block truncate">Campus Circulars &amp; Directives</span>
                 </div>
               </div>
@@ -451,7 +478,7 @@ export function DashboardOverview({
                 {setShowAddNotice && (
                   <button
                     onClick={() => setShowAddNotice(true)}
-                    className="px-3.5 py-1.5 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer border-none shadow-2xs transition-all"
+                    className="px-3.5 py-1.5 rounded-full bg-[#122A24] hover:bg-[#1C443A] hover:scale-105 active:scale-95 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer border-none shadow-2xs transition-all"
                   >
                     <Plus className="w-3.5 h-3.5 text-emerald-400" />
                     <span>Post Circular</span>
@@ -462,13 +489,13 @@ export function DashboardOverview({
 
             <div className="divide-y divide-slate-100">
               {displayNotices.map((n, idx) => (
-                <div key={idx} className="py-3 group cursor-pointer hover:bg-[#F9FCFA] px-2.5 rounded-xl transition-colors min-w-0">
+                <div key={idx} className="py-3 group/item cursor-pointer hover:bg-[#F9FCFA] hover:translate-x-1 px-2.5 rounded-xl transition-all duration-200 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                         {n.target_audience}
                       </span>
-                      <span className="text-xs font-semibold text-[#122A24] group-hover:text-emerald-700 transition-colors truncate">
+                      <span className="text-xs font-semibold text-[#122A24] group-hover/item:text-emerald-700 transition-colors truncate">
                         {n.title}
                       </span>
                     </div>
@@ -495,15 +522,15 @@ export function DashboardOverview({
         </div>
 
         {/* TILE 2: Academic Calendar for Events & Holidays (6 Cols) */}
-        <div className="xl:col-span-6 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs flex flex-col justify-between min-w-0">
+        <div className="xl:col-span-6 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs tile-hover-card flex flex-col justify-between min-w-0 group">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2.5 mb-4 pb-2.5 border-b border-slate-100 min-w-0">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center border border-emerald-200/80 shadow-2xs shrink-0">
+                <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center border border-emerald-200/80 shadow-2xs shrink-0 group-hover:scale-110 group-hover:-rotate-6 transition-all duration-300">
                   <CalendarDays className="w-4.5 h-4.5 text-emerald-700" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-display font-bold text-base text-[#122A24] truncate">Events &amp; Holidays Calendar</h3>
+                  <h3 className="font-display font-bold text-base text-[#122A24] truncate group-hover:text-emerald-950 transition-colors">Events &amp; Holidays Calendar</h3>
                   <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap block truncate">Academic Schedule 2026-27</span>
                 </div>
               </div>
@@ -538,7 +565,7 @@ export function DashboardOverview({
 
             <div className="space-y-2.5">
               {filteredEvents.slice(0, 4).map((evt) => (
-                <div key={evt.id} className="p-3 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] flex items-center gap-3.5 hover:bg-white hover:shadow-2xs transition-all min-w-0">
+                <div key={evt.id} className="p-3 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] flex items-center gap-3.5 hover:bg-white hover:shadow-xs hover:translate-x-1 transition-all duration-200 min-w-0">
                   <div className="px-3 py-1.5 rounded-xl bg-white border border-[#C5E2CF] text-center shrink-0 min-w-[55px] shadow-2xs">
                     <span className="block font-mono text-[10px] text-slate-400 uppercase leading-none font-semibold">{evt.day}</span>
                     <span className="block font-display font-bold text-xs text-[#122A24] mt-1 leading-none">{evt.date}</span>
@@ -580,11 +607,11 @@ export function DashboardOverview({
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch min-w-0">
         
         {/* Attendance Wave Chart (7 Cols) */}
-        <div className="xl:col-span-7 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs flex flex-col justify-between min-w-0">
+        <div className="xl:col-span-7 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs tile-hover-card flex flex-col justify-between min-w-0 group">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2.5 mb-3 pb-2 border-b border-slate-100 min-w-0">
               <div>
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider font-mono">Weekly Turnout Curve</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider font-mono group-hover:text-emerald-800 transition-colors">Weekly Turnout Curve</span>
                 <div className="flex items-center gap-4 mt-1">
                   <span className="flex items-center gap-1.5 text-xs font-semibold text-[#122A24]">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Student: 96.4%
@@ -694,18 +721,18 @@ export function DashboardOverview({
         </div>
 
         {/* Turnout Speedometer (5 Cols) */}
-        <div className="xl:col-span-5 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs flex flex-col justify-between min-w-0">
+        <div className="xl:col-span-5 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs tile-hover-card flex flex-col justify-between min-w-0 group">
           <div>
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider font-mono">Combined Campus Turnout</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider font-mono group-hover:text-emerald-800 transition-colors">Combined Campus Turnout</span>
               <span className="text-xs font-mono font-semibold text-emerald-700 flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Live Status
               </span>
             </div>
 
-            {/* Sunburst 15-Segment Ray Speedometer (Deterministic Pre-computed Rays) */}
+            {/* Sunburst 15-Segment Ray Speedometer */}
             <div className="relative flex flex-col items-center justify-center pt-2 pb-1">
-              <svg viewBox="0 0 200 110" className="w-52 h-32 overflow-visible">
+              <svg viewBox="0 0 200 110" className="w-52 h-32 overflow-visible group-hover:scale-105 transition-transform duration-300">
                 {SPEEDOMETER_RAYS.map((ray, i) => {
                   const combinedPercentage = (isStudentAttendanceMarkedToday || isFacultyAttendanceMarkedToday) && (totalStudentsCount + totalTeachersCount > 0)
                     ? Math.round(((studentPresentCount + facultyPresentCount) / (totalStudentsCount + totalTeachersCount)) * 100)
@@ -729,7 +756,7 @@ export function DashboardOverview({
               </svg>
 
               <div className="text-center -mt-8">
-                <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight">
+                <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight group-hover:text-emerald-950 transition-colors">
                   {(isStudentAttendanceMarkedToday || isFacultyAttendanceMarkedToday) && (totalStudentsCount + totalTeachersCount > 0)
                     ? `${Math.round(((studentPresentCount + facultyPresentCount) / (totalStudentsCount + totalTeachersCount)) * 100)}%`
                     : '0%'}
@@ -742,11 +769,11 @@ export function DashboardOverview({
 
             {/* Turnout Details */}
             <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono mt-4 pt-3 border-t border-slate-100">
-              <div className="bg-[#F3F7F5] p-2 sm:p-2.5 rounded-xl border border-[#E2ECE5]">
+              <div className="bg-[#F3F7F5] p-2 sm:p-2.5 rounded-xl border border-[#E2ECE5] group-hover:bg-[#EBF5EF] transition-colors">
                 <div className="text-[11px] text-slate-500">Students</div>
                 <div className="font-bold text-[#122A24] text-sm mt-0.5">{isStudentAttendanceMarkedToday ? `${studentAttendanceRate}%` : '0%'}</div>
               </div>
-              <div className="bg-[#F3F7F5] p-2 sm:p-2.5 rounded-xl border border-[#E2ECE5]">
+              <div className="bg-[#F3F7F5] p-2 sm:p-2.5 rounded-xl border border-[#E2ECE5] group-hover:bg-[#EBF5EF] transition-colors">
                 <div className="text-[11px] text-slate-500">Faculty</div>
                 <div className="font-bold text-emerald-700 text-sm mt-0.5">{isFacultyAttendanceMarkedToday ? `${facultyAttendanceRate}%` : '0%'}</div>
               </div>
@@ -775,10 +802,10 @@ export function DashboardOverview({
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch min-w-0">
         
         {/* Widget 1: Live Faculty On-Duty Roster (6 Cols) */}
-        <div className="xl:col-span-6 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs flex flex-col justify-between min-w-0">
+        <div className="xl:col-span-6 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs tile-hover-card flex flex-col justify-between min-w-0 group">
           <div>
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider font-mono">Faculty On-Duty Status</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider font-mono group-hover:text-emerald-800 transition-colors">Faculty On-Duty Status</span>
               <span className="text-xs font-mono px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-semibold">
                 {isFacultyAttendanceMarkedToday ? `${facultyPresentCount}/${totalTeachersCount} Active` : `0/${totalTeachersCount} Logged`}
               </span>
@@ -786,7 +813,7 @@ export function DashboardOverview({
 
             <div className="divide-y divide-slate-100">
               {activeFacultyRoster.map((fac, idx) => (
-                <div key={idx} className="py-2.5 flex items-center justify-between text-xs hover:bg-[#F9FCFA] px-2 rounded-xl transition-colors min-w-0">
+                <div key={idx} className="py-2.5 flex items-center justify-between text-xs hover:bg-[#F9FCFA] hover:translate-x-1 px-2 rounded-xl transition-all duration-200 min-w-0">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-[#EBF5EF] text-[#122A24] font-display font-bold text-xs flex items-center justify-center border border-[#C5E2CF] shrink-0">
                       {fac.name[0]}
@@ -825,16 +852,16 @@ export function DashboardOverview({
         </div>
 
         {/* Widget 2: Class Attendance Leaders (6 Cols) */}
-        <div className="xl:col-span-6 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs flex flex-col justify-between min-w-0">
+        <div className="xl:col-span-6 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs tile-hover-card flex flex-col justify-between min-w-0 group">
           <div>
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider font-mono">Class Attendance Leaders</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider font-mono group-hover:text-emerald-800 transition-colors">Class Attendance Leaders</span>
               <span className="text-xs font-mono px-2.5 py-0.5 bg-slate-100 rounded-full text-slate-600">Today</span>
             </div>
 
             <div className="divide-y divide-slate-100">
               {topClasses.map((cls, idx) => (
-                <div key={idx} className="py-2.5 flex items-center justify-between text-xs hover:bg-[#F9FCFA] px-2 rounded-xl transition-colors min-w-0">
+                <div key={idx} className="py-2.5 flex items-center justify-between text-xs hover:bg-[#F9FCFA] hover:translate-x-1 px-2 rounded-xl transition-all duration-200 min-w-0">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-[#EBF5EF] text-[#122A24] font-display font-bold text-xs flex items-center justify-center border border-[#C5E2CF] shrink-0">
                       {cls.avatar}
@@ -874,7 +901,7 @@ export function DashboardOverview({
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 min-w-0">
         
         {/* Recent Invoices & Ledgers Table (8 Cols) */}
-        <div className="xl:col-span-8 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs flex flex-col justify-between min-w-0">
+        <div className="xl:col-span-8 rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs tile-hover-card flex flex-col justify-between min-w-0">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2.5 mb-4 pb-2 border-b border-slate-100 min-w-0">
               <div className="min-w-0">
@@ -886,7 +913,7 @@ export function DashboardOverview({
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => setShowAddInvoice(true)}
-                  className="px-3 py-1.5 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold flex items-center gap-1 shadow-2xs cursor-pointer border-none"
+                  className="px-3.5 py-1.5 rounded-full bg-[#122A24] hover:bg-[#1C443A] hover:scale-105 active:scale-95 text-white text-xs font-semibold flex items-center gap-1 shadow-2xs cursor-pointer border-none transition-all"
                 >
                   <Plus className="w-3.5 h-3.5" /> Issue Receipt
                 </button>

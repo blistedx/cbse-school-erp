@@ -22,7 +22,18 @@ async function syncFacultyAttendance() {
   });
   console.log(`Deleted ${delResult.deletedCount} old faculty attendance records for ${today}.`);
 
-  // 2. Insert single clean faculty attendance record for today (38 Present / 2 Absent out of 40)
+  // 2. Build teacher_records array with 38 Present and 2 Absent out of 40 teachers
+  const storeFile = 'data/erp_store.json';
+  const store = JSON.parse(fs.readFileSync(storeFile, 'utf8'));
+  const allTeachers = store.teachers || [];
+
+  const teacherRecords = allTeachers.map((t, idx) => ({
+    teacher_id: t.id,
+    staff_code: t.staff_code,
+    full_name: t.full_name,
+    status: idx >= (allTeachers.length - 2) ? 'ABSENT' : 'PRESENT'
+  }));
+
   const cleanFacultyRecord = {
     id: `ATT-FACULTY-${Date.now()}`,
     school_id: schoolId,
@@ -30,20 +41,20 @@ async function syncFacultyAttendance() {
     date: today,
     class_name: 'Faculty',
     section: 'Staff',
-    total_students: 40,
-    present_count: 38,
+    total_students: allTeachers.length || 40,
+    present_count: (allTeachers.length || 40) - 2,
     absent_count: 2,
+    leave_count: 0,
     marked_by: 'Principal Directorate',
+    teacher_records: teacherRecords,
     created_at: new Date().toISOString()
   };
 
   await db.collection('attendance').insertOne({ ...cleanFacultyRecord });
-  console.log('Inserted clean faculty attendance record into Atlas:', cleanFacultyRecord);
+  console.log('Inserted clean faculty attendance record into Atlas:', cleanFacultyRecord.id);
 
   // 3. Update local store
-  const storeFile = 'data/erp_store.json';
   if (fs.existsSync(storeFile)) {
-    const store = JSON.parse(fs.readFileSync(storeFile, 'utf8'));
     store.attendance = (store.attendance || []).filter(a => {
       const isFac = /faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || '');
       return !(isFac && a.date === today);

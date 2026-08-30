@@ -9,18 +9,172 @@
   --board-1: #122A24;
   --board-2: #1C443A;
   --chalk: #FFFFFF;
-  --parchment: #FFFFFF;
+  --parchment: #F4F8F5;
   --paper-white: #FFFFFF;
   --brass: #FFFFFF;
   --red-pen: #C4432B;
   --ink-navy: #16233F;
-  --text-dark: #1E1C16;
+  --text-dark: #122A24;
+  --theme-accent: #10B981;
+  --theme-accent-hover: #059669;
+  --theme-accent-light: #EBF5EF;
+  --theme-border: #DCE8E0;
+  --theme-text-muted: #2D5A4E;
   --line: rgba(22, 35, 63, 0.14);
   --radius: 10px;
 
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-display: 'Sora', var(--font-sans);
   --font-mono: 'IBM Plex Mono', monospace;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Antigravity Dynamic Theme Binding Layer
+   Directly maps CSS variables to active theme across all components
+   ───────────────────────────────────────────────────────────── */
+.bg-\[\#122A24\],
+.bg-\[\#122a24\] {
+  background-color: var(--board-1) !important;
+}
+
+.text-\[\#122A24\],
+.text-\[\#122a24\] {
+  color: var(--board-1) !important;
+}
+
+.border-\[\#122A24\],
+.border-\[\#122a24\] {
+  border-color: var(--board-1) !important;
+}
+
+.ring-\[\#122A24\],
+.ring-\[\#122a24\] {
+  --tw-ring-color: var(--board-1) !important;
+}
+
+.bg-\[\#1C443A\],
+.bg-\[\#1c443a\] {
+  background-color: var(--board-2) !important;
+}
+
+.hover\:bg-\[\#1C443A\]:hover,
+.hover\:bg-\[\#1c443a\]:hover {
+  background-color: var(--board-2) !important;
+}
+
+.text-\[\#1C443A\],
+.text-\[\#1c443a\] {
+  color: var(--board-2) !important;
+}
+
+.border-\[\#1C443A\],
+.border-\[\#1c443a\] {
+  border-color: var(--board-2) !important;
+}
+
+.bg-\[\#EBF5EF\],
+.bg-\[\#ebf5ef\] {
+  background-color: var(--theme-accent-light) !important;
+}
+
+.hover\:bg-\[\#EBF5EF\]:hover,
+.hover\:bg-\[\#ebf5ef\]:hover,
+.hover\:bg-\[\#D8EEDF\]:hover,
+.hover\:bg-\[\#d8eedf\]:hover {
+  background-color: var(--theme-accent-light) !important;
+}
+
+.bg-\[\#F4F8F5\],
+.bg-\[\#f4f8f5\],
+.bg-\[\#F8FAF9\],
+.bg-\[\#f8faf9\],
+.bg-\[\#F9FCFA\],
+.bg-\[\#f9fcfa\] {
+  background-color: var(--parchment) !important;
+}
+
+.border-\[\#DCE8E0\],
+.border-\[\#dce8e0\],
+.border-\[\#C5E2CF\],
+.border-\[\#c5e2cf\],
+.border-\[\#E8F0EA\],
+.border-\[\#e8f0ea\] {
+  border-color: var(--theme-border) !important;
+}
+
+.text-\[\#2D5A4E\],
+.text-\[\#2d5a4e\] {
+  color: var(--theme-text-muted) !important;
+}
+
+.from-\[\#122A24\],
+.from-\[\#122a24\] {
+  --tw-gradient-from: var(--board-1) var(--tw-gradient-from-position, ) !important;
+  --tw-gradient-to: rgb(18 42 36 / 0) var(--tw-gradient-to-position, ) !important;
+  --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position)) !important;
+}
+
+.to-\[\#1C443A\],
+.to-\[\#1c443a\] {
+  --tw-gradient-to: var(--board-2) var(--tw-gradient-to-position, ) !important;
+}
+
+/* Dark Theme Overrides for Midnight Obsidian & Cyberpunk Neon */
+.dark,
+[data-theme='midnight'],
+[data-theme='cyberpunk'] {
+  --line: rgba(255, 255, 255, 0.12);
+}
+
+.dark .bg-white,
+[data-theme='midnight'] .bg-white,
+[data-theme='cyberpunk'] .bg-white {
+  background-color: var(--paper-white) !important;
+  color: var(--text-dark) !important;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea,
+[data-theme='midnight'] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme='midnight'] select,
+[data-theme='midnight'] textarea,
+[data-theme='cyberpunk'] input:not([type="checkbox"]):not([type="radio"]),
+[data-theme='cyberpunk'] select,
+[data-theme='cyberpunk'] textarea {
+  background-color: var(--paper-white) !important;
+  color: var(--text-dark) !important;
+  border-color: var(--theme-border) !important;
+}
+
+.dark .text-slate-800,
+.dark .text-slate-900,
+.dark .text-slate-700,
+[data-theme='midnight'] .text-slate-800,
+[data-theme='midnight'] .text-slate-900,
+[data-theme='midnight'] .text-slate-700,
+[data-theme='cyberpunk'] .text-slate-800,
+[data-theme='cyberpunk'] .text-slate-900,
+[data-theme='cyberpunk'] .text-slate-700 {
+  color: var(--text-dark) !important;
+}
+
+.dark .text-slate-600,
+.dark .text-slate-500,
+[data-theme='midnight'] .text-slate-600,
+[data-theme='midnight'] .text-slate-500,
+[data-theme='cyberpunk'] .text-slate-600,
+[data-theme='cyberpunk'] .text-slate-500 {
+  color: var(--theme-text-muted) !important;
+}
+
+.dark .border-slate-200,
+.dark .border-slate-100,
+[data-theme='midnight'] .border-slate-200,
+[data-theme='midnight'] .border-slate-100,
+[data-theme='cyberpunk'] .border-slate-200,
+[data-theme='cyberpunk'] .border-slate-100 {
+  border-color: var(--theme-border) !important;
 }
 
 * {
@@ -615,6 +769,44 @@ a {
   background: rgba(18, 42, 36, 0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+}
+
+/* ── Premium Tile & Card Animations ── */
+.tile-hover-card {
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.28s ease;
+}
+.tile-hover-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 30px -6px rgba(18, 42, 36, 0.1), 0 6px 12px -3px rgba(18, 42, 36, 0.05);
+  border-color: rgba(52, 211, 153, 0.55);
+}
+
+@keyframes floatSoft {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-float-soft {
+  animation: floatSoft 4s ease-in-out infinite;
+}
+
+@keyframes glowShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-badge {
+  background: linear-gradient(90deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,1) 50%, rgba(255,255,255,0.7) 100%);
+  background-size: 200% 100%;
+  animation: glowShimmer 3s infinite linear;
 }
 
 

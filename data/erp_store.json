@@ -8514,56 +8514,78 @@
       "_id": "6a92914330ee0a3b54a5caf0",
       "subjects": [
         {
-          "id": "SUB-PRE-1",
-          "name": "English (Early Literacy & Phonics)",
-          "code": "ENG-F01",
+          "id": "SUB-PRE-HIN",
+          "name": "Hindi Oral + Written",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-2",
-          "name": "Hindi (Akshar Gyan & Kavita)",
-          "code": "HIN-F02",
+          "id": "SUB-PRE-ENG",
+          "name": "English Oral + Written",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-3",
-          "name": "Foundational Mathematics (Numeracy)",
-          "code": "MATH-F03",
+          "id": "SUB-PRE-MATH",
+          "name": "Maths Oral + Written",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-4",
-          "name": "Environmental Awareness & Discovery",
-          "code": "EVS-F04",
-          "type": "COMPULSORY",
+          "id": "SUB-PRE-ART",
+          "name": "Art + Conversation",
+          "type": "INTERNAL_ASSESSMENT",
           "weekly_periods": 4,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-5",
-          "name": "Creative Arts & Craft",
-          "code": "ART-F05",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRE-6",
-          "name": "Physical Well-being & Motor Skills",
-          "code": "PHE-F06",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
           "max_marks": 50
         }
       ],
-      "no_of_subjects": 6,
+      "no_of_subjects": 4,
       "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Nursery-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Nursery",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 001",
+      "capacity": 30,
+      "subjects": [
+        {
+          "id": "SUB-PRE-HIN",
+          "name": "Hindi Oral + Written",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRE-ENG",
+          "name": "English Oral + Written",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRE-MATH",
+          "name": "Maths Oral + Written",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRE-ART",
+          "name": "Art + Conversation",
+          "type": "INTERNAL_ASSESSMENT",
+          "weekly_periods": 4,
+          "max_marks": 50
+        }
+      ],
+      "no_of_subjects": 4,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS002",
@@ -8577,55 +8599,35 @@
       "_id": "6a92914330ee0a3b54a5caf1",
       "subjects": [
         {
-          "id": "SUB-PRE-1",
-          "name": "English (Early Literacy & Phonics)",
-          "code": "ENG-F01",
+          "id": "SUB-PRE-HIN",
+          "name": "Hindi Oral + Written",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-2",
-          "name": "Hindi (Akshar Gyan & Kavita)",
-          "code": "HIN-F02",
+          "id": "SUB-PRE-ENG",
+          "name": "English Oral + Written",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-3",
-          "name": "Foundational Mathematics (Numeracy)",
-          "code": "MATH-F03",
+          "id": "SUB-PRE-MATH",
+          "name": "Maths Oral + Written",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-4",
-          "name": "Environmental Awareness & Discovery",
-          "code": "EVS-F04",
-          "type": "COMPULSORY",
+          "id": "SUB-PRE-ART",
+          "name": "Art + Conversation",
+          "type": "INTERNAL_ASSESSMENT",
           "weekly_periods": 4,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-5",
-          "name": "Creative Arts & Craft",
-          "code": "ART-F05",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRE-6",
-          "name": "Physical Well-being & Motor Skills",
-          "code": "PHE-F06",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
           "max_marks": 50
         }
       ],
-      "no_of_subjects": 6,
+      "no_of_subjects": 4,
       "academic_session": "2026-27"
     },
     {
@@ -8640,56 +8642,78 @@
       "_id": "6a92914330ee0a3b54a5caf2",
       "subjects": [
         {
-          "id": "SUB-PRE-1",
-          "name": "English (Early Literacy & Phonics)",
-          "code": "ENG-F01",
+          "id": "SUB-PRE-HIN",
+          "name": "Hindi Oral + Written",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-2",
-          "name": "Hindi (Akshar Gyan & Kavita)",
-          "code": "HIN-F02",
+          "id": "SUB-PRE-ENG",
+          "name": "English Oral + Written",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-3",
-          "name": "Foundational Mathematics (Numeracy)",
-          "code": "MATH-F03",
+          "id": "SUB-PRE-MATH",
+          "name": "Maths Oral + Written",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-4",
-          "name": "Environmental Awareness & Discovery",
-          "code": "EVS-F04",
-          "type": "COMPULSORY",
+          "id": "SUB-PRE-ART",
+          "name": "Art + Conversation",
+          "type": "INTERNAL_ASSESSMENT",
           "weekly_periods": 4,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-5",
-          "name": "Creative Arts & Craft",
-          "code": "ART-F05",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRE-6",
-          "name": "Physical Well-being & Motor Skills",
-          "code": "PHE-F06",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
           "max_marks": 50
         }
       ],
-      "no_of_subjects": 6,
+      "no_of_subjects": 4,
       "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-LKG-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "LKG",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 002",
+      "capacity": 30,
+      "subjects": [
+        {
+          "id": "SUB-PRE-HIN",
+          "name": "Hindi Oral + Written",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRE-ENG",
+          "name": "English Oral + Written",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRE-MATH",
+          "name": "Maths Oral + Written",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRE-ART",
+          "name": "Art + Conversation",
+          "type": "INTERNAL_ASSESSMENT",
+          "weekly_periods": 4,
+          "max_marks": 50
+        }
+      ],
+      "no_of_subjects": 4,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS004",
@@ -8703,55 +8727,35 @@
       "_id": "6a92914330ee0a3b54a5caf3",
       "subjects": [
         {
-          "id": "SUB-PRE-1",
-          "name": "English (Early Literacy & Phonics)",
-          "code": "ENG-F01",
+          "id": "SUB-PRE-HIN",
+          "name": "Hindi Oral + Written",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-2",
-          "name": "Hindi (Akshar Gyan & Kavita)",
-          "code": "HIN-F02",
+          "id": "SUB-PRE-ENG",
+          "name": "English Oral + Written",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-3",
-          "name": "Foundational Mathematics (Numeracy)",
-          "code": "MATH-F03",
+          "id": "SUB-PRE-MATH",
+          "name": "Maths Oral + Written",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-4",
-          "name": "Environmental Awareness & Discovery",
-          "code": "EVS-F04",
-          "type": "COMPULSORY",
+          "id": "SUB-PRE-ART",
+          "name": "Art + Conversation",
+          "type": "INTERNAL_ASSESSMENT",
           "weekly_periods": 4,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-5",
-          "name": "Creative Arts & Craft",
-          "code": "ART-F05",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRE-6",
-          "name": "Physical Well-being & Motor Skills",
-          "code": "PHE-F06",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
           "max_marks": 50
         }
       ],
-      "no_of_subjects": 6,
+      "no_of_subjects": 4,
       "academic_session": "2026-27"
     },
     {
@@ -8766,56 +8770,92 @@
       "_id": "6a92914330ee0a3b54a5caf4",
       "subjects": [
         {
-          "id": "SUB-PRE-1",
-          "name": "English (Early Literacy & Phonics)",
-          "code": "ENG-F01",
+          "id": "SUB-UKG-HIN",
+          "name": "Hindi Oral + Written",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-2",
-          "name": "Hindi (Akshar Gyan & Kavita)",
-          "code": "HIN-F02",
+          "id": "SUB-UKG-ENG",
+          "name": "English Oral + Written",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-3",
-          "name": "Foundational Mathematics (Numeracy)",
-          "code": "MATH-F03",
+          "id": "SUB-UKG-MATH",
+          "name": "Maths Oral + Written",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-4",
-          "name": "Environmental Awareness & Discovery",
-          "code": "EVS-F04",
+          "id": "SUB-UKG-ART",
+          "name": "Art + Conversation",
+          "type": "INTERNAL_ASSESSMENT",
+          "weekly_periods": 4,
+          "max_marks": 50
+        },
+        {
+          "id": "SUB-UKG-EVS",
+          "name": "EVS Oral + Written",
           "type": "COMPULSORY",
           "weekly_periods": 4,
           "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-5",
-          "name": "Creative Arts & Craft",
-          "code": "ART-F05",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRE-6",
-          "name": "Physical Well-being & Motor Skills",
-          "code": "PHE-F06",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
         }
       ],
-      "no_of_subjects": 6,
+      "no_of_subjects": 5,
       "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-UKG-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "UKG",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 003",
+      "capacity": 35,
+      "subjects": [
+        {
+          "id": "SUB-UKG-HIN",
+          "name": "Hindi Oral + Written",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-UKG-ENG",
+          "name": "English Oral + Written",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-UKG-MATH",
+          "name": "Maths Oral + Written",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-UKG-ART",
+          "name": "Art + Conversation",
+          "type": "INTERNAL_ASSESSMENT",
+          "weekly_periods": 4,
+          "max_marks": 50
+        },
+        {
+          "id": "SUB-UKG-EVS",
+          "name": "EVS Oral + Written",
+          "type": "COMPULSORY",
+          "weekly_periods": 4,
+          "max_marks": 100
+        }
+      ],
+      "no_of_subjects": 5,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS006",
@@ -8829,55 +8869,42 @@
       "_id": "6a92914330ee0a3b54a5caf5",
       "subjects": [
         {
-          "id": "SUB-PRE-1",
-          "name": "English (Early Literacy & Phonics)",
-          "code": "ENG-F01",
+          "id": "SUB-UKG-HIN",
+          "name": "Hindi Oral + Written",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-2",
-          "name": "Hindi (Akshar Gyan & Kavita)",
-          "code": "HIN-F02",
+          "id": "SUB-UKG-ENG",
+          "name": "English Oral + Written",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-3",
-          "name": "Foundational Mathematics (Numeracy)",
-          "code": "MATH-F03",
+          "id": "SUB-UKG-MATH",
+          "name": "Maths Oral + Written",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-4",
-          "name": "Environmental Awareness & Discovery",
-          "code": "EVS-F04",
+          "id": "SUB-UKG-ART",
+          "name": "Art + Conversation",
+          "type": "INTERNAL_ASSESSMENT",
+          "weekly_periods": 4,
+          "max_marks": 50
+        },
+        {
+          "id": "SUB-UKG-EVS",
+          "name": "EVS Oral + Written",
           "type": "COMPULSORY",
           "weekly_periods": 4,
           "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-5",
-          "name": "Creative Arts & Craft",
-          "code": "ART-F05",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRE-6",
-          "name": "Physical Well-being & Motor Skills",
-          "code": "PHE-F06",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
         }
       ],
-      "no_of_subjects": 6,
+      "no_of_subjects": 5,
       "academic_session": "2026-27"
     },
     {
@@ -8892,64 +8919,92 @@
       "_id": "6a92914330ee0a3b54a5caf6",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-PRI12-ENG",
+          "name": "English",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-PRI12-HIN",
+          "name": "Hindi",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
+          "id": "SUB-PRI12-MATH",
+          "name": "Maths",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
+          "id": "SUB-PRI12-EVS",
+          "name": "EVS",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI12-COMP",
+          "name": "Computer",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 5,
       "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Class1-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Class 1",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 101",
+      "capacity": 40,
+      "subjects": [
+        {
+          "id": "SUB-PRI12-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI12-HIN",
+          "name": "Hindi",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI12-MATH",
+          "name": "Maths",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI12-EVS",
+          "name": "EVS",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI12-COMP",
+          "name": "Computer",
+          "type": "SKILL",
+          "weekly_periods": 4,
+          "max_marks": 100
+        }
+      ],
+      "no_of_subjects": 5,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS008",
@@ -8963,63 +9018,42 @@
       "_id": "6a92914330ee0a3b54a5caf7",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-PRI12-ENG",
+          "name": "English",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-PRI12-HIN",
+          "name": "Hindi",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
+          "id": "SUB-PRI12-MATH",
+          "name": "Maths",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
+          "id": "SUB-PRI12-EVS",
+          "name": "EVS",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI12-COMP",
+          "name": "Computer",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 5,
       "academic_session": "2026-27"
     },
     {
@@ -9034,64 +9068,92 @@
       "_id": "6a92914330ee0a3b54a5caf8",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-PRI12-ENG",
+          "name": "English",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-PRI12-HIN",
+          "name": "Hindi",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
+          "id": "SUB-PRI12-MATH",
+          "name": "Maths",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
+          "id": "SUB-PRI12-EVS",
+          "name": "EVS",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI12-COMP",
+          "name": "Computer",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 5,
       "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Class2-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Class 2",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 102",
+      "capacity": 40,
+      "subjects": [
+        {
+          "id": "SUB-PRI12-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI12-HIN",
+          "name": "Hindi",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI12-MATH",
+          "name": "Maths",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI12-EVS",
+          "name": "EVS",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI12-COMP",
+          "name": "Computer",
+          "type": "SKILL",
+          "weekly_periods": 4,
+          "max_marks": 100
+        }
+      ],
+      "no_of_subjects": 5,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS010",
@@ -9105,63 +9167,42 @@
       "_id": "6a92914330ee0a3b54a5caf9",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-PRI12-ENG",
+          "name": "English",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-PRI12-HIN",
+          "name": "Hindi",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
+          "id": "SUB-PRI12-MATH",
+          "name": "Maths",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
+          "id": "SUB-PRI12-EVS",
+          "name": "EVS",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI12-COMP",
+          "name": "Computer",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 5,
       "academic_session": "2026-27"
     },
     {
@@ -9176,64 +9217,106 @@
       "_id": "6a92914330ee0a3b54a5cafa",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-PRI-HIN",
+          "name": "Hindi",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-PRI-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
+          "id": "SUB-PRI-MATH",
+          "name": "Maths",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
+          "id": "SUB-PRI-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-COMP",
+          "name": "Computer",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 6,
       "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Class3-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Class 3",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 103",
+      "capacity": 40,
+      "subjects": [
+        {
+          "id": "SUB-PRI-HIN",
+          "name": "Hindi",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-MATH",
+          "name": "Maths",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-COMP",
+          "name": "Computer",
+          "type": "SKILL",
+          "weekly_periods": 4,
+          "max_marks": 100
+        }
+      ],
+      "no_of_subjects": 6,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS012",
@@ -9247,63 +9330,49 @@
       "_id": "6a92914330ee0a3b54a5cafb",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-PRI-HIN",
+          "name": "Hindi",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-PRI-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
+          "id": "SUB-PRI-MATH",
+          "name": "Maths",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
+          "id": "SUB-PRI-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-COMP",
+          "name": "Computer",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 6,
       "academic_session": "2026-27"
     },
     {
@@ -9318,64 +9387,106 @@
       "_id": "6a92914330ee0a3b54a5cafc",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-PRI-HIN",
+          "name": "Hindi",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-PRI-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
+          "id": "SUB-PRI-MATH",
+          "name": "Maths",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
+          "id": "SUB-PRI-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-COMP",
+          "name": "Computer",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 6,
       "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Class4-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Class 4",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 104",
+      "capacity": 40,
+      "subjects": [
+        {
+          "id": "SUB-PRI-HIN",
+          "name": "Hindi",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-MATH",
+          "name": "Maths",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-COMP",
+          "name": "Computer",
+          "type": "SKILL",
+          "weekly_periods": 4,
+          "max_marks": 100
+        }
+      ],
+      "no_of_subjects": 6,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS014",
@@ -9389,63 +9500,49 @@
       "_id": "6a92914330ee0a3b54a5cafd",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-PRI-HIN",
+          "name": "Hindi",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-PRI-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
+          "id": "SUB-PRI-MATH",
+          "name": "Maths",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
+          "id": "SUB-PRI-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-COMP",
+          "name": "Computer",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 6,
       "academic_session": "2026-27"
     },
     {
@@ -9460,64 +9557,106 @@
       "_id": "6a92914330ee0a3b54a5cafe",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-PRI-HIN",
+          "name": "Hindi",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-PRI-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
+          "id": "SUB-PRI-MATH",
+          "name": "Maths",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
+          "id": "SUB-PRI-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-COMP",
+          "name": "Computer",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 6,
       "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Class5-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Class 5",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 105",
+      "capacity": 40,
+      "subjects": [
+        {
+          "id": "SUB-PRI-HIN",
+          "name": "Hindi",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-MATH",
+          "name": "Maths",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-COMP",
+          "name": "Computer",
+          "type": "SKILL",
+          "weekly_periods": 4,
+          "max_marks": 100
+        }
+      ],
+      "no_of_subjects": 6,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS016",
@@ -9531,63 +9670,49 @@
       "_id": "6a92914330ee0a3b54a5caff",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-PRI-HIN",
+          "name": "Hindi",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-PRI-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
+          "id": "SUB-PRI-MATH",
+          "name": "Maths",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
+          "id": "SUB-PRI-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-PRI-COMP",
+          "name": "Computer",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 6,
       "academic_session": "2026-27"
     },
     {
@@ -9602,80 +9727,106 @@
       "_id": "6a92914330ee0a3b54a5cb00",
       "subjects": [
         {
-          "id": "SUB-MID-1",
-          "name": "English Language & Literature",
-          "code": "184",
+          "id": "SUB-MID-ENG",
+          "name": "English",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-2",
-          "name": "Hindi Course-A",
-          "code": "002",
+          "id": "SUB-MID-HIN",
+          "name": "Hindi",
           "type": "LANGUAGE",
-          "weekly_periods": 5,
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-3",
-          "name": "Sanskrit / Third Language",
-          "code": "122",
-          "type": "LANGUAGE",
+          "id": "SUB-MID-MATH",
+          "name": "Maths",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-COMP",
+          "name": "Computer / Sanskrit",
+          "type": "SKILL",
           "weekly_periods": 4,
           "max_marks": 100
-        },
+        }
+      ],
+      "no_of_subjects": 6,
+      "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Class6-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Class 6",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 201",
+      "capacity": 40,
+      "subjects": [
         {
-          "id": "SUB-MID-4",
-          "name": "Mathematics",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-MID-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-5",
-          "name": "Science",
-          "code": "086",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-MID-HIN",
+          "name": "Hindi",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-6",
-          "name": "Social Science",
-          "code": "087",
+          "id": "SUB-MID-MATH",
+          "name": "Maths",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-7",
-          "name": "Artificial Intelligence & Coding",
-          "code": "417",
+          "id": "SUB-MID-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-COMP",
+          "name": "Computer / Sanskrit",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-8",
-          "name": "Art Education",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-9",
-          "name": "Physical & Health Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 9,
-      "academic_session": "2026-27"
+      "no_of_subjects": 6,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS018",
@@ -9689,79 +9840,49 @@
       "_id": "6a92914330ee0a3b54a5cb01",
       "subjects": [
         {
-          "id": "SUB-MID-1",
-          "name": "English Language & Literature",
-          "code": "184",
+          "id": "SUB-MID-ENG",
+          "name": "English",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-2",
-          "name": "Hindi Course-A",
-          "code": "002",
+          "id": "SUB-MID-HIN",
+          "name": "Hindi",
           "type": "LANGUAGE",
-          "weekly_periods": 5,
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-3",
-          "name": "Sanskrit / Third Language",
-          "code": "122",
-          "type": "LANGUAGE",
+          "id": "SUB-MID-MATH",
+          "name": "Maths",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-COMP",
+          "name": "Computer / Sanskrit",
+          "type": "SKILL",
           "weekly_periods": 4,
           "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-4",
-          "name": "Mathematics",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-5",
-          "name": "Science",
-          "code": "086",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-6",
-          "name": "Social Science",
-          "code": "087",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-7",
-          "name": "Artificial Intelligence & Coding",
-          "code": "417",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-8",
-          "name": "Art Education",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-9",
-          "name": "Physical & Health Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
         }
       ],
-      "no_of_subjects": 9,
+      "no_of_subjects": 6,
       "academic_session": "2026-27"
     },
     {
@@ -9776,80 +9897,106 @@
       "_id": "6a92914330ee0a3b54a5cb02",
       "subjects": [
         {
-          "id": "SUB-MID-1",
-          "name": "English Language & Literature",
-          "code": "184",
+          "id": "SUB-MID-ENG",
+          "name": "English",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-2",
-          "name": "Hindi Course-A",
-          "code": "002",
+          "id": "SUB-MID-HIN",
+          "name": "Hindi",
           "type": "LANGUAGE",
-          "weekly_periods": 5,
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-3",
-          "name": "Sanskrit / Third Language",
-          "code": "122",
-          "type": "LANGUAGE",
+          "id": "SUB-MID-MATH",
+          "name": "Maths",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-COMP",
+          "name": "Computer / Sanskrit",
+          "type": "SKILL",
           "weekly_periods": 4,
           "max_marks": 100
-        },
+        }
+      ],
+      "no_of_subjects": 6,
+      "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Class7-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Class 7",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 202",
+      "capacity": 40,
+      "subjects": [
         {
-          "id": "SUB-MID-4",
-          "name": "Mathematics",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-MID-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-5",
-          "name": "Science",
-          "code": "086",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-MID-HIN",
+          "name": "Hindi",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-6",
-          "name": "Social Science",
-          "code": "087",
+          "id": "SUB-MID-MATH",
+          "name": "Maths",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-7",
-          "name": "Artificial Intelligence & Coding",
-          "code": "417",
+          "id": "SUB-MID-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-COMP",
+          "name": "Computer / Sanskrit",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-8",
-          "name": "Art Education",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-9",
-          "name": "Physical & Health Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 9,
-      "academic_session": "2026-27"
+      "no_of_subjects": 6,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS020",
@@ -9863,79 +10010,49 @@
       "_id": "6a92914330ee0a3b54a5cb03",
       "subjects": [
         {
-          "id": "SUB-MID-1",
-          "name": "English Language & Literature",
-          "code": "184",
+          "id": "SUB-MID-ENG",
+          "name": "English",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-2",
-          "name": "Hindi Course-A",
-          "code": "002",
+          "id": "SUB-MID-HIN",
+          "name": "Hindi",
           "type": "LANGUAGE",
-          "weekly_periods": 5,
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-3",
-          "name": "Sanskrit / Third Language",
-          "code": "122",
-          "type": "LANGUAGE",
+          "id": "SUB-MID-MATH",
+          "name": "Maths",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-COMP",
+          "name": "Computer / Sanskrit",
+          "type": "SKILL",
           "weekly_periods": 4,
           "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-4",
-          "name": "Mathematics",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-5",
-          "name": "Science",
-          "code": "086",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-6",
-          "name": "Social Science",
-          "code": "087",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-7",
-          "name": "Artificial Intelligence & Coding",
-          "code": "417",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-8",
-          "name": "Art Education",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-9",
-          "name": "Physical & Health Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
         }
       ],
-      "no_of_subjects": 9,
+      "no_of_subjects": 6,
       "academic_session": "2026-27"
     },
     {
@@ -9950,80 +10067,106 @@
       "_id": "6a92914330ee0a3b54a5cb04",
       "subjects": [
         {
-          "id": "SUB-MID-1",
-          "name": "English Language & Literature",
-          "code": "184",
+          "id": "SUB-MID-ENG",
+          "name": "English",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-2",
-          "name": "Hindi Course-A",
-          "code": "002",
+          "id": "SUB-MID-HIN",
+          "name": "Hindi",
           "type": "LANGUAGE",
-          "weekly_periods": 5,
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-3",
-          "name": "Sanskrit / Third Language",
-          "code": "122",
-          "type": "LANGUAGE",
+          "id": "SUB-MID-MATH",
+          "name": "Maths",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-COMP",
+          "name": "Computer / Sanskrit",
+          "type": "SKILL",
           "weekly_periods": 4,
           "max_marks": 100
-        },
+        }
+      ],
+      "no_of_subjects": 6,
+      "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Class8-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Class 8",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 203",
+      "capacity": 40,
+      "subjects": [
         {
-          "id": "SUB-MID-4",
-          "name": "Mathematics",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-MID-ENG",
+          "name": "English",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-5",
-          "name": "Science",
-          "code": "086",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
+          "id": "SUB-MID-HIN",
+          "name": "Hindi",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-6",
-          "name": "Social Science",
-          "code": "087",
+          "id": "SUB-MID-MATH",
+          "name": "Maths",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-7",
-          "name": "Artificial Intelligence & Coding",
-          "code": "417",
+          "id": "SUB-MID-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-COMP",
+          "name": "Computer / Sanskrit",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-8",
-          "name": "Art Education",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-9",
-          "name": "Physical & Health Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 9,
-      "academic_session": "2026-27"
+      "no_of_subjects": 6,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS022",
@@ -10037,79 +10180,49 @@
       "_id": "6a92914330ee0a3b54a5cb05",
       "subjects": [
         {
-          "id": "SUB-MID-1",
-          "name": "English Language & Literature",
-          "code": "184",
+          "id": "SUB-MID-ENG",
+          "name": "English",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-2",
-          "name": "Hindi Course-A",
-          "code": "002",
+          "id": "SUB-MID-HIN",
+          "name": "Hindi",
           "type": "LANGUAGE",
-          "weekly_periods": 5,
+          "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-3",
-          "name": "Sanskrit / Third Language",
-          "code": "122",
-          "type": "LANGUAGE",
+          "id": "SUB-MID-MATH",
+          "name": "Maths",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SCI",
+          "name": "Science",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-SST",
+          "name": "Social Studies (S.St)",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-MID-COMP",
+          "name": "Computer / Sanskrit",
+          "type": "SKILL",
           "weekly_periods": 4,
           "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-4",
-          "name": "Mathematics",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-5",
-          "name": "Science",
-          "code": "086",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-6",
-          "name": "Social Science",
-          "code": "087",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-7",
-          "name": "Artificial Intelligence & Coding",
-          "code": "417",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-8",
-          "name": "Art Education",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-9",
-          "name": "Physical & Health Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
         }
       ],
-      "no_of_subjects": 9,
+      "no_of_subjects": 6,
       "academic_session": "2026-27"
     },
     {
@@ -10124,7 +10237,7 @@
       "_id": "6a92914330ee0a3b54a5cb06",
       "subjects": [
         {
-          "id": "SUB-SEC-1",
+          "id": "SUB-SEC-ENG",
           "name": "English Language and Literature",
           "code": "184",
           "type": "LANGUAGE",
@@ -10132,7 +10245,7 @@
           "max_marks": 100
         },
         {
-          "id": "SUB-SEC-2",
+          "id": "SUB-SEC-HIN",
           "name": "Hindi Course-A",
           "code": "002",
           "type": "LANGUAGE",
@@ -10140,56 +10253,102 @@
           "max_marks": 100
         },
         {
-          "id": "SUB-SEC-3",
-          "name": "Mathematics Standard",
+          "id": "SUB-SEC-MATH",
+          "name": "Mathematics",
           "code": "041",
           "type": "COMPULSORY",
           "weekly_periods": 7,
           "max_marks": 100
         },
         {
-          "id": "SUB-SEC-4",
-          "name": "Science (Theory & Lab Practical)",
+          "id": "SUB-SEC-SCI",
+          "name": "Science",
           "code": "086",
           "type": "COMPULSORY",
           "weekly_periods": 7,
           "max_marks": 100
         },
         {
-          "id": "SUB-SEC-5",
-          "name": "Social Science",
+          "id": "SUB-SEC-SST",
+          "name": "Social Science (S.St)",
           "code": "087",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-SEC-6",
-          "name": "Information Technology (Skill Subject)",
+          "id": "SUB-SEC-IT",
+          "name": "Information Technology (I.T.)",
           "code": "402",
           "type": "SKILL",
           "weekly_periods": 4,
           "max_marks": 100
-        },
-        {
-          "id": "SUB-SEC-7",
-          "name": "Health and Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-SEC-8",
-          "name": "Art Education & Work Experience",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
         }
       ],
-      "no_of_subjects": 8,
+      "no_of_subjects": 6,
       "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Class9-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Class 9",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 301",
+      "capacity": 40,
+      "subjects": [
+        {
+          "id": "SUB-SEC-ENG",
+          "name": "English Language and Literature",
+          "code": "184",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-HIN",
+          "name": "Hindi Course-A",
+          "code": "002",
+          "type": "LANGUAGE",
+          "weekly_periods": 5,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-MATH",
+          "name": "Mathematics",
+          "code": "041",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-SCI",
+          "name": "Science",
+          "code": "086",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-SST",
+          "name": "Social Science (S.St)",
+          "code": "087",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-IT",
+          "name": "Information Technology (I.T.)",
+          "code": "402",
+          "type": "SKILL",
+          "weekly_periods": 4,
+          "max_marks": 100
+        }
+      ],
+      "no_of_subjects": 6,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS024",
@@ -10203,7 +10362,7 @@
       "_id": "6a92914330ee0a3b54a5cb07",
       "subjects": [
         {
-          "id": "SUB-SEC-1",
+          "id": "SUB-SEC-ENG",
           "name": "English Language and Literature",
           "code": "184",
           "type": "LANGUAGE",
@@ -10211,7 +10370,7 @@
           "max_marks": 100
         },
         {
-          "id": "SUB-SEC-2",
+          "id": "SUB-SEC-HIN",
           "name": "Hindi Course-A",
           "code": "002",
           "type": "LANGUAGE",
@@ -10219,55 +10378,39 @@
           "max_marks": 100
         },
         {
-          "id": "SUB-SEC-3",
-          "name": "Mathematics Standard",
+          "id": "SUB-SEC-MATH",
+          "name": "Mathematics",
           "code": "041",
           "type": "COMPULSORY",
           "weekly_periods": 7,
           "max_marks": 100
         },
         {
-          "id": "SUB-SEC-4",
-          "name": "Science (Theory & Lab Practical)",
+          "id": "SUB-SEC-SCI",
+          "name": "Science",
           "code": "086",
           "type": "COMPULSORY",
           "weekly_periods": 7,
           "max_marks": 100
         },
         {
-          "id": "SUB-SEC-5",
-          "name": "Social Science",
+          "id": "SUB-SEC-SST",
+          "name": "Social Science (S.St)",
           "code": "087",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-SEC-6",
-          "name": "Information Technology (Skill Subject)",
+          "id": "SUB-SEC-IT",
+          "name": "Information Technology (I.T.)",
           "code": "402",
           "type": "SKILL",
           "weekly_periods": 4,
           "max_marks": 100
-        },
-        {
-          "id": "SUB-SEC-7",
-          "name": "Health and Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-SEC-8",
-          "name": "Art Education & Work Experience",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
         }
       ],
-      "no_of_subjects": 8,
+      "no_of_subjects": 6,
       "academic_session": "2026-27"
     },
     {
@@ -10282,64 +10425,118 @@
       "_id": "6a92914330ee0a3b54a5cb08",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-SEC-ENG",
+          "name": "English Language and Literature",
+          "code": "184",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
+          "id": "SUB-SEC-HIN",
+          "name": "Hindi Course-A",
+          "code": "002",
+          "type": "LANGUAGE",
+          "weekly_periods": 5,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-MATH",
+          "name": "Mathematics",
           "code": "041",
           "type": "COMPULSORY",
           "weekly_periods": 7,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
+          "id": "SUB-SEC-SCI",
+          "name": "Science",
+          "code": "086",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-SST",
+          "name": "Social Science (S.St)",
+          "code": "087",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
+          "id": "SUB-SEC-IT",
+          "name": "Information Technology (I.T.)",
+          "code": "402",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 6,
       "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Class10-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Class 10",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 302",
+      "capacity": 40,
+      "subjects": [
+        {
+          "id": "SUB-SEC-ENG",
+          "name": "English Language and Literature",
+          "code": "184",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-HIN",
+          "name": "Hindi Course-A",
+          "code": "002",
+          "type": "LANGUAGE",
+          "weekly_periods": 5,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-MATH",
+          "name": "Mathematics",
+          "code": "041",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-SCI",
+          "name": "Science",
+          "code": "086",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-SST",
+          "name": "Social Science (S.St)",
+          "code": "087",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-IT",
+          "name": "Information Technology (I.T.)",
+          "code": "402",
+          "type": "SKILL",
+          "weekly_periods": 4,
+          "max_marks": 100
+        }
+      ],
+      "no_of_subjects": 6,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS026",
@@ -10353,63 +10550,55 @@
       "_id": "6a92914330ee0a3b54a5cb09",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-SEC-ENG",
+          "name": "English Language and Literature",
+          "code": "184",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
+          "id": "SUB-SEC-HIN",
+          "name": "Hindi Course-A",
+          "code": "002",
+          "type": "LANGUAGE",
+          "weekly_periods": 5,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-MATH",
+          "name": "Mathematics",
           "code": "041",
           "type": "COMPULSORY",
           "weekly_periods": 7,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
+          "id": "SUB-SEC-SCI",
+          "name": "Science",
+          "code": "086",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-SEC-SST",
+          "name": "Social Science (S.St)",
+          "code": "087",
           "type": "COMPULSORY",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
+          "id": "SUB-SEC-IT",
+          "name": "Information Technology (I.T.)",
+          "code": "402",
           "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 6,
       "academic_session": "2026-27"
     },
     {
@@ -10424,64 +10613,150 @@
       "_id": "6a92914330ee0a3b54a5cb0a",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-XI-ENG",
+          "name": "English Core",
+          "code": "301",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
+          "id": "SUB-XI-PHY",
+          "name": "Physics",
+          "code": "042",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-CHEM",
+          "name": "Chemistry",
+          "code": "043",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-MATH",
+          "name": "Mathematics",
           "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
+          "type": "ELECTIVE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
+          "id": "SUB-XI-BIO",
+          "name": "Biology",
+          "code": "044",
+          "type": "ELECTIVE",
+          "weekly_periods": 6,
+          "max_marks": 100
         },
         {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "id": "SUB-XI-COMP",
+          "name": "Computer Science",
+          "code": "083",
+          "type": "ELECTIVE",
+          "weekly_periods": 5,
+          "max_marks": 100
         },
         {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "id": "SUB-XI-HIN",
+          "name": "Hindi Core",
+          "code": "302",
+          "type": "LANGUAGE",
+          "weekly_periods": 5,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-PED",
+          "name": "Physical Education (P.Ed)",
+          "code": "048",
+          "type": "ELECTIVE",
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 8,
       "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Class11-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Class 11",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 401",
+      "capacity": 35,
+      "subjects": [
+        {
+          "id": "SUB-XI-ENG",
+          "name": "English Core",
+          "code": "301",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-PHY",
+          "name": "Physics",
+          "code": "042",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-CHEM",
+          "name": "Chemistry",
+          "code": "043",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-MATH",
+          "name": "Mathematics",
+          "code": "041",
+          "type": "ELECTIVE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-BIO",
+          "name": "Biology",
+          "code": "044",
+          "type": "ELECTIVE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-COMP",
+          "name": "Computer Science",
+          "code": "083",
+          "type": "ELECTIVE",
+          "weekly_periods": 5,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-HIN",
+          "name": "Hindi Core",
+          "code": "302",
+          "type": "LANGUAGE",
+          "weekly_periods": 5,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-PED",
+          "name": "Physical Education (P.Ed)",
+          "code": "048",
+          "type": "ELECTIVE",
+          "weekly_periods": 4,
+          "max_marks": 100
+        }
+      ],
+      "no_of_subjects": 8,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS028",
@@ -10495,64 +10770,150 @@
       "_id": "6a92914330ee0a3b54a5cb0b",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-XI-ENG",
+          "name": "English Core",
+          "code": "301",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
+          "id": "SUB-XI-BST",
+          "name": "Business Studies (BST)",
+          "code": "054",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-ACC",
+          "name": "Accountancy",
+          "code": "055",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-ECO",
+          "name": "Economics",
+          "code": "030",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-MATH",
+          "name": "Mathematics / Applied Maths",
           "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
+          "type": "ELECTIVE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
+          "id": "SUB-XI-COMP",
+          "name": "Computer Science",
+          "code": "083",
+          "type": "ELECTIVE",
+          "weekly_periods": 5,
+          "max_marks": 100
         },
         {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "id": "SUB-XI-HIN",
+          "name": "Hindi Core",
+          "code": "302",
+          "type": "LANGUAGE",
+          "weekly_periods": 5,
+          "max_marks": 100
         },
         {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "id": "SUB-XI-PED",
+          "name": "Physical Education (P.Ed)",
+          "code": "048",
+          "type": "ELECTIVE",
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 8,
       "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Class11-B-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Class 11",
+      "section": "B",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 402",
+      "capacity": 35,
+      "subjects": [
+        {
+          "id": "SUB-XI-ENG",
+          "name": "English Core",
+          "code": "301",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-BST",
+          "name": "Business Studies (BST)",
+          "code": "054",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-ACC",
+          "name": "Accountancy",
+          "code": "055",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-ECO",
+          "name": "Economics",
+          "code": "030",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-MATH",
+          "name": "Mathematics / Applied Maths",
+          "code": "041",
+          "type": "ELECTIVE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-COMP",
+          "name": "Computer Science",
+          "code": "083",
+          "type": "ELECTIVE",
+          "weekly_periods": 5,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-HIN",
+          "name": "Hindi Core",
+          "code": "302",
+          "type": "LANGUAGE",
+          "weekly_periods": 5,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-PED",
+          "name": "Physical Education (P.Ed)",
+          "code": "048",
+          "type": "ELECTIVE",
+          "weekly_periods": 4,
+          "max_marks": 100
+        }
+      ],
+      "no_of_subjects": 8,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS029",
@@ -10566,64 +10927,150 @@
       "_id": "6a92914330ee0a3b54a5cb0c",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-XI-ENG",
+          "name": "English Core",
+          "code": "301",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
+          "id": "SUB-XI-PHY",
+          "name": "Physics",
+          "code": "042",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-CHEM",
+          "name": "Chemistry",
+          "code": "043",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-MATH",
+          "name": "Mathematics",
           "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
+          "type": "ELECTIVE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
+          "id": "SUB-XI-BIO",
+          "name": "Biology",
+          "code": "044",
+          "type": "ELECTIVE",
+          "weekly_periods": 6,
+          "max_marks": 100
         },
         {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "id": "SUB-XI-COMP",
+          "name": "Computer Science",
+          "code": "083",
+          "type": "ELECTIVE",
+          "weekly_periods": 5,
+          "max_marks": 100
         },
         {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "id": "SUB-XI-HIN",
+          "name": "Hindi Core",
+          "code": "302",
+          "type": "LANGUAGE",
+          "weekly_periods": 5,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-PED",
+          "name": "Physical Education (P.Ed)",
+          "code": "048",
+          "type": "ELECTIVE",
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 8,
       "academic_session": "2026-27"
+    },
+    {
+      "id": "CLS-Class12-A-202526-1041",
+      "school_id": "DPS2026",
+      "academic_session": "2025-26",
+      "class_name": "Class 12",
+      "section": "A",
+      "class_teacher": "Assigned Faculty",
+      "room_no": "Room 403",
+      "capacity": 35,
+      "subjects": [
+        {
+          "id": "SUB-XI-ENG",
+          "name": "English Core",
+          "code": "301",
+          "type": "LANGUAGE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-PHY",
+          "name": "Physics",
+          "code": "042",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-CHEM",
+          "name": "Chemistry",
+          "code": "043",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-MATH",
+          "name": "Mathematics",
+          "code": "041",
+          "type": "ELECTIVE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-BIO",
+          "name": "Biology",
+          "code": "044",
+          "type": "ELECTIVE",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-COMP",
+          "name": "Computer Science",
+          "code": "083",
+          "type": "ELECTIVE",
+          "weekly_periods": 5,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-HIN",
+          "name": "Hindi Core",
+          "code": "302",
+          "type": "LANGUAGE",
+          "weekly_periods": 5,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-PED",
+          "name": "Physical Education (P.Ed)",
+          "code": "048",
+          "type": "ELECTIVE",
+          "weekly_periods": 4,
+          "max_marks": 100
+        }
+      ],
+      "no_of_subjects": 8,
+      "status": "ACTIVE"
     },
     {
       "id": "CLS030",
@@ -10637,1216 +11084,72 @@
       "_id": "6a92914330ee0a3b54a5cb0d",
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-XI-ENG",
+          "name": "English Core",
+          "code": "301",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
+          "id": "SUB-XI-BST",
+          "name": "Business Studies (BST)",
+          "code": "054",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-ACC",
+          "name": "Accountancy",
+          "code": "055",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-ECO",
+          "name": "Economics",
+          "code": "030",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-MATH",
+          "name": "Mathematics / Applied Maths",
           "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
+          "type": "ELECTIVE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 7,
-      "academic_session": "2026-27"
-    },
-    {
-      "id": "CLS-Nursery-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Nursery",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 001",
-      "capacity": 30,
-      "subjects": [
-        {
-          "id": "SUB-PRE-1",
-          "name": "English (Early Literacy & Phonics)",
-          "code": "ENG-F01",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
+          "id": "SUB-XI-COMP",
+          "name": "Computer Science",
+          "code": "083",
+          "type": "ELECTIVE",
+          "weekly_periods": 5,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRE-2",
-          "name": "Hindi (Akshar Gyan & Kavita)",
-          "code": "HIN-F02",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-3",
-          "name": "Foundational Mathematics (Numeracy)",
-          "code": "MATH-F03",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-4",
-          "name": "Environmental Awareness & Discovery",
-          "code": "EVS-F04",
-          "type": "COMPULSORY",
-          "weekly_periods": 4,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-5",
-          "name": "Creative Arts & Craft",
-          "code": "ART-F05",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRE-6",
-          "name": "Physical Well-being & Motor Skills",
-          "code": "PHE-F06",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 6,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-LKG-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "LKG",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 002",
-      "capacity": 30,
-      "subjects": [
-        {
-          "id": "SUB-PRE-1",
-          "name": "English (Early Literacy & Phonics)",
-          "code": "ENG-F01",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-2",
-          "name": "Hindi (Akshar Gyan & Kavita)",
-          "code": "HIN-F02",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-3",
-          "name": "Foundational Mathematics (Numeracy)",
-          "code": "MATH-F03",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-4",
-          "name": "Environmental Awareness & Discovery",
-          "code": "EVS-F04",
-          "type": "COMPULSORY",
-          "weekly_periods": 4,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-5",
-          "name": "Creative Arts & Craft",
-          "code": "ART-F05",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRE-6",
-          "name": "Physical Well-being & Motor Skills",
-          "code": "PHE-F06",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 6,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-UKG-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "UKG",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 003",
-      "capacity": 35,
-      "subjects": [
-        {
-          "id": "SUB-PRE-1",
-          "name": "English (Early Literacy & Phonics)",
-          "code": "ENG-F01",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-2",
-          "name": "Hindi (Akshar Gyan & Kavita)",
-          "code": "HIN-F02",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-3",
-          "name": "Foundational Mathematics (Numeracy)",
-          "code": "MATH-F03",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-4",
-          "name": "Environmental Awareness & Discovery",
-          "code": "EVS-F04",
-          "type": "COMPULSORY",
-          "weekly_periods": 4,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRE-5",
-          "name": "Creative Arts & Craft",
-          "code": "ART-F05",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRE-6",
-          "name": "Physical Well-being & Motor Skills",
-          "code": "PHE-F06",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 3,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 6,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-Class1-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Class 1",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 101",
-      "capacity": 40,
-      "subjects": [
-        {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 7,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-Class2-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Class 2",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 102",
-      "capacity": 40,
-      "subjects": [
-        {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 7,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-Class3-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Class 3",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 103",
-      "capacity": 40,
-      "subjects": [
-        {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 7,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-Class4-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Class 4",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 104",
-      "capacity": 40,
-      "subjects": [
-        {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 7,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-Class5-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Class 5",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 105",
-      "capacity": 40,
-      "subjects": [
-        {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 7,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-Class6-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Class 6",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 201",
-      "capacity": 40,
-      "subjects": [
-        {
-          "id": "SUB-MID-1",
-          "name": "English Language & Literature",
-          "code": "184",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-2",
-          "name": "Hindi Course-A",
-          "code": "002",
+          "id": "SUB-XI-HIN",
+          "name": "Hindi Core",
+          "code": "302",
           "type": "LANGUAGE",
           "weekly_periods": 5,
           "max_marks": 100
         },
         {
-          "id": "SUB-MID-3",
-          "name": "Sanskrit / Third Language",
-          "code": "122",
-          "type": "LANGUAGE",
+          "id": "SUB-XI-PED",
+          "name": "Physical Education (P.Ed)",
+          "code": "048",
+          "type": "ELECTIVE",
           "weekly_periods": 4,
           "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-4",
-          "name": "Mathematics",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-5",
-          "name": "Science",
-          "code": "086",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-6",
-          "name": "Social Science",
-          "code": "087",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-7",
-          "name": "Artificial Intelligence & Coding",
-          "code": "417",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-8",
-          "name": "Art Education",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-9",
-          "name": "Physical & Health Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 9,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-Class7-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Class 7",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 202",
-      "capacity": 40,
-      "subjects": [
-        {
-          "id": "SUB-MID-1",
-          "name": "English Language & Literature",
-          "code": "184",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-2",
-          "name": "Hindi Course-A",
-          "code": "002",
-          "type": "LANGUAGE",
-          "weekly_periods": 5,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-3",
-          "name": "Sanskrit / Third Language",
-          "code": "122",
-          "type": "LANGUAGE",
-          "weekly_periods": 4,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-4",
-          "name": "Mathematics",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-5",
-          "name": "Science",
-          "code": "086",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-6",
-          "name": "Social Science",
-          "code": "087",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-7",
-          "name": "Artificial Intelligence & Coding",
-          "code": "417",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-8",
-          "name": "Art Education",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-9",
-          "name": "Physical & Health Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 9,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-Class8-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Class 8",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 203",
-      "capacity": 40,
-      "subjects": [
-        {
-          "id": "SUB-MID-1",
-          "name": "English Language & Literature",
-          "code": "184",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-2",
-          "name": "Hindi Course-A",
-          "code": "002",
-          "type": "LANGUAGE",
-          "weekly_periods": 5,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-3",
-          "name": "Sanskrit / Third Language",
-          "code": "122",
-          "type": "LANGUAGE",
-          "weekly_periods": 4,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-4",
-          "name": "Mathematics",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-5",
-          "name": "Science",
-          "code": "086",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-6",
-          "name": "Social Science",
-          "code": "087",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-MID-7",
-          "name": "Artificial Intelligence & Coding",
-          "code": "417",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-8",
-          "name": "Art Education",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-MID-9",
-          "name": "Physical & Health Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 9,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-Class9-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Class 9",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 301",
-      "capacity": 40,
-      "subjects": [
-        {
-          "id": "SUB-SEC-1",
-          "name": "English Language and Literature",
-          "code": "184",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-SEC-2",
-          "name": "Hindi Course-A",
-          "code": "002",
-          "type": "LANGUAGE",
-          "weekly_periods": 5,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-SEC-3",
-          "name": "Mathematics Standard",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-SEC-4",
-          "name": "Science (Theory & Lab Practical)",
-          "code": "086",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-SEC-5",
-          "name": "Social Science",
-          "code": "087",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-SEC-6",
-          "name": "Information Technology (Skill Subject)",
-          "code": "402",
-          "type": "SKILL",
-          "weekly_periods": 4,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-SEC-7",
-          "name": "Health and Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-SEC-8",
-          "name": "Art Education & Work Experience",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
         }
       ],
       "no_of_subjects": 8,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-Class10-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Class 10",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 302",
-      "capacity": 40,
-      "subjects": [
-        {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 7,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-Class11-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Class 11",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 401",
-      "capacity": 35,
-      "subjects": [
-        {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 7,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-Class11-B-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Class 11",
-      "section": "B",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 402",
-      "capacity": 35,
-      "subjects": [
-        {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 7,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "CLS-Class12-A-202526-1041",
-      "school_id": "DPS2026",
-      "academic_session": "2025-26",
-      "class_name": "Class 12",
-      "section": "A",
-      "class_teacher": "Assigned Faculty",
-      "room_no": "Room 403",
-      "capacity": 35,
-      "subjects": [
-        {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
-          "type": "LANGUAGE",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
-          "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
-          "weekly_periods": 6,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        },
-        {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
-        }
-      ],
-      "no_of_subjects": 7,
-      "status": "ACTIVE"
+      "academic_session": "2026-27"
     },
     {
       "id": "CLS-Class12-B-202526-1041",
@@ -11859,63 +11162,71 @@
       "capacity": 35,
       "subjects": [
         {
-          "id": "SUB-PRI-1",
-          "name": "English Language & Grammar",
-          "code": "101",
-          "type": "LANGUAGE",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-2",
-          "name": "Hindi Bhasha & Vyakaran",
-          "code": "102",
+          "id": "SUB-XI-ENG",
+          "name": "English Core",
+          "code": "301",
           "type": "LANGUAGE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-3",
-          "name": "Mathematics & Mental Arithmetic",
+          "id": "SUB-XI-BST",
+          "name": "Business Studies (BST)",
+          "code": "054",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-ACC",
+          "name": "Accountancy",
+          "code": "055",
+          "type": "COMPULSORY",
+          "weekly_periods": 7,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-ECO",
+          "name": "Economics",
+          "code": "030",
+          "type": "COMPULSORY",
+          "weekly_periods": 6,
+          "max_marks": 100
+        },
+        {
+          "id": "SUB-XI-MATH",
+          "name": "Mathematics / Applied Maths",
           "code": "041",
-          "type": "COMPULSORY",
-          "weekly_periods": 7,
-          "max_marks": 100
-        },
-        {
-          "id": "SUB-PRI-4",
-          "name": "Environmental Studies (EVS)",
-          "code": "104",
-          "type": "COMPULSORY",
+          "type": "ELECTIVE",
           "weekly_periods": 6,
           "max_marks": 100
         },
         {
-          "id": "SUB-PRI-5",
-          "name": "Computer Applications & ICT",
-          "code": "165",
-          "type": "SKILL",
-          "weekly_periods": 3,
-          "max_marks": 50
+          "id": "SUB-XI-COMP",
+          "name": "Computer Science",
+          "code": "083",
+          "type": "ELECTIVE",
+          "weekly_periods": 5,
+          "max_marks": 100
         },
         {
-          "id": "SUB-PRI-6",
-          "name": "Visual & Performing Arts",
-          "code": "502",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "id": "SUB-XI-HIN",
+          "name": "Hindi Core",
+          "code": "302",
+          "type": "LANGUAGE",
+          "weekly_periods": 5,
+          "max_marks": 100
         },
         {
-          "id": "SUB-PRI-7",
-          "name": "Health & Physical Education",
-          "code": "506",
-          "type": "INTERNAL_ASSESSMENT",
-          "weekly_periods": 2,
-          "max_marks": 50
+          "id": "SUB-XI-PED",
+          "name": "Physical Education (P.Ed)",
+          "code": "048",
+          "type": "ELECTIVE",
+          "weekly_periods": 4,
+          "max_marks": 100
         }
       ],
-      "no_of_subjects": 7,
+      "no_of_subjects": 8,
       "status": "ACTIVE"
     }
   ],
@@ -12310,16 +11621,112 @@
       "academic_session": "2026-27"
     },
     {
-      "id": "ATT-1788068812401",
       "school_id": "DPS2026",
       "academic_session": "2026-27",
       "date": "2026-08-30",
       "class_name": "Class 10",
       "section": "A",
       "total_students": 13,
-      "present_count": 13,
-      "absent_count": 0,
-      "marked_by": "Abhishek Shukla"
+      "present_count": 11,
+      "absent_count": 2,
+      "marked_by": "Class Incharge",
+      "student_records": [
+        {
+          "student_id": "STU0307",
+          "admission_no": "DPS2026307",
+          "full_name": "Karan Sen",
+          "roll_no": "1",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU0308",
+          "admission_no": "DPS2026308",
+          "full_name": "Sneha Roy",
+          "roll_no": "2",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU0309",
+          "admission_no": "DPS2026309",
+          "full_name": "Shaurya Sharma",
+          "roll_no": "3",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU0310",
+          "admission_no": "DPS2026310",
+          "full_name": "Gauri Kumar",
+          "roll_no": "4",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU0311",
+          "admission_no": "DPS2026311",
+          "full_name": "Nikhil Iyer",
+          "roll_no": "5",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU0312",
+          "admission_no": "DPS2026312",
+          "full_name": "Pari Bhatia",
+          "roll_no": "6",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU0313",
+          "admission_no": "DPS2026313",
+          "full_name": "Rudra Aggarwal",
+          "roll_no": "7",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU0314",
+          "admission_no": "DPS2026314",
+          "full_name": "Kritika Banerjee",
+          "roll_no": "8",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU0315",
+          "admission_no": "DPS2026315",
+          "full_name": "Sameer Ghosh",
+          "roll_no": "9",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU0316",
+          "admission_no": "DPS2026316",
+          "full_name": "Ananya Yadav",
+          "roll_no": "10",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU0317",
+          "admission_no": "DPS2026317",
+          "full_name": "Arjun Gupta",
+          "roll_no": "11",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU0318",
+          "admission_no": "DPS2026318",
+          "full_name": "Sneha Reddy",
+          "roll_no": "12",
+          "status": "ABSENT"
+        },
+        {
+          "student_id": "STU0319",
+          "admission_no": "DPS2026319",
+          "full_name": "Gaurav Kapoor",
+          "roll_no": "13",
+          "status": "ABSENT"
+        }
+      ],
+      "id": "ATT-1788068812401",
+      "leave_count": 0,
+      "teacher_records": [],
+      "created_at": "2026-08-30T13:33:03.636Z"
     },
     {
       "id": "ATT-1788070678356",
@@ -19463,6 +18870,26 @@
       "paid_date": "2026-08-20",
       "_id": "6a92914530ee0a3b54a5ce0d",
       "academic_session": "2026-27"
+    },
+    {
+      "id": "INV-1788112275650",
+      "school_id": "DPS2026",
+      "academic_session": "2026-27",
+      "invoice_no": "INV-202627-1568",
+      "student_id": "STU0059",
+      "student_name": "Myra Choudhury",
+      "admission_no": "",
+      "class_name": "UKG - A",
+      "month": "April 2026",
+      "amount": 24000,
+      "paid_amount": 0,
+      "tuition_fee": 14500,
+      "transport_fee": 3500,
+      "exam_fee": 2000,
+      "due_date": "2026-09-14",
+      "status": "PAID",
+      "payment_mode": "Cash/UPI",
+      "paid_date": "2026-08-30"
     }
   ],
   "holidays": [
