@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { saveSubscription, getSavedSubscriptions } from '@/lib/web-push';
 
 export async function GET() {
-  const subs = getSavedSubscriptions();
+  const subs = await getSavedSubscriptions();
   return NextResponse.json({
     success: true,
     count: subs.length,
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const saved = saveSubscription({ endpoint, keys, role, userId, class_name });
+    const saved = await saveSubscription({ endpoint, keys, role, userId, class_name });
 
     return NextResponse.json({
       success: saved,
