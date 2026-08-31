@@ -183,8 +183,8 @@ const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code:
     highlight: 'CORE ERP INFRASTRUCTURE',
   },
   data_hub: {
-    title: 'DATA HUB',
-    subtitle: 'DOWNLOAD & UPLOAD DATA INTEGRATION CENTER',
+    title: 'DOWNLOAD & UPLOAD HUB',
+    subtitle: 'BULK IMPORT & EXPORT (CSV / EXCEL / PDF / JSON)',
     code: 'MOD-19 // DATA_HUB',
     highlight: 'CSV & EXCEL INGESTION ENGINE',
   },
@@ -2773,6 +2773,23 @@ function ERPWorkspaceContent() {
               </button>
             )}
 
+            {/* Download & Upload Hub (Mobile) */}
+            {allowedTabs.includes('data_hub') && (
+              <button
+                onClick={() => { setActiveTab('data_hub'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'data_hub' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <FolderDown className="h-4 w-4 shrink-0 text-amber-300" /> Download &amp; Upload Hub
+                </span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-mono font-bold border border-amber-400/30">
+                  CSV / XLS
+                </span>
+              </button>
+            )}
+
             {/* Certificate Studio (Mobile) */}
             {allowedTabs.includes('certificates') && (
               <button
@@ -2858,21 +2875,7 @@ function ERPWorkspaceContent() {
               </button>
             )}
 
-            {allowedTabs.includes('data_hub') && (
-              <button
-                onClick={() => { setActiveTab('data_hub'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'data_hub' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <span className="flex items-center gap-3">
-                  <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-300" /> Data Integration Hub
-                </span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-400/20 text-emerald-300 font-mono font-bold">
-                  CSV / XLS
-                </span>
-              </button>
-            )}
+
 
             <div className="my-2 border-t border-white/15" />
 
@@ -3161,10 +3164,10 @@ function ERPWorkspaceContent() {
               }`}
             >
               <span className="flex items-center gap-3">
-                <FolderDown className="h-4 w-4 shrink-0 text-emerald-300" /> Data Integration Hub
+                <FolderDown className="h-4 w-4 shrink-0 text-amber-300" /> Download &amp; Upload Hub
               </span>
               <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold ${
-                activeTab === 'data_hub' ? 'bg-[#122A24] text-white' : 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30'
+                activeTab === 'data_hub' ? 'bg-[#122A24] text-white' : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
               }`}>
                 CSV / XLS
               </span>
@@ -3275,23 +3278,7 @@ function ERPWorkspaceContent() {
             </button>
           )}
 
-          {allowedTabs.includes('data_hub') && (
-            <button
-              onClick={() => setActiveTab('data_hub')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'data_hub' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-300" /> Data Integration Hub
-              </span>
-              <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold ${
-                activeTab === 'data_hub' ? 'bg-[#122A24] text-white' : 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30'
-              }`}>
-                CSV / XLS
-              </span>
-            </button>
-          )}
+
 
           {allowedTabs.includes('audit_logs') && (
             <button

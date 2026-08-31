@@ -383,11 +383,11 @@ export function DashboardOverview({
               </button>
               <button
                 onClick={() => setActiveTab('data_hub')}
-                className="px-4 py-2.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300 text-xs font-bold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-bold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
                 title="Open Download & Upload Data Integration Hub"
               >
-                <FolderDown className="w-3.5 h-3.5 text-emerald-700" />
-                <span>Data Hub</span>
+                <FolderDown className="w-3.5 h-3.5 text-amber-700" />
+                <span>Download &amp; Upload Hub</span>
               </button>
               {setShowAddNotice && (
                 <button
