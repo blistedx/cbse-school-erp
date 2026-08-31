@@ -1,5 +1,5 @@
-const CACHE_NAME = 'giterp-core-v3';
-const API_CACHE_NAME = 'giterp-api-session-v3';
+const CACHE_NAME = 'giterp-core-v5';
+const API_CACHE_NAME = 'giterp-api-session-v5';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
@@ -17,18 +17,19 @@ const PRECACHE_ASSETS = [
   '/manifest.webmanifest',
 ];
 
-// Install Event: Precache essential assets
+// Install Event: Precache essential assets and immediately take over
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS).catch((err) => {
         console.warn('[PWA SW] Precache warning:', err);
       });
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
-// Activate Event: Clear outdated caches
+// Activate Event: Clear outdated caches and claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -40,7 +41,14 @@ self.addEventListener('activate', (event) => {
             return caches.delete(name);
           })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => self.clients.claim()).then(() => {
+      // Notify all open tabs/windows to reload or use fresh cache
+      return self.clients.matchAll({ type: 'window' }).then((clientList) => {
+        clientList.forEach((client) => {
+          client.postMessage({ type: 'SW_UPDATED', version: CACHE_NAME });
+        });
+      });
+    })
   );
 });
 

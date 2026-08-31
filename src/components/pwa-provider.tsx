@@ -37,13 +37,24 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
 
-      // 2. Register Service Worker
-      if ('serviceWorker' in navigator && process.env.NODE_ENV !== 'development') {
+      // 2. Register Service Worker with active update check
+      if ('serviceWorker' in navigator) {
         navigator.serviceWorker
           .register('/sw.js')
           .then((reg) => {
             console.log('[PWA] Service Worker registered with scope:', reg.scope);
             setSwRegistration(reg);
+
+            // Force check for updates immediately
+            reg.update().catch(() => {});
+
+            // Check updates when tab becomes active
+            const handleVisibilityChange = () => {
+              if (document.visibilityState === 'visible') {
+                reg.update().catch(() => {});
+              }
+            };
+            document.addEventListener('visibilitychange', handleVisibilityChange);
 
             // Detect updates
             reg.addEventListener('updatefound', () => {
@@ -60,6 +71,14 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
           .catch((err) => {
             console.warn('[PWA] Service Worker registration failed:', err);
           });
+
+        // Listen for messages from active SW
+        const handleSwMessage = (event: MessageEvent) => {
+          if (event.data && event.data.type === 'SW_UPDATED') {
+            setUpdateAvailable(true);
+          }
+        };
+        navigator.serviceWorker.addEventListener('message', handleSwMessage);
       }
 
       // 3. Listen for PWA Install Prompt
