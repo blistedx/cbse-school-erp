@@ -65,7 +65,8 @@ import {
   ChevronDown,
   ChevronUp,
   UploadCloud,
-  ImageIcon
+  ImageIcon,
+  FileSpreadsheet
 } from 'lucide-react';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview } from '@/lib/types';
 import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
@@ -79,12 +80,13 @@ import { DashboardApprovals } from '@/components/blocks/dashboard-approvals';
 import { DashboardBroadcast } from '@/components/blocks/dashboard-broadcast';
 import { DashboardCertificates } from '@/components/blocks/dashboard-certificates';
 import { DashboardFees } from '@/components/blocks/dashboard-fees';
+import { DashboardReports } from '@/components/blocks/dashboard-reports';
 
 function ERPWorkspaceContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'teachers' | 'classes' | 'subjects' | 'attendance' | 'fees' | 'certificates' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'teachers' | 'classes' | 'subjects' | 'attendance' | 'fees' | 'reports' | 'certificates' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile'>('overview');
   const [feeMenuOpen, setFeeMenuOpen] = useState(true);
   const [feeSubTab, setFeeSubTab] = useState<'overview' | 'monthly' | 'collect' | 'calendar' | 'structure' | 'payroll'>('overview');
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
@@ -800,23 +802,31 @@ function ERPWorkspaceContent() {
       setAttendance(freshAttendance);
       setInvoices(freshInvoices);
 
-      // Save real MongoDB session data as offline backup
+      // Save real MongoDB session data as offline backup (safely guarded against QuotaExceededError)
       if (typeof window !== 'undefined') {
-        localStorage.setItem(`giterp_offline_backup_${cleanId}_${targetSession}`, JSON.stringify({
-          overview: freshOverview,
-          students: freshStudents,
-          teachers: freshTeachers,
-          classes: freshClasses,
-          notices: freshNotices,
-          attendance: freshAttendance,
-          invoices: freshInvoices,
-          session: targetSession,
-          timestamp: Date.now()
-        }));
-        localStorage.setItem('last_active_school_id', cleanId);
-        localStorage.setItem('giterp_active_session', targetSession);
-        // Remove legacy cache keys
-        localStorage.removeItem(`giterp_cache_${cleanId}`);
+        try {
+          localStorage.setItem('last_active_school_id', cleanId);
+          localStorage.setItem('giterp_active_session', targetSession);
+          localStorage.removeItem(`giterp_cache_${cleanId}`);
+
+          // For small/medium datasets, save offline cache; for 5,000+ datasets, save metadata summary
+          const backupPayload = JSON.stringify({
+            overview: freshOverview,
+            students: freshStudents.length > 500 ? freshStudents.slice(0, 500) : freshStudents,
+            teachers: freshTeachers,
+            classes: freshClasses,
+            notices: freshNotices,
+            attendance: freshAttendance,
+            invoices: freshInvoices.length > 500 ? freshInvoices.slice(0, 500) : freshInvoices,
+            session: targetSession,
+            totalStudentsCount: freshStudents.length,
+            timestamp: Date.now()
+          });
+
+          localStorage.setItem(`giterp_offline_backup_${cleanId}_${targetSession}`, backupPayload);
+        } catch (storageErr) {
+          console.warn('[Storage] Local storage quota reached. Offline cache bypassed; live MongoDB memory active.');
+        }
       }
     } catch (e) {
       console.error('Failed to load live school data from MongoDB, attempting offline recovery:', e);
@@ -2527,6 +2537,16 @@ function ERPWorkspaceContent() {
               </span>
             </button>
 
+            {/* Reports & Dossiers (Mobile) */}
+            <button
+              onClick={() => { setActiveTab('reports'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                activeTab === 'reports' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <FileSpreadsheet className="h-4 w-4 shrink-0 text-cyan-300" /> Reports &amp; Dossiers
+            </button>
+
             {/* Certificate Studio (Mobile) */}
             <button
               onClick={() => { setActiveTab('certificates'); setMobileMenuOpen(false); }}
@@ -2815,6 +2835,16 @@ function ERPWorkspaceContent() {
             }`}>
               {invoices.length}
             </span>
+          </button>
+
+          {/* Reports & Dossiers (Desktop) */}
+          <button
+            onClick={() => setActiveTab('reports')}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+              activeTab === 'reports' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <FileSpreadsheet className="h-4 w-4 shrink-0 text-cyan-300" /> Reports &amp; Dossiers
           </button>
 
           <button
@@ -5462,6 +5492,19 @@ function ERPWorkspaceContent() {
               selectedSession={selectedSession}
               onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession)}
               showAdminToast={showAdminToast}
+            />
+          )}
+
+          {/* TAB: COMPREHENSIVE SCHOOL REPORTS & MASTER DOSSIERS */}
+          {activeTab === 'reports' && (
+            <DashboardReports
+              selectedSchool={selectedSchool}
+              students={students}
+              teachers={teachers}
+              classes={classes}
+              invoices={invoices}
+              attendance={attendance}
+              selectedSession={selectedSession}
             />
           )}
 

@@ -170,30 +170,37 @@ export function DashboardOverview({
 
   // Faculty On-Duty Roster (Live from Teachers DB)
   const activeFacultyRoster = teachers.length > 0 
-    ? teachers.slice(0, 5).map((t, idx) => ({
-        name: t.full_name,
-        code: t.staff_code || `TCH-00${idx + 1}`,
-        dept: t.department || 'Academic Faculty',
-        role: t.designation || 'Teacher',
-        status: t.status === 'ACTIVE' ? 'Present' : 'On Leave',
-        checkIn: idx === 4 && t.status !== 'ACTIVE' ? 'Sanctioned' : `07:${45 + (idx * 5)} AM`,
-        room: `Campus Staff`
-      }))
+    ? teachers.slice(0, 5).map((t, idx) => {
+        const teacherName = (t as any).name || t.full_name || 'Faculty Member';
+        const teacherCode = (t as any).employee_code || t.staff_code || `TCH-00${idx + 1}`;
+        const teacherDept = (t as any).subject || t.department || 'Academic Faculty';
+        const isPresent = t.status === 'ACTIVE' || t.status === 'Active';
+        return {
+          name: teacherName,
+          code: teacherCode,
+          dept: teacherDept,
+          role: t.designation || 'Teacher',
+          status: isPresent ? 'Present' : 'On Leave',
+          checkIn: !isPresent ? 'Sanctioned' : `07:${45 + (idx * 5)} AM`,
+          room: `Campus Staff`
+        };
+      })
     : [];
 
   // Class Attendance Leaders (Live from Classes DB)
   const topClasses = classes.length > 0
     ? classes.slice(0, 5).map((cls, idx) => {
-        const clsStudents = students.filter(s => s.class_name?.toLowerCase() === cls.class_name?.toLowerCase());
+        const classNameStr = cls.class_name || (cls as any).name || 'Class';
+        const clsStudents = students.filter(s => (s.class_name || '').toLowerCase() === classNameStr.toLowerCase());
         const count = clsStudents.length > 0 ? clsStudents.length : 35;
         return {
-          name: `${cls.class_name}${cls.section ? ` - ${cls.section}` : ''}`,
-          teacher: cls.class_teacher || 'Class Faculty',
+          name: `${classNameStr}${cls.section ? ` - ${cls.section}` : ''}`,
+          teacher: cls.class_teacher || (cls as any).class_teacher_name || 'Class Faculty',
           students: count,
           capacity: Math.max(40, count),
           rate: Math.min(99.4, 98.6 - idx * 0.8),
           rank: idx + 1,
-          avatar: (cls.class_name || 'C')[0]
+          avatar: (classNameStr || 'C')[0] || 'C'
         };
       })
     : [];
@@ -816,7 +823,7 @@ export function DashboardOverview({
                 <div key={idx} className="py-2.5 flex items-center justify-between text-xs hover:bg-[#F9FCFA] hover:translate-x-1 px-2 rounded-xl transition-all duration-200 min-w-0">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-[#EBF5EF] text-[#122A24] font-display font-bold text-xs flex items-center justify-center border border-[#C5E2CF] shrink-0">
-                      {fac.name[0]}
+                      {(fac.name || 'T')[0] || 'T'}
                     </div>
                     <div className="min-w-0">
                       <div className="font-semibold text-[#122A24] flex items-center gap-1.5 truncate">
