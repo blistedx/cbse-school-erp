@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getMediaVaultFile } from '@/lib/cockroach';
+import { getMediaVaultFile } from '@/lib/media';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -34,7 +34,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         'Content-Type': contentType,
         'Content-Length': String(uint8Array.byteLength),
         'Cache-Control': 'public, max-age=31536000, immutable',
-        'X-Powered-By': 'CockroachDB-MediaVault'
+        'X-Powered-By': 'Local-MediaVault'
       }
     });
   } catch (error: any) {

@@ -1,0 +1,137 @@
+[
+  {
+    "id": "AUD-20260831-001",
+    "timestamp": "2026-08-31T15:36:39.844Z",
+    "actor": {
+      "id": "usr-admin-01",
+      "name": "Dr. Rajesh Sharma",
+      "role": "PRINCIPAL",
+      "email": "principal@school.edu.in",
+      "ip": "192.168.1.100"
+    },
+    "module": "BROADCAST",
+    "action": "BROADCAST_DISPATCHED",
+    "severity": "WARNING",
+    "summary": "Dispatched emergency rainfall weather advisory & early dispersal alert to 1,200 families.",
+    "details": {
+      "target": "ALL_PARENTS",
+      "channel": "WEB_PUSH_SMS",
+      "urgent": true
+    },
+    "school_id": "DPS2026",
+    "session": "2026-27"
+  },
+  {
+    "id": "AUD-20260831-002",
+    "timestamp": "2026-08-31T15:16:39.846Z",
+    "actor": {
+      "id": "usr-tea-04",
+      "name": "Sunita Verma",
+      "role": "TEACHER",
+      "email": "sunita.verma@school.edu.in",
+      "ip": "192.168.1.105"
+    },
+    "module": "EXAMINATION",
+    "action": "MARKS_SUBMITTED",
+    "severity": "INFO",
+    "summary": "Submitted Unit Test 2 marks for Class 10 - Section A (Mathematics & Science - 28 scholars).",
+    "details": {
+      "class": "Class 10 - A",
+      "exam": "Unit Test 2",
+      "total_scholars": 28
+    },
+    "targetName": "Class 10 - A",
+    "school_id": "DPS2026",
+    "session": "2026-27"
+  },
+  {
+    "id": "AUD-20260831-003",
+    "timestamp": "2026-08-31T14:41:39.846Z",
+    "actor": {
+      "id": "usr-acc-01",
+      "name": "Ramesh Kulkarni",
+      "role": "ACCOUNTANT",
+      "email": "accounts@school.edu.in",
+      "ip": "192.168.1.108"
+    },
+    "module": "FEES",
+    "action": "FEE_COLLECTED",
+    "severity": "INFO",
+    "summary": "Collected Q2 Tuition & Transport Fee ₹18,500 for Scholar Aarav Sharma (SR-2026-C01-002) via UPI.",
+    "details": {
+      "invoice_id": "INV-2026-089",
+      "amount": 18500,
+      "mode": "UPI"
+    },
+    "targetId": "SR-2026-C01-002",
+    "targetName": "Aarav Sharma",
+    "school_id": "DPS2026",
+    "session": "2026-27"
+  },
+  {
+    "id": "AUD-20260831-004",
+    "timestamp": "2026-08-31T13:41:39.846Z",
+    "actor": {
+      "id": "usr-admin-01",
+      "name": "Admin Desk",
+      "role": "SUPERADMIN",
+      "email": "admin@school.edu.in",
+      "ip": "192.168.1.100"
+    },
+    "module": "ATTENDANCE",
+    "action": "ATTENDANCE_RECORDED",
+    "severity": "INFO",
+    "summary": "Locked morning attendance for 18 classes (504 total students - 94.2% Present).",
+    "details": {
+      "total_classes": 18,
+      "present_rate": "94.2%"
+    },
+    "school_id": "DPS2026",
+    "session": "2026-27"
+  },
+  {
+    "id": "AUD-20260831-005",
+    "timestamp": "2026-08-31T12:41:39.846Z",
+    "actor": {
+      "id": "usr-admin-01",
+      "name": "Dr. Rajesh Sharma",
+      "role": "PRINCIPAL",
+      "email": "principal@school.edu.in",
+      "ip": "192.168.1.100"
+    },
+    "module": "STUDENTS",
+    "action": "STUDENT_ENROLLED",
+    "severity": "INFO",
+    "summary": "Completed new CBSE OASIS admission for Scholar Vivaan Joshi into Class 1 - Section A.",
+    "details": {
+      "scholar_name": "Vivaan Joshi",
+      "class": "Class 1 - A",
+      "roll_no": 29
+    },
+    "targetId": "SR-2026-C01-029",
+    "targetName": "Vivaan Joshi",
+    "school_id": "DPS2026",
+    "session": "2026-27"
+  },
+  {
+    "id": "AUD-20260831-006",
+    "timestamp": "2026-08-31T11:41:39.846Z",
+    "actor": {
+      "id": "usr-admin-01",
+      "name": "System Security Guard",
+      "role": "SECURITY",
+      "email": "security@cbse-erp.internal",
+      "ip": "192.168.1.1"
+    },
+    "module": "AUTH",
+    "action": "SECURITY_LOGIN_SUCCESS",
+    "severity": "SECURITY",
+    "summary": "Super Administrator signed in with 2FA verification from authorized static subnet.",
+    "details": {
+      "auth_mode": "PIN_2FA",
+      "device": "Chrome on Windows 11"
+    },
+    "school_id": "DPS2026",
+    "session": "2026-27"
+  }
+]

@@ -102,8 +102,15 @@ export function DashboardHomework({ students = [], schoolName = 'DPS Internation
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-[#DCE8E0] shadow-xs">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-[#DCE8E0] shadow-xs relative overflow-hidden">
+        {/* Background Watermark Behind Header Text */}
+        <div 
+          aria-hidden="true" 
+          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+        >
+          HOMEWORK
+        </div>
+        <div className="relative z-10">
           <div className="flex items-center gap-2">
             <span className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold">
               <FileText className="w-5 h-5" />

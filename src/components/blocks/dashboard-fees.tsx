@@ -1159,10 +1159,17 @@ export function DashboardFees({
       {/* ─────────────────────────────────────────────────────────────
           1. HEADER & DEDICATED RESPONSIVE TABS BAR (MATCHING ATTENDANCE HUB)
           ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5">
+      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
+        {/* Background Watermark Behind Header Text */}
+        <div 
+          aria-hidden="true" 
+          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+        >
+          FINANCE
+        </div>
         
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E8F0EA]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E8F0EA] relative z-10">
           <div>
             <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight flex items-center gap-2.5">
               <Coins className="h-7 w-7 text-emerald-700 shrink-0" />

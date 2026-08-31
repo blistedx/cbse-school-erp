@@ -4,9 +4,9 @@ import { Database } from '@/lib/db';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { school_code, username, password } = body;
+    const { school_code, username, password, role } = body;
 
-    const auth = await Database.authenticateUser(school_code, username, password);
+    const auth = await Database.authenticateUser(school_code, username, password, role);
 
     if (!auth) {
       return NextResponse.json(

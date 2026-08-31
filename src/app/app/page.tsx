@@ -81,12 +81,133 @@ import { DashboardBroadcast } from '@/components/blocks/dashboard-broadcast';
 import { DashboardCertificates } from '@/components/blocks/dashboard-certificates';
 import { DashboardFees } from '@/components/blocks/dashboard-fees';
 import { DashboardReports } from '@/components/blocks/dashboard-reports';
+import { DashboardAuditLogs } from '@/components/blocks/dashboard-audit-logs';
+import { DashboardDataHub } from '@/components/blocks/dashboard-data-hub';
+
+const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code: string; highlight: string }> = {
+  overview: {
+    title: 'OVERVIEW',
+    subtitle: 'EXECUTIVE COMMAND CENTER & CBSE METRICS',
+    code: 'MOD-01 // COCKPIT',
+    highlight: 'REAL-TIME CAMPUS TELEMETRY',
+  },
+  students: {
+    title: 'STUDENTS',
+    subtitle: 'CBSE ENROLLED SCHOLAR REGISTRY & DOSSIERS',
+    code: 'MOD-02 // SIS',
+    highlight: 'ACADEMIC LIFECYCLE & OASIS',
+  },
+  teachers: {
+    title: 'FACULTY',
+    subtitle: 'ACADEMIC FACULTY & STATUTORY CBSE COMPLIANCE',
+    code: 'MOD-03 // HR',
+    highlight: 'TEACHING CORPS DIRECTORY',
+  },
+  classes: {
+    title: 'CLASSES',
+    subtitle: 'COHORT STRUCTURE, TIMETABLE & SECTIONS',
+    code: 'MOD-04 // ACADEMIC',
+    highlight: 'CURRICULAR ORG MATRIX',
+  },
+  subjects: {
+    title: 'CURRICULUM',
+    subtitle: 'ACADEMIC SCHEME & SUBJECT CATALOG',
+    code: 'MOD-05 // SYLLABUS',
+    highlight: 'CBSE PEDAGOGICAL STRUCTURE',
+  },
+  attendance: {
+    title: 'ATTENDANCE',
+    subtitle: 'DAILY BIOMETRIC & CLASSROOM ROLLS',
+    code: 'MOD-06 // ATTENDANCE',
+    highlight: 'REAL-TIME PRESENCE LEDGER',
+  },
+  fees: {
+    title: 'FINANCE',
+    subtitle: 'FEE STRUCTURES, INVOICING & REVENUE LEDGER',
+    code: 'MOD-07 // ACCOUNTS',
+    highlight: 'CBSE FEE COLLECTION ENGINE',
+  },
+  reports: {
+    title: 'REPORTS',
+    subtitle: 'CROSS-MODULE ANALYTICS & SCHOLAR DOSSIERS',
+    code: 'MOD-08 // ANALYTICS',
+    highlight: 'INSTITUTIONAL INTELLIGENCE',
+  },
+  certificates: {
+    title: 'DOCUMENTS',
+    subtitle: 'TRANSFER, BONAFIDE & CHARACTER CERTIFICATES',
+    code: 'MOD-09 // REGISTRAR',
+    highlight: 'OFFICIAL DOCUMENT ENGINE',
+  },
+  transport: {
+    title: 'FLEET',
+    subtitle: 'BUS ROUTES, STOPS, DRIVERS & GPS TELEMETRY',
+    code: 'MOD-10 // LOGISTICS',
+    highlight: 'CAMPUS TRANSIT NETWORK',
+  },
+  exams: {
+    title: 'EXAMS',
+    subtitle: 'CBSE MARKSHEETS, BROADSHEETS & WEIGHTAGE',
+    code: 'MOD-11 // EVALUATION',
+    highlight: 'STANDARDIZED ASSESSMENT SUITE',
+  },
+  homework: {
+    title: 'HOMEWORK',
+    subtitle: 'DAILY ASSIGNMENTS, PROJECTS & SYLLABUS',
+    code: 'MOD-12 // COURSEWORK',
+    highlight: 'DIGITAL HOMEWORK DESK',
+  },
+  approvals: {
+    title: 'APPROVALS',
+    subtitle: 'LEAVE PETITIONS, GATE PASSES & AUDIT',
+    code: 'MOD-13 // GOVERNANCE',
+    highlight: 'EXECUTIVE DISPATCH & WORKFLOW',
+  },
+  broadcast: {
+    title: 'BROADCAST',
+    subtitle: 'MULTI-CHANNEL SMS, EMAIL & NOTIFICATIONS',
+    code: 'MOD-14 // DISPATCH',
+    highlight: 'INSTANT PARENT CONNECT',
+  },
+  notices: {
+    title: 'CIRCULARS',
+    subtitle: 'OFFICIAL SCHOOL GAZETTE & BULLETINS',
+    code: 'MOD-15 // BULLETIN',
+    highlight: 'CENTRAL ANNOUNCEMENT BOARD',
+  },
+  settings: {
+    title: 'SETTINGS',
+    subtitle: 'INSTITUTIONAL CONFIGURATION & RULES',
+    code: 'MOD-16 // SYSTEM',
+    highlight: 'CORE ERP INFRASTRUCTURE',
+  },
+  data_hub: {
+    title: 'DATA HUB',
+    subtitle: 'DOWNLOAD & UPLOAD DATA INTEGRATION CENTER',
+    code: 'MOD-19 // DATA_HUB',
+    highlight: 'CSV & EXCEL INGESTION ENGINE',
+  },
+  profile: {
+    title: 'PROFILE',
+    subtitle: 'ADMINISTRATOR AUTHENTICATION & ACCESS',
+    code: 'MOD-17 // IDENTITY',
+    highlight: 'SECURITY & PREFERENCES',
+  },
+  audit_logs: {
+    title: 'AUDIT',
+    subtitle: 'SECURITY & ADMINISTRATIVE AUDIT TRAIL',
+    code: 'MOD-18 // SECURITY',
+    highlight: 'TAMPER-EVIDENT CBSE COMPLIANCE',
+  },
+};
 
 function ERPWorkspaceContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'teachers' | 'classes' | 'subjects' | 'attendance' | 'fees' | 'reports' | 'certificates' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'teachers' | 'classes' | 'subjects' | 'attendance' | 'fees' | 'reports' | 'certificates' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile' | 'audit_logs' | 'data_hub'>('overview');
+  const [availableSchools, setAvailableSchools] = useState<School[]>([]);
+  const [showExportMenu, setShowExportMenu] = useState<string | null>(null);
   const [feeMenuOpen, setFeeMenuOpen] = useState(true);
   const [feeSubTab, setFeeSubTab] = useState<'overview' | 'monthly' | 'collect' | 'calendar' | 'structure' | 'payroll'>('overview');
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
@@ -161,11 +282,22 @@ function ERPWorkspaceContent() {
   const [individualTargetRoll, setIndividualTargetRoll] = useState<string>('');
   const [individualTargetSession, setIndividualTargetSession] = useState<string>('2027-28');
   const [settingsSuccess, setSettingsSuccess] = useState('');
-  const [availableSchools, setAvailableSchools] = useState<School[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const isSuperAdmin = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'AGENCY_SUPERADMIN' || currentUser?.role === 'GOD_ACCESS' || currentUser?.is_god_admin || currentUser?.username?.toLowerCase() === 'blistedx';
-  const [userRole, setUserRole] = useState<'SUPERADMIN' | 'PRINCIPAL' | 'TEACHER' | 'ACCOUNTANT' | 'STUDENT'>('SUPERADMIN');
-  const [showExportMenu, setShowExportMenu] = useState<'students' | 'teachers' | 'classes' | null>(null);
+  const [userRole, setUserRole] = useState<'SUPERADMIN' | 'PRINCIPAL' | 'TEACHER' | 'ACCOUNTANT' | 'STUDENT' | 'PARENT'>('SUPERADMIN');
+
+  // Multi-Role RBAC Tab Permission Whitelist
+  const ROLE_ALLOWED_TABS: Record<string, string[]> = {
+    SUPERADMIN: ['overview', 'students', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
+    PRINCIPAL: ['overview', 'students', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
+    ACCOUNTANT: ['overview', 'students', 'fees', 'reports', 'certificates', 'data_hub', 'notices', 'profile'],
+    TEACHER: ['overview', 'classes', 'subjects', 'attendance', 'exams', 'homework', 'approvals', 'notices', 'profile'],
+    STUDENT: ['overview', 'attendance', 'exams', 'homework', 'fees', 'certificates', 'notices', 'profile'],
+    PARENT: ['overview', 'attendance', 'exams', 'homework', 'fees', 'broadcast', 'notices', 'profile']
+  };
+
+  const effectiveRole = userRole || currentUser?.role || 'PRINCIPAL';
+  const allowedTabs = ROLE_ALLOWED_TABS[effectiveRole] || ROLE_ALLOWED_TABS.PRINCIPAL;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState('');
   const [pinModal, setPinModal] = useState<{ type: 'student' | 'teacher'; id: string; name: string; currentPin: string } | null>(null);
@@ -274,6 +406,57 @@ function ERPWorkspaceContent() {
       };
     }
   }, [selectedSchool, selectedSession]);
+
+  // Load User Session & Role from Local Storage on Mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedUser = localStorage.getItem('current_user');
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          setCurrentUser(parsed);
+          if (parsed.role) {
+            setUserRole(parsed.role);
+          }
+        }
+      } catch (e) {}
+    }
+  }, []);
+
+  // ⚡ Real-Time Offline Node Agent Sync Listener (Auto-Renders Changes Without Manual Refresh)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let eventSource: EventSource | null = null;
+    let pollInterval: any = null;
+
+    try {
+      eventSource = new EventSource('/api/sync/live');
+      eventSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'DATA_CHANGED') {
+            const schoolCode = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+            loadSchoolData(schoolCode, selectedSession);
+          }
+        } catch (e) {}
+      };
+      eventSource.onerror = () => {
+        if (eventSource) eventSource.close();
+      };
+    } catch (e) {}
+
+    // Background silent auto-sync fallback every 4 seconds (never needs manual refresh)
+    pollInterval = setInterval(() => {
+      const schoolCode = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+      loadSchoolData(schoolCode, selectedSession);
+    }, 4000);
+
+    return () => {
+      if (eventSource) eventSource.close();
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [selectedSchool?.id, selectedSchool?.school_code, selectedSession]);
 
   // Clean time-based greeting without emojis
   const getISTGreeting = () => {
@@ -591,7 +774,7 @@ function ERPWorkspaceContent() {
       }
 
       if (!targetSchool || (schoolParam && targetSchool.school_code?.replace(/[^A-Z0-9]/gi, '') !== schoolParam?.replace(/[^A-Z0-9]/gi, ''))) {
-        if (schData.success && schData.schools.length > 0) {
+        if (schData.success && schData.schools && schData.schools.length > 0) {
           if (schoolParam) {
             const cleanParam = schoolParam.replace(/[^A-Z0-9]/gi, '').toUpperCase();
             targetSchool = schData.schools.find((s: School) => 
@@ -602,6 +785,26 @@ function ERPWorkspaceContent() {
             targetSchool = schData.schools[0];
           }
         }
+      }
+
+      // Robust Fallback: Always guarantee an active Delhi Public School instance
+      if (!targetSchool) {
+        targetSchool = {
+          id: 'DPS2026',
+          school_code: 'DPS2026',
+          school_name: 'Delhi Public School',
+          principal_name: 'Dr. Rajesh Sharma',
+          admin_name: 'Dr. Rajesh Sharma',
+          admin_id: 'admin',
+          admin_pin: '123456',
+          board: 'CBSE',
+          city: 'New Delhi',
+          state: 'Delhi',
+          address: 'Sector 12, Dwarka, New Delhi',
+          pincode: '110075',
+          status: 'ACTIVE',
+          created_at: new Date().toISOString()
+        };
       }
 
       if (targetSchool) {
@@ -2431,192 +2634,266 @@ function ERPWorkspaceContent() {
               </div>
             )}
 
-            <div className="text-[10.5px] font-semibold text-emerald-200/70 uppercase tracking-wider px-3 mb-1.5 font-mono">
-              Academic Modules
+            {/* Active Role Portal Switcher Widget (Mobile Drawer) */}
+            <div className="mb-3 p-2.5 bg-white/10 rounded-2xl border border-white/15 space-y-1.5 shadow-xs">
+              <div className="flex items-center justify-between text-[10px] font-mono text-emerald-300 font-bold">
+                <span>ACTIVE PORTAL:</span>
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-400/30 font-bold">
+                  {effectiveRole}
+                </span>
+              </div>
+              <select
+                value={effectiveRole}
+                onChange={(e) => {
+                  const newRole = e.target.value as any;
+                  setUserRole(newRole);
+                  setActiveTab('overview');
+                  setMobileMenuOpen(false);
+                  showAdminToast(`Switched workspace to: ${newRole} Portal`);
+                }}
+                className="w-full bg-[#122A24] text-white text-xs font-semibold rounded-xl px-2.5 py-1.5 border border-white/20 focus:outline-none cursor-pointer"
+                title="Switch Active User Role & Permissions"
+              >
+                <option value="PRINCIPAL">👑 Principal / Admin</option>
+                <option value="TEACHER">👩‍🏫 Teacher Portal</option>
+                <option value="STUDENT">🎓 Student Portal</option>
+                <option value="PARENT">👨‍👩‍👧 Parent Connect</option>
+                {isSuperAdmin && <option value="SUPERADMIN">⚡ God Superadmin</option>}
+              </select>
             </div>
 
-            <button
-              onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'overview' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <BarChart3 className="h-4 w-4 shrink-0" /> Overview Dashboard
-            </button>
+            <div className="text-[10.5px] font-semibold text-emerald-200/70 uppercase tracking-wider px-3 mb-1.5 font-mono">
+              {effectiveRole === 'TEACHER' ? 'Faculty Workspace' : effectiveRole === 'STUDENT' ? 'Student SIS' : effectiveRole === 'PARENT' ? 'Parent Connect' : 'Academic Modules'}
+            </div>
 
-            <button
-              onClick={() => { setActiveTab('students'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'students' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <Users className="h-4 w-4 shrink-0" /> Students SIS
-              </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                activeTab === 'students' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-              }`}>
-                {students.length}
-              </span>
-            </button>
+            {allowedTabs.includes('overview') && (
+              <button
+                onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'overview' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <BarChart3 className="h-4 w-4 shrink-0" /> Overview Dashboard
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveTab('teachers'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'teachers' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <GraduationCap className="h-4 w-4 shrink-0" /> Faculty &amp; Staff
-              </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                activeTab === 'teachers' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-              }`}>
-                {teachers.length}
-              </span>
-            </button>
+            {allowedTabs.includes('students') && (
+              <button
+                onClick={() => { setActiveTab('students'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'students' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <Users className="h-4 w-4 shrink-0" /> Students SIS
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                  activeTab === 'students' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
+                }`}>
+                  {students.length}
+                </span>
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveTab('classes'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'classes' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <Layers className="h-4 w-4 shrink-0" /> Classes &amp; Sections
-              </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                activeTab === 'classes' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-              }`}>
-                {classes.length}
-              </span>
-            </button>
+            {allowedTabs.includes('teachers') && (
+              <button
+                onClick={() => { setActiveTab('teachers'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'teachers' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <GraduationCap className="h-4 w-4 shrink-0" /> Faculty &amp; Staff
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                  activeTab === 'teachers' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
+                }`}>
+                  {teachers.length}
+                </span>
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveTab('subjects'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'subjects' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <BookOpen className="h-4 w-4 shrink-0 text-emerald-300" /> Subjects
-              </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                activeTab === 'subjects' ? 'bg-[#122A24] text-white' : 'bg-emerald-400/30 text-emerald-200'
-              }`}>
-                Curriculum
-              </span>
-            </button>
+            {allowedTabs.includes('classes') && (
+              <button
+                onClick={() => { setActiveTab('classes'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'classes' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <Layers className="h-4 w-4 shrink-0" /> Classes &amp; Sections
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                  activeTab === 'classes' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
+                }`}>
+                  {classes.length}
+                </span>
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveTab('attendance'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'attendance' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <CalendarCheck className="h-4 w-4 shrink-0" /> Daily Attendance
-            </button>
+            {allowedTabs.includes('subjects') && (
+              <button
+                onClick={() => { setActiveTab('subjects'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'subjects' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <BookOpen className="h-4 w-4 shrink-0 text-emerald-300" /> Subjects
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                  activeTab === 'subjects' ? 'bg-[#122A24] text-white' : 'bg-emerald-400/30 text-emerald-200'
+                }`}>
+                  Curriculum
+                </span>
+              </button>
+            )}
+
+            {allowedTabs.includes('attendance') && (
+              <button
+                onClick={() => { setActiveTab('attendance'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'attendance' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <CalendarCheck className="h-4 w-4 shrink-0" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'My Attendance' : 'Daily Attendance'}
+              </button>
+            )}
 
             {/* Fee Management (Mobile) */}
-            <button
-              onClick={() => {
-                setActiveTab('fees');
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'fees' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <Coins className="h-4 w-4 shrink-0 text-amber-300" /> Fee Management
-              </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                activeTab === 'fees' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-              }`}>
-                {invoices.length}
-              </span>
-            </button>
+            {allowedTabs.includes('fees') && (
+              <button
+                onClick={() => {
+                  setActiveTab('fees');
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'fees' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <Coins className="h-4 w-4 shrink-0 text-amber-300" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'Fee Invoices & Pay' : 'Fee Management'}
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                  activeTab === 'fees' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
+                }`}>
+                  {invoices.length}
+                </span>
+              </button>
+            )}
 
             {/* Reports & Dossiers (Mobile) */}
-            <button
-              onClick={() => { setActiveTab('reports'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'reports' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <FileSpreadsheet className="h-4 w-4 shrink-0 text-cyan-300" /> Reports &amp; Dossiers
-            </button>
+            {allowedTabs.includes('reports') && (
+              <button
+                onClick={() => { setActiveTab('reports'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'reports' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <FileSpreadsheet className="h-4 w-4 shrink-0 text-cyan-300" /> Reports &amp; Dossiers
+              </button>
+            )}
 
             {/* Certificate Studio (Mobile) */}
-            <button
-              onClick={() => { setActiveTab('certificates'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'certificates' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <FileCheck className="h-4 w-4 shrink-0 text-amber-300" /> Certificate Studio
-            </button>
+            {allowedTabs.includes('certificates') && (
+              <button
+                onClick={() => { setActiveTab('certificates'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'certificates' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <FileCheck className="h-4 w-4 shrink-0 text-amber-300" /> Certificate Studio
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveTab('transport'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'transport' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Bus className="h-4 w-4 shrink-0 text-blue-300" /> Transport &amp; GPS Fleet
-            </button>
+            {allowedTabs.includes('transport') && (
+              <button
+                onClick={() => { setActiveTab('transport'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'transport' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Bus className="h-4 w-4 shrink-0 text-blue-300" /> Transport &amp; GPS Fleet
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveTab('exams'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'exams' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Award className="h-4 w-4 shrink-0 text-purple-300" /> CBSE Exams &amp; Report Cards
-            </button>
+            {allowedTabs.includes('exams') && (
+              <button
+                onClick={() => { setActiveTab('exams'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'exams' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Award className="h-4 w-4 shrink-0 text-purple-300" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'Report Card & Marksheet' : 'CBSE Exams & Reports'}
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveTab('homework'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'homework' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <FileText className="h-4 w-4 shrink-0 text-amber-300" /> Homework &amp; Diary
-            </button>
+            {allowedTabs.includes('homework') && (
+              <button
+                onClick={() => { setActiveTab('homework'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'homework' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <FileText className="h-4 w-4 shrink-0 text-amber-300" /> Homework &amp; Diary
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveTab('approvals'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'approvals' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" /> Leave &amp; Approvals
-            </button>
+            {allowedTabs.includes('approvals') && (
+              <button
+                onClick={() => { setActiveTab('approvals'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'approvals' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" /> Leave &amp; Approvals
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveTab('broadcast'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'broadcast' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Radio className="h-4 w-4 shrink-0 text-red-300" /> Emergency Broadcast
-            </button>
+            {allowedTabs.includes('broadcast') && (
+              <button
+                onClick={() => { setActiveTab('broadcast'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'broadcast' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Radio className="h-4 w-4 shrink-0 text-red-300" /> Emergency Broadcast
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveTab('notices'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'notices' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <Bell className="h-4 w-4 shrink-0" /> Notice Board
-              </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                activeTab === 'notices' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-              }`}>
-                {notices.length}
-              </span>
-            </button>
+            {allowedTabs.includes('notices') && (
+              <button
+                onClick={() => { setActiveTab('notices'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'notices' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <Bell className="h-4 w-4 shrink-0" /> Notice Board
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                  activeTab === 'notices' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
+                }`}>
+                  {notices.length}
+                </span>
+              </button>
+            )}
+
+            {allowedTabs.includes('data_hub') && (
+              <button
+                onClick={() => { setActiveTab('data_hub'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'data_hub' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-300" /> Data Integration Hub
+                </span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-400/20 text-emerald-300 font-mono font-bold">
+                  CSV / XLS
+                </span>
+              </button>
+            )}
 
             <div className="my-2 border-t border-white/15" />
 
@@ -2634,23 +2911,38 @@ function ERPWorkspaceContent() {
               </Link>
             )}
 
-            <button
-              onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'profile' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <User className="h-4 w-4 shrink-0 text-emerald-300" /> My Profile
-            </button>
+            {allowedTabs.includes('profile') && (
+              <button
+                onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'profile' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <User className="h-4 w-4 shrink-0 text-emerald-300" /> {effectiveRole === 'STUDENT' ? 'Student Dossier' : effectiveRole === 'PARENT' ? 'Parent & Ward Profile' : 'My Profile'}
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveTab('settings'); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                activeTab === 'settings' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Settings className="h-4 w-4 shrink-0" /> School Settings
-            </button>
+            {allowedTabs.includes('audit_logs') && (
+              <button
+                onClick={() => { setActiveTab('audit_logs'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'audit_logs' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" /> Audit Logs &amp; Trail
+              </button>
+            )}
+
+            {allowedTabs.includes('settings') && (
+              <button
+                onClick={() => { setActiveTab('settings'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'settings' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Settings className="h-4 w-4 shrink-0" /> School Settings
+              </button>
+            )}
 
             {/* Mobile User Profile Card */}
             <div 
@@ -2734,193 +3026,250 @@ function ERPWorkspaceContent() {
             </div>
           )}
 
-          <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider px-3 mb-1 font-mono">
-            Navigation
+          {/* Active Role Portal Switcher Widget (Desktop Sidebar) */}
+          <div className="mb-2.5 p-2.5 bg-white/10 rounded-2xl border border-white/15 space-y-1.5 shadow-xs">
+            <div className="flex items-center justify-between text-[10px] font-mono text-emerald-300 font-bold">
+              <span>ACTIVE PORTAL:</span>
+              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-400/30 font-bold">
+                {effectiveRole}
+              </span>
+            </div>
+            <select
+              value={effectiveRole}
+              onChange={(e) => {
+                const newRole = e.target.value as any;
+                setUserRole(newRole);
+                setActiveTab('overview');
+                showAdminToast(`Switched workspace to: ${newRole} Portal`);
+              }}
+              className="w-full bg-[#122A24] text-white text-xs font-semibold rounded-xl px-2.5 py-1.5 border border-white/20 focus:outline-none cursor-pointer"
+              title="Switch Active User Role & Permissions"
+            >
+              <option value="PRINCIPAL">👑 Principal / Admin</option>
+              <option value="TEACHER">👩‍🏫 Teacher Portal</option>
+              <option value="STUDENT">🎓 Student Portal</option>
+              <option value="PARENT">👨‍👩‍👧 Parent Connect</option>
+              {isSuperAdmin && <option value="SUPERADMIN">⚡ God Superadmin</option>}
+            </select>
           </div>
 
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'overview' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <BarChart3 className="h-4 w-4 shrink-0" /> Overview
-          </button>
+          <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider px-3 mb-1 font-mono">
+            {effectiveRole === 'TEACHER' ? 'Faculty Menu' : effectiveRole === 'STUDENT' ? 'Student SIS Menu' : effectiveRole === 'PARENT' ? 'Parent Menu' : 'Navigation'}
+          </div>
 
-          <button
-            onClick={() => setActiveTab('students')}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'students' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <span className="flex items-center gap-3">
-              <GraduationCap className="h-4 w-4 shrink-0" /> Students
-            </span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-              activeTab === 'students' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-            }`}>
-              {students.length}
-            </span>
-          </button>
+          {allowedTabs.includes('overview') && (
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'overview' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <BarChart3 className="h-4 w-4 shrink-0" /> Overview
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('teachers')}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'teachers' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <span className="flex items-center gap-3">
-              <Users className="h-4 w-4 shrink-0" /> Faculty &amp; Staff
-            </span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-              activeTab === 'teachers' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-            }`}>
-              {teachers.length}
-            </span>
-          </button>
+          {allowedTabs.includes('students') && (
+            <button
+              onClick={() => setActiveTab('students')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'students' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <GraduationCap className="h-4 w-4 shrink-0" /> Students
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                activeTab === 'students' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
+              }`}>
+                {students.length}
+              </span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('classes')}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'classes' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <span className="flex items-center gap-3">
-              <Layers className="h-4 w-4 shrink-0" /> Classes &amp; Sections
-            </span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-              activeTab === 'classes' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-            }`}>
-              {classes.length}
-            </span>
-          </button>
+          {allowedTabs.includes('teachers') && (
+            <button
+              onClick={() => setActiveTab('teachers')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'teachers' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <Users className="h-4 w-4 shrink-0" /> Faculty &amp; Staff
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                activeTab === 'teachers' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
+              }`}>
+                {teachers.length}
+              </span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('subjects')}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'subjects' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <span className="flex items-center gap-3">
-              <BookOpen className="h-4 w-4 shrink-0 text-emerald-300" /> Subjects
-            </span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-              activeTab === 'subjects' ? 'bg-[#122A24] text-white' : 'bg-emerald-400/30 text-emerald-200'
-            }`}>
-              Curriculum
-            </span>
-          </button>
+          {allowedTabs.includes('classes') && (
+            <button
+              onClick={() => setActiveTab('classes')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'classes' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <Layers className="h-4 w-4 shrink-0" /> Classes &amp; Sections
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                activeTab === 'classes' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
+              }`}>
+                {classes.length}
+              </span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('attendance')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'attendance' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <CalendarCheck className="h-4 w-4 shrink-0" /> Daily Attendance
-          </button>
+          {allowedTabs.includes('subjects') && (
+            <button
+              onClick={() => setActiveTab('subjects')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'subjects' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <BookOpen className="h-4 w-4 shrink-0 text-emerald-300" /> Subjects
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                activeTab === 'subjects' ? 'bg-[#122A24] text-white' : 'bg-emerald-400/30 text-emerald-200'
+              }`}>
+                Curriculum
+              </span>
+            </button>
+          )}
+
+          {allowedTabs.includes('attendance') && (
+            <button
+              onClick={() => setActiveTab('attendance')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'attendance' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <CalendarCheck className="h-4 w-4 shrink-0" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'My Attendance' : 'Daily Attendance'}
+            </button>
+          )}
 
           {/* Fee Management (Desktop) */}
-          <button
-            onClick={() => setActiveTab('fees')}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'fees' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <span className="flex items-center gap-3">
-              <Coins className="h-4 w-4 shrink-0 text-amber-300" /> Fee Management
-            </span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-              activeTab === 'fees' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-            }`}>
-              {invoices.length}
-            </span>
-          </button>
+          {allowedTabs.includes('fees') && (
+            <button
+              onClick={() => setActiveTab('fees')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'fees' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <Coins className="h-4 w-4 shrink-0 text-amber-300" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'Fee Invoices & Pay' : 'Fee Management'}
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                activeTab === 'fees' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
+              }`}>
+                {invoices.length}
+              </span>
+            </button>
+          )}
 
           {/* Reports & Dossiers (Desktop) */}
-          <button
-            onClick={() => setActiveTab('reports')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'reports' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <FileSpreadsheet className="h-4 w-4 shrink-0 text-cyan-300" /> Reports &amp; Dossiers
-          </button>
+          {allowedTabs.includes('reports') && (
+            <button
+              onClick={() => setActiveTab('reports')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'reports' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <FileSpreadsheet className="h-4 w-4 shrink-0 text-cyan-300" /> Reports &amp; Dossiers
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('certificates')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'certificates' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <FileCheck className="h-4 w-4 shrink-0 text-amber-300" /> Certificate Studio
-          </button>
+          {allowedTabs.includes('certificates') && (
+            <button
+              onClick={() => setActiveTab('certificates')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'certificates' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <FileCheck className="h-4 w-4 shrink-0 text-amber-300" /> Certificate Studio
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('transport')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'transport' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <Bus className="h-4 w-4 shrink-0 text-blue-300" /> Transport &amp; GPS Fleet
-          </button>
+          {allowedTabs.includes('transport') && (
+            <button
+              onClick={() => setActiveTab('transport')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'transport' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Bus className="h-4 w-4 shrink-0 text-blue-300" /> Transport &amp; GPS Fleet
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('exams')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'exams' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <Award className="h-4 w-4 shrink-0 text-purple-300" /> CBSE Exams &amp; Reports
-          </button>
+          {allowedTabs.includes('exams') && (
+            <button
+              onClick={() => setActiveTab('exams')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'exams' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Award className="h-4 w-4 shrink-0 text-purple-300" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'Report Card & Marksheet' : 'CBSE Exams & Reports'}
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('homework')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'homework' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <FileText className="h-4 w-4 shrink-0 text-amber-300" /> Homework &amp; Diary
-          </button>
+          {allowedTabs.includes('homework') && (
+            <button
+              onClick={() => setActiveTab('homework')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'homework' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <FileText className="h-4 w-4 shrink-0 text-amber-300" /> Homework &amp; Diary
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('approvals')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'approvals' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" /> Leave &amp; Approvals
-          </button>
+          {allowedTabs.includes('approvals') && (
+            <button
+              onClick={() => setActiveTab('approvals')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'approvals' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" /> Leave &amp; Approvals
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('broadcast')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'broadcast' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <Radio className="h-4 w-4 shrink-0 text-red-300" /> Emergency Broadcast
-          </button>
+          {allowedTabs.includes('broadcast') && (
+            <button
+              onClick={() => setActiveTab('broadcast')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'broadcast' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Radio className="h-4 w-4 shrink-0 text-red-300" /> Emergency Broadcast
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('notices')}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'notices' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <span className="flex items-center gap-3">
-              <Bell className="h-4 w-4 shrink-0" /> Notice Board
-            </span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-              activeTab === 'notices' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-            }`}>
-              {notices.length}
-            </span>
-          </button>
+          {allowedTabs.includes('notices') && (
+            <button
+              onClick={() => setActiveTab('notices')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'notices' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <Bell className="h-4 w-4 shrink-0" /> Notice Board
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                activeTab === 'notices' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
+              }`}>
+                {notices.length}
+              </span>
+            </button>
+          )}
 
           <div className="my-3 border-t border-white/10" />
 
           <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider px-3 mb-2 font-mono">
-            Administration
+            {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'Account' : 'Administration'}
           </div>
 
           {(currentUser?.is_god_admin || currentUser?.username?.toLowerCase() === 'blistedx' || currentUser?.role === 'AGENCY_SUPERADMIN') && (
@@ -2937,23 +3286,56 @@ function ERPWorkspaceContent() {
             </Link>
           )}
 
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'profile' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <User className="h-4 w-4 shrink-0 text-emerald-300" /> My Profile
-          </button>
+          {allowedTabs.includes('profile') && (
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'profile' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <User className="h-4 w-4 shrink-0 text-emerald-300" /> {effectiveRole === 'STUDENT' ? 'Student Dossier' : effectiveRole === 'PARENT' ? 'Parent & Ward Profile' : 'My Profile'}
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-              activeTab === 'settings' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <Settings className="h-4 w-4 shrink-0" /> School Settings
-          </button>
+          {allowedTabs.includes('data_hub') && (
+            <button
+              onClick={() => setActiveTab('data_hub')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'data_hub' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-300" /> Data Integration Hub
+              </span>
+              <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                activeTab === 'data_hub' ? 'bg-[#122A24] text-white' : 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30'
+              }`}>
+                CSV / XLS
+              </span>
+            </button>
+          )}
+
+          {allowedTabs.includes('audit_logs') && (
+            <button
+              onClick={() => setActiveTab('audit_logs')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'audit_logs' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" /> Audit Logs &amp; Trail
+            </button>
+          )}
+
+          {allowedTabs.includes('settings') && (
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'settings' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Settings className="h-4 w-4 shrink-0" /> School Settings
+            </button>
+          )}
 
           {/* User Profile Card at Sidebar Bottom with Customization Option */}
           <div 
@@ -2984,9 +3366,32 @@ function ERPWorkspaceContent() {
         </aside>
 
         {/* Dynamic Content Area with Bottom Padding for Mobile Bar */}
-        <main className="flex-1 overflow-y-auto min-w-0 w-full p-3.5 sm:p-5 lg:p-6 xl:p-8 pb-24 lg:pb-8 bg-[#F8FAF9] focus:outline-none">
+        <main className="flex-1 overflow-y-auto min-w-0 w-full p-3.5 sm:p-5 lg:p-6 xl:p-8 pb-24 lg:pb-8 bg-[#F8FAF9] focus:outline-none relative">
+          {/* PERMISSION ACCESS GUARD FOR RESTRICTED ROLES */}
+          {!allowedTabs.includes(activeTab) && (
+            <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-3xl border border-rose-200 text-center shadow-lg space-y-4 animate-fade-in">
+              <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center text-2xl mx-auto border border-rose-200">
+                🔒
+              </div>
+              <h2 className="font-display font-bold text-xl text-[#122A24]">
+                Module Access Restricted
+              </h2>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Your active role (<strong className="font-mono text-emerald-800 font-bold">{effectiveRole}</strong>) does not have authorization to access the <strong>{TAB_POSTER_CONFIG[activeTab]?.title || activeTab}</strong> module.
+              </p>
+              <div className="pt-2">
+                <button
+                  onClick={() => setActiveTab('overview')}
+                  className="px-5 py-2.5 bg-[#122A24] text-white rounded-full text-xs font-bold shadow-xs hover:bg-[#1C443A] cursor-pointer border-none"
+                >
+                  Return to Overview Dashboard
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* TAB 1: OVERVIEW (STRAVIX MODERN MINT/SAGE THEME WITH ANIMATED CHARTS) */}
-          {activeTab === 'overview' && (
+          {activeTab === 'overview' && allowedTabs.includes('overview') && (
             <DashboardOverview
               selectedSchool={selectedSchool}
               overview={overview}
@@ -2996,6 +3401,7 @@ function ERPWorkspaceContent() {
               invoices={invoices}
               attendance={attendance}
               currentUser={currentUser}
+              userRole={effectiveRole}
               openStudentModal={openStudentModal}
               openTeacherModal={openTeacherModal}
               notices={notices}
@@ -3006,13 +3412,37 @@ function ERPWorkspaceContent() {
             />
           )}
 
+          {/* TAB: DATA HUB (DOWNLOAD & UPLOAD DATA INTEGRATION CENTER) */}
+          {activeTab === 'data_hub' && allowedTabs.includes('data_hub') && (
+            <DashboardDataHub
+              students={students}
+              teachers={teachers}
+              invoices={invoices}
+              attendance={attendance}
+              exams={[]}
+              selectedSchool={selectedSchool}
+              onDataImported={(type, count) => {
+                showAdminToast(`Imported ${count} ${type} records into live database!`);
+              }}
+              showToast={showAdminToast}
+            />
+          )}
+
           {/* TAB 2: STUDENTS (THEME-ALIGNED PREMIUM MINT & FOREST GREEN) */}
           {activeTab === 'students' && (
             <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
               {/* Main Card Container */}
-              <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5">
+              <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
+                {/* Background Watermark Behind Header Text */}
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                >
+                  STUDENTS
+                </div>
+
                 {/* Top Breadcrumb & Action Toolbar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
                   <div>
                     <div className="flex items-center gap-3">
                       <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
@@ -3958,9 +4388,17 @@ function ERPWorkspaceContent() {
           {activeTab === 'teachers' && (
             <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
               {/* Main Card Container */}
-              <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5">
+              <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
+                {/* Background Watermark Behind Header Text */}
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                >
+                  FACULTY
+                </div>
+
                 {/* Top Breadcrumb & Action Toolbar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
                   <div>
                     <div className="flex items-center gap-3">
                       <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
@@ -4807,9 +5245,17 @@ function ERPWorkspaceContent() {
           {activeTab === 'classes' && (
             <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
               {/* Main Card Container */}
-              <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5">
+              <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
+                {/* Background Watermark Behind Header Text */}
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                >
+                  CLASSES
+                </div>
+
                 {/* Top Breadcrumb & Action Toolbar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
                   <div>
                     <div className="flex items-center gap-3">
                       <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
@@ -5519,9 +5965,16 @@ function ERPWorkspaceContent() {
           {/* TAB 7: NOTICES (THEME-ALIGNED WITH ADVANCED AUDIENCE FILTERS) */}
           {activeTab === 'notices' && (
             <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
-              <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5">
+              <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
+                {/* Background Watermark Behind Header Text */}
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                >
+                  CIRCULARS
+                </div>
                 {/* Header & Primary Action */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
                   <div>
                     <div className="flex items-center gap-3">
                       <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
@@ -5678,23 +6131,42 @@ function ERPWorkspaceContent() {
             </div>
           )}
 
+          {/* TAB: ENTERPRISE SECURITY & AUDIT TRAIL */}
+          {activeTab === 'audit_logs' && (
+            <div className="space-y-6 animate-fade-in">
+              <DashboardAuditLogs
+                selectedSchool={selectedSchool}
+                selectedSession={selectedSession}
+              />
+            </div>
+          )}
+
           {/* TAB 8: SETTINGS */}
           {activeTab === 'settings' && (
             <div className="space-y-6 max-w-5xl mx-auto animate-fade-in">
-              {/* Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA]">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
-                      Institutional &amp; Access Controls
-                    </h1>
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                      ⚡ Full Admin Powers Active
-                    </span>
+              {/* Header Card */}
+              <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 relative overflow-hidden">
+                {/* Background Watermark Behind Header Text */}
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                >
+                  SETTINGS
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
+                        Institutional &amp; Access Controls
+                      </h1>
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                        ⚡ Full Admin Powers Active
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#2D5A4E] mt-1 font-mono">
+                      Manage institutional identity, security PIN, CBSE compliance rules, and Role-Based Access Control (RBAC).
+                    </p>
                   </div>
-                  <p className="text-xs text-[#2D5A4E] mt-1">
-                    Manage institutional identity, security PIN, CBSE compliance rules, and Role-Based Access Control (RBAC).
-                  </p>
                 </div>
               </div>
 
@@ -6248,7 +6720,14 @@ function ERPWorkspaceContent() {
 
               {/* Profile Identity Hero Banner */}
               <div className="bg-gradient-to-r from-[#122A24] to-[#1C443A] text-white p-6 sm:p-7 rounded-3xl shadow-md flex flex-col sm:flex-row items-center sm:items-start justify-between gap-5 relative overflow-hidden">
-                <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+                {/* Background Watermark Behind Header Text */}
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-white/[0.08] sm:text-white/[0.12] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                >
+                  PROFILE
+                </div>
+                <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left relative z-10">
                   <div className="w-20 h-20 rounded-2xl bg-white/15 border-2 border-white/30 text-white font-display font-bold text-3xl flex items-center justify-center shadow-lg shrink-0">
                     {(profileForm.full_name || currentUser?.full_name || selectedSchool?.principal_name || 'A')[0]?.toUpperCase()}
                   </div>
@@ -6471,7 +6950,12 @@ function ERPWorkspaceContent() {
           {activeTab === 'exams' && (
             <DashboardExams
               students={students}
+              classes={classes}
+              teachers={teachers}
+              selectedSchool={selectedSchool}
               schoolName={selectedSchool?.school_name}
+              selectedSession={selectedSession}
+              attendance={attendance}
             />
           )}
 
@@ -6674,7 +7158,18 @@ function ERPWorkspaceContent() {
                       onChange={(e) => setStudentForm({ ...studentForm, class_name: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-medium"
                     >
-                      <optgroup label="Pre-Primary / Foundational">
+                      {classes && classes.length > 0 && (
+                        <optgroup label="Active School Classes">
+                          {Array.from(new Set(classes.map(c => c.class_name))).map(cName => (
+                            <option key={`cls-${cName}`} value={cName}>{cName}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      <optgroup label="Early Years / Pre-Primary">
+                        <option value="PG">PG (Playgroup)</option>
+                        <option value="Playgroup">Playgroup</option>
+                        <option value="Pre-Nursery">Pre-Nursery</option>
+                        <option value="Creche">Creche / Daycare</option>
                         <option value="Nursery">Nursery</option>
                         <option value="LKG">LKG / KG-I</option>
                         <option value="UKG">UKG / KG-II</option>
@@ -7985,56 +8480,93 @@ function ERPWorkspaceContent() {
             </div>
 
             <form onSubmit={handleAddClass} className="space-y-3.5 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#122A24] mb-1">Class Level *</label>
-                  <select
-                    required
-                    value={classForm.class_name || 'Class 10'}
-                    onChange={(e) => setClassForm({ ...classForm, class_name: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[#DCE8E0] rounded-xl bg-white text-xs font-medium"
-                  >
-                    <optgroup label="Pre-Primary / Foundational">
-                      <option value="Nursery">Nursery</option>
-                      <option value="LKG">LKG / KG-I</option>
-                      <option value="UKG">UKG / KG-II</option>
-                    </optgroup>
-                    <optgroup label="Primary (Classes 1 to 5)">
-                      <option value="Class 1">Class 1</option>
-                      <option value="Class 2">Class 2</option>
-                      <option value="Class 3">Class 3</option>
-                      <option value="Class 4">Class 4</option>
-                      <option value="Class 5">Class 5</option>
-                    </optgroup>
-                    <optgroup label="Middle (Classes 6 to 8)">
-                      <option value="Class 6">Class 6</option>
-                      <option value="Class 7">Class 7</option>
-                      <option value="Class 8">Class 8</option>
-                    </optgroup>
-                    <optgroup label="Secondary (Classes 9 & 10)">
-                      <option value="Class 9">Class 9</option>
-                      <option value="Class 10">Class 10</option>
-                    </optgroup>
-                    <optgroup label="Senior Secondary (Classes 11 & 12)">
-                      <option value="Class 11">Class 11</option>
-                      <option value="Class 12">Class 12</option>
-                    </optgroup>
-                  </select>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-[#122A24] mb-1">Class Level *</label>
+                    <select
+                      required
+                      value={
+                        ['PG', 'Playgroup', 'Pre-Nursery', 'Creche', 'Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'].includes(classForm.class_name)
+                          ? classForm.class_name
+                          : 'CUSTOM'
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'CUSTOM') {
+                          setClassForm({ ...classForm, class_name: '' });
+                        } else {
+                          setClassForm({ ...classForm, class_name: val });
+                        }
+                      }}
+                      className="w-full px-3 py-2.5 border border-[#DCE8E0] rounded-xl bg-white text-xs font-medium"
+                    >
+                      <optgroup label="Early Years / Pre-Primary">
+                        <option value="PG">PG (Playgroup)</option>
+                        <option value="Playgroup">Playgroup</option>
+                        <option value="Pre-Nursery">Pre-Nursery</option>
+                        <option value="Creche">Creche / Daycare</option>
+                        <option value="Nursery">Nursery</option>
+                        <option value="LKG">LKG / KG-I</option>
+                        <option value="UKG">UKG / KG-II</option>
+                      </optgroup>
+                      <optgroup label="Primary (Classes 1 to 5)">
+                        <option value="Class 1">Class 1</option>
+                        <option value="Class 2">Class 2</option>
+                        <option value="Class 3">Class 3</option>
+                        <option value="Class 4">Class 4</option>
+                        <option value="Class 5">Class 5</option>
+                      </optgroup>
+                      <optgroup label="Middle (Classes 6 to 8)">
+                        <option value="Class 6">Class 6</option>
+                        <option value="Class 7">Class 7</option>
+                        <option value="Class 8">Class 8</option>
+                      </optgroup>
+                      <optgroup label="Secondary (Classes 9 & 10)">
+                        <option value="Class 9">Class 9</option>
+                        <option value="Class 10">Class 10</option>
+                      </optgroup>
+                      <optgroup label="Senior Secondary (Classes 11 & 12)">
+                        <option value="Class 11">Class 11</option>
+                        <option value="Class 12">Class 12</option>
+                      </optgroup>
+                      <optgroup label="Other / Custom">
+                        <option value="CUSTOM">✏️ Custom Class Name...</option>
+                      </optgroup>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-[#122A24] mb-1">Section *</label>
+                    <select
+                      required
+                      value={classForm.section || 'A'}
+                      onChange={(e) => setClassForm({ ...classForm, section: e.target.value })}
+                      className="w-full px-3 py-2.5 border border-[#DCE8E0] rounded-xl bg-white text-xs font-medium font-mono"
+                    >
+                      <option value="A">Section A</option>
+                      <option value="B">Section B</option>
+                      <option value="C">Section C</option>
+                      <option value="D">Section D</option>
+                      <option value="E">Section E</option>
+                      <option value="F">Section F</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-semibold text-[#122A24] mb-1">Section *</label>
-                  <select
-                    required
-                    value={classForm.section || 'A'}
-                    onChange={(e) => setClassForm({ ...classForm, section: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[#DCE8E0] rounded-xl bg-white text-xs font-medium font-mono"
-                  >
-                    <option value="A">Section A</option>
-                    <option value="B">Section B</option>
-                    <option value="C">Section C</option>
-                    <option value="D">Section D</option>
-                  </select>
-                </div>
+
+                {/* Freeform Custom Class Name Input if CUSTOM or non-standard selected */}
+                {!['PG', 'Playgroup', 'Pre-Nursery', 'Creche', 'Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'].includes(classForm.class_name) && (
+                  <div>
+                    <label className="block font-semibold text-[#122A24] mb-1">Enter Custom Class Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={classForm.class_name}
+                      onChange={(e) => setClassForm({ ...classForm, class_name: e.target.value })}
+                      placeholder="e.g. PG, Playgroup Rose, Toddlers, Grade 1"
+                      className="w-full px-3 py-2 border border-emerald-500 rounded-xl bg-emerald-50/40 text-xs font-semibold text-[#122A24] focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -9257,11 +9789,11 @@ function ERPWorkspaceContent() {
         </div>
       )}
 
-      {/* MOBILE BOTTOM NAVIGATION DOCK (SUPER ADMIN & ALL ROLES) */}
+      {/* MOBILE BOTTOM NAVIGATION DOCK (ROLE ADAPTIVE FOR ADMIN, TEACHER, STUDENT, PARENT) */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#DCE8E0] px-3 py-1.5 flex items-center justify-around shadow-lg">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+          className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
             activeTab === 'overview' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
           }`}
         >
@@ -9271,45 +9803,163 @@ function ERPWorkspaceContent() {
           <span>Overview</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('students')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-            activeTab === 'students' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-          }`}
-        >
-          <div className={`p-1 rounded-lg ${activeTab === 'students' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-            <GraduationCap className="h-4 w-4" />
-          </div>
-          <span>Students</span>
-        </button>
+        {effectiveRole === 'TEACHER' ? (
+          <>
+            <button
+              onClick={() => setActiveTab('attendance')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'attendance' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'attendance' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <CalendarCheck className="h-4 w-4" />
+              </div>
+              <span>Attendance</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('teachers')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-            activeTab === 'teachers' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-          }`}
-        >
-          <div className={`p-1 rounded-lg ${activeTab === 'teachers' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-            <Users className="h-4 w-4" />
-          </div>
-          <span>Faculty</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('exams')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'exams' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'exams' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <Award className="h-4 w-4" />
+              </div>
+              <span>Marks Ledger</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('attendance')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-            activeTab === 'attendance' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-          }`}
-        >
-          <div className={`p-1 rounded-lg ${activeTab === 'attendance' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-            <CalendarCheck className="h-4 w-4" />
-          </div>
-          <span>Attendance</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('homework')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'homework' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'homework' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <FileText className="h-4 w-4" />
+              </div>
+              <span>Homework</span>
+            </button>
+          </>
+        ) : effectiveRole === 'STUDENT' ? (
+          <>
+            <button
+              onClick={() => setActiveTab('exams')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'exams' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'exams' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <Award className="h-4 w-4" />
+              </div>
+              <span>Marksheet</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('attendance')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'attendance' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'attendance' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <CalendarCheck className="h-4 w-4" />
+              </div>
+              <span>Attendance</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('fees')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none cursor-pointer ${
+                activeTab === 'fees' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'fees' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <Coins className="h-4 w-4" />
+              </div>
+              <span>Fee Dues</span>
+            </button>
+          </>
+        ) : effectiveRole === 'PARENT' ? (
+          <>
+            <button
+              onClick={() => setActiveTab('exams')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'exams' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'exams' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <Award className="h-4 w-4" />
+              </div>
+              <span>Report Card</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('fees')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none cursor-pointer ${
+                activeTab === 'fees' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'fees' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <Coins className="h-4 w-4" />
+              </div>
+              <span>Pay Fees</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('attendance')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'attendance' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'attendance' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <CalendarCheck className="h-4 w-4" />
+              </div>
+              <span>Attendance</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => setActiveTab('students')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'students' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'students' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <GraduationCap className="h-4 w-4" />
+              </div>
+              <span>Students</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('teachers')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'teachers' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'teachers' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <Users className="h-4 w-4" />
+              </div>
+              <span>Faculty</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('attendance')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'attendance' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'attendance' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <CalendarCheck className="h-4 w-4" />
+              </div>
+              <span>Attendance</span>
+            </button>
+          </>
+        )}
 
         <button
           onClick={() => setMobileMenuOpen(true)}
-          className="flex flex-col items-center gap-0.5 py-1 px-2.5 rounded-xl text-[10px] font-semibold text-slate-500 hover:text-[#122A24] border-none bg-transparent cursor-pointer"
+          className="flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold text-slate-500 hover:text-[#122A24] border-none bg-transparent cursor-pointer"
         >
           <div className="p-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
             <Menu className="h-4 w-4" />

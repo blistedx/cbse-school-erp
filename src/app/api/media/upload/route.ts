@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { saveMediaVaultFile } from '@/lib/cockroach';
+import { saveMediaVaultFile } from '@/lib/media';
 
 export async function POST(req: Request) {
   try {
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
         url: `/api/media/${id}`
       });
     } else {
-      return NextResponse.json({ success: false, error: 'Failed to write to CockroachDB Media Vault' }, { status: 500 });
+      return NextResponse.json({ success: false, error: 'Failed to write to Local Media Vault' }, { status: 500 });
     }
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

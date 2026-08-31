@@ -141,10 +141,10 @@ export function getDefaultCbseSubjectsForClass(className: string, section?: stri
 export function getClassWeight(className: string): number {
   const norm = (className || '').toLowerCase().trim();
   
-  if (norm.includes('pre-nursery') || norm.includes('playgroup') || norm.includes('creche')) return 1;
+  if (/\b(pg|playgroup|play\s*group|pre-nursery|pre\s*nursery|pre-kg|pre\s*kg|creche|daycare|toddler|toddlers)\b/i.test(norm) || norm === 'pg') return 1;
   if (norm.includes('nursery') || norm.includes('nur')) return 2;
-  if (norm.includes('lkg') || norm.includes('kg 1') || norm.includes('kg-1') || norm.includes('lower kg') || norm.includes('l.k.g')) return 3;
-  if (norm.includes('ukg') || norm.includes('kg 2') || norm.includes('kg-2') || norm.includes('upper kg') || norm.includes('prep') || norm.includes('u.k.g')) return 4;
+  if (norm.includes('lkg') || norm.includes('kg 1') || norm.includes('kg-1') || norm.includes('lower kg') || norm.includes('l.k.g') || norm.includes('kg-i') || norm.includes('kg i')) return 3;
+  if (norm.includes('ukg') || norm.includes('kg 2') || norm.includes('kg-2') || norm.includes('upper kg') || norm.includes('prep') || norm.includes('u.k.g') || norm.includes('kg-ii') || norm.includes('kg ii')) return 4;
   
   // Roman numerals or standard Class names (Class 1 to Class 12)
   if (/\b(class\s*12|class\s*xii|xii)\b/i.test(norm)) return 16;

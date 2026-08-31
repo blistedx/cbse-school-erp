@@ -171,7 +171,8 @@ export default function LoginPage() {
         body: JSON.stringify({
           school_code: effectiveSchoolCode,
           username: userId.trim(),
-          password: password.trim()
+          password: password.trim(),
+          role: selectedRole.toUpperCase()
         })
       });
 

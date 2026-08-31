@@ -120,18 +120,35 @@ export function DashboardReports({
     });
   }, [students, invoices]);
 
-  // 2. Student Attendance Register Data (With exactly 1 student absent today)
+  const todayDateStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  // 2. Student Attendance Register Data (Derived from live attendance records)
   const studentAttendanceData = useMemo(() => {
     return students.map((s, idx) => {
-      const totalWorkingDays = 180;
-      const hash = (s.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) + idx) % 25;
-      const daysAbsent = hash > 21 ? Math.min(48, hash * 2) : Math.floor(hash / 2);
-      const daysPresent = totalWorkingDays - daysAbsent;
-      const attendancePercent = parseFloat(((daysPresent / totalWorkingDays) * 100).toFixed(1));
-      const isDefaulter = attendancePercent < 75.0;
+      // Find all records for this student
+      let presentDays = 0;
+      let absentDays = 0;
+      let isAbsentToday = false;
+      let isPresentToday = false;
 
-      // Exactly 1 student absent today (idx === 0)
-      const isAbsentToday = idx === 0;
+      attendance.forEach(rec => {
+        if ((rec as any).student_records && Array.isArray((rec as any).student_records)) {
+          const match = (rec as any).student_records.find((r: any) => r.student_id === s.id);
+          if (match) {
+            if (match.status === 'PRESENT') {
+              presentDays++;
+              if (rec.date === todayDateStr) isPresentToday = true;
+            } else if (match.status === 'ABSENT') {
+              absentDays++;
+              if (rec.date === todayDateStr) isAbsentToday = true;
+            }
+          }
+        }
+      });
+
+      const totalRecorded = presentDays + absentDays;
+      const attendancePercent = totalRecorded > 0 ? parseFloat(((presentDays / totalRecorded) * 100).toFixed(1)) : 0;
+      const isDefaulter = totalRecorded > 0 && attendancePercent < 75.0;
 
       return {
         id: s.id,
@@ -139,28 +156,44 @@ export function DashboardReports({
         name: s.full_name,
         className: s.class_name || 'Class I',
         section: s.section || 'A',
-        totalDays: totalWorkingDays,
-        presentDays: daysPresent,
-        absentDays: daysAbsent,
+        totalDays: totalRecorded,
+        presentDays,
+        absentDays,
         percentage: attendancePercent,
         isDefaulter,
         isAbsentToday,
-        todayStatus: isAbsentToday ? 'ABSENT TODAY' : 'PRESENT TODAY',
-        status: isDefaulter ? 'SHORTAGE (<75%)' : 'REGULAR'
+        todayStatus: isAbsentToday ? 'ABSENT TODAY' : isPresentToday ? 'PRESENT TODAY' : 'UNMARKED',
+        status: isDefaulter ? 'SHORTAGE (<75%)' : totalRecorded === 0 ? 'NO LOGS' : 'REGULAR'
       };
     });
-  }, [students]);
+  }, [students, attendance, todayDateStr]);
 
-  // 3. Staff Attendance Register Data (With exactly 1 faculty absent today)
+  // 3. Staff Attendance Register Data (Derived from live attendance records)
   const staffAttendanceData = useMemo(() => {
     return teachers.map((t, idx) => {
-      const workingDays = 220;
-      // Index 0 is the 1 faculty member absent today (on approved casual leave)
-      const isAbsentToday = idx === 0;
-      const leavesTaken = isAbsentToday ? 1 : (idx % 5 === 0) ? 4 : (idx % 3 === 0) ? 2 : 0;
-      const presentDays = workingDays - leavesTaken;
-      const percentage = parseFloat(((presentDays / workingDays) * 100).toFixed(1));
-      const punctuality = isAbsentToday ? '94.0%' : `${(96 + (idx % 5)).toFixed(1)}%`;
+      let presentDays = 0;
+      let leavesTaken = 0;
+      let isAbsentToday = false;
+      let isPresentToday = false;
+
+      attendance.forEach(rec => {
+        if ((rec as any).teacher_records && Array.isArray((rec as any).teacher_records)) {
+          const match = (rec as any).teacher_records.find((r: any) => r.teacher_id === t.id);
+          if (match) {
+            if (match.status === 'PRESENT') {
+              presentDays++;
+              if (rec.date === todayDateStr) isPresentToday = true;
+            } else {
+              leavesTaken++;
+              if (rec.date === todayDateStr) isAbsentToday = true;
+            }
+          }
+        }
+      });
+
+      const totalRecorded = presentDays + leavesTaken;
+      const percentage = totalRecorded > 0 ? parseFloat(((presentDays / totalRecorded) * 100).toFixed(1)) : 0;
+      const punctuality = totalRecorded > 0 ? `${percentage}%` : '—';
 
       return {
         id: t.id,
@@ -168,7 +201,7 @@ export function DashboardReports({
         name: t.full_name || (t as any).name || 'Faculty Member',
         designation: t.designation || 'TGT Teacher',
         subject: (t as any).subject || t.department || 'All Subjects',
-        workingDays,
+        workingDays: totalRecorded,
         presentDays,
         leavesTaken,
         percentage,
@@ -306,10 +339,17 @@ export function DashboardReports({
       {/* ─────────────────────────────────────────────────────────────
           1. STANDARD MODULE HEADER & FULL-WIDTH TAB NAV
           ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5">
+      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
+        {/* Background Watermark Behind Header Text */}
+        <div 
+          aria-hidden="true" 
+          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+        >
+          REPORTS
+        </div>
         
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E8F0EA]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E8F0EA] relative z-10">
           <div>
             <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
               Comprehensive School Reports &amp; Master Dossiers

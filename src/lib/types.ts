@@ -43,7 +43,7 @@ export interface User {
   id: string;
   school_id: string;
   username: string;
-  role: 'SUPERADMIN' | 'AGENCY_SUPERADMIN' | 'GOD_ACCESS' | 'PRINCIPAL' | 'TEACHER' | 'ACCOUNTANT' | 'STUDENT';
+  role: 'SUPERADMIN' | 'AGENCY_SUPERADMIN' | 'GOD_ACCESS' | 'PRINCIPAL' | 'TEACHER' | 'ACCOUNTANT' | 'STUDENT' | 'PARENT';
   full_name: string;
   email?: string;
   phone?: string;
@@ -92,6 +92,9 @@ export interface Student {
   cwsn_facility?: string;
 
   // Academic History
+  email?: string;
+  address?: string;
+  admission_type?: string;
   admission_date?: string;
   medium_of_instruction?: 'ENGLISH' | 'HINDI' | 'REGIONAL';
   previous_school?: string;
@@ -320,3 +323,25 @@ export interface SchoolOverview {
   recentStudents: Student[];
   recentInvoices: FeeInvoice[];
 }
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string; // ISO 8601
+  actor: {
+    id?: string;
+    name: string;
+    role: string;
+    email?: string;
+    ip?: string;
+  };
+  module: 'AUTH' | 'ATTENDANCE' | 'EXAMINATION' | 'FEES' | 'STUDENTS' | 'TEACHERS' | 'BROADCAST' | 'SETTINGS' | 'APPROVALS' | 'TRANSPORT' | 'PROMOTION' | 'CLASSES';
+  action: string; // e.g. 'MARKS_SUBMITTED', 'STUDENT_ENROLLED', 'FEE_COLLECTED', 'ATTENDANCE_MARKED', etc.
+  severity: 'INFO' | 'WARNING' | 'CRITICAL' | 'SECURITY';
+  summary: string; // Human readable description
+  details?: Record<string, any>; // JSON metadata
+  targetId?: string; // Entity ID (e.g. Student ID, Invoice ID, Exam ID)
+  targetName?: string; // Entity Name (e.g. "Aarav Sharma", "Class 10-A")
+  school_id?: string;
+  session?: string;
+}
+

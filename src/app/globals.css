@@ -809,4 +809,47 @@ a {
   animation: glowShimmer 3s infinite linear;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Tab Backdrop Magazine & Poster Typography Layer
+   Ultra-tall condensed lettering behind active module content
+   ───────────────────────────────────────────────────────────── */
+.font-poster {
+  font-family: 'Bebas Neue', 'Anton', 'Impact', -apple-system, sans-serif !important;
+  font-stretch: ultra-condensed;
+  letter-spacing: 0.035em;
+  line-height: 0.78;
+}
+
+.tab-backdrop-title {
+  font-family: 'Bebas Neue', 'Anton', 'Impact', -apple-system, sans-serif;
+  font-stretch: ultra-condensed;
+  text-transform: uppercase;
+  user-select: none;
+  pointer-events: none;
+  line-height: 0.8;
+  letter-spacing: 0.02em;
+  transform: scaleY(1.22);
+  transform-origin: top center;
+  background: linear-gradient(180deg, rgba(18, 42, 36, 0.11) 0%, rgba(18, 42, 36, 0.05) 50%, rgba(18, 42, 36, 0) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.6));
+}
+
+@keyframes backdropFadeScale {
+  0% {
+    opacity: 0;
+    transform: scaleY(1.15) translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1.22) translateY(0);
+  }
+}
+
+.animate-backdrop-in {
+  animation: backdropFadeScale 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+
 

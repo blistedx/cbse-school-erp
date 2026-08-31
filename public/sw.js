@@ -149,3 +149,67 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+
+// ═════════════════════════════════════════════════════════════════════
+// WEB PUSH NOTIFICATION LISTENERS (PWA & BROWSERS)
+// ═════════════════════════════════════════════════════════════════════
+self.addEventListener('push', (event) => {
+  let data = {
+    title: 'School ERP Notification',
+    body: 'You have a new update from School Administration.',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon.svg',
+    data: { url: '/app' }
+  };
+
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body || 'New announcement received.',
+    icon: data.icon || '/icons/icon-192.png',
+    badge: data.badge || '/icons/icon.svg',
+    vibrate: [200, 100, 200, 100, 200],
+    data: data.data || { url: '/app' },
+    tag: data.tag || `school-alert-${Date.now()}`,
+    renotify: true,
+    requireInteraction: data.urgent || false,
+    actions: [
+      { action: 'open_app', title: 'Open ERP Portal' },
+      { action: 'dismiss', title: 'Dismiss' }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  if (event.action === 'dismiss') return;
+
+  const targetUrl = event.notification.data?.url || '/app';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes('/app') && 'focus' in client) {
+          if (client.navigate) {
+            client.navigate(targetUrl);
+          }
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+

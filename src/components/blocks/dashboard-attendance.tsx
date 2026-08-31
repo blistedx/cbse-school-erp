@@ -126,7 +126,8 @@ export function DashboardAttendance({
     return holidays.find(h => dateStr >= h.start_date && dateStr <= h.end_date) || null;
   }, [holidays]);
 
-  const getAudienceLabel = (aud: string) => {
+  const getAudienceLabel = (aud?: string) => {
+    if (!aud) return 'Entire Institution (All Closed)';
     switch (aud) {
       case 'ALL': return 'Entire Institution (All Closed)';
       case 'STUDENTS_ONLY': return 'All Students (Teachers On Duty)';
@@ -139,7 +140,7 @@ export function DashboardAttendance({
       case 'NURSERY_TO_MIDDLE': return 'Pre-Primary to Middle (Nursery to Class VIII)';
       case 'NURSERY_TO_PRIMARY': return 'Pre-Primary to Primary (Nursery to Class V)';
       default:
-        return aud.replace(/^CUSTOM:\s*/i, 'Specific: ').replace(/_/g, ' ');
+        return String(aud).replace(/^CUSTOM:\s*/i, 'Specific: ').replace(/_/g, ' ');
     }
   };
 
@@ -472,19 +473,23 @@ export function DashboardAttendance({
         if (dayOfWeek === 0) return 'SUN';
         if (hol) return 'HOL';
         
-        // Check real attendance or deterministic seed
+        // Future dates or unrecorded dates
+        if (dateStr > todayDateStr) {
+          return '-';
+        }
+
+        // Check real attendance from database
         const rec = attendance.find(a => 
           a.date === dateStr && 
           (a.class_name || '').toLowerCase() === (currentSheetClass.class_name || '').toLowerCase() &&
           (a.section || '').toUpperCase() === (currentSheetClass.section || '').toUpperCase()
         );
-        let st = 'P';
+        let st = '-';
         if (rec && (rec as any).student_records) {
           const matched = (rec as any).student_records.find((r: any) => r.student_id === stu.id);
           if (matched) st = matched.status === 'PRESENT' ? 'P' : matched.status === 'ABSENT' ? 'A' : 'L';
-        } else {
-          const seed = (stu.full_name.charCodeAt(0) + day) % 20;
-          st = seed === 0 ? 'A' : seed === 1 ? 'L' : 'P';
+        } else if (rec) {
+          st = 'P';
         }
 
         if (st === 'P') pCount++;
@@ -495,9 +500,9 @@ export function DashboardAttendance({
       const workingDays = daysArray.filter(d => {
         const dtStr = `${sheetYear}-${String(sheetMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         const dow = new Date(sheetYear, sheetMonth - 1, d).getDay();
-        return dow !== 0 && !getHolidayForDate(dtStr);
+        return dow !== 0 && !getHolidayForDate(dtStr) && dtStr <= todayDateStr;
       }).length;
-      const pct = workingDays > 0 ? Math.round((pCount / workingDays) * 100) : 100;
+      const pct = workingDays > 0 ? Math.round((pCount / workingDays) * 100) : 0;
       return [stu.roll_no, stu.admission_no, stu.full_name, ...dayStatuses, pCount, aCount, `${pct}%`];
     });
 
@@ -546,7 +551,7 @@ export function DashboardAttendance({
         presentCount,
         absentCount: isMarked ? Math.max(0, totalCount - presentCount) : 0,
         todayPercent,
-        monthlyAvgPercent: isMarked ? Math.min(99, Math.max(88, todayPercent - 2)) : 94,
+        monthlyAvgPercent: isMarked ? Math.min(99, Math.max(88, todayPercent - 2)) : 0,
         defaultersCount: defaulters.length,
         defaulterStudents: defaulters
       };
@@ -581,9 +586,17 @@ export function DashboardAttendance({
       {/* ─────────────────────────────────────────────────────────────
           1. HEADER & DEDICATED RESPONSIVE TABS BAR
           ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5">
+      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
+        {/* Background Watermark Behind Header Text */}
+        <div 
+          aria-hidden="true" 
+          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+        >
+          ATTENDANCE
+        </div>
+
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E8F0EA]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E8F0EA] relative z-10">
           <div>
             <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight flex items-center gap-2.5">
               <CalendarCheck className="h-7 w-7 text-emerald-700 shrink-0" />
@@ -674,7 +687,7 @@ export function DashboardAttendance({
                       Official Holiday Declared: {activeDateHoliday.title} ({activeDateHoliday.start_date} to {activeDateHoliday.end_date})
                     </div>
                     <div className="text-[11px] font-mono text-amber-800">
-                      Applicable For: <span className="font-bold">{activeDateHoliday.applicable_to.replace(/_/g, ' ')}</span> • Reason: {activeDateHoliday.reason}
+                      Applicable For: <span className="font-bold">{(activeDateHoliday.applicable_to || 'ALL').replace(/_/g, ' ')}</span> • Reason: {activeDateHoliday.reason}
                     </div>
                   </div>
                 </div>
@@ -1044,7 +1057,7 @@ export function DashboardAttendance({
                       const workingDaysTotal = daysArray.filter(d => {
                         const dtStr = `${sheetYear}-${String(sheetMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                         const dow = new Date(sheetYear, sheetMonth - 1, d).getDay();
-                        return dow !== 0 && !getHolidayForDate(dtStr);
+                        return dow !== 0 && !getHolidayForDate(dtStr) && dtStr <= todayDateStr;
                       }).length;
 
                       return (
@@ -1076,18 +1089,26 @@ export function DashboardAttendance({
                               );
                             }
 
+                            // Future dates show empty/unmarked
+                            if (dateStr > todayDateStr) {
+                              return (
+                                <td key={d} className="py-2 px-1 text-center text-slate-300 font-mono text-[10px] border-r border-[#E8F0EA] bg-slate-50/30">
+                                  —
+                                </td>
+                              );
+                            }
+
                             const rec = attendance.find(a => 
                               a.date === dateStr && 
                               (a.class_name || '').toLowerCase() === (currentSheetClass?.class_name || '').toLowerCase() &&
                               (a.section || '').toUpperCase() === (currentSheetClass?.section || '').toUpperCase()
                             );
-                            let st = 'P';
+                            let st = '—';
                             if (rec && (rec as any).student_records) {
                               const matched = (rec as any).student_records.find((r: any) => r.student_id === stu.id);
                               if (matched) st = matched.status === 'PRESENT' ? 'P' : matched.status === 'ABSENT' ? 'A' : 'L';
-                            } else {
-                              const seed = (stu.full_name.charCodeAt(0) + d) % 22;
-                              st = seed === 0 ? 'A' : seed === 1 ? 'L' : 'P';
+                            } else if (rec) {
+                              st = 'P';
                             }
 
                             if (st === 'P') presentDays++;
@@ -1101,7 +1122,9 @@ export function DashboardAttendance({
                                     ? 'text-emerald-700 bg-emerald-50/20'
                                     : st === 'A'
                                     ? 'text-rose-700 bg-rose-50 font-extrabold'
-                                    : 'text-amber-700 bg-amber-50'
+                                    : st === 'L'
+                                    ? 'text-amber-700 bg-amber-50'
+                                    : 'text-slate-300 bg-slate-50/30'
                                 }`}
                               >
                                 {st}
@@ -1117,12 +1140,12 @@ export function DashboardAttendance({
                           </td>
                           <td className="py-2.5 px-3 text-center font-bold">
                             {(() => {
-                              const pct = workingDaysTotal > 0 ? Math.round((presentDays / workingDaysTotal) * 100) : 100;
+                              const pct = workingDaysTotal > 0 ? Math.round((presentDays / workingDaysTotal) * 100) : 0;
                               return (
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  pct >= 75 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                                  workingDaysTotal === 0 ? 'bg-slate-100 text-slate-500' : pct >= 75 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                                 }`}>
-                                  {pct}%
+                                  {workingDaysTotal === 0 ? '—' : `${pct}%`}
                                 </span>
                               );
                             })()}
@@ -1561,17 +1584,17 @@ export function DashboardAttendance({
                             <div className="flex items-center gap-2 flex-wrap">
                               <h5 className="font-display font-bold text-sm text-[#122A24]">{hol.title}</h5>
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                                {hol.category}
+                                {hol.category || (hol as any).type || 'GAZETTED'}
                               </span>
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                                {hol.total_days || 1} {hol.total_days === 1 ? 'Day' : 'Days'}
+                                {hol.total_days || 1} {(hol.total_days || 1) === 1 ? 'Day' : 'Days'}
                               </span>
                             </div>
 
                             <div className="flex items-center gap-2 text-xs font-mono text-[#2D5A4E]">
                               <CalendarRange className="h-3.5 w-3.5 text-emerald-700" />
                               <span className="font-bold">
-                                {isMultiDay ? `${hol.start_date} to ${hol.end_date}` : hol.start_date}
+                                {isMultiDay ? `${hol.start_date || (hol as any).date} to ${hol.end_date || (hol as any).date}` : (hol.start_date || (hol as any).date)}
                               </span>
                               <span>•</span>
                               <span>For: <strong className="text-[#122A24]">{getAudienceLabel(hol.applicable_to)}</strong></span>
@@ -1591,10 +1614,10 @@ export function DashboardAttendance({
                         {/* Reason & Declared Details */}
                         <div className="p-2.5 rounded-xl bg-[#F8FAF9] border border-[#E8F0EA] text-xs text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div className="text-[11px] leading-relaxed">
-                            <span className="font-bold text-slate-900">Reason:</span> {hol.reason}
+                            <span className="font-bold text-slate-900">Reason:</span> {hol.reason || (hol as any).description || 'Official Holiday Declared by Administration'}
                           </div>
                           <div className="font-mono text-[10.5px] text-slate-500 shrink-0">
-                            By: <span className="font-semibold text-slate-800">{hol.declared_by}</span>
+                            By: <span className="font-semibold text-slate-800">{hol.declared_by || 'Principal Office'}</span>
                           </div>
                         </div>
                       </div>
