@@ -37,32 +37,51 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
 
-      // 2. Register Service Worker with active update check
+      // 2. Register Service Worker with 100% Automatic Zero-Touch Updates
       if ('serviceWorker' in navigator) {
+        let refreshing = false;
+
+        // Auto-reload when new service worker takes over
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
+        });
+
         navigator.serviceWorker
           .register('/sw.js')
           .then((reg) => {
             console.log('[PWA] Service Worker registered with scope:', reg.scope);
             setSwRegistration(reg);
 
-            // Force check for updates immediately
+            // Force check for updates immediately on startup
             reg.update().catch(() => {});
 
-            // Check updates when tab becomes active
+            // Auto-poll for new deployments every 30 seconds
+            const autoUpdateTimer = setInterval(() => {
+              reg.update().catch(() => {});
+            }, 30000);
+
+            // Check updates whenever user returns to tab / window focus
             const handleVisibilityChange = () => {
               if (document.visibilityState === 'visible') {
                 reg.update().catch(() => {});
               }
             };
             document.addEventListener('visibilitychange', handleVisibilityChange);
+            window.addEventListener('focus', handleVisibilityChange);
 
-            // Detect updates
+            // Detect new updates and immediately instruct SW to skip waiting
             reg.addEventListener('updatefound', () => {
               const newWorker = reg.installing;
               if (newWorker) {
                 newWorker.addEventListener('statechange', () => {
-                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    setUpdateAvailable(true);
+                  if (newWorker.state === 'installed') {
+                    if (navigator.serviceWorker.controller) {
+                      // New content available, automatically activate and refresh
+                      newWorker.postMessage({ type: 'SKIP_WAITING' });
+                    }
                   }
                 });
               }
@@ -75,7 +94,10 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
         // Listen for messages from active SW
         const handleSwMessage = (event: MessageEvent) => {
           if (event.data && event.data.type === 'SW_UPDATED') {
-            setUpdateAvailable(true);
+            if (!refreshing) {
+              refreshing = true;
+              window.location.reload();
+            }
           }
         };
         navigator.serviceWorker.addEventListener('message', handleSwMessage);

@@ -1,5 +1,5 @@
-const CACHE_NAME = 'giterp-core-v5';
-const API_CACHE_NAME = 'giterp-api-session-v5';
+const CACHE_NAME = 'giterp-core-v6';
+const API_CACHE_NAME = 'giterp-api-session-v6';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
@@ -93,10 +93,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy B: HTML Page Navigations (Network-first with offline fallback)
+  // Strategy B: HTML Page Navigations (Strict Live Network First - always fresh from server when online)
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: 'no-cache' })
         .then((response) => {
           if (response && response.status === 200) {
             const responseClone = response.clone();
