@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getDatabase, isMongoConfigured } from './mongodb';
-import { query as cockroachQuery, isCockroachConfigured } from './cockroach';
+import { query as cockroachQuery, isCockroachConfigured, saveMediaVaultFile } from './cockroach';
 import {
   School,
   DemoRequest,
@@ -707,6 +707,21 @@ export const Database = {
     };
     student.academic_session = academic_session;
 
+    // Hybrid Architecture: Offload heavy Base64 image to CockroachDB Media Vault
+    if (student.photo && student.photo.startsWith('data:')) {
+      const mediaId = `MEDIA-STU-${student.id}`;
+      saveMediaVaultFile({
+        id: mediaId,
+        school_id: student.school_id,
+        entity_type: 'STUDENT_PHOTO',
+        entity_id: student.id,
+        filename: `${student.admission_no || student.id}.jpg`,
+        data: student.photo
+      }).catch(console.error);
+      student.avatar = `/api/media/${mediaId}`;
+      student.photo = `/api/media/${mediaId}`;
+    }
+
     try {
       const db = await getDatabase();
       if (db) {
@@ -720,12 +735,26 @@ export const Database = {
   },
 
   async updateStudent(studentId: string, updates: Partial<Student>): Promise<Student | null> {
+    const sanitizedUpdates = { ...updates };
+    if (sanitizedUpdates.photo && sanitizedUpdates.photo.startsWith('data:')) {
+      const mediaId = `MEDIA-STU-${studentId}`;
+      saveMediaVaultFile({
+        id: mediaId,
+        school_id: sanitizedUpdates.school_id || 'DPS2026',
+        entity_type: 'STUDENT_PHOTO',
+        entity_id: studentId,
+        data: sanitizedUpdates.photo
+      }).catch(console.error);
+      sanitizedUpdates.avatar = `/api/media/${mediaId}`;
+      sanitizedUpdates.photo = `/api/media/${mediaId}`;
+    }
+
     try {
       const db = await getDatabase();
       if (db) {
         await db.collection('students').updateOne(
           { $or: [{ id: studentId }, { admission_no: studentId }] },
-          { $set: updates }
+          { $set: sanitizedUpdates }
         );
       }
     } catch (e) {}
@@ -734,7 +763,7 @@ export const Database = {
     if (idx >= 0) {
       memoryStore.students[idx] = {
         ...memoryStore.students[idx],
-        ...updates
+        ...sanitizedUpdates
       };
       saveLocalStore();
       return memoryStore.students[idx];
@@ -958,6 +987,21 @@ export const Database = {
     };
     teacher.academic_session = academic_session;
 
+    // Hybrid Architecture: Offload heavy Base64 image to CockroachDB Media Vault
+    if (teacher.photo && teacher.photo.startsWith('data:')) {
+      const mediaId = `MEDIA-TCH-${teacher.id}`;
+      saveMediaVaultFile({
+        id: mediaId,
+        school_id: teacher.school_id,
+        entity_type: 'TEACHER_PHOTO',
+        entity_id: teacher.id,
+        filename: `${teacher.staff_code || teacher.id}.jpg`,
+        data: teacher.photo
+      }).catch(console.error);
+      teacher.avatar = `/api/media/${mediaId}`;
+      teacher.photo = `/api/media/${mediaId}`;
+    }
+
     try {
       const db = await getDatabase();
       if (db) {
@@ -971,12 +1015,26 @@ export const Database = {
   },
 
   async updateTeacher(teacherId: string, updates: Partial<Teacher>): Promise<Teacher | null> {
+    const sanitizedUpdates = { ...updates };
+    if (sanitizedUpdates.photo && sanitizedUpdates.photo.startsWith('data:')) {
+      const mediaId = `MEDIA-TCH-${teacherId}`;
+      saveMediaVaultFile({
+        id: mediaId,
+        school_id: sanitizedUpdates.school_id || 'DPS2026',
+        entity_type: 'TEACHER_PHOTO',
+        entity_id: teacherId,
+        data: sanitizedUpdates.photo
+      }).catch(console.error);
+      sanitizedUpdates.avatar = `/api/media/${mediaId}`;
+      sanitizedUpdates.photo = `/api/media/${mediaId}`;
+    }
+
     try {
       const db = await getDatabase();
       if (db) {
         await db.collection('teachers').updateOne(
           { $or: [{ id: teacherId }, { staff_code: teacherId }] },
-          { $set: updates }
+          { $set: sanitizedUpdates }
         );
       }
     } catch (e) {}
@@ -985,7 +1043,7 @@ export const Database = {
     if (idx >= 0) {
       memoryStore.teachers[idx] = {
         ...memoryStore.teachers[idx],
-        ...updates
+        ...sanitizedUpdates
       };
       saveLocalStore();
       return memoryStore.teachers[idx];
