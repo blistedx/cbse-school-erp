@@ -453,9 +453,9 @@ export function DashboardReports({
                 onChange={(e) => setClassFilter(e.target.value)}
                 className="px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs text-[#122A24] focus:outline-none focus:border-emerald-600 font-medium shadow-2xs cursor-pointer"
               >
-                <option value="ALL">All Classes &amp; Grades</option>
-                {sortedClasses.map(c => (
-                  <option key={c} value={c}>{c}</option>
+                <option key="cls-opt-all" value="ALL">All Classes &amp; Grades</option>
+                {sortedClasses.map((c, idx) => (
+                  <option key={`cls-opt-${c}-${idx}`} value={c}>{c}</option>
                 ))}
               </select>
             )}
@@ -467,11 +467,11 @@ export function DashboardReports({
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs text-[#122A24] focus:outline-none focus:border-emerald-600 font-medium shadow-2xs cursor-pointer"
               >
-                <option value="ALL">All Attendance Statuses</option>
-                <option value="PRESENT_TODAY">Present Today ({students.length - 1})</option>
-                <option value="ABSENT_TODAY">Absent Today (1 Absent)</option>
-                <option value="REGULAR">Regular (75%+ Passed)</option>
-                <option value="DEFAULTER">Critical Shortage (&lt;75%)</option>
+                <option key="att-opt-all" value="ALL">All Attendance Statuses</option>
+                <option key="att-opt-pres" value="PRESENT_TODAY">Present Today ({students.length - 1})</option>
+                <option key="att-opt-abs" value="ABSENT_TODAY">Absent Today (1 Absent)</option>
+                <option key="att-opt-reg" value="REGULAR">Regular (75%+ Passed)</option>
+                <option key="att-opt-def" value="DEFAULTER">Critical Shortage (&lt;75%)</option>
               </select>
             )}
 
@@ -481,9 +481,9 @@ export function DashboardReports({
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs text-[#122A24] focus:outline-none focus:border-emerald-600 font-medium shadow-2xs cursor-pointer"
               >
-                <option value="ALL">All Faculty Statuses</option>
-                <option value="PRESENT">Present Today ({teachers.length - 1})</option>
-                <option value="ABSENT">Absent Today (1 on Leave)</option>
+                <option key="stf-opt-all" value="ALL">All Faculty Statuses</option>
+                <option key="stf-opt-pres" value="PRESENT">Present Today ({teachers.length - 1})</option>
+                <option key="stf-opt-abs" value="ABSENT">Absent Today (1 on Leave)</option>
               </select>
             )}
 
@@ -493,9 +493,9 @@ export function DashboardReports({
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs text-[#122A24] focus:outline-none focus:border-emerald-600 font-medium shadow-2xs cursor-pointer"
               >
-                <option value="ALL">All Fee Statuses</option>
-                <option value="PAID">100% Cleared Only</option>
-                <option value="PENDING">With Pending Dues</option>
+                <option key="fee-opt-all" value="ALL">All Fee Statuses</option>
+                <option key="fee-opt-paid" value="PAID">100% Cleared Only</option>
+                <option key="fee-opt-pend" value="PENDING">With Pending Dues</option>
               </select>
             )}
 
@@ -505,11 +505,11 @@ export function DashboardReports({
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs text-[#122A24] focus:outline-none focus:border-emerald-600 font-medium shadow-2xs cursor-pointer"
               >
-                <option value="ALL">All Academic Grades</option>
-                <option value="A1">Grade A1 (91% - 100%)</option>
-                <option value="A2">Grade A2 (81% - 90%)</option>
-                <option value="B1">Grade B1 (71% - 80%)</option>
-                <option value="B2">Grade B2 (61% - 70%)</option>
+                <option key="ex-opt-all" value="ALL">All Academic Grades</option>
+                <option key="ex-opt-a1" value="A1">Grade A1 (91% - 100%)</option>
+                <option key="ex-opt-a2" value="A2">Grade A2 (81% - 90%)</option>
+                <option key="ex-opt-b1" value="B1">Grade B1 (71% - 80%)</option>
+                <option key="ex-opt-b2" value="B2">Grade B2 (61% - 70%)</option>
               </select>
             )}
 
