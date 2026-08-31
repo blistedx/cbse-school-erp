@@ -2781,10 +2781,13 @@ function ERPWorkspaceContent() {
                   activeTab === 'data_hub' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
               >
-                <span className="flex items-center gap-3">
-                  <FolderDown className="h-4 w-4 shrink-0 text-amber-300" /> Download &amp; Upload Hub
+                <span className="flex items-center gap-2.5 min-w-0 flex-1 pr-1">
+                  <FolderDown className={`h-4 w-4 shrink-0 ${activeTab === 'data_hub' ? 'text-[#122A24]' : 'text-amber-300'}`} />
+                  <span className="truncate">Download &amp; Upload Hub</span>
                 </span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-mono font-bold border border-amber-400/30">
+                <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
+                  activeTab === 'data_hub' ? 'bg-[#122A24] text-white' : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
+                }`}>
                   CSV / XLS
                 </span>
               </button>
@@ -3156,6 +3159,7 @@ function ERPWorkspaceContent() {
             </button>
           )}
 
+          {/* Download & Upload Hub (Desktop) */}
           {allowedTabs.includes('data_hub') && (
             <button
               onClick={() => setActiveTab('data_hub')}
@@ -3163,10 +3167,11 @@ function ERPWorkspaceContent() {
                 activeTab === 'data_hub' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
               }`}
             >
-              <span className="flex items-center gap-3">
-                <FolderDown className="h-4 w-4 shrink-0 text-amber-300" /> Download &amp; Upload Hub
+              <span className="flex items-center gap-2.5 min-w-0 flex-1 pr-1">
+                <FolderDown className={`h-4 w-4 shrink-0 ${activeTab === 'data_hub' ? 'text-[#122A24]' : 'text-amber-300'}`} />
+                <span className="truncate font-semibold text-xs sm:text-[13px]">Download &amp; Upload Hub</span>
               </span>
-              <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold ${
+              <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
                 activeTab === 'data_hub' ? 'bg-[#122A24] text-white' : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
               }`}>
                 CSV / XLS
