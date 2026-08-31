@@ -174,7 +174,7 @@ export function DashboardOverview({
         const teacherName = (t as any).name || t.full_name || 'Faculty Member';
         const teacherCode = (t as any).employee_code || t.staff_code || `TCH-00${idx + 1}`;
         const teacherDept = (t as any).subject || t.department || 'Academic Faculty';
-        const isPresent = t.status === 'ACTIVE' || t.status === 'Active';
+        const isPresent = t.status === 'ACTIVE' || (t.status as string) === 'Active';
         return {
           name: teacherName,
           code: teacherCode,

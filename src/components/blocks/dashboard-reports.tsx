@@ -50,7 +50,7 @@ export function DashboardReports({
 
     invoices.forEach(inv => {
       if (inv.status === 'PAID') {
-        const title = (inv.title || '').toLowerCase();
+        const title = ((inv as any).title || inv.month || '').toLowerCase();
         if (title.includes('tuition')) tuition += inv.paid_amount || inv.amount || 0;
         else if (title.includes('admission')) admission += inv.paid_amount || inv.amount || 0;
         else if (title.includes('annual')) annual += inv.paid_amount || inv.amount || 0;
@@ -164,10 +164,10 @@ export function DashboardReports({
 
       return {
         id: t.id,
-        empCode: t.employee_code || `EMP-${200 + idx}`,
-        name: t.name,
+        empCode: (t as any).employee_code || t.staff_code || `EMP-${200 + idx}`,
+        name: t.full_name || (t as any).name || 'Faculty Member',
         designation: t.designation || 'TGT Teacher',
-        subject: t.subject || 'All Subjects',
+        subject: (t as any).subject || t.department || 'All Subjects',
         workingDays,
         presentDays,
         leavesTaken,
@@ -273,13 +273,20 @@ export function DashboardReports({
       csvContent += `Central School ERP - Student Master Registration Dossier - Session ${session}\r\n`;
       csvContent += "Admission No,Student Name,Class,Section,Father Name,Mother Name,Contact Phone,DOB,Blood Group,Aadhaar No,PEN ID,APAAR ID,Address,Fee Status\r\n";
       students.forEach(s => {
-        csvContent += `"${s.admission_no || s.id}","${s.full_name}","${s.class_name}","${s.section}","${s.father_name || 'N/A'}","${s.mother_name || 'N/A'}","${s.emergency_contact || 'N/A'}","${s.dob || '2012-05-14'}","${s.blood_group || 'O+'}","${s.aadhaar_no || 'XXXX-XXXX-XXXX'}","${s.pen_no || 'PEN-PENDING'}","${s.apaar_id || 'APAAR-PENDING'}","${(s.address || 'Local Campus Resident').replace(/"/g, '""')}","${s.fee_status || 'PENDING'}"\r\n`;
+        const contactPhone = s.emergency_contact_phone || (s as any).emergency_contact || 'N/A';
+        const penId = (s as any).pen_no || s.apaar_id || 'PEN-PENDING';
+        const homeAddress = (s.residential_address || (s as any).address || 'Local Campus Resident').replace(/"/g, '""');
+        csvContent += `"${s.admission_no || s.id}","${s.full_name}","${s.class_name}","${s.section}","${s.father_name || 'N/A'}","${s.mother_name || 'N/A'}","${contactPhone}","${s.dob || '2012-05-14'}","${s.blood_group || 'O+'}","${s.aadhaar_no || 'XXXX-XXXX-XXXX'}","${penId}","${s.apaar_id || 'APAAR-PENDING'}","${homeAddress}","${s.fee_status || 'PENDING'}"\r\n`;
       });
     } else if (reportSubTab === 'employee_dossier') {
       csvContent += `Central School ERP - Faculty & Staff Statutory Employment Dossier - Session ${session}\r\n`;
       csvContent += "Employee Code,Faculty Name,Designation,Primary Subject,Qualification,Experience (Yrs),Phone,Email,OASIS ID,PAN No,Status\r\n";
       teachers.forEach(t => {
-        csvContent += `"${t.employee_code || t.id}","${t.name}","${t.designation || 'Teacher'}","${t.subject || 'All Subjects'}","${t.qualification || 'Post Graduate / B.Ed'}",${t.experience_years || 6},"${t.phone || 'N/A'}","${t.email || 'N/A'}","${t.oasis_id || 'OASIS-2026'}","${t.pan_no || 'ABCDE1234F'}","${t.status || 'Active'}"\r\n`;
+        const empCode = (t as any).employee_code || t.staff_code || t.id;
+        const facName = t.full_name || (t as any).name || 'Teacher';
+        const primarySubj = (t as any).subject || t.department || 'All Subjects';
+        const oasisId = (t as any).oasis_id || t.staff_code || 'OASIS-2026';
+        csvContent += `"${empCode}","${facName}","${t.designation || 'Teacher'}","${primarySubj}","${t.qualification || 'Post Graduate / B.Ed'}",${(t as any).experience_years || 6},"${t.phone || 'N/A'}","${t.email || 'N/A'}","${oasisId}","${(t as any).pan_no || 'ABCDE1234F'}","${t.status || 'Active'}"\r\n`;
       });
     }
 
@@ -1107,11 +1114,12 @@ export function DashboardReports({
                     if (classFilter !== 'ALL' && s.class_name !== classFilter) return false;
                     if (searchFilter) {
                       const q = searchFilter.toLowerCase();
+                      const penVal = ((s as any).pen_no || s.apaar_id || '').toLowerCase();
                       return (
                         (s.full_name || '').toLowerCase().includes(q) ||
                         (s.admission_no || '').toLowerCase().includes(q) ||
                         (s.father_name || '').toLowerCase().includes(q) ||
-                        (s.pen_no || '').toLowerCase().includes(q) ||
+                        penVal.includes(q) ||
                         (s.class_name || '').toLowerCase().includes(q)
                       );
                     }
@@ -1124,8 +1132,8 @@ export function DashboardReports({
                       <td className="py-3 px-3">{s.class_name} ({s.section || 'A'})</td>
                       <td className="py-3 px-3 font-sans">{s.father_name || 'N/A'}</td>
                       <td className="py-3 px-3 font-sans">{s.mother_name || 'N/A'}</td>
-                      <td className="py-3 px-3">{s.emergency_contact || 'N/A'}</td>
-                      <td className="py-3 px-3 text-[11px] text-[#0D652D]">{s.pen_no || s.apaar_id || 'PENDING'}</td>
+                      <td className="py-3 px-3">{s.emergency_contact_phone || (s as any).emergency_contact || 'N/A'}</td>
+                      <td className="py-3 px-3 text-[11px] text-[#0D652D]">{(s as any).pen_no || s.apaar_id || 'PENDING'}</td>
                       <td className="py-3 px-3.5 text-right">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           s.fee_status === 'PAID' ? 'bg-[#E6F4EA] text-[#0D652D] border border-[#CEEAD6]' : 'bg-rose-50 text-rose-700 border border-rose-200'
@@ -1183,16 +1191,19 @@ export function DashboardReports({
                   .filter(t => {
                     if (searchFilter) {
                       const q = searchFilter.toLowerCase();
-                      return t.name.toLowerCase().includes(q) || (t.employee_code || '').toLowerCase().includes(q) || (t.subject || '').toLowerCase().includes(q);
+                      const teacherName = (t.full_name || (t as any).name || '').toLowerCase();
+                      const teacherSubj = ((t as any).subject || t.department || '').toLowerCase();
+                      const empCode = ((t as any).employee_code || t.staff_code || '').toLowerCase();
+                      return teacherName.includes(q) || empCode.includes(q) || teacherSubj.includes(q);
                     }
                     return true;
                   })
                   .map(t => (
                     <tr key={t.id} className="hover:bg-[#F9FCFA] transition-colors">
-                      <td className="py-3 px-3.5 font-bold text-[#122A24]">{t.employee_code || t.id}</td>
-                      <td className="py-3 px-3 font-sans font-bold text-[#122A24]">{t.name}</td>
+                      <td className="py-3 px-3.5 font-bold text-[#122A24]">{(t as any).employee_code || t.staff_code || t.id}</td>
+                      <td className="py-3 px-3 font-sans font-bold text-[#122A24]">{t.full_name || (t as any).name}</td>
                       <td className="py-3 px-3 font-sans">{t.designation || 'Teacher'}</td>
-                      <td className="py-3 px-3">{t.subject || 'All General'}</td>
+                      <td className="py-3 px-3">{(t as any).subject || t.department || 'All General'}</td>
                       <td className="py-3 px-3 text-slate-600">{t.qualification || 'B.Ed / Post Graduate'}</td>
                       <td className="py-3 px-3">{t.phone || 'N/A'}</td>
                       <td className="py-3 px-3.5 text-right">

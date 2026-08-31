@@ -172,13 +172,15 @@ export function getClassWeight(className: string): number {
 /**
  * Chronologically sorts classes: Nursery -> LKG -> UKG -> Class 1 ... Class 12, and then by Section (A -> B -> C)
  */
-export function sortClassesChronologically<T extends { class_name?: string; section?: string }>(list: T[]): T[] {
+export function sortClassesChronologically<T extends string | { class_name?: string; section?: string; name?: string }>(list: T[]): T[] {
   return [...list].sort((a, b) => {
-    const wA = getClassWeight(a.class_name || '');
-    const wB = getClassWeight(b.class_name || '');
+    const nameA = typeof a === 'string' ? a : (a.class_name || (a as any).name || '');
+    const nameB = typeof b === 'string' ? b : (b.class_name || (b as any).name || '');
+    const wA = getClassWeight(nameA);
+    const wB = getClassWeight(nameB);
     if (wA !== wB) return wA - wB;
-    const secA = (a.section || '').toUpperCase();
-    const secB = (b.section || '').toUpperCase();
+    const secA = (typeof a === 'object' && a?.section ? a.section : '').toUpperCase();
+    const secB = (typeof b === 'object' && b?.section ? b.section : '').toUpperCase();
     return secA.localeCompare(secB);
   });
 }

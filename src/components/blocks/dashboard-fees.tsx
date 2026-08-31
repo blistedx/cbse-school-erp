@@ -643,9 +643,9 @@ export function DashboardFees({
   const handleQuickCollectFromMonthly = (student: Student, remainingDue: number) => {
     setCollectStudentId(student.id);
     if (remainingDue > 0) {
-      setCollectAmount(remainingDue.toString());
+      setCollectBaseAmount(remainingDue.toString());
     } else {
-      setCollectAmount('15000');
+      setCollectBaseAmount('15000');
     }
     setFeeTab('collect');
     window.scrollTo({ top: 0, behavior: 'smooth' });
