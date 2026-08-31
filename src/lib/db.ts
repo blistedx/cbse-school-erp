@@ -1076,59 +1076,6 @@ export const Database = {
       }
     }
 
-    // Auto-seed standard 16 CBSE divisions if no classes exist yet for this school in this session
-    if (classesList.length === 0 && (targetId || schoolId)) {
-      const initialDivisions = [
-        { class_name: 'Nursery', section: 'A', room_no: 'Room 001', capacity: 30 },
-        { class_name: 'LKG', section: 'A', room_no: 'Room 002', capacity: 30 },
-        { class_name: 'UKG', section: 'A', room_no: 'Room 003', capacity: 35 },
-        { class_name: 'Class 1', section: 'A', room_no: 'Room 101', capacity: 40 },
-        { class_name: 'Class 2', section: 'A', room_no: 'Room 102', capacity: 40 },
-        { class_name: 'Class 3', section: 'A', room_no: 'Room 103', capacity: 40 },
-        { class_name: 'Class 4', section: 'A', room_no: 'Room 104', capacity: 40 },
-        { class_name: 'Class 5', section: 'A', room_no: 'Room 105', capacity: 40 },
-        { class_name: 'Class 6', section: 'A', room_no: 'Room 201', capacity: 40 },
-        { class_name: 'Class 7', section: 'A', room_no: 'Room 202', capacity: 40 },
-        { class_name: 'Class 8', section: 'A', room_no: 'Room 203', capacity: 40 },
-        { class_name: 'Class 9', section: 'A', room_no: 'Room 301', capacity: 40 },
-        { class_name: 'Class 10', section: 'A', room_no: 'Room 302', capacity: 40 },
-        { class_name: 'Class 11', section: 'A', room_no: 'Room 401', capacity: 35 },
-        { class_name: 'Class 11', section: 'B', room_no: 'Room 402', capacity: 35 },
-        { class_name: 'Class 12', section: 'A', room_no: 'Room 403', capacity: 35 },
-        { class_name: 'Class 12', section: 'B', room_no: 'Room 404', capacity: 35 }
-      ];
-
-      const createdClasses: ClassRoom[] = [];
-      for (const div of initialDivisions) {
-        const subjects = getDefaultCbseSubjectsForClass(div.class_name, div.section);
-        const cls: ClassRoom = {
-          id: `CLS-${div.class_name.replace(/\s+/g, '')}-${div.section}-${targetSession.replace(/\W/g, '')}-${Date.now().toString().slice(-4)}`,
-          school_id: targetId || schoolId || 'DPS2026',
-          academic_session: targetSession,
-          class_name: div.class_name,
-          section: div.section,
-          class_teacher: 'Assigned Faculty',
-          room_no: div.room_no,
-          capacity: div.capacity,
-          subjects,
-          no_of_subjects: subjects.length,
-          status: 'ACTIVE'
-        };
-        createdClasses.push(cls);
-      }
-
-      try {
-        const db = await getDatabase();
-        if (db) {
-          await db.collection('classes').insertMany(createdClasses.map(c => ({ ...c })));
-        }
-      } catch (e) {}
-
-      memoryStore.classes.push(...createdClasses);
-      saveLocalStore();
-      classesList = createdClasses;
-    }
-
     // Ensure every class has subjects populated according to CBSE standards and strictly sort chronologically
     const preparedClasses = classesList.map(cls => {
       if (!Array.isArray(cls.subjects) || cls.subjects.length === 0) {
