@@ -225,7 +225,7 @@ export function DashboardOverview({
   const adminGreeting = currentUser?.full_name || selectedSchool?.principal_name || selectedSchool?.admin_name || 'Administrator';
 
   return (
-    <div className="space-y-5 sm:space-y-6 w-full max-w-full min-w-0 mx-auto text-slate-800 animate-in fade-in duration-300">
+    <div suppressHydrationWarning className="space-y-5 sm:space-y-6 w-full max-w-full min-w-0 mx-auto text-slate-800 animate-in fade-in duration-300">
       
       {/* ─────────────────────────────────────────────────────────────
           ROW 1: WELCOME HERO BANNER (FULL WIDTH & SPACIOUS)

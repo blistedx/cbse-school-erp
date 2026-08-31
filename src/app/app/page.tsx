@@ -70,21 +70,62 @@ import {
   FileSpreadsheet,
   FolderDown
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview } from '@/lib/types';
 import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
-import { DashboardOverview } from '@/components/blocks/dashboard-overview';
-import { DashboardSubjects } from '@/components/blocks/dashboard-subjects';
-import { DashboardAttendance } from '@/components/blocks/dashboard-attendance';
-import { DashboardTransport } from '@/components/blocks/dashboard-transport';
-import { DashboardExams } from '@/components/blocks/dashboard-exams';
-import { DashboardHomework } from '@/components/blocks/dashboard-homework';
-import { DashboardApprovals } from '@/components/blocks/dashboard-approvals';
-import { DashboardBroadcast } from '@/components/blocks/dashboard-broadcast';
-import { DashboardCertificates } from '@/components/blocks/dashboard-certificates';
-import { DashboardFees } from '@/components/blocks/dashboard-fees';
-import { DashboardReports } from '@/components/blocks/dashboard-reports';
-import { DashboardAuditLogs } from '@/components/blocks/dashboard-audit-logs';
-import { DashboardDataHub } from '@/components/blocks/dashboard-data-hub';
+
+const DashboardOverview = dynamic(
+  () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
+  { ssr: false }
+);
+const DashboardSubjects = dynamic(
+  () => import('@/components/blocks/dashboard-subjects').then((m) => m.DashboardSubjects),
+  { ssr: false }
+);
+const DashboardAttendance = dynamic(
+  () => import('@/components/blocks/dashboard-attendance').then((m) => m.DashboardAttendance),
+  { ssr: false }
+);
+const DashboardTransport = dynamic(
+  () => import('@/components/blocks/dashboard-transport').then((m) => m.DashboardTransport),
+  { ssr: false }
+);
+const DashboardExams = dynamic(
+  () => import('@/components/blocks/dashboard-exams').then((m) => m.DashboardExams),
+  { ssr: false }
+);
+const DashboardHomework = dynamic(
+  () => import('@/components/blocks/dashboard-homework').then((m) => m.DashboardHomework),
+  { ssr: false }
+);
+const DashboardApprovals = dynamic(
+  () => import('@/components/blocks/dashboard-approvals').then((m) => m.DashboardApprovals),
+  { ssr: false }
+);
+const DashboardBroadcast = dynamic(
+  () => import('@/components/blocks/dashboard-broadcast').then((m) => m.DashboardBroadcast),
+  { ssr: false }
+);
+const DashboardCertificates = dynamic(
+  () => import('@/components/blocks/dashboard-certificates').then((m) => m.DashboardCertificates),
+  { ssr: false }
+);
+const DashboardFees = dynamic(
+  () => import('@/components/blocks/dashboard-fees').then((m) => m.DashboardFees),
+  { ssr: false }
+);
+const DashboardReports = dynamic(
+  () => import('@/components/blocks/dashboard-reports').then((m) => m.DashboardReports),
+  { ssr: false }
+);
+const DashboardAuditLogs = dynamic(
+  () => import('@/components/blocks/dashboard-audit-logs').then((m) => m.DashboardAuditLogs),
+  { ssr: false }
+);
+const DashboardDataHub = dynamic(
+  () => import('@/components/blocks/dashboard-data-hub').then((m) => m.DashboardDataHub),
+  { ssr: false }
+);
 
 const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code: string; highlight: string }> = {
   overview: {
