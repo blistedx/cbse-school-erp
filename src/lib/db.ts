@@ -322,6 +322,14 @@ export const Database = {
   // SCHOOLS
   async getSchools(): Promise<School[]> {
     await ensureIndexes();
+    if (isCockroachConfigured()) {
+      try {
+        const res = await cockroachQuery<School>("SELECT * FROM schools WHERE status = 'ACTIVE' ORDER BY created_at ASC;");
+        if (res && res.rows && res.rows.length > 0) {
+          return res.rows;
+        }
+      } catch (e) {}
+    }
     try {
       const db = await getDatabase();
       if (db) {
@@ -1013,25 +1021,48 @@ export const Database = {
 
     let classesList: ClassRoom[] = [];
 
-    try {
-      const db = await getDatabase();
-      if (db) {
-        const ids = (targetId || targetCode || schoolId)
-          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
-          : [];
-        const filter = buildSessionFilter(ids as string[], targetSession);
-        const results = await db.collection('classes')
-          .find(filter)
-          .sort({ class_name: 1, section: 1 })
-          .toArray();
-        if (results && results.length > 0) {
-          classesList = results.map(sanitizeDoc<ClassRoom>).map(c => ({
+    // 1. CockroachDB Query
+    if (isCockroachConfigured()) {
+      try {
+        let sql = 'SELECT * FROM classes';
+        const params: any[] = [];
+        if (targetSession && targetSession !== 'ALL') {
+          sql += ' WHERE academic_session = $1';
+          params.push(targetSession);
+        }
+        sql += ' ORDER BY class_name ASC, section ASC;';
+        const res = await cockroachQuery<ClassRoom>(sql, params);
+        if (res && res.rows && res.rows.length > 0) {
+          classesList = res.rows.map(c => ({
             ...c,
             academic_session: c.academic_session || targetSession
           }));
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
+
+    // 2. MongoDB Query
+    if (classesList.length === 0) {
+      try {
+        const db = await getDatabase();
+        if (db) {
+          const ids = (targetId || targetCode || schoolId)
+            ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+            : [];
+          const filter = buildSessionFilter(ids as string[], targetSession);
+          const results = await db.collection('classes')
+            .find(filter)
+            .sort({ class_name: 1, section: 1 })
+            .toArray();
+          if (results && results.length > 0) {
+            classesList = results.map(sanitizeDoc<ClassRoom>).map(c => ({
+              ...c,
+              academic_session: c.academic_session || targetSession
+            }));
+          }
+        }
+      } catch (e) {}
+    }
 
     if (classesList.length === 0) {
       if (targetId || schoolId) {
@@ -1249,6 +1280,24 @@ export const Database = {
     const targetCode = school?.school_code || cleanId;
     const targetSession = session || '2026-27';
 
+    // 1. CockroachDB Query
+    if (isCockroachConfigured()) {
+      try {
+        let sql = 'SELECT * FROM notices';
+        const params: any[] = [];
+        if (targetSession && targetSession !== 'ALL') {
+          sql += ' WHERE academic_session = $1';
+          params.push(targetSession);
+        }
+        sql += ' ORDER BY created_at DESC;';
+        const res = await cockroachQuery<Notice>(sql, params);
+        if (res && res.rows) {
+          return res.rows;
+        }
+      } catch (e) {}
+    }
+
+    // 2. MongoDB Query
     try {
       const db = await getDatabase();
       if (db) {
@@ -1392,6 +1441,24 @@ export const Database = {
     const targetCode = school?.school_code || cleanId;
     const targetSession = session || '2026-27';
 
+    // 1. CockroachDB Query
+    if (isCockroachConfigured()) {
+      try {
+        let sql = 'SELECT * FROM attendance';
+        const params: any[] = [];
+        if (targetSession && targetSession !== 'ALL') {
+          sql += ' WHERE academic_session = $1';
+          params.push(targetSession);
+        }
+        sql += ' ORDER BY date DESC;';
+        const res = await cockroachQuery<AttendanceRecord>(sql, params);
+        if (res && res.rows) {
+          return res.rows;
+        }
+      } catch (e) {}
+    }
+
+    // 2. MongoDB Query
     try {
       const db = await getDatabase();
       if (db) {
@@ -1543,6 +1610,24 @@ export const Database = {
     const targetCode = school?.school_code || cleanId;
     const targetSession = session || '2026-27';
 
+    // 1. CockroachDB Query
+    if (isCockroachConfigured()) {
+      try {
+        let sql = 'SELECT * FROM fee_invoices';
+        const params: any[] = [];
+        if (targetSession && targetSession !== 'ALL') {
+          sql += ' WHERE academic_session = $1';
+          params.push(targetSession);
+        }
+        sql += ' ORDER BY due_date ASC;';
+        const res = await cockroachQuery<FeeInvoice>(sql, params);
+        if (res && res.rows) {
+          return res.rows;
+        }
+      } catch (e) {}
+    }
+
+    // 2. MongoDB Query
     try {
       const db = await getDatabase();
       if (db) {
@@ -1658,6 +1743,24 @@ export const Database = {
     const targetCode = school?.school_code || cleanId;
     const targetSession = session || '2026-27';
 
+    // 1. CockroachDB Query
+    if (isCockroachConfigured()) {
+      try {
+        let sql = 'SELECT * FROM holidays';
+        const params: any[] = [];
+        if (targetSession && targetSession !== 'ALL') {
+          sql += ' WHERE academic_session = $1';
+          params.push(targetSession);
+        }
+        sql += ' ORDER BY start_date ASC;';
+        const res = await cockroachQuery<Holiday>(sql, params);
+        if (res && res.rows && res.rows.length > 0) {
+          return res.rows;
+        }
+      } catch (e) {}
+    }
+
+    // 2. MongoDB Query
     try {
       const db = await getDatabase();
       if (db) {

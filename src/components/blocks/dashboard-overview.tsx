@@ -95,8 +95,8 @@ export function DashboardOverview({
   const todayDateStr = new Date().toISOString().split('T')[0];
 
   // 1. Student Attendance Statistics (Strictly for TODAY)
-  const totalStudentsCount = students.length || overview?.kpis.totalStudents || 0;
-  const isStudentAttendanceMarkedToday = overview?.kpis.isStudentAttendanceMarkedToday ?? (
+  const totalStudentsCount = Array.isArray(students) ? students.length : (overview?.kpis?.totalStudents ?? 0);
+  const isStudentAttendanceMarkedToday = overview?.kpis?.isStudentAttendanceMarkedToday ?? (
     attendance.some(a => a.date === todayDateStr && (a.class_name || '').toLowerCase() !== 'faculty' && (a.class_name || '').toLowerCase() !== 'staff')
   );
   
@@ -107,7 +107,7 @@ export function DashboardOverview({
   );
   
   const studentPresentCount = isStudentAttendanceMarkedToday 
-    ? (overview?.kpis.studentsPresentToday ?? studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0))
+    ? (overview?.kpis?.studentsPresentToday ?? studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0))
     : 0;
 
   // School-wide Attendance Percentage (Scholars Present / Total School Scholars)
@@ -120,7 +120,7 @@ export function DashboardOverview({
     : 0;
 
   // 2. Faculty & Staff Statistics (Strictly for TODAY)
-  const totalTeachersCount = teachers.length || overview?.kpis.totalTeachers || 0;
+  const totalTeachersCount = Array.isArray(teachers) ? teachers.length : (overview?.kpis?.totalTeachers ?? 0);
   const facultyTodayRecords = attendance.filter(a => 
     a.date === todayDateStr && 
     (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
@@ -130,7 +130,7 @@ export function DashboardOverview({
   const latestFacRec = facultyTodayRecords[facultyTodayRecords.length - 1];
 
   const facultyPresentCount = isFacultyAttendanceMarkedToday
-    ? (overview?.kpis.facultyPresentToday ?? (latestFacRec ? (Number(latestFacRec.present_count) || 0) : totalTeachersCount))
+    ? (overview?.kpis?.facultyPresentToday ?? (latestFacRec ? (Number(latestFacRec.present_count) || 0) : totalTeachersCount))
     : 0;
 
   // School-wide Faculty Attendance Percentage (Faculty Present / Total Faculty)
@@ -144,11 +144,11 @@ export function DashboardOverview({
         : Math.max(0, totalTeachersCount - facultyPresentCount))
     : 0;
 
-  // 3. Fee & Revenue Statistics (Pure Live MongoDB Data)
+  // 3. Fee & Revenue Statistics (Pure Live Live Data)
   const totalBilled = invoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  const totalPaid = invoices.filter(i => i.status === 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || (overview?.kpis.totalRevenue || 0);
-  const totalPending = invoices.filter(i => i.status !== 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || (overview?.kpis.pendingFeeAmount || 0);
-  const collectionRate = totalBilled > 0 ? Math.round((totalPaid / totalBilled) * 100) : (overview?.kpis.feeCollectionRate || 0);
+  const totalPaid = invoices.filter(i => i.status === 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const totalPending = invoices.filter(i => i.status !== 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const collectionRate = totalBilled > 0 ? Math.round((totalPaid / totalBilled) * 100) : (overview?.kpis?.feeCollectionRate ?? 0);
 
   // Academic Calendar Events & Holidays
   const calendarEvents = [
