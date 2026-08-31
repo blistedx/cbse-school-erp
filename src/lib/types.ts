@@ -73,6 +73,8 @@ export interface Student {
   attendance_percent?: number;
   status: 'ACTIVE' | 'INACTIVE' | 'ALUMNI' | 'SUSPENDED';
   passcode?: string; // Student portal login passcode / PIN
+  avatar?: string; // Student avatar URL or data URI
+  photo?: string;  // Student profile picture
   created_at?: string;
 
   // CBSE Mandatory & Demographic Norms
@@ -142,6 +144,8 @@ export interface Teacher {
   email: string;
   status: 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE' | 'RESIGNED';
   passcode?: string; // Faculty portal login passcode / PIN
+  avatar?: string; // Faculty avatar URL or data URI
+  photo?: string;  // Faculty profile picture
 
   // CBSE Norms & Qualifications
   teacher_type?: 'PRT' | 'TGT' | 'PGT' | 'NTT' | 'NON_TEACHING' | 'ADMINISTRATIVE';

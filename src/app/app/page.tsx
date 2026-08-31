@@ -3554,9 +3554,13 @@ function ERPWorkspaceContent() {
                                 {/* Name with Circular Avatar */}
                                 <td className="py-3.5 px-4">
                                   <div className="flex items-center gap-2.5">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border shrink-0 shadow-2xs font-mono ${avatarStyle}`}>
-                                      {initials}
-                                    </div>
+                                    {s.photo || s.avatar ? (
+                                      <img src={s.photo || s.avatar} alt={s.full_name} className="w-8 h-8 rounded-full object-cover border shrink-0 shadow-2xs" />
+                                    ) : (
+                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border shrink-0 shadow-2xs font-mono ${avatarStyle}`}>
+                                        {initials}
+                                      </div>
+                                    )}
                                     <div>
                                       <div className="font-semibold text-[#122A24] hover:text-emerald-700 cursor-pointer transition-colors" onClick={() => openStudentModal(s)}>
                                         {s.full_name}
@@ -4459,9 +4463,13 @@ function ERPWorkspaceContent() {
                                 {/* Name with Circular Avatar */}
                                 <td className="py-3.5 px-4">
                                   <div className="flex items-center gap-2.5">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border shrink-0 shadow-2xs font-mono ${avatarStyle}`}>
-                                      {initials}
-                                    </div>
+                                    {t.photo || t.avatar ? (
+                                      <img src={t.photo || t.avatar} alt={t.full_name} className="w-8 h-8 rounded-full object-cover border shrink-0 shadow-2xs" />
+                                    ) : (
+                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border shrink-0 shadow-2xs font-mono ${avatarStyle}`}>
+                                        {initials}
+                                      </div>
+                                    )}
                                     <div>
                                       <div className="font-semibold text-[#122A24] hover:text-emerald-700 cursor-pointer transition-colors" onClick={() => openTeacherModal(t)}>
                                         {t.full_name}
