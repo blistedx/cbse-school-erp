@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 const { Client } = require('pg');
 const { MongoClient } = require('mongodb');
 const fs = require('fs');

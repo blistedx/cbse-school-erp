@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 /**
  * MongoDB Connection & Index Validation Script
  * Run with: node test/test_mongodb.js

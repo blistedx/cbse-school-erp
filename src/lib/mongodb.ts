@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { MongoClient, Db } from 'mongodb';
 
 const uri = process.env.MONGODB_URI || '';

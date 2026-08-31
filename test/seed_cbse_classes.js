@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 /**
  * Seed all CBSE Norms Classes from Pre-Primary (Nursery, LKG, UKG) to Class XII-B
  */

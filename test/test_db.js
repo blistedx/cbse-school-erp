@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 /**
  * Multi-School Database Automated Test Runner
  * Tests data storage, multi-tenant isolation, CRUD operations, and multi-school KPIs.

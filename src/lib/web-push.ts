@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import webpush from 'web-push';
 import fs from 'fs';
 import path from 'path';

@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import PWAProvider from '@/components/pwa-provider';

@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { checkMongoStatus, getDatabase } from '@/lib/mongodb';
 import { Database } from '@/lib/db';

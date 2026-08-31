@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 /**
  * Online PostgreSQL Connection & Migration Test Script
  */

@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 /**
  * MongoDB Data Normalization & Migration Script
  * Migrates all records to use clean unhyphenated school code 'DPS2026' and user IDs 'DPS2026001', etc.

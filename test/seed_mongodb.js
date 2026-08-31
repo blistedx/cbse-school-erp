@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 /**
  * Seed MongoDB with Initial Demo School & Admin Account
  * Run with: node test/seed_mongodb.js

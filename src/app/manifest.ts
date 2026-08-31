@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {

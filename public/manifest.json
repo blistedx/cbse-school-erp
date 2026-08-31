@@ -9,7 +9,11 @@
   "theme_color": "#232e1a",
   "orientation": "portrait-primary",
   "scope": "/",
-  "categories": ["education", "productivity", "business"],
+  "categories": [
+    "education",
+    "productivity",
+    "business"
+  ],
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -54,21 +58,36 @@
       "short_name": "Dashboard",
       "description": "Open the School Management Dashboard",
       "url": "/app",
-      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+      "icons": [
+        {
+          "src": "/icons/icon.svg",
+          "sizes": "any"
+        }
+      ]
     },
     {
       "name": "Agency Hub",
       "short_name": "Agency",
       "description": "Super Admin Multi-School Hub",
       "url": "/agency",
-      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+      "icons": [
+        {
+          "src": "/icons/icon.svg",
+          "sizes": "any"
+        }
+      ]
     },
     {
       "name": "Login",
       "short_name": "Login",
       "description": "Sign into school portal",
       "url": "/login",
-      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+      "icons": [
+        {
+          "src": "/icons/icon.svg",
+          "sizes": "any"
+        }
+      ]
     }
   ]
 }

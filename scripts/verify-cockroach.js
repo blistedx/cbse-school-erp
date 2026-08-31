@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 const { Pool } = require('pg');
 require('dotenv').config();
 

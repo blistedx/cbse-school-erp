@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { Pool, QueryResult } from 'pg';
 import {
   MediaVaultItem,

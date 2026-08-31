@@ -1,3 +1,4 @@
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 const http = require('http');
 const url = require('url');
 const path = require('path');
