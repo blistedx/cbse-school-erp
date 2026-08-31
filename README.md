@@ -1,6 +1,6 @@
 # 🎓 Giterp — Multi-School Enterprise ERP Platform (PWA v1.2.0)
 
-A high-performance, installable Progressive Web App (PWA) and multi-tenant CBSE School ERP suite hosted on **Netlify** and powered by an online **MongoDB Atlas** cloud database.
+A high-performance, installable Progressive Web App (PWA) and multi-tenant CBSE School ERP suite ready for instant deployment on **Vercel** and **Netlify**, powered by an online **MongoDB Atlas** cloud database.
 
 ---
 
@@ -9,12 +9,27 @@ A high-performance, installable Progressive Web App (PWA) and multi-tenant CBSE 
 - **PWA Capabilities**: Service Worker (`sw.js` v6), Web App Manifest (`manifest.webmanifest`), 100% Zero-Touch Background Auto-Updates, and Home Screen / Desktop App installation.
 - **Backend & APIs**: Next.js App Router Serverless API Routes (`src/app/api/...`).
 - **Database**: MongoDB Atlas (`mongodb` driver with serverless singleton connection caching) + Local Media Vault for lightweight instant image loads.
-- **Deployment**: Netlify via `@netlify/plugin-nextjs` and `netlify.toml`.
+- **Deployment Ready**: Vercel (`vercel.json`) & Netlify (`netlify.toml` + `@netlify/plugin-nextjs`).
 
 ---
 
-## 🚀 Deployment Environment Configuration
-Ensure these environment variables are set in your **Netlify Site Configuration**:
+## 🚀 1-Click Deployment Setup (Vercel & Netlify)
+
+### 1. Deploy on Vercel
+1. Go to **[https://vercel.com/new](https://vercel.com/new)**.
+2. Select your GitHub repository: `blistedx/cbse-school-erp`.
+3. In **Environment Variables**, add the 6 variables listed below.
+4. Click **Deploy**! 🚀
+
+### 2. Deploy on Netlify
+1. Go to **[https://app.netlify.com](https://app.netlify.com)** → **Add new site** → **Import from GitHub**.
+2. Select `blistedx/cbse-school-erp`.
+3. In **Site configuration > Environment variables**, add the 6 variables listed below.
+4. Click **Deploy Site**! 🚀
+
+---
+
+## 🔑 Environment Variables Required
 - **`MONGODB_URI`**: `mongodb+srv://blistedx_db_user:b7TGgj57Xu8jX3C1@aierp.3kejnhw.mongodb.net/edugit?retryWrites=true&w=majority&appName=AIERP`
 - **`ADMIN_NOTIFICATION_EMAIL`**: `blistedx@gmail.com`
 - **`SMTP_HOST`**: `smtp.gmail.com`
