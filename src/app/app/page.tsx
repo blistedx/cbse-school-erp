@@ -206,6 +206,7 @@ function ERPWorkspaceContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
+  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'teachers' | 'classes' | 'subjects' | 'attendance' | 'fees' | 'reports' | 'certificates' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile' | 'audit_logs' | 'data_hub'>('overview');
   const [availableSchools, setAvailableSchools] = useState<School[]>([]);
   const [showExportMenu, setShowExportMenu] = useState<string | null>(null);
@@ -730,6 +731,7 @@ function ERPWorkspaceContent() {
   };
 
   useEffect(() => {
+    setMounted(true);
     fetchAuthenticatedSchool();
   }, [searchParams]);
 
@@ -2378,7 +2380,7 @@ function ERPWorkspaceContent() {
   const totalPending = invoices.filter(i => i.status !== 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
   return (
-    <div className="h-[100dvh] max-h-[100dvh] w-full max-w-full flex flex-col overflow-hidden bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased">
+    <div suppressHydrationWarning className="h-[100dvh] max-h-[100dvh] w-full max-w-full flex flex-col overflow-hidden bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased">
       {/* PWA Offline Mode Notice Banner */}
       {isOffline && (
         <div className="bg-[#122A24] text-amber-300 px-3.5 sm:px-6 py-2 text-xs font-mono font-bold flex items-center justify-between shadow-xs border-b border-white/20 z-50 shrink-0 animate-fade-in">
