@@ -7,10 +7,10 @@ import { getDatabase } from '@/lib/mongodb';
 // File path for storing subscriptions locally as fallback
 const SUBSCRIPTIONS_FILE = path.join(process.cwd(), 'data', 'push_subscriptions.json');
 
-// VAPID Keys Setup (Using standard verified keys with fallback)
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BLwV4s70LAjU6YFUCkY4vvI65ZTYQWFodZAXhlxvhfbju3T5xONlziQ-nYnG1dZmQepiJD3pVg0BbGTPn_26PPs';
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'Jif-K8bVCJlgh48dr5JsAcFIyGiIo48oG6ca7EV5pqw';
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@cbse-school-erp.edu.in';
+// VAPID Keys Setup — must match keys used at subscription time on the client
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BHPK2Kr3RVjmnjxjUCqpt3Bq3x-dElAKKhWcTP0E3-6nWx80qDLrNOmUcVyiIYb07Ry0Fa-edBtQhpNcAaAtnV0';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '4SpMYw6G3zfXNQOnTFbhvZU369W63QiznlWCaKMmQCs';
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:blistedx@gmail.com';
 
 try {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);

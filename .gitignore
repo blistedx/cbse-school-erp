@@ -12,3 +12,5 @@ out
 .netlify
 deploy_to_netlify.zip
 scratch/
+
+.vercel

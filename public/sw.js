@@ -1,6 +1,6 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
-const CACHE_NAME = 'giterp-core-v6';
-const API_CACHE_NAME = 'giterp-api-session-v6';
+const CACHE_NAME = 'giterp-core-v7';
+const API_CACHE_NAME = 'giterp-api-session-v7';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
@@ -167,35 +167,39 @@ self.addEventListener('push', (event) => {
     title: 'School ERP Notification',
     body: 'You have a new update from School Administration.',
     icon: '/icons/icon-192.png',
-    badge: '/icons/icon.svg',
+    badge: '/icons/icon-192.png',
+    urgent: false,
     data: { url: '/app' }
   };
 
   if (event.data) {
     try {
-      data = event.data.json();
+      const parsed = event.data.json();
+      data = { ...data, ...parsed };
     } catch (e) {
       data.body = event.data.text();
     }
   }
 
-  const options = {
+  const notificationOptions = {
     body: data.body || 'New announcement received.',
     icon: data.icon || '/icons/icon-192.png',
-    badge: data.badge || '/icons/icon.svg',
-    vibrate: [200, 100, 200, 100, 200],
+    // PNG badge for Android — SVG not supported on mobile
+    badge: '/icons/icon-192.png',
+    vibrate: data.urgent ? [300, 100, 300, 100, 300, 100, 300] : [200, 100, 200],
     data: data.data || { url: '/app' },
-    tag: data.tag || `school-alert-${Date.now()}`,
+    tag: data.tag || 'school-alert',
     renotify: true,
-    requireInteraction: data.urgent || false,
+    requireInteraction: data.urgent === true,
+    silent: false,
     actions: [
-      { action: 'open_app', title: 'Open ERP Portal' },
+      { action: 'open_app', title: '📱 Open ERP' },
       { action: 'dismiss', title: 'Dismiss' }
     ]
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(data.title || 'Giterp School ERP', notificationOptions)
   );
 });
 
