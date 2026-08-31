@@ -351,21 +351,25 @@ export function DashboardBroadcast({ schoolName = 'DPS International — CBSE' }
           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-xl shrink-0 ${
             isSubscribed
               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              : pushPermission === 'denied'
+              ? 'bg-rose-50 text-rose-700 border border-rose-200'
               : 'bg-amber-50 text-amber-700 border border-amber-200'
           }`}>
-            {isSubscribed ? <Bell className="h-6 w-6" /> : <Smartphone className="h-6 w-6" />}
+            {isSubscribed ? <Bell className="h-6 w-6" /> : pushPermission === 'denied' ? <ShieldAlert className="h-6 w-6" /> : <Smartphone className="h-6 w-6" />}
           </div>
           <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-display font-bold text-sm text-[#122A24]">
                 Web Push Notifications (Service Worker VAPID)
               </h3>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
                 isSubscribed
                   ? 'bg-emerald-100 text-emerald-900'
+                  : pushPermission === 'denied'
+                  ? 'bg-rose-100 text-rose-900'
                   : 'bg-slate-100 text-slate-700'
               }`}>
-                {isSubscribed ? 'ACTIVE ON THIS DEVICE' : 'NOT ENABLED'}
+                {isSubscribed ? 'ACTIVE ON THIS DEVICE' : pushPermission === 'denied' ? 'BLOCKED IN BROWSER' : 'NOT ENABLED'}
               </span>
             </div>
             <p className="text-xs text-slate-500 font-sans">
@@ -380,7 +384,7 @@ export function DashboardBroadcast({ schoolName = 'DPS International — CBSE' }
               type="button"
               disabled={isSubscribing}
               onClick={handleEnablePush}
-              className="px-4 py-2.5 bg-[#122A24] hover:bg-[#1C443A] disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer transition-all"
+              className="px-4 py-2.5 bg-[#122A24] hover:bg-[#1C443A] disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer transition-all shrink-0"
             >
               <Bell className="h-4 w-4 text-emerald-400" />
               <span>{isSubscribing ? 'Subscribing...' : 'Enable Web Push on This Device'}</span>
@@ -389,7 +393,7 @@ export function DashboardBroadcast({ schoolName = 'DPS International — CBSE' }
             <button
               type="button"
               onClick={handleSendTestPush}
-              className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-2 shadow-2xs cursor-pointer transition-all"
+              className="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-2 shadow-2xs cursor-pointer transition-all shrink-0"
             >
               <Zap className="h-4 w-4 text-emerald-600" />
               <span>⚡ Send Instant Test Push</span>
@@ -406,6 +410,42 @@ export function DashboardBroadcast({ schoolName = 'DPS International — CBSE' }
           </button>
         </div>
       </div>
+
+      {/* Browser Permission Blocked Alert with 2-Click Unblock Guide */}
+      {pushPermission === 'denied' && (
+        <div className="bg-amber-50/90 border border-amber-300 p-4 sm:p-5 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs text-amber-950 animate-in fade-in duration-300 shadow-2xs">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 mt-0.5">
+              <ShieldAlert className="w-5 h-5 text-amber-700" />
+            </div>
+            <div>
+              <p className="font-display font-bold text-sm text-[#122A24]">
+                Browser Notification Permission is currently blocked
+              </p>
+              <p className="text-[#2D5A4E] mt-1 leading-relaxed">
+                To allow notifications on this desktop/laptop:
+                <br />
+                1. Click the <strong>🔒 Lock icon</strong> (or <strong>Site settings / Tune icon</strong>) next to the URL in your top address bar.
+                <br />
+                2. Change <strong>Notifications</strong> from <em>Block</em> to <strong>Allow</strong>.
+                <br />
+                3. Click the button on the right to immediately activate Web Push.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              await checkPushStatus();
+              await handleEnablePush();
+            }}
+            className="px-4 py-2.5 bg-[#122A24] hover:bg-[#1C443A] text-white font-bold rounded-xl shrink-0 cursor-pointer shadow-xs transition-all flex items-center gap-1.5 self-start sm:self-auto border-none"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Re-check &amp; Activate</span>
+          </button>
+        </div>
+      )}
 
       {/* MAIN CONTENT GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
