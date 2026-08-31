@@ -66,7 +66,8 @@ import {
   ChevronUp,
   UploadCloud,
   ImageIcon,
-  FileSpreadsheet
+  FileSpreadsheet,
+  FolderDown
 } from 'lucide-react';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview } from '@/lib/types';
 import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
@@ -288,6 +289,8 @@ function ERPWorkspaceContent() {
   // Multi-Role RBAC Tab Permission Whitelist
   const ROLE_ALLOWED_TABS: Record<string, string[]> = {
     SUPERADMIN: ['overview', 'students', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
+    AGENCY_SUPERADMIN: ['overview', 'students', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
+    ADMIN: ['overview', 'students', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
     PRINCIPAL: ['overview', 'students', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
     ACCOUNTANT: ['overview', 'students', 'fees', 'reports', 'certificates', 'data_hub', 'notices', 'profile'],
     TEACHER: ['overview', 'classes', 'subjects', 'attendance', 'exams', 'homework', 'approvals', 'notices', 'profile'],
@@ -3147,6 +3150,24 @@ function ERPWorkspaceContent() {
               }`}
             >
               <FileCheck className="h-4 w-4 shrink-0 text-amber-300" /> Certificate Studio
+            </button>
+          )}
+
+          {allowedTabs.includes('data_hub') && (
+            <button
+              onClick={() => setActiveTab('data_hub')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'data_hub' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <FolderDown className="h-4 w-4 shrink-0 text-emerald-300" /> Data Integration Hub
+              </span>
+              <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                activeTab === 'data_hub' ? 'bg-[#122A24] text-white' : 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30'
+              }`}>
+                CSV / XLS
+              </span>
             </button>
           )}
 

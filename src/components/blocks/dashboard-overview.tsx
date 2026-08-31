@@ -32,7 +32,9 @@ import {
   PartyPopper,
   Bookmark,
   Coins,
-  Bus
+  Bus,
+  FileSpreadsheet,
+  FolderDown
 } from 'lucide-react';
 import { School, Student, Teacher, ClassRoom, FeeInvoice, AttendanceRecord, SchoolOverview, User, Notice } from '@/lib/types';
 
@@ -378,6 +380,14 @@ export function DashboardOverview({
                 className="px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
               >
                 Enroll Student
+              </button>
+              <button
+                onClick={() => setActiveTab('data_hub')}
+                className="px-4 py-2.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300 text-xs font-bold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Open Download & Upload Data Integration Hub"
+              >
+                <FolderDown className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Data Hub</span>
               </button>
               {setShowAddNotice && (
                 <button
