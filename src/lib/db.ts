@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getDatabase, isMongoConfigured } from './mongodb';
+import { query as cockroachQuery, isCockroachConfigured } from './cockroach';
 import {
   School,
   DemoRequest,
@@ -609,6 +610,38 @@ export const Database = {
     const targetCode = school?.school_code || cleanId;
     const targetSession = session || '2026-27';
 
+    // 1. CockroachDB Primary Query
+    if (isCockroachConfigured()) {
+      try {
+        let sql = 'SELECT * FROM students';
+        const params: any[] = [];
+        const conditions: string[] = [];
+
+        if (targetId || targetCode || schoolId) {
+          conditions.push('school_id = $1');
+          params.push(targetId || targetCode || schoolId);
+        }
+        if (targetSession && targetSession !== 'ALL') {
+          conditions.push(`academic_session = $${params.length + 1}`);
+          params.push(targetSession);
+        }
+
+        if (conditions.length > 0) {
+          sql += ' WHERE ' + conditions.join(' AND ');
+        }
+        sql += ' ORDER BY admission_no ASC;';
+
+        const res = await cockroachQuery<Student>(sql, params);
+        if (res && res.rows && res.rows.length > 0) {
+          return res.rows.map(s => ({
+            ...s,
+            academic_session: s.academic_session || '2026-27'
+          }));
+        }
+      } catch (e) {}
+    }
+
+    // 2. MongoDB Fallback
     try {
       const db = await getDatabase();
       if (db) {
@@ -629,6 +662,7 @@ export const Database = {
       }
     } catch (e) {}
 
+    // 3. MemoryStore / LocalStore Fallback
     if (targetId || schoolId) {
       const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
       return memoryStore.students
@@ -830,6 +864,38 @@ export const Database = {
       return { ...t, gender: (num % 3 !== 0) ? 'Female' : 'Male' };
     };
 
+    // 1. CockroachDB Primary Query
+    if (isCockroachConfigured()) {
+      try {
+        let sql = 'SELECT * FROM teachers';
+        const params: any[] = [];
+        const conditions: string[] = [];
+
+        if (targetId || targetCode || schoolId) {
+          conditions.push('school_id = $1');
+          params.push(targetId || targetCode || schoolId);
+        }
+        if (targetSession && targetSession !== 'ALL') {
+          conditions.push(`academic_session = $${params.length + 1}`);
+          params.push(targetSession);
+        }
+
+        if (conditions.length > 0) {
+          sql += ' WHERE ' + conditions.join(' AND ');
+        }
+        sql += ' ORDER BY staff_code ASC;';
+
+        const res = await cockroachQuery<Teacher>(sql, params);
+        if (res && res.rows && res.rows.length > 0) {
+          return res.rows.map(ensureTeacherGender).map(t => ({
+            ...t,
+            academic_session: t.academic_session || '2026-27'
+          }));
+        }
+      } catch (e) {}
+    }
+
+    // 2. MongoDB Fallback
     try {
       const db = await getDatabase();
       if (db) {
