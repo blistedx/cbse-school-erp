@@ -284,7 +284,6 @@ function ERPWorkspaceContent() {
   const [settingsSuccess, setSettingsSuccess] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const isSuperAdmin = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'AGENCY_SUPERADMIN' || currentUser?.role === 'GOD_ACCESS' || currentUser?.is_god_admin || currentUser?.username?.toLowerCase() === 'blistedx';
-  const [userRole, setUserRole] = useState<'SUPERADMIN' | 'PRINCIPAL' | 'TEACHER' | 'ACCOUNTANT' | 'STUDENT' | 'PARENT'>('SUPERADMIN');
 
   // Multi-Role RBAC Tab Permission Whitelist
   const ROLE_ALLOWED_TABS: Record<string, string[]> = {
@@ -296,7 +295,7 @@ function ERPWorkspaceContent() {
     PARENT: ['overview', 'attendance', 'exams', 'homework', 'fees', 'broadcast', 'notices', 'profile']
   };
 
-  const effectiveRole = userRole || currentUser?.role || 'PRINCIPAL';
+  const effectiveRole = (currentUser?.role || 'PRINCIPAL').toUpperCase();
   const allowedTabs = ROLE_ALLOWED_TABS[effectiveRole] || ROLE_ALLOWED_TABS.PRINCIPAL;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState('');
@@ -415,9 +414,6 @@ function ERPWorkspaceContent() {
         if (storedUser) {
           const parsed = JSON.parse(storedUser);
           setCurrentUser(parsed);
-          if (parsed.role) {
-            setUserRole(parsed.role);
-          }
         }
       } catch (e) {}
     }
@@ -2634,32 +2630,12 @@ function ERPWorkspaceContent() {
               </div>
             )}
 
-            {/* Active Role Portal Switcher Widget (Mobile Drawer) */}
-            <div className="mb-3 p-2.5 bg-white/10 rounded-2xl border border-white/15 space-y-1.5 shadow-xs">
-              <div className="flex items-center justify-between text-[10px] font-mono text-emerald-300 font-bold">
-                <span>ACTIVE PORTAL:</span>
-                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-400/30 font-bold">
-                  {effectiveRole}
-                </span>
-              </div>
-              <select
-                value={effectiveRole}
-                onChange={(e) => {
-                  const newRole = e.target.value as any;
-                  setUserRole(newRole);
-                  setActiveTab('overview');
-                  setMobileMenuOpen(false);
-                  showAdminToast(`Switched workspace to: ${newRole} Portal`);
-                }}
-                className="w-full bg-[#122A24] text-white text-xs font-semibold rounded-xl px-2.5 py-1.5 border border-white/20 focus:outline-none cursor-pointer"
-                title="Switch Active User Role & Permissions"
-              >
-                <option value="PRINCIPAL">👑 Principal / Admin</option>
-                <option value="TEACHER">👩‍🏫 Teacher Portal</option>
-                <option value="STUDENT">🎓 Student Portal</option>
-                <option value="PARENT">👨‍👩‍👧 Parent Connect</option>
-                {isSuperAdmin && <option value="SUPERADMIN">⚡ God Superadmin</option>}
-              </select>
+            {/* Active Role Indicator Badge (Mobile Drawer - Read Only) */}
+            <div className="mb-3 px-3 py-2 bg-white/10 rounded-xl border border-white/15 flex items-center justify-between shadow-xs">
+              <span className="text-[10px] font-mono text-emerald-200/80 font-bold uppercase tracking-wider">Active Role:</span>
+              <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30">
+                {effectiveRole === 'SUPERADMIN' ? '⚡ SUPERADMIN' : effectiveRole === 'TEACHER' ? '👩‍🏫 TEACHER' : effectiveRole === 'STUDENT' ? '🎓 STUDENT' : effectiveRole === 'PARENT' ? '👨‍👩‍👧 PARENT' : '👑 PRINCIPAL'}
+              </span>
             </div>
 
             <div className="text-[10.5px] font-semibold text-emerald-200/70 uppercase tracking-wider px-3 mb-1.5 font-mono">
@@ -3026,31 +3002,12 @@ function ERPWorkspaceContent() {
             </div>
           )}
 
-          {/* Active Role Portal Switcher Widget (Desktop Sidebar) */}
-          <div className="mb-2.5 p-2.5 bg-white/10 rounded-2xl border border-white/15 space-y-1.5 shadow-xs">
-            <div className="flex items-center justify-between text-[10px] font-mono text-emerald-300 font-bold">
-              <span>ACTIVE PORTAL:</span>
-              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-400/30 font-bold">
-                {effectiveRole}
-              </span>
-            </div>
-            <select
-              value={effectiveRole}
-              onChange={(e) => {
-                const newRole = e.target.value as any;
-                setUserRole(newRole);
-                setActiveTab('overview');
-                showAdminToast(`Switched workspace to: ${newRole} Portal`);
-              }}
-              className="w-full bg-[#122A24] text-white text-xs font-semibold rounded-xl px-2.5 py-1.5 border border-white/20 focus:outline-none cursor-pointer"
-              title="Switch Active User Role & Permissions"
-            >
-              <option value="PRINCIPAL">👑 Principal / Admin</option>
-              <option value="TEACHER">👩‍🏫 Teacher Portal</option>
-              <option value="STUDENT">🎓 Student Portal</option>
-              <option value="PARENT">👨‍👩‍👧 Parent Connect</option>
-              {isSuperAdmin && <option value="SUPERADMIN">⚡ God Superadmin</option>}
-            </select>
+          {/* Active Role Indicator Badge (Desktop Sidebar - Read Only) */}
+          <div className="mb-2.5 px-3 py-2 bg-white/10 rounded-xl border border-white/15 flex items-center justify-between shadow-xs">
+            <span className="text-[10px] font-mono text-emerald-200/80 font-bold uppercase tracking-wider">Active Role:</span>
+            <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30">
+              {effectiveRole === 'SUPERADMIN' ? '⚡ SUPERADMIN' : effectiveRole === 'TEACHER' ? '👩‍🏫 TEACHER' : effectiveRole === 'STUDENT' ? '🎓 STUDENT' : effectiveRole === 'PARENT' ? '👨‍👩‍👧 PARENT' : '👑 PRINCIPAL'}
+            </span>
           </div>
 
           <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider px-3 mb-1 font-mono">
