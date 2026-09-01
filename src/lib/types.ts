@@ -21,6 +21,7 @@ export interface School {
   admin_pin?: string;
   logo?: string; // Base64 data URL or URL for School Icon / Logo up to 2MB
   logo_url?: string;
+  role_permissions?: RolePermissionMatrix;
   status: 'ACTIVE' | 'PENDING' | 'INACTIVE';
   created_at?: string;
 }
@@ -346,3 +347,80 @@ export interface AuditLogEntry {
   session?: string;
 }
 
+// ─────────────────────────────────────────────────────────────
+// ROLE-BASED ACCESS CONTROL (RBAC) & PERMISSION MATRIX
+// ─────────────────────────────────────────────────────────────
+
+export interface ModulePermission {
+  can_view: boolean;   // Can see / access tab in navigation
+  can_edit: boolean;   // Can edit / modify existing records
+  can_add: boolean;    // Can create / insert new records
+  can_delete: boolean; // Can delete records
+}
+
+export type ManagedRole = 'TEACHER' | 'STUDENT' | 'PARENT';
+
+export type RolePermissionMatrix = Record<
+  ManagedRole,
+  Record<string, ModulePermission>
+>;
+
+export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
+  TEACHER: {
+    classes: { can_view: true, can_edit: true, can_add: false, can_delete: false },
+    subjects: { can_view: true, can_edit: true, can_add: false, can_delete: false },
+    attendance: { can_view: true, can_edit: true, can_add: true, can_delete: false },
+    exams: { can_view: true, can_edit: true, can_add: true, can_delete: false },
+    homework: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    approvals: { can_view: true, can_edit: true, can_add: false, can_delete: false },
+    notices: { can_view: true, can_edit: false, can_add: true, can_delete: false },
+    students: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    siblings: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    teachers: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    fees: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    reports: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    certificates: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    transport: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    broadcast: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    data_hub: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    profile: { can_view: true, can_edit: true, can_add: false, can_delete: false }
+  },
+  STUDENT: {
+    classes: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    subjects: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    attendance: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    exams: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    homework: { can_view: true, can_edit: true, can_add: true, can_delete: false },
+    approvals: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    notices: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    students: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    siblings: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    teachers: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    fees: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    reports: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    certificates: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    transport: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    broadcast: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    data_hub: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    profile: { can_view: true, can_edit: true, can_add: false, can_delete: false }
+  },
+  PARENT: {
+    classes: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    subjects: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    attendance: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    exams: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    homework: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    approvals: { can_view: true, can_edit: true, can_add: true, can_delete: false },
+    notices: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    students: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    siblings: { can_view: true, can_edit: true, can_add: false, can_delete: false },
+    teachers: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    fees: { can_view: true, can_edit: true, can_add: true, can_delete: false },
+    reports: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    certificates: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    transport: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    broadcast: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    data_hub: { can_view: false, can_edit: false, can_add: false, can_delete: false },
+    profile: { can_view: true, can_edit: true, can_add: false, can_delete: false }
+  }
+};

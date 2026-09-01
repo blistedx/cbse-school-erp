@@ -33,9 +33,11 @@ export function getStudentSiblings(targetStudent: Student, allStudents: Student[
     const sMother = normalizeName(s.mother_name);
     const sPhone = getCleanPhone(s.guardian_phone || s.phone);
 
-    // Rule 1: Father AND Mother match exactly
-    if (targetFather && sFather && targetMother && sMother) {
-      if (targetFather === sFather && targetMother === sMother) return true;
+    // Rule 1: Father AND Mother match
+    if (targetFather && sFather && targetFather === sFather) {
+      if (targetMother && sMother && targetMother === sMother) return true;
+      if (!targetMother || !sMother) return true;
+      if (targetMother === sMother) return true;
     }
 
     // Rule 2: Father match AND phone match
@@ -53,6 +55,15 @@ export function getStudentSiblings(targetStudent: Student, allStudents: Student[
       const targetLast = (targetStudent.full_name || '').trim().split(' ').pop()?.toLowerCase();
       const sLast = (s.full_name || '').trim().split(' ').pop()?.toLowerCase();
       if (targetLast && sLast && targetLast === sLast && targetLast.length > 2) {
+        return true;
+      }
+    }
+
+    // Rule 5: Same Father name + Same Surname
+    if (targetFather && sFather && targetFather === sFather && targetFather.length > 3) {
+      const targetLast = (targetStudent.full_name || '').trim().split(' ').pop()?.toLowerCase();
+      const sLast = (s.full_name || '').trim().split(' ').pop()?.toLowerCase();
+      if (targetLast && sLast && targetLast === sLast) {
         return true;
       }
     }

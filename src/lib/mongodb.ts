@@ -14,6 +14,8 @@ const options = {
 };
 
 let clientPromise: Promise<MongoClient> | null = null;
+let lastConnectionFailedAt = 0;
+const FAILURE_COOLDOWN_MS = 20000;
 
 declare global {
   // eslint-disable-next-line no-var
@@ -31,14 +33,20 @@ export function getMongoUri(): string {
 export async function getMongoClient(): Promise<MongoClient | null> {
   if (!isMongoConfigured()) return null;
 
+  if (lastConnectionFailedAt && Date.now() - lastConnectionFailedAt < FAILURE_COOLDOWN_MS) {
+    return null;
+  }
+
   try {
     if (process.env.NODE_ENV === 'development') {
       if (!global._mongoClientPromise) {
         const client = new MongoClient(uri, options);
         global._mongoClientPromise = client.connect().then(c => {
+          lastConnectionFailedAt = 0;
           console.log('[MongoDB Atlas Cloud] Connected successfully to Database (edugit)');
           return c;
         }).catch(err => {
+          lastConnectionFailedAt = Date.now();
           console.warn('[MongoDB Atlas Cloud] Notice: Cloud DB connection unavailable, using Local Store:', err.message);
           global._mongoClientPromise = undefined;
           return null as any;
@@ -49,9 +57,11 @@ export async function getMongoClient(): Promise<MongoClient | null> {
       if (!clientPromise) {
         const client = new MongoClient(uri, options);
         clientPromise = client.connect().then(c => {
+          lastConnectionFailedAt = 0;
           console.log('[MongoDB Atlas Cloud] Connected successfully to Database (edugit)');
           return c;
         }).catch(err => {
+          lastConnectionFailedAt = Date.now();
           console.warn('[MongoDB Atlas Cloud] Notice: Cloud DB connection unavailable, using Local Store:', err.message);
           clientPromise = null;
           return null as any;
@@ -60,6 +70,7 @@ export async function getMongoClient(): Promise<MongoClient | null> {
       return await clientPromise;
     }
   } catch (err: any) {
+    lastConnectionFailedAt = Date.now();
     return null;
   }
 }

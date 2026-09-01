@@ -53,6 +53,7 @@ import {
   Award,
   Radio,
   User,
+  Crown,
   EyeOff,
   Edit3,
   RotateCcw,
@@ -69,10 +70,12 @@ import {
   ImageIcon,
   FileSpreadsheet,
   FolderDown,
-  HeartHandshake
+  HeartHandshake,
+  Sliders,
+  Lock
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview } from '@/lib/types';
+import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS, ManagedRole } from '@/lib/types';
 import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
 
 const DashboardOverview = dynamic(
@@ -137,6 +140,10 @@ const OmniSearchModal = dynamic(
 );
 const StudentSummaryModal = dynamic(
   () => import('@/components/student-summary-modal').then((m) => m.StudentSummaryModal),
+  { ssr: false }
+);
+const DashboardPermissions = dynamic(
+  () => import('@/components/blocks/dashboard-permissions').then((m) => m.DashboardPermissions),
   { ssr: false }
 );
 
@@ -244,10 +251,10 @@ const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code:
     highlight: 'CORE ERP INFRASTRUCTURE',
   },
   data_hub: {
-    title: 'DOWNLOAD & UPLOAD HUB',
-    subtitle: 'BULK IMPORT & EXPORT (CSV / EXCEL / PDF / JSON)',
+    title: 'DATA HUB',
+    subtitle: 'BULK IMPORT & EXPORT CENTER',
     code: 'MOD-19 // DATA_HUB',
-    highlight: 'CSV & EXCEL INGESTION ENGINE',
+    highlight: 'DATASET INGESTION & EXPORT ENGINE',
   },
   profile: {
     title: 'PROFILE',
@@ -261,6 +268,12 @@ const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code:
     code: 'MOD-18 // SECURITY',
     highlight: 'TAMPER-EVIDENT CBSE COMPLIANCE',
   },
+  permissions: {
+    title: 'ACCESS CONTROLS & RBAC',
+    subtitle: 'ROLE PERMISSIONS & DELEGATION STUDIO',
+    code: 'MOD-20 // PERMISSIONS',
+    highlight: 'ADMIN PRIVILEGE MANAGEMENT',
+  },
 };
 
 function ERPWorkspaceContent() {
@@ -268,7 +281,7 @@ function ERPWorkspaceContent() {
   const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'siblings' | 'teachers' | 'classes' | 'subjects' | 'attendance' | 'fees' | 'reports' | 'certificates' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile' | 'audit_logs' | 'data_hub'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'siblings' | 'teachers' | 'classes' | 'subjects' | 'attendance' | 'fees' | 'reports' | 'certificates' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile' | 'audit_logs' | 'data_hub' | 'permissions'>('overview');
   const [studentSubTab, setStudentSubTab] = useState<'directory' | 'siblings'>('directory');
   const [summaryStudent, setSummaryStudent] = useState<Student | null>(null);
   const [availableSchools, setAvailableSchools] = useState<School[]>([]);
@@ -351,22 +364,71 @@ function ERPWorkspaceContent() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const isSuperAdmin = mounted && (currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'AGENCY_SUPERADMIN' || currentUser?.role === 'GOD_ACCESS' || currentUser?.is_god_admin || currentUser?.username?.toLowerCase() === 'blistedx');
 
-  // Multi-Role RBAC Tab Permission Whitelist
-  const ROLE_ALLOWED_TABS: Record<string, string[]> = {
-    SUPERADMIN: ['overview', 'students', 'siblings', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
-    AGENCY_SUPERADMIN: ['overview', 'students', 'siblings', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
-    ADMIN: ['overview', 'students', 'siblings', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
-    PRINCIPAL: ['overview', 'students', 'siblings', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
-    ACCOUNTANT: ['overview', 'students', 'siblings', 'fees', 'reports', 'certificates', 'data_hub', 'notices', 'profile'],
-    TEACHER: ['overview', 'classes', 'subjects', 'attendance', 'exams', 'homework', 'approvals', 'notices', 'profile'],
-    STUDENT: ['overview', 'attendance', 'exams', 'homework', 'fees', 'certificates', 'notices', 'profile'],
-    PARENT: ['overview', 'siblings', 'attendance', 'exams', 'homework', 'fees', 'broadcast', 'notices', 'profile']
-  };
+  // Granular Role-Based Access Control (RBAC) Permissions Matrix
+  const [rolePermissions, setRolePermissions] = useState<RolePermissionMatrix>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('giterp_role_permissions');
+        if (stored) return JSON.parse(stored);
+      } catch (e) {}
+    }
+    return DEFAULT_ROLE_PERMISSIONS;
+  });
 
-  const effectiveRole = (currentUser?.role || 'PRINCIPAL').toUpperCase();
-  const allowedTabs = ROLE_ALLOWED_TABS[effectiveRole] || ROLE_ALLOWED_TABS.PRINCIPAL;
+  // Admin Role Preview Simulation
+  const [previewRole, setPreviewRole] = useState<string | null>(null);
+
+  const effectiveRole = (previewRole || currentUser?.role || 'PRINCIPAL').toUpperCase();
+
+  // Dynamically compute allowed tabs based on Admin configured role permissions
+  const allowedTabs = React.useMemo(() => {
+    if (['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole)) {
+      return [
+        'overview', 'students', 'siblings', 'teachers', 'classes', 'subjects',
+        'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams',
+        'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs',
+        'settings', 'permissions', 'profile'
+      ];
+    }
+    if (effectiveRole === 'ACCOUNTANT') {
+      return ['overview', 'students', 'siblings', 'fees', 'reports', 'certificates', 'data_hub', 'notices', 'profile'];
+    }
+
+    const roleConfig = rolePermissions[effectiveRole as ManagedRole];
+    if (!roleConfig) {
+      return ['overview', 'profile'];
+    }
+
+    const tabs: string[] = ['overview'];
+    for (const [modId, perms] of Object.entries(roleConfig)) {
+      if (perms?.can_view) {
+        tabs.push(modId);
+      }
+    }
+    if (!tabs.includes('profile')) tabs.push('profile');
+    return tabs;
+  }, [effectiveRole, rolePermissions]);
+
+  // Action level permissions for current active role
+  const currentRoleModulePerms = React.useMemo(() => {
+    const isFullAdmin = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole);
+    if (isFullAdmin) {
+      return (moduleId: string) => ({ can_view: true, can_edit: true, can_add: true, can_delete: true });
+    }
+    const roleConfig = rolePermissions[effectiveRole as ManagedRole];
+    return (moduleId: string) => {
+      if (!roleConfig || !roleConfig[moduleId]) {
+        return { can_view: false, can_edit: false, can_add: false, can_delete: false };
+      }
+      return roleConfig[moduleId];
+    };
+  }, [effectiveRole, rolePermissions]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState('');
+  const showToast = (msg: string) => {
+    setActionSuccessMsg(msg);
+    setTimeout(() => setActionSuccessMsg(''), 4500);
+  };
   const [pinModal, setPinModal] = useState<{ type: 'student' | 'teacher'; id: string; name: string; currentPin: string } | null>(null);
   const [customPinInput, setCustomPinInput] = useState('123456');
 
@@ -920,6 +982,12 @@ function ERPWorkspaceContent() {
           admin_pin: cleanAdminPin,
           logo: targetSchool.logo || ''
         });
+        if (targetSchool.role_permissions) {
+          setRolePermissions(targetSchool.role_permissions);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('giterp_role_permissions', JSON.stringify(targetSchool.role_permissions));
+          }
+        }
         setProfileForm({
           full_name: activePrincipalName,
           username: targetSchool.admin_id || activeUserObj?.username || 'admin',
@@ -2219,6 +2287,8 @@ function ERPWorkspaceContent() {
   };
 
   // 1. FILTERED STUDENTS
+  // Use empty string before mount to avoid SSR/CSR searchQuery mismatch (hydration)
+  const _sq = mounted ? searchQuery : '';
   const filteredStudents = (students || []).filter(s => {
     if (!s) return false;
     if (studentStatusFilter !== 'ALL' && s.status !== studentStatusFilter) return false;
@@ -2235,8 +2305,8 @@ function ERPWorkspaceContent() {
       if (sHouse !== studentHouseFilter) return false;
     }
     
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase().trim();
+    if (!_sq.trim()) return true;
+    const q = _sq.toLowerCase().trim();
     const name = (s.full_name || '').toLowerCase();
     const adm = (s.admission_no || '').toLowerCase();
     const cls = (s.class_name || '').toLowerCase();
@@ -2293,8 +2363,8 @@ function ERPWorkspaceContent() {
     if (teacherCtetFilter !== 'ALL' && (t.ctet_qualified || 'NO').toUpperCase() !== teacherCtetFilter.toUpperCase()) return false;
     if (teacherGenderFilter !== 'ALL' && resolveTeacherGender(t).toLowerCase() !== teacherGenderFilter.toLowerCase()) return false;
     
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase().trim();
+    if (!_sq.trim()) return true;
+    const q = _sq.toLowerCase().trim();
     const name = (t.full_name || '').toLowerCase();
     const code = (t.staff_code || '').toLowerCase();
     const subj = (t.subject_specialization || t.department || '').toLowerCase();
@@ -2341,8 +2411,8 @@ function ERPWorkspaceContent() {
       if (classWingFilter === 'SR_SECONDARY' && !(/\b(class\s*11|class\s*12|class\s*xi|class\s*xii|xi|xii|11|12)\b/i.test(cls))) return false;
     }
     
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase().trim();
+    if (!_sq.trim()) return true;
+    const q = _sq.toLowerCase().trim();
     const name = (c.class_name || '').toLowerCase();
     const sec = (c.section || '').toLowerCase();
     const code = (c.class_code || c.id || '').toLowerCase();
@@ -2389,8 +2459,8 @@ function ERPWorkspaceContent() {
     if (feeClassFilter !== 'ALL' && !inv.class_name?.toLowerCase().includes(feeClassFilter.toLowerCase())) return false;
     if (feePaymentModeFilter !== 'ALL' && !inv.payment_mode?.toLowerCase().includes(feePaymentModeFilter.toLowerCase())) return false;
     
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase().trim();
+    if (!_sq.trim()) return true;
+    const q = _sq.toLowerCase().trim();
     const sname = (inv.student_name || '').toLowerCase();
     const adm = (inv.admission_no || '').toLowerCase();
     const invNo = (inv.invoice_no || '').toLowerCase();
@@ -2417,8 +2487,8 @@ function ERPWorkspaceContent() {
     if (attendanceClassFilter !== 'ALL' && !a.class_name?.toLowerCase().includes(attendanceClassFilter.toLowerCase())) return false;
     if (attendanceDateFilter && a.date !== attendanceDateFilter) return false;
     
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase().trim();
+    if (!_sq.trim()) return true;
+    const q = _sq.toLowerCase().trim();
     const cls = (a.class_name || '').toLowerCase();
     const sec = (a.section || '').toLowerCase();
     const marked = (a.marked_by || '').toLowerCase();
@@ -2431,8 +2501,8 @@ function ERPWorkspaceContent() {
     if (!n) return false;
     if (noticeAudienceFilter !== 'ALL' && n.target_audience !== noticeAudienceFilter) return false;
     
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase().trim();
+    if (!_sq.trim()) return true;
+    const q = _sq.toLowerCase().trim();
     const title = (n.title || '').toLowerCase();
     const content = (n.content || '').toLowerCase();
     const posted = (n.posted_by || '').toLowerCase();
@@ -2470,6 +2540,24 @@ function ERPWorkspaceContent() {
           <span className="text-[10.5px] text-slate-300 hidden sm:inline">
             Live MongoDB sync will resume automatically once internet is connected
           </span>
+        </div>
+      )}
+
+      {/* Role Preview Simulation Notice Banner */}
+      {previewRole && (
+        <div className="bg-amber-50 border-b border-amber-300 px-3.5 sm:px-6 py-2 text-xs font-mono text-amber-950 flex items-center justify-between shadow-2xs z-30 shrink-0 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+            <span>
+              <strong>ADMIN ROLE SIMULATION:</strong> Viewing live ERP as <strong>{previewRole}</strong>. Module visibility and editing permissions are actively restricted.
+            </span>
+          </div>
+          <button
+            onClick={() => setPreviewRole(null)}
+            className="px-3 py-1 rounded-lg bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-[11px] border-none cursor-pointer shadow-xs transition-colors shrink-0"
+          >
+            Exit Preview
+          </button>
         </div>
       )}
 
@@ -2606,7 +2694,7 @@ function ERPWorkspaceContent() {
 
           <button
             onClick={() => selectedSchool && loadSchoolData(selectedSchool.id)}
-            className="p-2 rounded-xl bg-[#F4F8F5] border border-[#DCE8E0] hover:bg-[#EBF5EF] text-[#122A24] transition-colors shadow-2xs cursor-pointer flex items-center justify-center"
+            className="hidden sm:flex p-2 rounded-xl bg-[#F4F8F5] border border-[#DCE8E0] hover:bg-[#EBF5EF] text-[#122A24] transition-colors shadow-2xs cursor-pointer items-center justify-center"
             title="Refresh Data"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -2614,7 +2702,7 @@ function ERPWorkspaceContent() {
 
           <button
             onClick={handleLogout}
-            className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-xs font-semibold text-rose-700 flex items-center gap-1.5 transition-colors border border-rose-200 cursor-pointer"
+            className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-xs font-semibold text-rose-700 flex items-center gap-1.5 transition-colors border border-rose-200 cursor-pointer shrink-0"
             title="Sign Out"
           >
             <LogOut className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
@@ -2704,20 +2792,6 @@ function ERPWorkspaceContent() {
               </button>
             </div>
 
-            {/* Quick Search Button in Mobile Drawer */}
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                setIsOmniSearchOpen(true);
-              }}
-              className="w-full mb-2 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
-            >
-              <Search className="h-4 w-4 text-emerald-400 shrink-0" />
-              <span className="flex-1 text-left">Quick Search Anything...</span>
-              <span className="text-[10px] font-mono bg-white/20 px-1.5 py-0.5 rounded text-white/80">Search</span>
-            </button>
-
             {/* Super Admin School Switcher Widget (Mobile Drawer) */}
             {isSuperAdmin && (
               <div className="mb-3 p-3 bg-white/10 rounded-2xl border border-amber-400/30 space-y-1.5 shadow-xs">
@@ -2742,30 +2816,36 @@ function ERPWorkspaceContent() {
               </div>
             )}
 
-            {/* Native Mobile App Link Button */}
-            <Link
-              href={`/mobile?school=${selectedSchool?.school_code || 'DPS2026'}`}
-              className="mb-3 p-3 bg-gradient-to-r from-emerald-700 to-teal-800 rounded-2xl border border-emerald-400/40 flex items-center justify-between text-white no-underline shadow-md hover:scale-[1.02] transition-transform"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-sm font-bold">
-                  📱
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-white">Native Mobile App</div>
-                  <div className="text-[10px] text-emerald-200">Parent, Teacher & Bus radar</div>
-                </div>
-              </div>
-              <span className="text-xs font-mono font-bold bg-white/20 px-2 py-0.5 rounded-lg">
-                Open →
-              </span>
-            </Link>
-
             {/* Active Role Indicator Badge (Mobile Drawer - Read Only) */}
             <div className="mb-3 px-3 py-2 bg-white/10 rounded-xl border border-white/15 flex items-center justify-between shadow-xs">
               <span className="text-[10px] font-mono text-emerald-200/80 font-bold uppercase tracking-wider">Active Role:</span>
-              <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30">
-                {effectiveRole === 'SUPERADMIN' ? '⚡ SUPERADMIN' : effectiveRole === 'TEACHER' ? '👩‍🏫 TEACHER' : effectiveRole === 'STUDENT' ? '🎓 STUDENT' : effectiveRole === 'PARENT' ? '👨‍👩‍👧 PARENT' : '👑 PRINCIPAL'}
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30">
+                {effectiveRole === 'SUPERADMIN' ? (
+                  <>
+                    <ShieldCheck className="w-3 h-3 text-amber-400" />
+                    <span>SUPERADMIN</span>
+                  </>
+                ) : effectiveRole === 'TEACHER' ? (
+                  <>
+                    <GraduationCap className="w-3 h-3 text-emerald-400" />
+                    <span>TEACHER</span>
+                  </>
+                ) : effectiveRole === 'STUDENT' ? (
+                  <>
+                    <User className="w-3 h-3 text-cyan-400" />
+                    <span>STUDENT</span>
+                  </>
+                ) : effectiveRole === 'PARENT' ? (
+                  <>
+                    <Users className="w-3 h-3 text-violet-400" />
+                    <span>PARENT</span>
+                  </>
+                ) : (
+                  <>
+                    <Crown className="w-3 h-3 text-amber-300" />
+                    <span>PRINCIPAL</span>
+                  </>
+                )}
               </span>
             </div>
 
@@ -2802,20 +2882,16 @@ function ERPWorkspaceContent() {
               </button>
             )}
 
-            {/* Sibling & Families Hub (Mobile) */}
+            {/* Siblings & Families (Mobile) */}
             {allowedTabs.includes('siblings') && (
               <button
                 onClick={() => { setActiveTab('siblings'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
                   activeTab === 'siblings' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
               >
-                <span className="flex items-center gap-3">
-                  <HeartHandshake className="h-4 w-4 shrink-0 text-purple-300" /> Sibling &amp; Families
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-purple-400/20 text-purple-200 border border-purple-400/30">
-                  Family Hub
-                </span>
+                <HeartHandshake className="h-4 w-4 shrink-0 text-purple-300" />
+                <span className="truncate">Siblings &amp; Families</span>
               </button>
             )}
 
@@ -2918,23 +2994,16 @@ function ERPWorkspaceContent() {
               </button>
             )}
 
-            {/* Download & Upload Hub (Mobile) */}
+            {/* Data Hub (Mobile) */}
             {allowedTabs.includes('data_hub') && (
               <button
                 onClick={() => { setActiveTab('data_hub'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
                   activeTab === 'data_hub' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
               >
-                <span className="flex items-center gap-2.5 min-w-0 flex-1 pr-1">
-                  <FolderDown className={`h-4 w-4 shrink-0 ${activeTab === 'data_hub' ? 'text-[#122A24]' : 'text-amber-300'}`} />
-                  <span className="truncate">Download &amp; Upload Hub</span>
-                </span>
-                <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
-                  activeTab === 'data_hub' ? 'bg-[#122A24] text-white' : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
-                }`}>
-                  CSV / XLS
-                </span>
+                <FolderDown className={`h-4 w-4 shrink-0 ${activeTab === 'data_hub' ? 'text-[#122A24]' : 'text-amber-300'}`} />
+                <span className="truncate">Data Hub</span>
               </button>
             )}
 
@@ -3074,6 +3143,17 @@ function ERPWorkspaceContent() {
               </button>
             )}
 
+            {allowedTabs.includes('permissions') && (
+              <button
+                onClick={() => { setActiveTab('permissions'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'permissions' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Sliders className="h-4 w-4 shrink-0 text-amber-300" /> Access Controls &amp; RBAC
+              </button>
+            )}
+
             {/* Mobile User Profile Card */}
             <div 
               onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }}
@@ -3126,7 +3206,7 @@ function ERPWorkspaceContent() {
               <div className="font-display font-bold text-sm tracking-tight text-white flex items-center gap-1.5 group-hover:text-emerald-300 transition-colors">
                 <span className="truncate">{selectedSchool?.school_name || 'Giterp'}</span>
               </div>
-              <div className="text-[10px] text-slate-300 font-mono truncate">
+              <div suppressHydrationWarning className="text-[10px] text-slate-300 font-mono truncate">
                 {selectedSchool?.school_code || 'DPS2026'} • CBSE Console
               </div>
             </div>
@@ -3159,8 +3239,33 @@ function ERPWorkspaceContent() {
           {/* Active Role Indicator Badge (Desktop Sidebar - Read Only) */}
           <div className="mb-2.5 px-3 py-2 bg-white/10 rounded-xl border border-white/15 flex items-center justify-between shadow-xs">
             <span className="text-[10px] font-mono text-emerald-200/80 font-bold uppercase tracking-wider">Active Role:</span>
-            <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30">
-              {effectiveRole === 'SUPERADMIN' ? '⚡ SUPERADMIN' : effectiveRole === 'TEACHER' ? '👩‍🏫 TEACHER' : effectiveRole === 'STUDENT' ? '🎓 STUDENT' : effectiveRole === 'PARENT' ? '👨‍👩‍👧 PARENT' : '👑 PRINCIPAL'}
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30">
+              {effectiveRole === 'SUPERADMIN' ? (
+                <>
+                  <ShieldCheck className="w-3 h-3 text-amber-400" />
+                  <span>SUPERADMIN</span>
+                </>
+              ) : effectiveRole === 'TEACHER' ? (
+                <>
+                  <GraduationCap className="w-3 h-3 text-emerald-400" />
+                  <span>TEACHER</span>
+                </>
+              ) : effectiveRole === 'STUDENT' ? (
+                <>
+                  <User className="w-3 h-3 text-cyan-400" />
+                  <span>STUDENT</span>
+                </>
+              ) : effectiveRole === 'PARENT' ? (
+                <>
+                  <Users className="w-3 h-3 text-violet-400" />
+                  <span>PARENT</span>
+                </>
+              ) : (
+                <>
+                  <Crown className="w-3 h-3 text-amber-300" />
+                  <span>PRINCIPAL</span>
+                </>
+              )}
             </span>
           </div>
 
@@ -3194,6 +3299,18 @@ function ERPWorkspaceContent() {
               }`}>
                 {students.length}
               </span>
+            </button>
+          )}
+
+          {allowedTabs.includes('siblings') && (
+            <button
+              onClick={() => setActiveTab('siblings')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'siblings' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <HeartHandshake className="h-4 w-4 shrink-0 text-purple-300" />
+              <span className="truncate">Siblings &amp; Families</span>
             </button>
           )}
 
@@ -3304,23 +3421,16 @@ function ERPWorkspaceContent() {
             </button>
           )}
 
-          {/* Download & Upload Hub (Desktop) */}
+          {/* Data Hub (Desktop) */}
           {allowedTabs.includes('data_hub') && (
             <button
               onClick={() => setActiveTab('data_hub')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
                 activeTab === 'data_hub' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
               }`}
             >
-              <span className="flex items-center gap-2.5 min-w-0 flex-1 pr-1">
-                <FolderDown className={`h-4 w-4 shrink-0 ${activeTab === 'data_hub' ? 'text-[#122A24]' : 'text-amber-300'}`} />
-                <span className="truncate font-semibold text-xs sm:text-[13px]">Download &amp; Upload Hub</span>
-              </span>
-              <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
-                activeTab === 'data_hub' ? 'bg-[#122A24] text-white' : 'bg-amber-400/20 text-amber-300 border border-amber-400/30'
-              }`}>
-                CSV / XLS
-              </span>
+              <FolderDown className={`h-4 w-4 shrink-0 ${activeTab === 'data_hub' ? 'text-[#122A24]' : 'text-amber-300'}`} />
+              <span className="truncate font-semibold text-xs sm:text-[13px]">Data Hub</span>
             </button>
           )}
 
@@ -3452,6 +3562,17 @@ function ERPWorkspaceContent() {
             </button>
           )}
 
+          {allowedTabs.includes('permissions') && (
+            <button
+              onClick={() => setActiveTab('permissions')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'permissions' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Sliders className="h-4 w-4 shrink-0 text-amber-300" /> Access Controls &amp; RBAC
+            </button>
+          )}
+
           {/* User Profile Card at Sidebar Bottom with Customization Option */}
           <div 
             onClick={() => setActiveTab('profile')}
@@ -3486,7 +3607,7 @@ function ERPWorkspaceContent() {
           {!allowedTabs.includes(activeTab) && (
             <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-3xl border border-rose-200 text-center shadow-lg space-y-4 animate-fade-in">
               <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center text-2xl mx-auto border border-rose-200">
-                🔒
+                <Lock className="w-7 h-7 text-rose-600" />
               </div>
               <h2 className="font-display font-bold text-xl text-[#122A24]">
                 Module Access Restricted
@@ -3558,54 +3679,59 @@ function ERPWorkspaceContent() {
                 </div>
 
                 {/* Top Breadcrumb & Action Toolbar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
+                <div className="flex flex-col gap-3 pb-4 border-b border-[#E8F0EA] relative z-10">
+                  {/* Row 1: Title + breadcrumb */}
                   <div>
-                    <div className="flex items-center gap-3">
-                      <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
-                        {studentSubTab === 'directory' ? 'Students Directory' : 'Siblings & Families Matrix'}
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h1 className="font-display font-bold text-xl sm:text-3xl text-[#122A24] tracking-tight">
+                        {studentSubTab === 'directory' ? 'Students Directory' : 'Siblings & Families'}
                       </h1>
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                        {studentSubTab === 'directory' ? `${filteredStudents.length} Active Enrolled` : 'CBSE Family Linkage'}
-                      </span>
+                      {studentSubTab === 'directory' && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                          {filteredStudents.length} enrolled
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-[#2D5A4E] font-mono mt-1">
+                    <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#2D5A4E] font-mono mt-1">
                       <span>DPS2026</span>
                       <span>/</span>
                       <span>Institutional Registry</span>
                       <span>/</span>
-                      <span className="text-[#122A24] font-semibold">
+                      <span className="text-[#122A24] font-semibold truncate max-w-[260px]">
                         {studentSubTab === 'directory' ? 'CBSE All Classes (Pre-Primary to XII)' : 'Automated Household & Multi-Child Matching'}
                       </span>
                     </div>
                   </div>
 
-                  {/* Sub-tab Pill Switcher */}
-                  <div className="flex items-center bg-[#F4F8F5] p-1 rounded-full border border-[#DCE8E0] shadow-2xs">
-                    <button
-                      onClick={() => setStudentSubTab('directory')}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border-none cursor-pointer transition-all ${
-                        studentSubTab === 'directory'
-                          ? 'bg-[#122A24] text-white shadow-xs'
-                          : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24]'
-                      }`}
-                    >
-                      📋 All Scholars ({students.length})
-                    </button>
-                    <button
-                      onClick={() => setStudentSubTab('siblings')}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border-none cursor-pointer flex items-center gap-1.5 transition-all ${
-                        studentSubTab === 'siblings'
-                          ? 'bg-purple-900 text-white shadow-xs'
-                          : 'bg-transparent text-purple-900 hover:text-purple-950'
-                      }`}
-                    >
-                      <HeartHandshake className="w-3.5 h-3.5" />
-                      <span>👨‍👩‍👧‍👦 Siblings Hub</span>
-                    </button>
-                  </div>
+                  {/* Row 2: Pill switcher + actions */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    {/* Sub-tab Pill Switcher */}
+                    <div className="flex items-center bg-[#F4F8F5] p-1 rounded-full border border-[#DCE8E0] shadow-2xs shrink-0">
+                      <button
+                        onClick={() => setStudentSubTab('directory')}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border-none cursor-pointer transition-all ${
+                          studentSubTab === 'directory'
+                            ? 'bg-[#122A24] text-white shadow-xs'
+                            : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24]'
+                        }`}
+                      >
+                        All Scholars ({students.length})
+                      </button>
+                      <button
+                        onClick={() => setStudentSubTab('siblings')}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border-none cursor-pointer transition-all ${
+                          studentSubTab === 'siblings'
+                            ? 'bg-purple-900 text-white shadow-xs'
+                            : 'bg-transparent text-purple-900 hover:text-purple-950'
+                        }`}
+                      >
+                        Siblings Hub
+                      </button>
+                    </div>
 
-                  <div className="flex items-center gap-2">
-                    {/* Refresh Button */}
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-2">
+                    {/* Refresh - always visible */}
                     <button
                       onClick={() => selectedSchool && loadSchoolData(selectedSchool.id)}
                       className="w-9 h-9 rounded-full bg-[#F4F8F5] border border-[#DCE8E0] hover:bg-[#EBF5EF] text-[#122A24] transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
@@ -3614,17 +3740,17 @@ function ERPWorkspaceContent() {
                       <RefreshCw className="h-4 w-4" />
                     </button>
 
-                    {/* Print Button */}
+                    {/* Print - hidden on mobile */}
                     <button
                       onClick={() => window.print()}
-                      className="w-9 h-9 rounded-full bg-[#F4F8F5] border border-[#DCE8E0] hover:bg-[#EBF5EF] text-[#122A24] transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
+                      className="hidden sm:flex w-9 h-9 rounded-full bg-[#F4F8F5] border border-[#DCE8E0] hover:bg-[#EBF5EF] text-[#122A24] transition-colors shadow-2xs items-center justify-center cursor-pointer"
                       title="Print Register"
                     >
                       <Printer className="h-4 w-4" />
                     </button>
 
-                    {/* Export Dropdown */}
-                    <div className="relative">
+                    {/* Export - hidden on mobile */}
+                    <div className="relative hidden sm:block">
                       <button
                         onClick={() => setShowExportMenu(showExportMenu === 'students' ? null : 'students')}
                         className="flex items-center gap-1.5 px-3.5 py-2 bg-[#F4F8F5] border border-[#DCE8E0] hover:bg-[#EBF5EF] rounded-full text-xs font-semibold text-[#122A24] shadow-2xs cursor-pointer"
@@ -3675,7 +3801,7 @@ function ERPWorkspaceContent() {
                       )}
                     </div>
 
-                    {/* Promotion Studio Trigger Button */}
+                    {/* Promotion Studio - hidden on mobile */}
                     <button
                       onClick={() => {
                         setPromotionSourceClass('Class 9');
@@ -3685,23 +3811,25 @@ function ERPWorkspaceContent() {
                         setPromotionActionsMap({});
                         setShowPromotionStudio(true);
                       }}
-                      className="px-3.5 py-2 bg-[#EBF5EF] hover:bg-[#DCE8E0] text-[#122A24] border border-[#C5E2CF] rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                      className="hidden sm:flex px-3.5 py-2 bg-[#EBF5EF] hover:bg-[#DCE8E0] text-[#122A24] border border-[#C5E2CF] rounded-full text-xs font-semibold items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
                       title="Bulk promote or graduate scholars into next academic session"
                     >
                       <GraduationCap className="h-4 w-4 text-emerald-700" />
                       <span>Promotion Studio</span>
                     </button>
 
-                    {/* Primary Add Button */}
-                    <button
-                      onClick={() => openStudentModal()}
-                      className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all border-none cursor-pointer"
-                    >
-                      <Plus className="h-4 w-4" /> Add Student
-                    </button>
+                    {/* Primary Add Button — guarded by role permissions */}
+                    {currentRoleModulePerms('students').can_add && (
+                      <button
+                        onClick={() => openStudentModal()}
+                        className="px-3.5 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all border-none cursor-pointer"
+                      >
+                        <Plus className="h-4 w-4" /><span className="hidden sm:inline">Add Student</span><span className="sm:hidden">Add</span>
+                      </button>
+                    )}
+                    </div>
                   </div>
                 </div>
-
                 {studentSubTab === 'directory' ? (
                   <>
                 {/* Sub Header Controls Bar (Tier 1: Title, Status Tabs, Session, View Mode, Sort) */}
@@ -3856,10 +3984,10 @@ function ERPWorkspaceContent() {
                         className="bg-transparent border-none text-xs font-semibold text-[#122A24] focus:outline-none cursor-pointer pr-1"
                       >
                         <option value="ALL">All Houses</option>
-                        <option value="Red House">🔴 Red House</option>
-                        <option value="Blue House">🔵 Blue House</option>
-                        <option value="Green House">🟢 Green House</option>
-                        <option value="Yellow House">🟡 Yellow House</option>
+                        <option value="Red House">Red House</option>
+                        <option value="Blue House">Blue House</option>
+                        <option value="Green House">Green House</option>
+                        <option value="Yellow House">Yellow House</option>
                       </select>
                     </div>
                   </div>
@@ -4114,7 +4242,7 @@ function ERPWorkspaceContent() {
                                   <button
                                     onClick={() => setSummaryStudent(s)}
                                     className="text-[#122A24] hover:text-emerald-700 font-bold border-none bg-transparent p-0 cursor-pointer text-left block tracking-tight transition-colors"
-                                    title="Inspect 360° Dossier & Siblings"
+                                    title="Inspect 360Â° Dossier & Siblings"
                                   >
                                     {s.admission_no}
                                   </button>
@@ -4139,7 +4267,7 @@ function ERPWorkspaceContent() {
                                     <div>
                                       <div className="font-semibold text-[#122A24] hover:text-emerald-700 cursor-pointer transition-colors flex items-center gap-1.5" onClick={() => setSummaryStudent(s)}>
                                         <span>{s.full_name}</span>
-                                        <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-mono font-normal">360°</span>
+                                        <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-mono font-normal">360Â°</span>
                                       </div>
                                       {s.apaar_id && (
                                         <div className="text-[10px] text-slate-400 font-mono">PEN: {s.apaar_id}</div>
@@ -4436,7 +4564,7 @@ function ERPWorkspaceContent() {
                             <button
                               onClick={() => setSummaryStudent(s)}
                               className="p-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 cursor-pointer transition-colors"
-                              title="Inspect 360° Scholar Summary & Siblings"
+                              title="Inspect 360Â° Scholar Summary & Siblings"
                             >
                               <GraduationCap className="h-3.5 w-3.5" />
                             </button>
@@ -5171,7 +5299,7 @@ function ERPWorkspaceContent() {
                                   </button>
                                 </td>
 
-                                {/* Action ⋮ Popover with Admin Powers */}
+                                {/* Action â‹® Popover with Admin Powers */}
                                 <td className="py-3.5 px-3 text-center">
                                   <div className="relative inline-block text-left">
                                     <button
@@ -5952,7 +6080,7 @@ function ERPWorkspaceContent() {
                                 </button>
                               </td>
 
-                              {/* Action ⋮ Popover with Admin Powers */}
+                              {/* Action â‹® Popover with Admin Powers */}
                               <td className="py-3.5 px-3 text-center">
                                 <div className="relative inline-block text-left">
                                   <button
@@ -6343,6 +6471,36 @@ function ERPWorkspaceContent() {
             </div>
           )}
 
+          {/* TAB: ACCESS CONTROLS & RBAC PERMISSIONS */}
+          {activeTab === 'permissions' && (
+            <div className="max-w-6xl mx-auto">
+              <DashboardPermissions
+                initialPermissions={rolePermissions}
+                schoolId={selectedSchool?.school_code || selectedSchool?.id || 'DPS2026'}
+                onSavePermissions={async (updated) => {
+                  setRolePermissions(updated);
+                  const res = await fetch('/api/school/permissions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      school_id: selectedSchool?.school_code || selectedSchool?.id || 'DPS2026',
+                      permissions: updated
+                    })
+                  });
+                  const data = await res.json();
+                  if (!data.success) throw new Error(data.error || 'Failed to save permissions');
+                  showToast('Role permissions saved and enforced across campus!');
+                }}
+                onPreviewRole={(role) => {
+                  setPreviewRole(role);
+                  setActiveTab('overview');
+                  showToast(`Switched preview to ${role} view`);
+                }}
+                showToast={showToast}
+              />
+            </div>
+          )}
+
           {/* TAB 8: SETTINGS */}
           {activeTab === 'settings' && (
             <div className="space-y-6 max-w-5xl mx-auto animate-fade-in">
@@ -6381,99 +6539,53 @@ function ERPWorkspaceContent() {
 
               {/* ADMIN POWERS & ROLE PERMISSION MATRIX */}
               <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-5">
-                <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">
+                <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA] flex-wrap gap-2">
                   <div className="flex items-center gap-2.5">
-                    <span className="w-8 h-8 rounded-full bg-[#EBF5EF] text-[#122A24] flex items-center justify-center font-bold text-sm border border-[#C5E2CF]">
-                      👑
-                    </span>
+                    <div className="w-9 h-9 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center font-bold text-sm shadow-2xs">
+                      <Sliders className="w-5 h-5 text-amber-700" />
+                    </div>
                     <div>
                       <h2 className="font-display font-bold text-base text-[#122A24]">
-                        Role-Based Access Control (RBAC) &amp; Authority
+                        Role-Based Access Control (RBAC) &amp; Delegation Studio
                       </h2>
                       <p className="text-[11px] text-[#2D5A4E]">
-                        Admin has supreme execution rights. Actions are gated by role privileges.
+                        Admin has supreme authority to configure what Teachers, Students, and Parents can See, Edit, Add, and Delete.
                       </p>
                     </div>
                   </div>
-                  <span className="px-3 py-1 bg-[#122A24] text-white font-mono text-xs font-bold rounded-full">
-                    SUPERADMIN
-                  </span>
+                  <button
+                    onClick={() => setActiveTab('permissions')}
+                    className="px-4 py-2 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-2 border-none cursor-pointer"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Open Full Permissions Studio →</span>
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
-                  {/* Role 1: Super Admin */}
-                  <div className="p-4 rounded-2xl bg-[#F9FCFA] border border-[#C5E2CF] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-[#122A24] flex items-center gap-1.5">
-                        <ShieldCheck className="h-4 w-4 text-emerald-600" /> Admin / Principal
-                      </span>
-                      <span className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                        Full Rights
-                      </span>
-                    </div>
-                    <ul className="text-[11px] text-[#2D5A4E] space-y-1 pl-4 list-disc">
-                      <li>Add, Edit &amp; Delete any entity</li>
-                      <li>1-Click Active / Inactive toggles</li>
-                      <li>Multi-select bulk operations</li>
-                      <li>Staff &amp; Student PIN resets</li>
-                      <li>Institutional settings &amp; fees</li>
-                    </ul>
-                  </div>
-
-                  {/* Role 2: Teacher */}
-                  <div className="p-4 rounded-2xl bg-white border border-[#DCE8E0] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-[#122A24] flex items-center gap-1.5">
-                        <GraduationCap className="h-4 w-4 text-teal-600" /> Faculty / Staff
-                      </span>
-                      <span className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200">
-                        Academic
-                      </span>
-                    </div>
-                    <ul className="text-[11px] text-[#2D5A4E] space-y-1 pl-4 list-disc">
-                      <li>Mark daily class attendance</li>
-                      <li>View assigned class students</li>
-                      <li>Publish academic notices</li>
-                      <li>View personal schedule</li>
-                    </ul>
-                  </div>
-
-                  {/* Role 3: Accountant */}
-                  <div className="p-4 rounded-2xl bg-white border border-[#DCE8E0] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-[#122A24] flex items-center gap-1.5">
-                        <CreditCard className="h-4 w-4 text-indigo-600" /> Accounts Desk
-                      </span>
-                      <span className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200">
-                        Finance
-                      </span>
-                    </div>
-                    <ul className="text-[11px] text-[#2D5A4E] space-y-1 pl-4 list-disc">
-                      <li>Issue fee invoices &amp; dues</li>
-                      <li>Collect UPI / Cash fees</li>
-                      <li>Generate payment receipts</li>
-                      <li>Export fee collection ledgers</li>
-                    </ul>
-                  </div>
-
-                  {/* Role 4: Student */}
-                  <div className="p-4 rounded-2xl bg-white border border-[#DCE8E0] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-[#122A24] flex items-center gap-1.5">
-                        <Users className="h-4 w-4 text-slate-600" /> Student / Parent
-                      </span>
-                      <span className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                        Read-Only
-                      </span>
-                    </div>
-                    <ul className="text-[11px] text-[#2D5A4E] space-y-1 pl-4 list-disc">
-                      <li>View personal attendance</li>
-                      <li>Download fee receipts</li>
-                      <li>Read circulars &amp; timetable</li>
-                      <li>Update basic contact info</li>
-                    </ul>
-                  </div>
-                </div>
+                <DashboardPermissions
+                  initialPermissions={rolePermissions}
+                  schoolId={selectedSchool?.school_code || selectedSchool?.id || 'DPS2026'}
+                  onSavePermissions={async (updated) => {
+                    setRolePermissions(updated);
+                    const res = await fetch('/api/school/permissions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        school_id: selectedSchool?.school_code || selectedSchool?.id || 'DPS2026',
+                        permissions: updated
+                      })
+                    });
+                    const data = await res.json();
+                    if (!data.success) throw new Error(data.error || 'Failed to save permissions');
+                    showToast('Role permissions saved and enforced across campus!');
+                  }}
+                  onPreviewRole={(role) => {
+                    setPreviewRole(role);
+                    setActiveTab('overview');
+                    showToast(`Switched preview to ${role} view`);
+                  }}
+                  showToast={showToast}
+                />
               </div>
 
               {/* INSTITUTIONAL SETTINGS FORM */}
@@ -6850,12 +6962,12 @@ function ERPWorkspaceContent() {
                       {mongoSyncMsg}
                     </p>
                     <div className="p-3 bg-white/80 rounded-xl border border-amber-200 text-[11px] text-[#122A24] space-y-1 font-sans">
-                      <div className="font-bold text-emerald-800">💡 How to enable 100% unrestricted Cloud Sync in 30 seconds:</div>
+                      <div className="font-bold text-emerald-800">How to enable 100% unrestricted Cloud Sync in 30 seconds:</div>
                       <ol className="list-decimal pl-4 space-y-0.5 text-[#2D5A4E]">
                         <li>Go to <strong><a href="https://cloud.mongodb.com" target="_blank" rel="noreferrer" className="underline text-emerald-700">cloud.mongodb.com</a></strong> and log into your Atlas project.</li>
-                        <li>Click <strong>Security ➔ Network Access</strong> in the left sidebar.</li>
-                        <li>Click <strong>+ Add IP Address</strong> ➔ Choose <strong>"Allow Access from Anywhere" (0.0.0.0/0)</strong> ➔ Click <strong>Confirm</strong>.</li>
-                        <li>Return here and click <strong>"Push &amp; Sync to Atlas Cloud"</strong>!</li>
+                        <li>Click <strong>Security → Network Access</strong> in the left sidebar.</li>
+                        <li>Click <strong>+ Add IP Address</strong> → Choose <strong>&quot;Allow Access from Anywhere&quot; (0.0.0.0/0)</strong> → Click <strong>Confirm</strong>.</li>
+                        <li>Return here and click <strong>&quot;Push &amp; Sync to Atlas Cloud&quot;</strong>!</li>
                       </ol>
                     </div>
                   </div>
@@ -6864,24 +6976,24 @@ function ERPWorkspaceContent() {
                 {/* Persistent Data Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-1">
                   <div className="bg-[#F9FCFA] p-3.5 rounded-2xl border border-[#DCE8E0]">
-                    <div className="text-[11px] font-mono text-[#2D5A4E]">Enrolled Scholars</div>
+                    <div className="text-[11px] text-[#2D5A4E]">Enrolled Scholars</div>
                     <div className="text-xl font-bold font-display text-[#122A24] mt-0.5">{students.length} Students</div>
-                    <div className="text-[10px] text-emerald-700 mt-1 font-mono font-semibold">● 100% Persistent</div>
+                    <div className="text-[10px] text-emerald-700 mt-1 font-semibold">• 100% Persistent</div>
                   </div>
                   <div className="bg-[#F9FCFA] p-3.5 rounded-2xl border border-[#DCE8E0]">
-                    <div className="text-[11px] font-mono text-[#2D5A4E]">Faculty Roster</div>
+                    <div className="text-[11px] text-[#2D5A4E]">Faculty Roster</div>
                     <div className="text-xl font-bold font-display text-[#122A24] mt-0.5">{teachers.length} Faculty</div>
-                    <div className="text-[10px] text-emerald-700 mt-1 font-mono font-semibold">● 100% Persistent</div>
+                    <div className="text-[10px] text-emerald-700 mt-1 font-semibold">• 100% Persistent</div>
                   </div>
                   <div className="bg-[#F9FCFA] p-3.5 rounded-2xl border border-[#DCE8E0]">
-                    <div className="text-[11px] font-mono text-[#2D5A4E]">Class Divisions</div>
+                    <div className="text-[11px] text-[#2D5A4E]">Class Divisions</div>
                     <div className="text-xl font-bold font-display text-[#122A24] mt-0.5">{classes.length} Classes</div>
-                    <div className="text-[10px] text-emerald-700 mt-1 font-mono font-semibold">● 100% Persistent</div>
+                    <div className="text-[10px] text-emerald-700 mt-1 font-semibold">• 100% Persistent</div>
                   </div>
                   <div className="bg-[#F9FCFA] p-3.5 rounded-2xl border border-[#DCE8E0]">
-                    <div className="text-[11px] font-mono text-[#2D5A4E]">Fee Invoices</div>
+                    <div className="text-[11px] text-[#2D5A4E]">Fee Invoices</div>
                     <div className="text-xl font-bold font-display text-[#122A24] mt-0.5">{invoices.length} Invoices</div>
-                    <div className="text-[10px] text-emerald-700 mt-1 font-mono font-semibold">● 100% Persistent</div>
+                    <div className="text-[10px] text-emerald-700 mt-1 font-semibold">• 100% Persistent</div>
                   </div>
                 </div>
               </div>
@@ -6898,8 +7010,8 @@ function ERPWorkspaceContent() {
                     <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
                       My User Profile
                     </h1>
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                      ● Active Account
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                      Active Account
                     </span>
                   </div>
                   <p className="text-xs text-[#2D5A4E] mt-1">
@@ -7178,104 +7290,6 @@ function ERPWorkspaceContent() {
         </main>
       </div>
 
-      {/* MOBILE BOTTOM APP NAVIGATION BAR (NATIVE APP EXPERIENCE) */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#DCE8E0] px-1.5 py-1.5 flex justify-around items-center shadow-lg safe-bottom">
-        {/* Overview Tab */}
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl border-none cursor-pointer transition-all ${
-            activeTab === 'overview'
-              ? 'text-[#122A24] font-bold bg-[#EBF5EF]'
-              : 'text-slate-500 hover:text-[#122A24] bg-transparent'
-          }`}
-        >
-          <BarChart3 className={`h-4 w-4 ${activeTab === 'overview' ? 'text-[#122A24] stroke-[2.5]' : 'stroke-[1.8]'}`} />
-          <span className="text-[10px] mt-0.5 tracking-tight">Overview</span>
-        </button>
-
-        {/* Students Tab */}
-        <button
-          onClick={() => setActiveTab('students')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl border-none cursor-pointer relative transition-all ${
-            activeTab === 'students'
-              ? 'text-[#122A24] font-bold bg-[#EBF5EF]'
-              : 'text-slate-500 hover:text-[#122A24] bg-transparent'
-          }`}
-        >
-          <div className="relative">
-            <Users className={`h-4 w-4 ${activeTab === 'students' ? 'text-[#122A24] stroke-[2.5]' : 'stroke-[1.8]'}`} />
-            {students.length > 0 && (
-              <span className="absolute -top-1 -right-2.5 px-1 min-w-[14px] h-3.5 rounded-full bg-[#122A24] text-white text-[8.5px] font-mono font-bold flex items-center justify-center">
-                {students.length > 99 ? '99+' : students.length}
-              </span>
-            )}
-          </div>
-          <span className="text-[10px] mt-0.5 tracking-tight">Students</span>
-        </button>
-
-        {/* Faculty Tab */}
-        <button
-          onClick={() => setActiveTab('teachers')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl border-none cursor-pointer relative transition-all ${
-            activeTab === 'teachers'
-              ? 'text-[#122A24] font-bold bg-[#EBF5EF]'
-              : 'text-slate-500 hover:text-[#122A24] bg-transparent'
-          }`}
-        >
-          <div className="relative">
-            <GraduationCap className={`h-4 w-4 ${activeTab === 'teachers' ? 'text-[#122A24] stroke-[2.5]' : 'stroke-[1.8]'}`} />
-            {teachers.length > 0 && (
-              <span className="absolute -top-1 -right-2 px-1 min-w-[14px] h-3.5 rounded-full bg-[#122A24] text-white text-[8.5px] font-mono font-bold flex items-center justify-center">
-                {teachers.length}
-              </span>
-            )}
-          </div>
-          <span className="text-[10px] mt-0.5 tracking-tight">Faculty</span>
-        </button>
-
-        {/* Fees Tab */}
-        <button
-          onClick={() => setActiveTab('fees')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl border-none cursor-pointer relative transition-all ${
-            activeTab === 'fees'
-              ? 'text-[#122A24] font-bold bg-[#EBF5EF]'
-              : 'text-slate-500 hover:text-[#122A24] bg-transparent'
-          }`}
-        >
-          <div className="relative">
-            <CreditCard className={`h-4 w-4 ${activeTab === 'fees' ? 'text-[#122A24] stroke-[2.5]' : 'stroke-[1.8]'}`} />
-            {invoices.filter(i => i.status !== 'PAID').length > 0 && (
-              <span className="absolute -top-1 -right-2 px-1 min-w-[14px] h-3.5 rounded-full bg-rose-600 text-white text-[8.5px] font-mono font-bold flex items-center justify-center">
-                {invoices.filter(i => i.status !== 'PAID').length}
-              </span>
-            )}
-          </div>
-          <span className="text-[10px] mt-0.5 tracking-tight">Fees</span>
-        </button>
-
-        {/* Transport Tab */}
-        <button
-          onClick={() => setActiveTab('transport')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl border-none cursor-pointer relative transition-all ${
-            activeTab === 'transport'
-              ? 'text-[#122A24] font-bold bg-[#EBF5EF]'
-              : 'text-slate-500 hover:text-[#122A24] bg-transparent'
-          }`}
-        >
-          <Bus className={`h-4 w-4 ${activeTab === 'transport' ? 'text-[#122A24] stroke-[2.5]' : 'stroke-[1.8]'}`} />
-          <span className="text-[10px] mt-0.5 tracking-tight">Transport</span>
-        </button>
-
-        {/* More / Menu Drawer Toggle */}
-        <button
-          onClick={() => setMobileMenuOpen(true)}
-          className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl border-none cursor-pointer text-slate-500 hover:text-[#122A24] bg-transparent transition-all"
-        >
-          <Menu className="h-4 w-4 stroke-[1.8]" />
-          <span className="text-[10px] mt-0.5 tracking-tight">More</span>
-        </button>
-      </nav>
-
       {/* MODAL: COMPREHENSIVE CBSE STUDENT ENROLLMENT & EDIT (SINGLE-PAGE SECTION-WISE FORM) */}
       {showStudentModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -7328,14 +7342,24 @@ function ERPWorkspaceContent() {
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-[var(--ink-navy)] mb-1">Admission No (Login User ID) *</label>
+                    <label className="block font-semibold text-[var(--ink-navy)] mb-1">
+                      Admission No (Login User ID) *
+                      {editingStudentId && (
+                        <span className="ml-2 px-2 py-0.5 rounded text-[10px] bg-amber-50 text-amber-800 border border-amber-200 font-medium">Locked</span>
+                      )}
+                    </label>
                     <input
                       type="text"
                       required
                       value={studentForm.admission_no || ''}
-                      onChange={(e) => setStudentForm({ ...studentForm, admission_no: e.target.value })}
+                      onChange={(e) => !editingStudentId && setStudentForm({ ...studentForm, admission_no: e.target.value })}
                       placeholder="e.g. ADM-2026-0042"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-xs bg-white font-semibold text-[var(--red-pen)]"
+                      disabled={!!editingStudentId}
+                      className={`w-full px-3 py-2 border rounded-lg text-xs font-semibold text-[var(--red-pen)] ${
+                        editingStudentId
+                          ? 'border-slate-200 bg-slate-100 cursor-not-allowed opacity-70 select-none'
+                          : 'border-slate-300 bg-white'
+                      }`}
                     />
                   </div>
                   <div>
@@ -7346,7 +7370,7 @@ function ERPWorkspaceContent() {
                       value={studentForm.passcode || '123456'}
                       onChange={(e) => setStudentForm({ ...studentForm, passcode: e.target.value })}
                       placeholder="e.g. 123456"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-xs bg-white font-semibold text-emerald-800"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-semibold text-emerald-800"
                     />
                   </div>
                 </div>
@@ -7404,7 +7428,7 @@ function ERPWorkspaceContent() {
                       required
                       value={studentForm.section || 'A'}
                       onChange={(e) => setStudentForm({ ...studentForm, section: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-medium font-mono"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-medium"
                     >
                       <option value="A">Section A</option>
                       <option value="B">Section B</option>
@@ -7419,7 +7443,7 @@ function ERPWorkspaceContent() {
                       value={studentForm.roll_no || ''}
                       onChange={(e) => setStudentForm({ ...studentForm, roll_no: e.target.value })}
                       placeholder="101"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-xs bg-white"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white"
                     />
                   </div>
                 </div>
@@ -7469,10 +7493,10 @@ function ERPWorkspaceContent() {
                       onChange={(e) => setStudentForm({ ...studentForm, house: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-xs font-medium"
                     >
-                      <option value="Red House">🔴 Red House (Tagore)</option>
-                      <option value="Blue House">🔵 Blue House (Shivaji)</option>
-                      <option value="Green House">🟢 Green House (Ashoka)</option>
-                      <option value="Yellow House">🟡 Yellow House (Raman)</option>
+                      <option value="Red House">Red House (Tagore)</option>
+                      <option value="Blue House">Blue House (Shivaji)</option>
+                      <option value="Green House">Green House (Ashoka)</option>
+                      <option value="Yellow House">Yellow House (Raman)</option>
                     </select>
                   </div>
                   <div>
@@ -8304,7 +8328,7 @@ function ERPWorkspaceContent() {
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-[var(--ink-navy)] mb-1">Monthly Basic Pay Scale (₹)</label>
+                    <label className="block font-semibold text-[var(--ink-navy)] mb-1">Monthly Basic Pay Scale (â‚¹)</label>
                     <input
                       type="number"
                       value={teacherForm.basic_pay || 45000}
@@ -8414,7 +8438,7 @@ function ERPWorkspaceContent() {
                 </div>
                 <div>
                   <span className="text-slate-500 text-[10.5px]">Admission No:</span>
-                  <div className="font-mono font-bold text-[#122A24]">{viewInvoice.admission_no || 'N/A'}</div>
+                  <div className="font-bold text-[#122A24]">{viewInvoice.admission_no || 'N/A'}</div>
                 </div>
                 <div>
                   <span className="text-slate-500 text-[10.5px]">Mode:</span>
@@ -8424,7 +8448,7 @@ function ERPWorkspaceContent() {
 
               <div className="border border-slate-300 rounded-lg overflow-hidden">
                 <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-100 font-mono text-[10px] sm:text-[10.5px] uppercase text-slate-600 border-b border-slate-300">
+                  <thead className="bg-slate-100 text-[10.5px] uppercase text-slate-600 border-b border-slate-300 font-semibold">
                     <tr>
                       <th className="py-2 px-3">Description</th>
                       <th className="py-2 px-3 text-right">Amount (₹)</th>
@@ -8433,23 +8457,23 @@ function ERPWorkspaceContent() {
                   <tbody className="divide-y divide-slate-200">
                     <tr>
                       <td className="py-2 px-3">Tuition &amp; Instruction Fee</td>
-                      <td className="py-2 px-3 text-right font-mono">₹{(viewInvoice.tuition_fee || viewInvoice.amount).toLocaleString()}</td>
+                      <td className="py-2 px-3 text-right font-medium">₹{(viewInvoice.tuition_fee || viewInvoice.amount).toLocaleString()}</td>
                     </tr>
                     {Number(viewInvoice.transport_fee) > 0 && (
                       <tr>
                         <td className="py-2 px-3">Transport Charges</td>
-                        <td className="py-2 px-3 text-right font-mono">₹{Number(viewInvoice.transport_fee).toLocaleString()}</td>
+                        <td className="py-2 px-3 text-right font-medium">₹{Number(viewInvoice.transport_fee).toLocaleString()}</td>
                       </tr>
                     )}
                     {Number(viewInvoice.exam_fee) > 0 && (
                       <tr>
                         <td className="py-2 px-3">Exam &amp; Lab Fund</td>
-                        <td className="py-2 px-3 text-right font-mono">₹{Number(viewInvoice.exam_fee).toLocaleString()}</td>
+                        <td className="py-2 px-3 text-right font-medium">₹{Number(viewInvoice.exam_fee).toLocaleString()}</td>
                       </tr>
                     )}
                     <tr className="bg-slate-50 font-bold border-t-2 border-slate-800">
                       <td className="py-2 px-3 text-[#122A24]">TOTAL AMOUNT</td>
-                      <td className="py-2 px-3 text-right text-sm sm:text-base text-[#122A24] font-mono">
+                      <td className="py-2 px-3 text-right text-sm sm:text-base text-[#122A24] font-bold">
                         ₹{viewInvoice.amount.toLocaleString()}
                       </td>
                     </tr>
@@ -8459,12 +8483,12 @@ function ERPWorkspaceContent() {
 
               <div className="flex justify-between items-end pt-2 text-xs">
                 <div>
-                  <div className={`inline-block px-2.5 py-0.5 rounded-md border-2 font-mono font-bold uppercase tracking-wider text-[11px] ${
+                  <div className={`inline-block px-2.5 py-0.5 rounded-md border-2 font-bold uppercase tracking-wider text-[11px] ${
                     viewInvoice.status === 'PAID'
                       ? 'border-emerald-700 text-emerald-800 bg-emerald-50'
                       : 'border-amber-600 text-amber-700 bg-amber-50'
                   }`}>
-                    {viewInvoice.status === 'PAID' ? '✓ PAID' : '⏳ PENDING'}
+                    {viewInvoice.status === 'PAID' ? '✓ PAID' : 'PENDING'}
                   </div>
                 </div>
 
@@ -8595,7 +8619,7 @@ function ERPWorkspaceContent() {
                       type="number"
                       value={invoiceForm.tuition_fee}
                       onChange={(e) => setInvoiceForm({ ...invoiceForm, tuition_fee: Number(e.target.value) })}
-                      className="w-full px-2 py-1.5 border border-[#DCE8E0] rounded-lg font-mono text-xs bg-white"
+                      className="w-full px-2 py-1.5 border border-[#DCE8E0] rounded-lg text-xs bg-white"
                     />
                   </div>
                   <div>
@@ -8604,7 +8628,7 @@ function ERPWorkspaceContent() {
                       type="number"
                       value={invoiceForm.transport_fee}
                       onChange={(e) => setInvoiceForm({ ...invoiceForm, transport_fee: Number(e.target.value) })}
-                      className="w-full px-2 py-1.5 border border-[#DCE8E0] rounded-lg font-mono text-xs bg-white"
+                      className="w-full px-2 py-1.5 border border-[#DCE8E0] rounded-lg text-xs bg-white"
                     />
                   </div>
                   <div>
@@ -8613,11 +8637,11 @@ function ERPWorkspaceContent() {
                       type="number"
                       value={invoiceForm.exam_fee}
                       onChange={(e) => setInvoiceForm({ ...invoiceForm, exam_fee: Number(e.target.value) })}
-                      className="w-full px-2 py-1.5 border border-[#DCE8E0] rounded-lg font-mono text-xs bg-white"
+                      className="w-full px-2 py-1.5 border border-[#DCE8E0] rounded-lg text-xs bg-white"
                     />
                   </div>
                 </div>
-                <div className="text-right font-mono font-bold text-xs text-[#122A24] pt-1.5 border-t border-[#E8F0EA]">
+                <div className="text-right font-bold text-xs text-[#122A24] pt-1.5 border-t border-[#E8F0EA]">
                   Total Payable: ₹{(Number(invoiceForm.tuition_fee || 0) + Number(invoiceForm.transport_fee || 0) + Number(invoiceForm.exam_fee || 0)).toLocaleString()}
                 </div>
               </div>
@@ -8733,7 +8757,7 @@ function ERPWorkspaceContent() {
                         <option value="Class 12">Class 12</option>
                       </optgroup>
                       <optgroup label="Other / Custom">
-                        <option value="CUSTOM">✏️ Custom Class Name...</option>
+                        <option value="CUSTOM">âœï¸ Custom Class Name...</option>
                       </optgroup>
                     </select>
                   </div>
@@ -8785,7 +8809,7 @@ function ERPWorkspaceContent() {
                       .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
                       .map((t) => (
                         <option key={t.id} value={t.full_name}>
-                          {t.full_name} ({t.designation || 'Faculty'} — {t.department || t.subject_specialization || 'General'})
+                          {t.full_name} ({t.designation || 'Faculty'} - {t.department || t.subject_specialization || 'General'})
                         </option>
                       ))
                   ) : (
@@ -9059,7 +9083,7 @@ function ERPWorkspaceContent() {
                             {idx + 1}
                           </td>
                           <td className="py-3 px-3.5 font-mono font-bold text-[#1C443A]">
-                            {subj.code || '—'}
+                            {subj.code || '-'}
                           </td>
                           <td className="py-3 px-4 font-semibold text-[#122A24]">
                             <div className="flex items-center gap-1.5">
@@ -9078,7 +9102,7 @@ function ERPWorkspaceContent() {
                             {subj.max_marks || 100}
                           </td>
                           <td className="py-3 px-4 text-xs text-slate-700">
-                            {subj.assigned_teacher || manageSubjectsClass.class_teacher || '—'}
+                            {subj.assigned_teacher || manageSubjectsClass.class_teacher || '-'}
                           </td>
                           <td className="py-3 px-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
@@ -9396,7 +9420,7 @@ function ERPWorkspaceContent() {
                 <div>
                   <div className="flex items-center gap-2.5 flex-wrap">
                     <span className="w-8 h-8 rounded-full bg-[#EBF5EF] text-[#122A24] flex items-center justify-center font-bold text-sm border border-[#C5E2CF]">
-                      🎓
+                      ðŸŽ“
                     </span>
                     <h2 className="font-display font-bold text-xl sm:text-2xl text-[#122A24] tracking-tight">
                       CBSE Student Promotion &amp; Graduation Studio
@@ -9490,7 +9514,7 @@ function ERPWorkspaceContent() {
                     </label>
                     {isClass12 ? (
                       <div className="w-full px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl font-bold text-emerald-800 flex items-center gap-1.5">
-                        <span>🎓 Graduated / Alumni</span>
+                        <span>Graduated / Alumni</span>
                       </div>
                     ) : (
                       <select
@@ -9539,14 +9563,14 @@ function ERPWorkspaceContent() {
                         onClick={() => handleSetAllPromotionAction('GRADUATE')}
                         className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
                       >
-                        🎓 Set All: Graduate as Alumni
+                        Set All: Graduate as Alumni
                       </button>
                     )}
                     <button
                       onClick={() => handleSetAllPromotionAction('RETAIN')}
                       className="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-full text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
                     >
-                      🟡 Set All: Retain / Repeat
+                      Set All: Retain / Repeat
                     </button>
                   </div>
                 </div>
@@ -9756,7 +9780,7 @@ function ERPWorkspaceContent() {
             <div className="flex justify-between items-center pb-2 border-b border-[#E8F0EA]">
               <div className="flex items-center gap-2">
                 <span className="w-8 h-8 rounded-full bg-[#EBF5EF] text-[#122A24] flex items-center justify-center font-bold text-sm border border-[#C5E2CF]">
-                  🎓
+                  ðŸŽ“
                 </span>
                 <div>
                   <span className="font-mono text-[10px] text-emerald-700 font-bold uppercase tracking-wider">
@@ -9809,7 +9833,7 @@ function ERPWorkspaceContent() {
                         : 'bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-50'
                     }`}
                   >
-                    <span>🟢 Promote to Next Class</span>
+                    <span>Promote to Next Class</span>
                   </button>
                   <button
                     type="button"
@@ -9820,7 +9844,7 @@ function ERPWorkspaceContent() {
                         : 'bg-white text-amber-800 border-amber-200 hover:bg-amber-50'
                     }`}
                   >
-                    <span>🟡 Retain in Same Class</span>
+                    <span>Retain in Same Class</span>
                   </button>
                   <button
                     type="button"
@@ -9831,7 +9855,7 @@ function ERPWorkspaceContent() {
                         : 'bg-white text-indigo-800 border-indigo-200 hover:bg-indigo-50'
                     }`}
                   >
-                    <span>🎓 Graduate (Alumni)</span>
+                    <span>Graduate (Alumni)</span>
                   </button>
                   <button
                     type="button"
@@ -9842,7 +9866,7 @@ function ERPWorkspaceContent() {
                         : 'bg-white text-rose-800 border-rose-200 hover:bg-rose-50'
                     }`}
                   >
-                    <span>🔴 TC Issued / Left</span>
+                    <span>TC Issued / Left</span>
                   </button>
                 </div>
               </div>
@@ -9992,7 +10016,7 @@ function ERPWorkspaceContent() {
       )}
 
       {/* MOBILE BOTTOM NAVIGATION DOCK (ROLE ADAPTIVE FOR ADMIN, TEACHER, STUDENT, PARENT) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#DCE8E0] px-3 py-1.5 flex items-center justify-around shadow-lg">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#DCE8E0] px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.06)] select-none">
         <button
           onClick={() => setActiveTab('overview')}
           className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
@@ -10190,7 +10214,7 @@ function ERPWorkspaceContent() {
         }}
       />
 
-      {/* STUDENT 360° SUMMARY & SIBLINGS DOSSIER MODAL */}
+      {/* STUDENT 360Â° SUMMARY & SIBLINGS DOSSIER MODAL */}
       <StudentSummaryModal
         isOpen={!!summaryStudent}
         onClose={() => setSummaryStudent(null)}
@@ -10232,3 +10256,4 @@ export default function ERPWorkspacePage() {
     </Suspense>
   );
 }
+

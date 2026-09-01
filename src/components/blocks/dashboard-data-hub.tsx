@@ -347,12 +347,12 @@ export function DashboardDataHub({
 
             {/* Display Title */}
             <h1 className="font-display font-bold text-2xl sm:text-3xl lg:text-[32px] text-[#122A24] tracking-tight">
-              Download &amp; Upload Hub
+              Data Hub
             </h1>
 
             {/* Subtitle */}
             <p className="text-xs sm:text-sm text-[#2D5A4E] leading-relaxed">
-              Export comprehensive school records in CSV/Excel, download bulk import templates, or upload datasets to sync admissions, attendance, fees, marks, and faculty in seconds.
+              Export comprehensive school records, download bulk import templates, or upload datasets to sync admissions, attendance, fees, marks, and faculty in seconds.
             </p>
           </div>
 
@@ -411,7 +411,7 @@ export function DashboardDataHub({
                     <Users className="w-6 h-6" />
                   </div>
                   <span className="text-[10px] font-mono font-bold uppercase px-3 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 tracking-wider">
-                    CSV / EXCEL
+                    STUDENT DOSSIER
                   </span>
                 </div>
                 <h3 className="font-display font-bold text-lg text-[#122A24] mt-4 mb-2">
@@ -426,7 +426,7 @@ export function DashboardDataHub({
                 className="w-full py-3 px-4 rounded-2xl bg-[#F4F8F5] hover:bg-[#122A24] hover:text-white text-[#122A24] font-bold text-xs border border-[#DCE8E0] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs group-hover:border-[#122A24]"
               >
                 <Download className="w-4 h-4 text-emerald-600 group-hover:text-emerald-300" />
-                <span>Download CSV Report</span>
+                <span>Download Report</span>
               </button>
             </div>
 
@@ -453,7 +453,7 @@ export function DashboardDataHub({
                 className="w-full py-3 px-4 rounded-2xl bg-[#F4F8F5] hover:bg-[#122A24] hover:text-white text-[#122A24] font-bold text-xs border border-[#DCE8E0] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs group-hover:border-[#122A24]"
               >
                 <Download className="w-4 h-4 text-amber-600 group-hover:text-amber-300" />
-                <span>Download CSV Report</span>
+                <span>Download Report</span>
               </button>
             </div>
 
@@ -480,7 +480,7 @@ export function DashboardDataHub({
                 className="w-full py-3 px-4 rounded-2xl bg-[#F4F8F5] hover:bg-[#122A24] hover:text-white text-[#122A24] font-bold text-xs border border-[#DCE8E0] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs group-hover:border-[#122A24]"
               >
                 <Download className="w-4 h-4 text-purple-600 group-hover:text-purple-300" />
-                <span>Download CSV Report</span>
+                <span>Download Report</span>
               </button>
             </div>
 
@@ -507,7 +507,7 @@ export function DashboardDataHub({
                 className="w-full py-3 px-4 rounded-2xl bg-[#F4F8F5] hover:bg-[#122A24] hover:text-white text-[#122A24] font-bold text-xs border border-[#DCE8E0] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs group-hover:border-[#122A24]"
               >
                 <Download className="w-4 h-4 text-emerald-600 group-hover:text-emerald-300" />
-                <span>Download CSV Report</span>
+                <span>Download Report</span>
               </button>
             </div>
 
@@ -534,7 +534,7 @@ export function DashboardDataHub({
                 className="w-full py-3 px-4 rounded-2xl bg-[#F4F8F5] hover:bg-[#122A24] hover:text-white text-[#122A24] font-bold text-xs border border-[#DCE8E0] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs group-hover:border-[#122A24]"
               >
                 <Download className="w-4 h-4 text-blue-600 group-hover:text-blue-300" />
-                <span>Download CSV Report</span>
+                <span>Download Report</span>
               </button>
             </div>
 
@@ -561,7 +561,7 @@ export function DashboardDataHub({
                 className="w-full py-3 px-4 rounded-2xl bg-[#F4F8F5] hover:bg-[#122A24] hover:text-white text-[#122A24] font-bold text-xs border border-[#DCE8E0] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs group-hover:border-[#122A24]"
               >
                 <Download className="w-4 h-4 text-cyan-600 group-hover:text-cyan-300" />
-                <span>Download CSV Report</span>
+                <span>Download Report</span>
               </button>
             </div>
 
@@ -574,11 +574,11 @@ export function DashboardDataHub({
             <div className="flex items-center gap-2.5">
               <FileSpreadsheet className="w-5 h-5 text-emerald-800" />
               <h3 className="font-display font-bold text-xl text-[#122A24]">
-                Blank CSV Templates (For Bulk Upload)
+                Blank Templates (For Bulk Upload)
               </h3>
             </div>
             <p className="text-xs sm:text-sm text-slate-500 -mt-3">
-              Use these pre-formatted templates to prepare your Excel/CSV sheets before uploading into the Upload Hub.
+              Use these pre-formatted templates to prepare your dataset files before uploading into the Upload Hub.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -609,7 +609,7 @@ export function DashboardDataHub({
                     Marks Broadsheet Template
                   </h4>
                   <p className="text-[11px] text-slate-500 leading-relaxed mt-1">
-                    Pre-structured CSV with Roll No, Admission No, Subject Code, Theory &amp; Practical Marks.
+                    Pre-structured template with Roll No, Admission No, Subject Code, Theory &amp; Practical Marks.
                   </p>
                 </div>
                 <button
@@ -683,7 +683,7 @@ export function DashboardDataHub({
                 </p>
               </div>
               <span className="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full uppercase">
-                CSV / XLSX PARSER
+                DATASET PARSER
               </span>
             </div>
 
@@ -744,12 +744,12 @@ export function DashboardDataHub({
             </div>
 
             <h3 className="font-display font-bold text-lg sm:text-xl text-[#122A24]">
-              {uploadedFile ? uploadedFile.name : `Drop your ${uploadType.toUpperCase()} CSV file here`}
+              {uploadedFile ? uploadedFile.name : `Drop your ${uploadType.toUpperCase()} file here`}
             </h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 mb-5">
               {uploadedFile
                 ? `Size: ${(uploadedFile.size / 1024).toFixed(1)} KB • ${parsedRows.length} rows parsed and ready for verification.`
-                : `Upload comma-separated CSV with valid header columns. Max size 25MB.`}
+                : `Upload dataset file with valid header columns. Max size 25MB.`}
             </p>
 
             <div className="flex items-center justify-center gap-3">

@@ -57,6 +57,7 @@ module.exports = {
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
         display: ["Sora", "Inter", "system-ui", "sans-serif"],
+        mono: ["Consolas", "'Liberation Mono'", "'Courier New'", "monospace"],
       },
       borderRadius: {
         xl: "1rem",

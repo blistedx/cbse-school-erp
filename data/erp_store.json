@@ -23,7 +23,394 @@
       "logo": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImRwc0dyYWQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMTIyQTI0Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzFiM2YzNiIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPGNpcmNsZSBjeD0iMTAwIiBjeT0iMTAwIiByPSI5NSIgZmlsbD0idXJsKCNkcHNHcmFkKSIgc3Ryb2tlPSIjRDRBRjM3IiBzdHJva2Utd2lkdGg9IjYiLz4KICA8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjgwIiBmaWxsPSJub25lIiBzdHJva2U9IiNENEFGMzciIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWRhc2hhcnJheT0iNCw0Ii8+CiAgPHBhdGggZD0iTTEwMCAzNSBMMTIwIDc1IEwxNjUgNzUgTDEzMCAxMDAgTDE0NSAxNDUgTDEwMCAxMjAgTDU1IDE0NSBMNzAgMTAwIEwzNSA3NSBMODAgNzUgWiIgZmlsbD0iI0Q0QUYzNyIgb3BhY2l0eT0iMC4yNSIvPgogIDx0ZXh0IHg9IjEwMCIgeT0iOTAiIGZvbnQtc2l6ZT0iMzIiIGZvbnQtZmFtaWx5PSJHZW9yZ2lhLCBzZXJpZiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiNENEFGMzciIHRleHQtYW5jaG9yPSJtaWRkbGUiPkRQUzwvdGV4dD4KICA8dGV4dCB4PSIxMDAiIHk9IjExMiIgZm9udC1zaXplPSIxMSIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwgc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9IjgwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgbGV0dGVyLXNwYWNpbmc9IjEuNSI+U0VSVklDRSBCRUZPUkUgU0VMRjwvdGV4dD4KICA8dGV4dCB4PSIxMDAiIHk9IjEzMiIgZm9udC1zaXplPSIxMCIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwgc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iI2E3ZjNkMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+REVMSEkgUFVCTElDIFNDSE9PTDwvdGV4dD4KICA8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxNTUiIHI9IjQiIGZpbGw9IiNENEFGMzciLz4KPC9zdmc+",
       "logo_url": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImRwc0dyYWQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjMTIyQTI0Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzFiM2YzNiIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+CiAgPGNpcmNsZSBjeD0iMTAwIiBjeT0iMTAwIiByPSI5NSIgZmlsbD0idXJsKCNkcHNHcmFkKSIgc3Ryb2tlPSIjRDRBRjM3IiBzdHJva2Utd2lkdGg9IjYiLz4KICA8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9IjgwIiBmaWxsPSJub25lIiBzdHJva2U9IiNENEFGMzciIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWRhc2hhcnJheT0iNCw0Ii8+CiAgPHBhdGggZD0iTTEwMCAzNSBMMTIwIDc1IEwxNjUgNzUgTDEzMCAxMDAgTDE0NSAxNDUgTDEwMCAxMjAgTDU1IDE0NSBMNzAgMTAwIEwzNSA3NSBMODAgNzUgWiIgZmlsbD0iI0Q0QUYzNyIgb3BhY2l0eT0iMC4yNSIvPgogIDx0ZXh0IHg9IjEwMCIgeT0iOTAiIGZvbnQtc2l6ZT0iMzIiIGZvbnQtZmFtaWx5PSJHZW9yZ2lhLCBzZXJpZiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiNENEFGMzciIHRleHQtYW5jaG9yPSJtaWRkbGUiPkRQUzwvdGV4dD4KICA8dGV4dCB4PSIxMDAiIHk9IjExMiIgZm9udC1zaXplPSIxMSIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwgc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9IjgwMCIgZmlsbD0iI2ZmZmZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgbGV0dGVyLXNwYWNpbmc9IjEuNSI+U0VSVklDRSBCRUZPUkUgU0VMRjwvdGV4dD4KICA8dGV4dCB4PSIxMDAiIHk9IjEzMiIgZm9udC1zaXplPSIxMCIgZm9udC1mYW1pbHk9InN5c3RlbS11aSwgc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9IjYwMCIgZmlsbD0iI2E3ZjNkMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+REVMSEkgUFVCTElDIFNDSE9PTDwvdGV4dD4KICA8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxNTUiIHI9IjQiIGZpbGw9IiNENEFGMzciLz4KPC9zdmc+",
       "status": "ACTIVE",
-      "created_at": "2026-08-31T10:03:08.441Z"
+      "created_at": "2026-08-31T10:03:08.441Z",
+      "academic_session": "2026-27",
+      "role_permissions": {
+        "TEACHER": {
+          "classes": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": false,
+            "can_delete": false
+          },
+          "subjects": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": false,
+            "can_delete": false
+          },
+          "attendance": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": false
+          },
+          "exams": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": false
+          },
+          "homework": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": true
+          },
+          "approvals": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": false,
+            "can_delete": false
+          },
+          "notices": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": true,
+            "can_delete": false
+          },
+          "students": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "siblings": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "teachers": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "fees": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "reports": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "certificates": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "transport": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "broadcast": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "data_hub": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "profile": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": false,
+            "can_delete": false
+          }
+        },
+        "STUDENT": {
+          "classes": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "subjects": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "attendance": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "exams": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "homework": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": false
+          },
+          "approvals": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "notices": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "students": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "siblings": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "teachers": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "fees": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "reports": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "certificates": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "transport": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "broadcast": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "data_hub": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "profile": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": false,
+            "can_delete": false
+          }
+        },
+        "PARENT": {
+          "classes": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "subjects": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "attendance": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "exams": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "homework": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "approvals": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": false
+          },
+          "notices": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "students": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "siblings": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": false,
+            "can_delete": false
+          },
+          "teachers": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "fees": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": false
+          },
+          "reports": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "certificates": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "transport": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "broadcast": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "data_hub": {
+            "can_view": false,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "profile": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": false,
+            "can_delete": false
+          }
+        }
+      }
+    },
+    {
+      "id": "SCH-1788255333307",
+      "school_code": "DPS-2026",
+      "school_name": "Delhi Public School, Gomti Nagar",
+      "board": "CBSE",
+      "tagline": "Excellence in Education",
+      "address": "",
+      "city": "Lucknow",
+      "state": "Uttar Pradesh",
+      "pincode": "",
+      "phone": "",
+      "email": "",
+      "website": "",
+      "academic_session": "2026-2027",
+      "principal_name": "Dr. Rajiv Malhotra",
+      "admin_id": "DPS-1001",
+      "admin_name": "Dr. Rajiv Malhotra",
+      "admin_pin": "DPS001",
+      "currency_symbol": "₹",
+      "logo_url": "",
+      "status": "ACTIVE",
+      "created_at": "2026-09-01T09:35:33.307Z",
+      "updated_at": "2026-09-01T09:35:33.308Z"
+    },
+    {
+      "id": "SCH-1788255333359",
+      "school_code": "SXHS-2026",
+      "school_name": "St. Xavier High School",
+      "board": "CISCE (ICSE / ISC)",
+      "tagline": "Excellence in Education",
+      "address": "",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "pincode": "",
+      "phone": "",
+      "email": "",
+      "website": "",
+      "academic_session": "2026-2027",
+      "principal_name": "Fr. Anthony Fernandez",
+      "admin_id": "SXHS-1001",
+      "admin_name": "Fr. Anthony Fernandez",
+      "admin_pin": "SXHS001",
+      "currency_symbol": "₹",
+      "logo_url": "",
+      "status": "ACTIVE",
+      "created_at": "2026-09-01T09:35:33.359Z",
+      "updated_at": "2026-09-01T09:35:33.359Z"
+    },
+    {
+      "id": "SCH-1788255333388",
+      "school_code": "KV-2026",
+      "school_name": "Kendriya Vidyalaya No. 1",
+      "board": "CBSE",
+      "tagline": "Excellence in Education",
+      "address": "",
+      "city": "Delhi",
+      "state": "Delhi",
+      "pincode": "",
+      "phone": "",
+      "email": "",
+      "website": "",
+      "academic_session": "2026-2027",
+      "principal_name": "Mrs. Sunita Sharma",
+      "admin_id": "KV-1001",
+      "admin_name": "Mrs. Sunita Sharma",
+      "admin_pin": "KV001",
+      "currency_symbol": "₹",
+      "logo_url": "",
+      "status": "ACTIVE",
+      "created_at": "2026-09-01T09:35:33.388Z",
+      "updated_at": "2026-09-01T09:35:33.388Z"
     }
   ],
   "demo_requests": [],
@@ -52,6 +439,51 @@
       "status": "ACTIVE",
       "avatar": "",
       "photo": ""
+    },
+    {
+      "id": "DPS-1001",
+      "school_id": "SCH-1788255333307",
+      "username": "DPS-1001",
+      "email": "admin@dps-2026.edu",
+      "password_hash": "DPS001",
+      "role": "SCHOOL_ADMIN",
+      "name": "Dr. Rajiv Malhotra",
+      "gender": "Male",
+      "phone": "",
+      "avatar": "",
+      "bio": "Principal & Head Administrator at Delhi Public School, Gomti Nagar.",
+      "status": "ACTIVE",
+      "created_at": "2026-09-01T09:35:33.309Z"
+    },
+    {
+      "id": "SXHS-1001",
+      "school_id": "SCH-1788255333359",
+      "username": "SXHS-1001",
+      "email": "admin@sxhs-2026.edu",
+      "password_hash": "SXHS001",
+      "role": "SCHOOL_ADMIN",
+      "name": "Fr. Anthony Fernandez",
+      "gender": "Male",
+      "phone": "",
+      "avatar": "",
+      "bio": "Principal & Head Administrator at St. Xavier High School.",
+      "status": "ACTIVE",
+      "created_at": "2026-09-01T09:35:33.359Z"
+    },
+    {
+      "id": "KV-1001",
+      "school_id": "SCH-1788255333388",
+      "username": "KV-1001",
+      "email": "admin@kv-2026.edu",
+      "password_hash": "KV001",
+      "role": "SCHOOL_ADMIN",
+      "name": "Mrs. Sunita Sharma",
+      "gender": "Male",
+      "phone": "",
+      "avatar": "",
+      "bio": "Principal & Head Administrator at Kendriya Vidyalaya No. 1.",
+      "status": "ACTIVE",
+      "created_at": "2026-09-01T09:35:33.388Z"
     }
   ],
   "students": [
@@ -13158,6 +13590,69 @@
       "father_name": "Mr. Amit Nair",
       "mother_name": "Mrs. Neha Nair",
       "residential_address": "Plot 513, Vasant Kunj, New Delhi"
+    },
+    {
+      "id": "STU-1788255333415-14",
+      "school_id": "SCH-1788255333307",
+      "roll_no": "101",
+      "name": "Aarav Verma",
+      "class_id": "CLS-10A",
+      "class_name": "Class 10 - A",
+      "section": "A",
+      "gender": "Male",
+      "dob": "",
+      "blood_group": "O+",
+      "guardian_name": "Vikas Verma",
+      "guardian_phone": "+91 98111 00001",
+      "guardian_email": "",
+      "address": "",
+      "admission_date": "2026-09-01",
+      "security_pin": "123456",
+      "status": "ACTIVE",
+      "created_at": "2026-09-01T09:35:33.415Z",
+      "academic_session": "2026-27"
+    },
+    {
+      "id": "STU-1788255333434-21",
+      "school_id": "SCH-1788255333307",
+      "roll_no": "102",
+      "name": "Riya Gupta",
+      "class_id": "CLS-10A",
+      "class_name": "Class 10 - A",
+      "section": "A",
+      "gender": "Male",
+      "dob": "",
+      "blood_group": "O+",
+      "guardian_name": "Amit Gupta",
+      "guardian_phone": "+91 98111 00002",
+      "guardian_email": "",
+      "address": "",
+      "admission_date": "2026-09-01",
+      "security_pin": "123456",
+      "status": "ACTIVE",
+      "created_at": "2026-09-01T09:35:33.434Z",
+      "academic_session": "2026-27"
+    },
+    {
+      "id": "STU-1788255333448-27",
+      "school_id": "SCH-1788255333359",
+      "roll_no": "201",
+      "name": "Rohan D'Souza",
+      "class_id": "CLS-10A",
+      "class_name": "Class 9 - ICSE",
+      "section": "A",
+      "gender": "Male",
+      "dob": "",
+      "blood_group": "O+",
+      "guardian_name": "Michael D'Souza",
+      "guardian_phone": "+91 98222 00001",
+      "guardian_email": "",
+      "address": "",
+      "admission_date": "2026-09-01",
+      "security_pin": "123456",
+      "status": "ACTIVE",
+      "created_at": "2026-09-01T09:35:33.448Z",
+      "academic_session": "2026-27"
     }
   ],
   "teachers": [
@@ -23474,6 +23969,21 @@
   ],
   "attendance": [
     {
+      "id": "ATT-1788255333465-46",
+      "school_id": "SCH-1788255333307",
+      "member_id": "STU-1788255333415-14",
+      "member_name": "Aarav Verma",
+      "member_type": "STUDENT",
+      "class_id": "",
+      "date": "2026-09-01",
+      "checkin_time": "3:05:33 pm",
+      "checkout_time": "",
+      "status": "PRESENT",
+      "remarks": "",
+      "created_at": "2026-09-01T09:35:33.533Z",
+      "academic_session": "2026-27"
+    },
+    {
       "school_id": "DPS2026",
       "academic_session": "2026-27",
       "date": "2026-09-01",
@@ -23849,6 +24359,23 @@
     }
   ],
   "fee_invoices": [
+    {
+      "id": "INV-1788255333546",
+      "school_id": "SCH-1788255333307",
+      "student_id": "STU-1788255333415-14",
+      "student_name": "Aarav Verma",
+      "class_name": "",
+      "fee_type": "Term 1 Tuition",
+      "amount": 15000,
+      "paid_amount": 15000,
+      "status": "PAID",
+      "due_date": "",
+      "paid_date": "",
+      "payment_mode": "",
+      "receipt_no": "",
+      "created_at": "2026-09-01T09:35:33.546Z",
+      "academic_session": "2026-27"
+    },
     {
       "id": "INV-2026-0001",
       "school_id": "DPS2026",
@@ -34234,126 +34761,5 @@
       "created_at": "2026-08-31T11:27:32.462Z"
     }
   ],
-  "holidays": [
-    {
-      "id": "HOL-1",
-      "school_id": "DPS2026",
-      "academic_session": "2026-27",
-      "title": "Good Friday",
-      "start_date": "2026-04-03",
-      "end_date": "2026-04-03",
-      "category": "NATIONAL",
-      "reason": "National Gazetted Holiday",
-      "applicable_to": "ALL",
-      "declared_by": "Principal Office"
-    },
-    {
-      "id": "HOL-2",
-      "school_id": "DPS2026",
-      "academic_session": "2026-27",
-      "title": "Dr. B.R. Ambedkar Jayanti",
-      "start_date": "2026-04-14",
-      "end_date": "2026-04-14",
-      "category": "NATIONAL",
-      "reason": "Ambedkar Jayanti",
-      "applicable_to": "ALL",
-      "declared_by": "Principal Office"
-    },
-    {
-      "id": "HOL-3",
-      "school_id": "DPS2026",
-      "academic_session": "2026-27",
-      "title": "Summer Vacation",
-      "start_date": "2026-05-18",
-      "end_date": "2026-06-28",
-      "category": "VACATION",
-      "reason": "CBSE Annual Summer Break",
-      "applicable_to": "ALL",
-      "declared_by": "Principal Office"
-    },
-    {
-      "id": "HOL-4",
-      "school_id": "DPS2026",
-      "academic_session": "2026-27",
-      "title": "Independence Day",
-      "start_date": "2026-08-15",
-      "end_date": "2026-08-15",
-      "category": "NATIONAL",
-      "reason": "79th Independence Day",
-      "applicable_to": "ALL",
-      "declared_by": "Principal Office"
-    },
-    {
-      "id": "HOL-5",
-      "school_id": "DPS2026",
-      "academic_session": "2026-27",
-      "title": "Mahatma Gandhi Jayanti",
-      "start_date": "2026-10-02",
-      "end_date": "2026-10-02",
-      "category": "NATIONAL",
-      "reason": "Gandhi Jayanti",
-      "applicable_to": "ALL",
-      "declared_by": "Principal Office"
-    },
-    {
-      "id": "HOL-6",
-      "school_id": "DPS2026",
-      "academic_session": "2026-27",
-      "title": "Dussehra & Autumn Break",
-      "start_date": "2026-10-19",
-      "end_date": "2026-10-24",
-      "category": "VACATION",
-      "reason": "Autumn Break",
-      "applicable_to": "ALL",
-      "declared_by": "Principal Office"
-    },
-    {
-      "id": "HOL-7",
-      "school_id": "DPS2026",
-      "academic_session": "2026-27",
-      "title": "Diwali Festive Holidays",
-      "start_date": "2026-11-07",
-      "end_date": "2026-11-13",
-      "category": "FESTIVAL",
-      "reason": "Deepavali Holidays",
-      "applicable_to": "ALL",
-      "declared_by": "Principal Office"
-    },
-    {
-      "id": "HOL-8",
-      "school_id": "DPS2026",
-      "academic_session": "2026-27",
-      "title": "Winter Vacation",
-      "start_date": "2026-12-28",
-      "end_date": "2027-01-05",
-      "category": "VACATION",
-      "reason": "Winter Break",
-      "applicable_to": "ALL",
-      "declared_by": "Principal Office"
-    },
-    {
-      "id": "HOL-9",
-      "school_id": "DPS2026",
-      "academic_session": "2026-27",
-      "title": "Republic Day",
-      "start_date": "2027-01-26",
-      "end_date": "2027-01-26",
-      "category": "NATIONAL",
-      "reason": "78th Republic Day Celebration",
-      "applicable_to": "ALL",
-      "declared_by": "Principal Office"
-    },
-    {
-      "id": "HOL-10",
-      "school_id": "DPS2026",
-      "academic_session": "2026-27",
-      "title": "Holi Festival",
-      "start_date": "2027-03-22",
-      "end_date": "2027-03-23",
-      "category": "FESTIVAL",
-      "reason": "Holi Holiday",
-      "applicable_to": "ALL",
-      "declared_by": "Principal Office"
-    }
-  ]
+  "holidays": []
 }

@@ -54,13 +54,6 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: 'Mobile Native App',
-        short_name: 'Mobile App',
-        description: 'Open the Native Mobile Experience',
-        url: '/mobile',
-        icons: [{ src: '/icons/icon.svg', sizes: 'any' }],
-      },
-      {
         name: 'School Dashboard',
         short_name: 'Dashboard',
         description: 'Open the School Management Dashboard',

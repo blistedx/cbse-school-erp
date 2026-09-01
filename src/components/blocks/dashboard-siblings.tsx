@@ -77,60 +77,60 @@ export function DashboardSiblings({
   }, [siblingGroups, searchQuery, filterMode]);
 
   return (
-    <div className="space-y-6">
-      {/* 4 Summary Stat KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] space-y-1.5 tile-hover-card">
-          <div className="text-[11px] font-mono font-bold text-[#2D5A4E] uppercase flex items-center justify-between">
-            <span>Verified Family Units</span>
-            <HeartHandshake className="w-4 h-4 text-purple-700" />
+    <div className="space-y-4 sm:space-y-6">
+      {/* 4 Summary Stat KPI Cards (2x2 on mobile, 4 across on desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+        <div className="p-3 sm:p-5 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] space-y-1 tile-hover-card">
+          <div className="text-[10px] sm:text-[11px] font-mono font-bold text-[#2D5A4E] uppercase flex items-center justify-between">
+            <span className="truncate">Family Units</span>
+            <HeartHandshake className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-700 shrink-0" />
           </div>
-          <div className="text-2xl sm:text-3xl font-display font-bold text-[#122A24]">
+          <div className="text-xl sm:text-3xl font-display font-bold text-[#122A24]">
             {siblingGroups.length}
           </div>
-          <div className="text-[11px] font-mono text-emerald-700">
-            Active Household Profiles
+          <div className="text-[9.5px] sm:text-[11px] font-mono text-emerald-700 truncate">
+            Active Households
           </div>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl bg-purple-50/50 border border-purple-200/80 space-y-1.5 tile-hover-card">
-          <div className="text-[11px] font-mono font-bold text-purple-900 uppercase flex items-center justify-between">
-            <span>Co-Enrolled Scholars</span>
-            <Users className="w-4 h-4 text-purple-700" />
+        <div className="p-3 sm:p-5 rounded-2xl bg-purple-50/50 border border-purple-200/80 space-y-1 tile-hover-card">
+          <div className="text-[10px] sm:text-[11px] font-mono font-bold text-purple-900 uppercase flex items-center justify-between">
+            <span className="truncate">Co-Enrolled</span>
+            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-700 shrink-0" />
           </div>
-          <div className="text-2xl sm:text-3xl font-display font-bold text-purple-950">
+          <div className="text-xl sm:text-3xl font-display font-bold text-purple-950">
             {totalSiblingStudents}
           </div>
-          <div className="text-[11px] font-mono text-purple-800">
-            Multi-Child Sibling Enrolments
+          <div className="text-[9.5px] sm:text-[11px] font-mono text-purple-800 truncate">
+            Sibling Scholars
           </div>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-1.5 tile-hover-card">
-          <div className="text-[11px] font-mono font-bold text-emerald-900 uppercase flex items-center justify-between">
-            <span>Joint Fee Compliance</span>
-            <CreditCard className="w-4 h-4 text-emerald-700" />
+        <div className="p-3 sm:p-5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-1 tile-hover-card">
+          <div className="text-[10px] sm:text-[11px] font-mono font-bold text-emerald-900 uppercase flex items-center justify-between">
+            <span className="truncate">Fee Compliance</span>
+            <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-700 shrink-0" />
           </div>
-          <div className="text-2xl sm:text-3xl font-display font-bold text-emerald-950">
+          <div className="text-xl sm:text-3xl font-display font-bold text-emerald-950">
             {siblingGroups.length > 0
               ? Math.round((siblingGroups.filter(g => g.allFeesPaid).length / siblingGroups.length) * 100)
               : 100}%
           </div>
-          <div className="text-[11px] font-mono text-emerald-800">
-            {siblingGroups.filter(g => g.allFeesPaid).length} Families Fully Settled
+          <div className="text-[9.5px] sm:text-[11px] font-mono text-emerald-800 truncate">
+            {siblingGroups.filter(g => g.allFeesPaid).length} Fully Settled
           </div>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] space-y-1.5 tile-hover-card">
-          <div className="text-[11px] font-mono font-bold text-[#2D5A4E] uppercase flex items-center justify-between">
-            <span>CBSE Parent Linkage</span>
-            <ShieldCheck className="w-4 h-4 text-emerald-700" />
+        <div className="p-3 sm:p-5 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] space-y-1 tile-hover-card">
+          <div className="text-[10px] sm:text-[11px] font-mono font-bold text-[#2D5A4E] uppercase flex items-center justify-between">
+            <span className="truncate">Parent Linkage</span>
+            <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-700 shrink-0" />
           </div>
-          <div className="text-2xl sm:text-3xl font-display font-bold text-[#122A24]">
+          <div className="text-xl sm:text-3xl font-display font-bold text-[#122A24]">
             100%
           </div>
-          <div className="text-[11px] font-mono text-emerald-700">
-            Auto-Indexed via Parent Biometrics
+          <div className="text-[9.5px] sm:text-[11px] font-mono text-emerald-700 truncate">
+            Auto-Indexed
           </div>
         </div>
       </div>

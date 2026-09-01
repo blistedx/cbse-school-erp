@@ -443,10 +443,10 @@ export function DashboardOverview({
               <button
                 onClick={() => setActiveTab('data_hub')}
                 className="whitespace-nowrap px-4 py-2.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-bold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
-                title="Open Download & Upload Data Integration Hub"
+                title="Open Data Hub"
               >
                 <FolderDown className="w-3.5 h-3.5 text-amber-700" />
-                <span>Download &amp; Upload Hub</span>
+                <span>Data Hub</span>
               </button>
               {setShowAddNotice && (
                 <button
