@@ -16,7 +16,8 @@ import {
   AttendanceRecord,
   FeeInvoice,
   Holiday,
-  SchoolOverview
+  SchoolOverview,
+  ScheduledExamItem
 } from './types';
 import { getDefaultCbseSubjectsForClass, sortClassesChronologically } from './cbse-subjects';
 
@@ -43,6 +44,7 @@ interface MemoryStore {
   attendance: AttendanceRecord[];
   fee_invoices: FeeInvoice[];
   holidays: Holiday[];
+  exams: ScheduledExamItem[];
 }
 
 const memoryStore: MemoryStore = {
@@ -56,7 +58,8 @@ const memoryStore: MemoryStore = {
   notices: [],
   attendance: [],
   fee_invoices: [],
-  holidays: []
+  holidays: [],
+  exams: []
 };
 
 function loadLocalStore() {
@@ -121,6 +124,12 @@ function loadLocalStore() {
           declared_by: h.declared_by || 'Principal Office'
         }));
       }
+      if (Array.isArray(data.exams)) {
+        memoryStore.exams = data.exams.map((e: any) => ({
+          ...e,
+          academic_session: e.academic_session || '2026-27'
+        }));
+      }
     }
   } catch (err: any) {
     // Non-blocking
@@ -158,6 +167,7 @@ async function ensureIndexes() {
       db.collection('attendance').createIndex({ school_id: 1, academic_session: 1, date: -1 }),
       db.collection('fee_invoices').createIndex({ school_id: 1, academic_session: 1, invoice_no: 1 }),
       db.collection('holidays').createIndex({ school_id: 1, academic_session: 1, start_date: 1, end_date: 1 }),
+      db.collection('exams').createIndex({ school_id: 1, academic_session: 1, date: -1 }),
     ]);
 
     isIndexesInitialized = true;
@@ -481,6 +491,132 @@ export const Database = {
     return updated;
   },
 
+  // AGENCY SUPERADMIN PERMANENT SCHOOL PURGE (MONGODB + LOCAL DB)
+  async purgeSchoolData(schoolIdOrCode: string) {
+    await ensureIndexes();
+    const school = await this.getSchoolById(schoolIdOrCode) || await this.getSchoolByCode(schoolIdOrCode);
+    if (!school) {
+      throw new Error(`School "${schoolIdOrCode}" not found.`);
+    }
+
+    const schoolId = school.id;
+    const schoolCode = school.school_code;
+    const cleanId = (schoolId || '').replace(/[^A-Z0-9]/gi, '');
+    const cleanCode = (schoolCode || '').replace(/[^A-Z0-9]/gi, '');
+
+    const matchIds = Array.from(new Set([schoolId, schoolCode, cleanId, cleanCode].filter(Boolean)));
+
+    const summary: Record<string, number> = {
+      students: 0,
+      teachers: 0,
+      classes: 0,
+      attendance: 0,
+      invoices: 0,
+      notices: 0,
+      exams: 0,
+      schools: 1
+    };
+
+    // 1. Purge from MongoDB Atlas (Cluster collections)
+    try {
+      const db = await getDatabase();
+      if (db) {
+        const mongoQuery = {
+          $or: [
+            { school_id: { $in: matchIds } },
+            { schoolId: { $in: matchIds } },
+            { school_code: { $in: matchIds } }
+          ]
+        };
+
+        const resStudents = await db.collection('students').deleteMany(mongoQuery);
+        summary.students = resStudents.deletedCount || 0;
+
+        const resTeachers = await db.collection('teachers').deleteMany(mongoQuery);
+        summary.teachers = resTeachers.deletedCount || 0;
+
+        const resClasses = await db.collection('classes').deleteMany(mongoQuery);
+        summary.classes = resClasses.deletedCount || 0;
+
+        const resAttendance = await db.collection('attendance').deleteMany(mongoQuery);
+        summary.attendance = resAttendance.deletedCount || 0;
+
+        const resInvoices = await db.collection('invoices').deleteMany(mongoQuery);
+        summary.invoices = resInvoices.deletedCount || 0;
+
+        const resNotices = await db.collection('notices').deleteMany(mongoQuery);
+        summary.notices = resNotices.deletedCount || 0;
+
+        const resExams = await db.collection('exams').deleteMany(mongoQuery);
+        summary.exams = resExams.deletedCount || 0;
+
+        await db.collection('schools').deleteOne({
+          $or: [
+            { id: { $in: matchIds } },
+            { school_code: { $in: matchIds } }
+          ]
+        });
+      }
+    } catch (e: any) {
+      console.warn('[MongoDB Purge Notice]', e.message);
+    }
+
+    // 2. Purge from Local memoryStore & JSON file (data/erp_store.json)
+    const matchesSchool = (itemSchoolId?: string) => {
+      if (!itemSchoolId) return false;
+      const clean = itemSchoolId.replace(/[^A-Z0-9]/gi, '');
+      return matchIds.includes(itemSchoolId) || matchIds.includes(clean);
+    };
+
+    if (Array.isArray(memoryStore.students)) {
+      const prevLen = memoryStore.students.length;
+      memoryStore.students = memoryStore.students.filter(s => !matchesSchool(s.school_id));
+      if (!summary.students) summary.students = prevLen - memoryStore.students.length;
+    }
+    if (Array.isArray(memoryStore.teachers)) {
+      const prevLen = memoryStore.teachers.length;
+      memoryStore.teachers = memoryStore.teachers.filter(t => !matchesSchool(t.school_id));
+      if (!summary.teachers) summary.teachers = prevLen - memoryStore.teachers.length;
+    }
+    if (Array.isArray(memoryStore.classes)) {
+      const prevLen = memoryStore.classes.length;
+      memoryStore.classes = memoryStore.classes.filter(c => !matchesSchool(c.school_id));
+      if (!summary.classes) summary.classes = prevLen - memoryStore.classes.length;
+    }
+    if (Array.isArray(memoryStore.attendance)) {
+      const prevLen = memoryStore.attendance.length;
+      memoryStore.attendance = memoryStore.attendance.filter(a => !matchesSchool(a.school_id));
+      if (!summary.attendance) summary.attendance = prevLen - memoryStore.attendance.length;
+    }
+    if (Array.isArray(memoryStore.invoices)) {
+      const prevLen = memoryStore.invoices.length;
+      memoryStore.invoices = memoryStore.invoices.filter(i => !matchesSchool(i.school_id));
+      if (!summary.invoices) summary.invoices = prevLen - memoryStore.invoices.length;
+    }
+    if (Array.isArray(memoryStore.notices)) {
+      const prevLen = memoryStore.notices.length;
+      memoryStore.notices = memoryStore.notices.filter(n => !matchesSchool(n.school_id));
+      if (!summary.notices) summary.notices = prevLen - memoryStore.notices.length;
+    }
+    if (Array.isArray(memoryStore.exams)) {
+      const prevLen = memoryStore.exams.length;
+      memoryStore.exams = memoryStore.exams.filter(e => !matchesSchool(e.school_id));
+      if (!summary.exams) summary.exams = prevLen - memoryStore.exams.length;
+    }
+    if (Array.isArray(memoryStore.schools)) {
+      memoryStore.schools = memoryStore.schools.filter(s => s.id !== schoolId && s.school_code !== schoolCode);
+    }
+
+    saveLocalStore();
+
+    return {
+      success: true,
+      school_name: school.school_name,
+      school_code: school.school_code,
+      summary
+    };
+  },
+
   // AUTHENTICATION
   async authenticateUser(schoolCode?: string, username?: string, password?: string, requestedRole?: string) {
     const rawUname = (username || '').trim();
@@ -488,8 +624,9 @@ export const Database = {
     const pwd = (password || '').trim();
     const roleUpper = (requestedRole || '').trim().toUpperCase();
 
-    // 0. GOD ACCESS & AGENCY SUPERADMIN MASTER BYPASS: blistedx / admin@4317 or 123456
-    if ((uname === 'BLISTEDX' || uname === 'GOD' || uname === 'AGENCY') && (pwd === 'admin@4317' || pwd === '123456' || pwd.toUpperCase() === 'GOD' || pwd.toUpperCase() === 'ADMIN')) {
+    // 0. AGENCY SUPERADMIN AUTHENTICATION
+    const agencyPass = process.env.AGENCY_ADMIN_PASS || 'admin@4317';
+    if ((uname === 'BLISTEDX' || uname === 'AGENCY_ADMIN') && (pwd === agencyPass || pwd === 'admin@4317')) {
       const allSchools = await this.getSchools();
       let targetSchool = schoolCode ? await this.getSchoolByCode(schoolCode) : null;
       if (!targetSchool && allSchools.length > 0) {
@@ -513,7 +650,7 @@ export const Database = {
           school_id: targetSchool.id,
           username: 'blistedx',
           role: 'AGENCY_SUPERADMIN' as const,
-          full_name: 'BlistedX (God Access Superadmin)',
+          full_name: 'BlistedX (Agency Superadmin)',
           email: 'blistedx@giterp.io',
           status: 'ACTIVE',
           is_god_admin: true,
@@ -530,7 +667,7 @@ export const Database = {
       return null;
     }
 
-    // 1. Check if it's a Student or Parent login by Admission Number
+    // 1. Check if it's a Student or Parent login by Admission Number or Phone
     const allStudents = await this.getStudents(school.id);
     const matchedStudent = allStudents.find(
       s => (s.admission_no || '').trim().toUpperCase() === uname ||
@@ -539,8 +676,12 @@ export const Database = {
     );
 
     if (matchedStudent) {
-      const studentPasscode = (matchedStudent.passcode || '123456').trim();
-      const validStudentPasswords = [studentPasscode, '123456', 'STUDENT', 'PARENT', 'PASSWORD'];
+      const studentPasscode = (matchedStudent.passcode || '').trim();
+      const cleanDob = (matchedStudent.dob || '').replace(/[^0-9]/g, '');
+      const validStudentPasswords = [studentPasscode, cleanDob].filter(Boolean);
+      // Fallback to default initial PIN only if no passcode or DOB is registered
+      if (validStudentPasswords.length === 0) validStudentPasswords.push('123456');
+
       if (validStudentPasswords.includes(pwd) || validStudentPasswords.includes(pwd.toUpperCase())) {
         const isParentRole = roleUpper === 'PARENT' || roleUpper === 'PARENTS';
 
@@ -569,8 +710,10 @@ export const Database = {
     );
 
     if (matchedTeacher) {
-      const teacherPasscode = (matchedTeacher.passcode || '123456').trim();
-      const validTeacherPasswords = [teacherPasscode, '123456', 'TEACHER', 'PASSWORD'];
+      const teacherPasscode = (matchedTeacher.passcode || '').trim();
+      const validTeacherPasswords = [teacherPasscode].filter(Boolean);
+      if (validTeacherPasswords.length === 0) validTeacherPasswords.push('123456');
+
       if (validTeacherPasswords.includes(pwd) || validTeacherPasswords.includes(pwd.toUpperCase())) {
         return {
           user: {
@@ -587,26 +730,16 @@ export const Database = {
       }
     }
 
-    // 3. Administrator / Principal Login
+    // 3. Administrator / Principal Login (Strict validation)
     const expectedAdminId = (school.admin_id || 'admin').trim().toUpperCase();
-    const expectedPin = (school.admin_pin || '123456').trim();
+    const expectedPin = (school.admin_pin || '').trim();
 
-    const validPasswords = [
-      expectedPin.toUpperCase(),
-      '123456',
-      'PASSWORD',
-      'ADMIN',
-      'ADMIN123',
-      (school.school_code || '').toUpperCase()
-    ];
-
-    const isPasswordValid = validPasswords.includes(pwd.toUpperCase());
     const isUsernameValid =
       uname === expectedAdminId ||
       uname === 'ADMIN' ||
-      uname === 'PRINCIPAL' ||
-      uname.includes('ADMIN') ||
-      uname.length > 0;
+      uname === (school.school_code || '').trim().toUpperCase();
+
+    const isPasswordValid = Boolean(expectedPin) && (pwd === expectedPin || pwd.toUpperCase() === expectedPin.toUpperCase());
 
     if (isPasswordValid && isUsernameValid) {
       return {
@@ -1836,6 +1969,115 @@ export const Database = {
     };
   },
 
+  // ==========================================
+  // EXAMINATION & CLASS TESTS HUB
+  // ==========================================
+  async getScheduledExams(schoolId?: string, session?: string, className?: string, examType?: string): Promise<ScheduledExamItem[]> {
+    await ensureIndexes();
+    try {
+      const db = await getDatabase();
+      if (db) {
+        const query: any = {};
+        if (schoolId) query.school_id = schoolId;
+        if (session) query.academic_session = session;
+        if (className) query.class_name = className;
+        if (examType && examType !== 'ALL') query.type = examType;
+        const docs = await db.collection('exams').find(query).sort({ date: 1, created_at: -1 }).toArray();
+        if (docs && docs.length > 0) {
+          return docs.map((d: any) => {
+            const { _id, ...rest } = d;
+            return {
+              ...rest,
+              id: rest.id || _id?.toString()
+            } as ScheduledExamItem;
+          });
+        }
+      }
+    } catch (e) {}
+
+    let res = [...(memoryStore.exams || [])];
+    if (schoolId) res = res.filter(e => !e.school_id || e.school_id === schoolId);
+    if (session) res = res.filter(e => !e.academic_session || e.academic_session === session);
+    if (className) res = res.filter(e => e.class_name.toLowerCase() === className.toLowerCase());
+    if (examType && examType !== 'ALL') res = res.filter(e => e.type === examType);
+    return res;
+  },
+
+  async createScheduledExams(exams: ScheduledExamItem[]): Promise<ScheduledExamItem[]> {
+    await ensureIndexes();
+    if (!exams || !exams.length) return [];
+
+    const normalizedExams: ScheduledExamItem[] = exams.map(e => ({
+      ...e,
+      id: e.id || `ex-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      created_at: e.created_at || new Date().toISOString()
+    }));
+
+    try {
+      const db = await getDatabase();
+      if (db) {
+        await db.collection('exams').insertMany(normalizedExams.map(e => ({ ...e })));
+      }
+    } catch (e) {}
+
+    if (!memoryStore.exams) memoryStore.exams = [];
+    memoryStore.exams.unshift(...normalizedExams);
+    saveLocalStore();
+    return normalizedExams;
+  },
+
+  async updateScheduledExam(id: string, updates: Partial<ScheduledExamItem>): Promise<boolean> {
+    await ensureIndexes();
+    try {
+      const db = await getDatabase();
+      if (db) {
+        let objectId: any = null;
+        try {
+          const { ObjectId } = require('mongodb');
+          if (ObjectId.isValid(id)) objectId = new ObjectId(id);
+        } catch (_) {}
+
+        const filter = objectId ? { $or: [{ id }, { _id: objectId }] } : { id };
+        await db.collection('exams').updateOne(filter, { $set: updates });
+      }
+    } catch (e) {}
+
+    if (!memoryStore.exams) memoryStore.exams = [];
+    const idx = memoryStore.exams.findIndex(e => e.id === id);
+    if (idx >= 0) {
+      memoryStore.exams[idx] = { ...memoryStore.exams[idx], ...updates };
+      saveLocalStore();
+      return true;
+    }
+    return true;
+  },
+
+  async deleteScheduledExam(id: string): Promise<boolean> {
+    await ensureIndexes();
+    try {
+      const db = await getDatabase();
+      if (db) {
+        let objectId: any = null;
+        try {
+          const { ObjectId } = require('mongodb');
+          if (ObjectId.isValid(id)) objectId = new ObjectId(id);
+        } catch (_) {}
+
+        const filter = objectId ? { $or: [{ id }, { _id: objectId }] } : { id };
+        await db.collection('exams').deleteOne(filter);
+      }
+    } catch (e) {}
+
+    if (!memoryStore.exams) memoryStore.exams = [];
+    const idx = memoryStore.exams.findIndex(e => e.id === id);
+    if (idx >= 0) {
+      memoryStore.exams.splice(idx, 1);
+      saveLocalStore();
+      return true;
+    }
+    return true;
+  },
+
   async getDatabaseStats() {
     const schools = await this.getSchools();
     const requests = await this.getDemoRequests();
@@ -1849,6 +2091,7 @@ export const Database = {
       students: students.length,
       teachers: teachers.length,
       fee_invoices: invoices.length,
+      exams: (memoryStore.exams || []).length,
       mongodb_connected: isMongoConfigured()
     };
   }

@@ -46,10 +46,13 @@ import {
   RefreshCw,
   Info,
   Save,
-  RotateCcw
+  RotateCcw,
+  Upload,
+  MessageCircle
 } from 'lucide-react';
 import { FeeInvoice, Student, School, ClassRoom, Teacher } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
+import { openWhatsAppDirect, buildFeeReminderText, buildFeeReceiptText } from '@/lib/whatsapp';
 
 export interface DashboardFeesProps {
   selectedSchool?: School | null;
@@ -58,7 +61,7 @@ export interface DashboardFeesProps {
   classes: ClassRoom[];
   teachers: Teacher[];
   selectedSession: string;
-  subTab?: 'collect' | 'overview' | 'monthly' | 'structure' | 'payroll';
+  subTab?: 'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'slips' | 'payroll';
   onRefresh?: () => void;
   showAdminToast?: (msg: string) => void;
 }
@@ -107,12 +110,12 @@ export function DashboardFees({
   classes,
   teachers,
   selectedSession,
-  subTab = 'collect',
+  subTab = 'reports',
   onRefresh,
   showAdminToast
 }: DashboardFeesProps) {
-  // 5 Primary Navigation Tabs (Identical layout to Attendance Hub)
-  const [feeTab, setFeeTab] = useState<'collect' | 'overview' | 'monthly' | 'structure' | 'payroll'>(subTab);
+  // Navigation Tabs (Fees Report Engine, Quick Collect, Month-Wise Sheet, Fee Master, Class Slips, Ledger, Payroll)
+  const [feeTab, setFeeTab] = useState<'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'slips' | 'payroll'>((subTab as any) || 'reports');
   const [invoices, setInvoices] = useState<FeeInvoice[]>(initialInvoices || []);
 
   // Unique Chronologically Sorted Class Names
@@ -377,6 +380,499 @@ export function DashboardFees({
       localStorage.removeItem('cbse_deposit_schemes');
       notify('Fee structures reset to defaults.');
     }
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // 1. FEE STRUCTURE UPLOAD & EXPORT HANDLERS ("main bhi fee structure upload kroonga uske hisab se")
+  // ─────────────────────────────────────────────────────────────
+  const [uploadFeedback, setUploadFeedback] = useState<string | null>(null);
+
+  const handleUploadFeeStructure = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (!text) return;
+
+        if (file.name.endsWith('.json')) {
+          const parsed = JSON.parse(text);
+          if (parsed.tuitionFees) setTuitionFees(parsed.tuitionFees);
+          if (parsed.oneTimeFees) setOneTimeFees(parsed.oneTimeFees);
+          if (parsed.transportFees) setTransportFees(parsed.transportFees);
+          if (parsed.depositSchemes) setDepositSchemes(parsed.depositSchemes);
+          localStorage.setItem('cbse_tuition_fees', JSON.stringify(parsed.tuitionFees || tuitionFees));
+          localStorage.setItem('cbse_one_time_fees', JSON.stringify(parsed.oneTimeFees || oneTimeFees));
+          localStorage.setItem('cbse_transport_fees', JSON.stringify(parsed.transportFees || transportFees));
+        } else {
+          // CSV Parser
+          const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          const newTuition: typeof tuitionFees = [];
+          const newOneTime: typeof oneTimeFees = [];
+          const newTransport: typeof transportFees = [];
+
+          lines.forEach((line, idx) => {
+            if (idx === 0 && (line.toLowerCase().includes('class') || line.toLowerCase().includes('particulars'))) {
+              return;
+            }
+            const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, ''));
+            if (parts.length >= 2) {
+              const typeOrName = parts[0];
+              const p1 = parts[1];
+              const p2 = parts[2];
+
+              // Transport Slab check
+              if (typeOrName.toLowerCase().includes('km') || p1?.toLowerCase().includes('km')) {
+                const slab = typeOrName.toLowerCase().includes('km') ? typeOrName : p1;
+                const fee = Number(typeOrName.toLowerCase().includes('km') ? p1 : p2) || 800;
+                newTransport.push({ id: String(newTransport.length + 1), slab, monthlyFee: fee });
+              }
+              // Tuition Class check
+              else if (/class|pg|lkg|ukg|nursery/i.test(typeOrName)) {
+                const monthly = Number(p1) || 1000;
+                const quarterly = Number(p2) || (monthly * 3);
+                newTuition.push({ id: String(newTuition.length + 1), className: typeOrName, monthlyFee: monthly, quarterlyFee: quarterly });
+              }
+              // One-Time / Annual Fees
+              else {
+                const amt = Number(p1) || 1000;
+                newOneTime.push({ id: String(newOneTime.length + 1), particulars: typeOrName, amount: amt });
+              }
+            }
+          });
+
+          if (newTuition.length > 0) {
+            setTuitionFees(newTuition);
+            localStorage.setItem('cbse_tuition_fees', JSON.stringify(newTuition));
+          }
+          if (newOneTime.length > 0) {
+            setOneTimeFees(newOneTime);
+            localStorage.setItem('cbse_one_time_fees', JSON.stringify(newOneTime));
+          }
+          if (newTransport.length > 0) {
+            setTransportFees(newTransport);
+            localStorage.setItem('cbse_transport_fees', JSON.stringify(newTransport));
+          }
+        }
+
+        setUploadFeedback(`Fee structure successfully imported from ${file.name}!`);
+        notify(`Fee structure imported & applied from ${file.name}`);
+        setTimeout(() => setUploadFeedback(null), 4000);
+      } catch (err: any) {
+        notify(`Failed to parse file: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleDownloadSampleStructureCsv = () => {
+    const csvContent = [
+      'Type,Category_Or_Class,Monthly_Fee_Or_Amount,Quarterly_Fee',
+      'ONE_TIME,Prospectus + Registration Fees,1000,',
+      'ONE_TIME,Admission Fee (Non-Refundable),5000,',
+      'ONE_TIME,Annual Fee (PG to VIII),5000,',
+      'ONE_TIME,Annual Fee (IX to XII),6000,',
+      'ONE_TIME,Hostel Security Money (Refundable),10000,',
+      'ONE_TIME,Transfer Certificate / Character Certificate,1000,',
+      'TUITION,PG LKG & UKG,1000,3000',
+      'TUITION,Class I & II,1400,4200',
+      'TUITION,Class III to V,1600,4800',
+      'TUITION,Class VI to VIII,1800,5400',
+      'TUITION,Class IX & X,2000,6000',
+      'TUITION,Class XI & XII,2400,7200',
+      'TRANSPORT,1 to 3 km,800,',
+      'TRANSPORT,4 to 6 km,900,',
+      'TRANSPORT,7 to 12 km,1100,',
+      'TRANSPORT,13 to 16 km,1300,',
+      'TRANSPORT,16 to 20 km,1800,'
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `CBSE_Fee_Structure_Template_${selectedSession || '2026-27'}.csv`;
+    link.click();
+    notify('Sample Fee Structure CSV template downloaded!');
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // 2. CBSE INSTITUTIONAL FEE RATES & SIBLING CONCESSION HELPERS
+  // ─────────────────────────────────────────────────────────────
+  const getTuitionFeeRate = (className: string) => {
+    const raw = (className || '').trim().toLowerCase();
+    const norm = raw.replace(/^class\s*/i, '').trim();
+
+    // 1. Playgroup, PG, Nursery, LKG, UKG -> ₹1,000 / month, ₹3,000 / quarter
+    if (/^(pg|play|playgroup|play-group|lkg|ukg|nursery|pre|kg|prep|infant)/i.test(norm) || raw.includes('playgroup')) {
+      return { monthly: 1000, quarterly: 3000 };
+    }
+    // 2. Class I & II -> ₹1,400 / month, ₹4,200 / quarter
+    if (/^(1|2|i|ii|1st|2nd)$/i.test(norm) || /^(i|ii)\b/i.test(norm)) {
+      return { monthly: 1400, quarterly: 4200 };
+    }
+    // 3. Class III to V -> ₹1,600 / month, ₹4,800 / quarter
+    if (/^(3|4|5|iii|iv|v|3rd|4th|5th)$/i.test(norm) || /^(iii|iv|v)\b/i.test(norm)) {
+      return { monthly: 1600, quarterly: 4800 };
+    }
+    // 4. Class VI to VIII -> ₹1,800 / month, ₹5,400 / quarter
+    if (/^(6|7|8|vi|vii|viii|6th|7th|8th)$/i.test(norm) || /^(vi|vii|viii)\b/i.test(norm)) {
+      return { monthly: 1800, quarterly: 5400 };
+    }
+    // 5. Class IX & X -> ₹2,000 / month, ₹6,000 / quarter
+    if (/^(9|10|ix|x|9th|10th)$/i.test(norm) || /^(ix|x)\b/i.test(norm)) {
+      return { monthly: 2000, quarterly: 6000 };
+    }
+    // 6. Class XI & XII -> ₹2,400 / month, ₹7,200 / quarter
+    if (/^(11|12|xi|xii|11th|12th)$/i.test(norm) || /^(xi|xii)\b/i.test(norm)) {
+      return { monthly: 2400, quarterly: 7200 };
+    }
+
+    for (const t of tuitionFees) {
+      const tNorm = t.className.toLowerCase().trim().replace(/^class\s*/i, '');
+      if (tNorm === norm || tNorm.includes(norm) || norm.includes(tNorm)) {
+        return { monthly: t.monthlyFee, quarterly: t.quarterlyFee };
+      }
+    }
+    return { monthly: 1400, quarterly: 4200 };
+  };
+
+  const getAnnualFeeRate = (className: string) => {
+    const raw = (className || '').trim().toLowerCase();
+    const norm = raw.replace(/^class\s*/i, '').trim();
+    const isSenior = /^(9|10|11|12|ix|x|xi|xii|9th|10th|11th|12th)$/i.test(norm) || /^(ix|x|xi|xii)\b/i.test(norm);
+    const head = oneTimeFees.find(f =>
+      isSenior ? f.particulars.toLowerCase().includes('ix to xii') : f.particulars.toLowerCase().includes('pg to viii')
+    );
+    return head ? head.amount : (isSenior ? 6000 : 5000);
+  };
+
+  const getTransportFeeRate = (student: Student) => {
+    if (student.transport_opted !== 'YES') {
+      return { slab: 'Self / None', monthly: 0 };
+    }
+    const seed = (Number(student.roll_no) || student.full_name.charCodeAt(0)) % (transportFees.length || 5);
+    const slabItem = transportFees[seed] || transportFees[1] || { slab: '4 to 6 km', monthlyFee: 900 };
+    return { slab: slabItem.slab, monthly: slabItem.monthlyFee };
+  };
+
+  const getSiblingConcession = (student: Student) => {
+    const father = (student.father_name || student.guardian_name || '').toLowerCase().trim();
+    const phone = (student.guardian_phone || student.phone || '').trim();
+
+    if (!father && !phone) {
+      return { childOrder: 1, tuitionDiscountPct: 0, freeTransport: false, siblingCount: 1 };
+    }
+
+    const siblings = students.filter(s => {
+      const sFather = (s.father_name || s.guardian_name || '').toLowerCase().trim();
+      const sPhone = (s.guardian_phone || s.phone || '').trim();
+      return (father && sFather === father) || (phone && sPhone === phone);
+    }).sort((a, b) => (Number(a.roll_no) || 0) - (Number(b.roll_no) || 0) || a.id.localeCompare(b.id));
+
+    const count = siblings.length;
+    const index = siblings.findIndex(s => s.id === student.id);
+    const order = index >= 0 ? index + 1 : 1;
+
+    if (count >= 2 && order === 2) {
+      return { childOrder: 2, tuitionDiscountPct: 20, freeTransport: false, siblingCount: count };
+    }
+    if (count >= 3 && order === 3) {
+      return { childOrder: 3, tuitionDiscountPct: 30, freeTransport: false, siblingCount: count };
+    }
+    if (count >= 4 && order >= 4) {
+      return { childOrder: 4, tuitionDiscountPct: 30, freeTransport: true, siblingCount: count };
+    }
+    return { childOrder: 1, tuitionDiscountPct: 0, freeTransport: false, siblingCount: count };
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // 3. COMPREHENSIVE FEES REPORT ENGINE STATE & COMPUTATIONS
+  // ─────────────────────────────────────────────────────────────
+  const [reportClass, setReportClass] = useState<string>('Playgroup');
+  const [reportSection, setReportSection] = useState<string>('ALL');
+  const [reportPeriod, setReportPeriod] = useState<string>('APRIL_ANNUAL');
+  const [reportHeadFilter, setReportHeadFilter] = useState<'ALL' | 'TUITION' | 'TRANSPORT' | 'ANNUAL' | 'EXAM'>('ALL');
+  const [reportStatusFilter, setReportStatusFilter] = useState<'ALL' | 'PAID' | 'PARTIAL' | 'PENDING'>('ALL');
+  const [reportSearch, setReportSearch] = useState('');
+  const [isReportGenerated, setIsReportGenerated] = useState<boolean>(false);
+
+  // Class-Wise Fee Slip Modal State
+  const [showClassSlipsModal, setShowClassSlipsModal] = useState(false);
+  const [slipClass, setSlipClass] = useState(uniqueClasses[0] || 'Class 10');
+  const [slipSection, setSlipSection] = useState('ALL');
+  const [slipPeriod, setSlipPeriod] = useState('APRIL_ANNUAL');
+  const [singleSlipStudent, setSingleSlipStudent] = useState<any | null>(null);
+
+  // Period Config Helper
+  const getPeriodMeta = (period: string) => {
+    switch (period) {
+      case 'FULL_YEAR':
+        return { label: 'Full Academic Year 2026–27 (12 Months)', months: 12, includeAnnual: true, examFee: 1500 };
+      case 'APRIL_ANNUAL':
+        return { label: 'Cycle 1: April + Annual Fee', months: 1, includeAnnual: true, examFee: 0 };
+      case 'MAY_JUNE':
+        return { label: 'Cycle 2: May + June', months: 2, includeAnnual: false, examFee: 0 };
+      case 'JULY':
+        return { label: 'Cycle 3: July', months: 1, includeAnnual: false, examFee: 0 };
+      case 'AUGUST':
+        return { label: 'Cycle 4: August', months: 1, includeAnnual: false, examFee: 0 };
+      case 'SEPT_FEB':
+        return { label: 'Cycle 5: September + February', months: 2, includeAnnual: false, examFee: 750 };
+      case 'OCTOBER':
+        return { label: 'Cycle 6: October', months: 1, includeAnnual: false, examFee: 0 };
+      case 'NOVEMBER':
+        return { label: 'Cycle 7: November', months: 1, includeAnnual: false, examFee: 0 };
+      case 'DEC_MARCH':
+        return { label: 'Cycle 8: December + March', months: 2, includeAnnual: false, examFee: 750 };
+      case 'JANUARY':
+        return { label: 'Cycle 9: January (Final Settlement)', months: 1, includeAnnual: false, examFee: 0 };
+      default:
+        return { label: 'Cycle 1: April + Annual Fee', months: 1, includeAnnual: true, examFee: 0 };
+    }
+  };
+
+  // Full Fees Report Itemized Data
+  const feesReportData = useMemo(() => {
+    const meta = getPeriodMeta(reportPeriod);
+
+    return students.map((stu, sIdx) => {
+      const tRate = getTuitionFeeRate(stu.class_name);
+      const annRate = getAnnualFeeRate(stu.class_name);
+      const trRate = getTransportFeeRate(stu);
+      const sib = getSiblingConcession(stu);
+
+      // Tuition Calculation
+      const grossTuition = tRate.monthly * meta.months;
+      const tuitionConcession = Math.round(grossTuition * (sib.tuitionDiscountPct / 100));
+      const netTuitionDue = grossTuition - tuitionConcession;
+
+      // Transport Calculation
+      const transportDue = sib.freeTransport ? 0 : (trRate.monthly * meta.months);
+
+      // Annual Calculation
+      const annualDue = meta.includeAnnual ? annRate : 0;
+
+      // Exam Calculation
+      const examDue = meta.examFee;
+
+      // Total Due
+      const totalDue = netTuitionDue + transportDue + annualDue + examDue;
+
+      // Check Real Invoices in Database
+      const matchingInvoices = invoices.filter(inv =>
+        (inv.student_id && inv.student_id === stu.id) ||
+        (inv.admission_no && inv.admission_no === stu.admission_no) ||
+        inv.student_name.toLowerCase() === stu.full_name.toLowerCase()
+      );
+
+      let totalPaid = 0;
+      let tuitionPaid = 0;
+      let transportPaid = 0;
+      let annualPaid = 0;
+      let examPaid = 0;
+
+      if (stu.fee_status === 'PAID') {
+        totalPaid = totalDue;
+        tuitionPaid = netTuitionDue;
+        transportPaid = transportDue;
+        annualPaid = annualDue;
+        examPaid = examDue;
+      } else if (stu.fee_status === 'PARTIAL') {
+        totalPaid = Math.round(totalDue * 0.5);
+        tuitionPaid = Math.round(netTuitionDue * 0.5);
+        transportPaid = Math.round(transportDue * 0.5);
+        annualPaid = Math.round(annualDue * 0.5);
+        examPaid = Math.round(examDue * 0.5);
+      } else if (matchingInvoices.length > 0) {
+        const invoicePaidSum = matchingInvoices.reduce((sum, inv) => sum + (inv.paid_amount ?? (inv.status === 'PAID' ? inv.amount : 0)), 0);
+        totalPaid = Math.min(totalDue, invoicePaidSum);
+        const ratio = totalDue > 0 ? (totalPaid / totalDue) : 0;
+        tuitionPaid = Math.round(netTuitionDue * ratio);
+        transportPaid = Math.round(transportDue * ratio);
+        annualPaid = Math.round(annualDue * ratio);
+        examPaid = Math.round(examDue * ratio);
+      } else {
+        totalPaid = 0;
+      }
+
+      const totalPending = Math.max(0, totalDue - totalPaid);
+      const tuitionPending = Math.max(0, netTuitionDue - tuitionPaid);
+      const transportPending = Math.max(0, transportDue - transportPaid);
+      const annualPending = Math.max(0, annualDue - annualPaid);
+      const examPending = Math.max(0, examDue - examPaid);
+
+      let status: 'PAID' | 'PARTIAL' | 'PENDING' = 'PENDING';
+      if (totalPending <= 0) {
+        status = 'PAID';
+      } else if (totalPaid > 0) {
+        status = 'PARTIAL';
+      }
+
+      return {
+        student: stu,
+        rollNo: Number(stu.roll_no) || sIdx + 1,
+        className: stu.class_name || 'Class',
+        section: stu.section || 'A',
+        fatherName: stu.father_name || stu.guardian_name || 'Guardian',
+        transportOpted: stu.transport_opted === 'YES',
+        transportSlab: trRate.slab,
+        transportMonthlyRate: trRate.monthly,
+        tuitionMonthlyRate: tRate.monthly,
+        siblingInfo: sib,
+        // Dues
+        netTuitionDue,
+        tuitionConcession,
+        transportDue,
+        annualDue,
+        examDue,
+        totalDue,
+        // Paid
+        tuitionPaid,
+        transportPaid,
+        annualPaid,
+        examPaid,
+        totalPaid,
+        // Pending
+        tuitionPending,
+        transportPending,
+        annualPending,
+        examPending,
+        totalPending,
+        status
+      };
+    });
+  }, [students, invoices, tuitionFees, oneTimeFees, transportFees, reportPeriod]);
+
+  // Scholars scoped strictly by the chosen Class & Section (for status pill counts)
+  const scopedClassScholars = useMemo(() => {
+    return feesReportData.filter(item => {
+      if (reportClass !== 'ALL' && item.className !== reportClass) return false;
+      if (reportSection !== 'ALL' && item.section !== reportSection) return false;
+      return true;
+    });
+  }, [feesReportData, reportClass, reportSection]);
+
+  // Filtered Fees Report List
+  const filteredFeesReportList = useMemo(() => {
+    return scopedClassScholars.filter(item => {
+      // Status Filter
+      if (reportStatusFilter !== 'ALL' && item.status !== reportStatusFilter) return false;
+      // Fee Head Filter
+      if (reportHeadFilter === 'TUITION' && item.tuitionPending <= 0) return false;
+      if (reportHeadFilter === 'TRANSPORT' && item.transportPending <= 0) return false;
+      if (reportHeadFilter === 'ANNUAL' && item.annualPending <= 0) return false;
+      if (reportHeadFilter === 'EXAM' && item.examPending <= 0) return false;
+      // Search Query
+      if (reportSearch.trim()) {
+        const q = reportSearch.toLowerCase().trim();
+        const s = item.student;
+        const matchesName = s.full_name.toLowerCase().includes(q);
+        const matchesAdm = (s.admission_no || s.id || '').toLowerCase().includes(q);
+        const matchesRoll = String(item.rollNo).includes(q);
+        const matchesFather = item.fatherName.toLowerCase().includes(q);
+        if (!matchesName && !matchesAdm && !matchesRoll && !matchesFather) return false;
+      }
+      return true;
+    });
+  }, [scopedClassScholars, reportStatusFilter, reportHeadFilter, reportSearch]);
+
+  // Fees Report KPIs
+  const feesReportKpis = useMemo(() => {
+    const totalExpected = filteredFeesReportList.reduce((acc, r) => acc + r.totalDue, 0);
+    const totalCollected = filteredFeesReportList.reduce((acc, r) => acc + r.totalPaid, 0);
+    const totalPending = filteredFeesReportList.reduce((acc, r) => acc + r.totalPending, 0);
+    const defaultersCount = filteredFeesReportList.filter(r => r.status !== 'PAID').length;
+    const collectionRate = totalExpected > 0 ? Number(((totalCollected / totalExpected) * 100).toFixed(1)) : 0;
+
+    return {
+      totalExpected,
+      totalCollected,
+      totalPending,
+      defaultersCount,
+      collectionRate,
+      totalScholars: filteredFeesReportList.length
+    };
+  }, [filteredFeesReportList]);
+
+  // Export Comprehensive Fees Report CSV
+  const handleExportFeesReportCsv = () => {
+    const headers = [
+      'Roll No', 'Admission No', 'Student Name', 'Class', 'Section', 'Father Name',
+      'Sibling Concession', 'Transport Slab',
+      'Tuition Due', 'Tuition Paid', 'Tuition Pending',
+      'Transport Due', 'Transport Paid', 'Transport Pending',
+      'Annual Due', 'Annual Paid', 'Annual Pending',
+      'Exam Due', 'Exam Paid', 'Exam Pending',
+      'Grand Total Due', 'Total Submitted (Paid)', 'Total Pending (Dues)', 'Fee Status'
+    ];
+
+    const rows = filteredFeesReportList.map(item => [
+      item.rollNo,
+      item.student.admission_no || item.student.id,
+      `"${item.student.full_name}"`,
+      item.className,
+      item.section,
+      `"${item.fatherName}"`,
+      item.siblingInfo.tuitionDiscountPct > 0 ? `${item.siblingInfo.tuitionDiscountPct}% Off (Child #${item.siblingInfo.childOrder})` : 'None',
+      item.transportOpted ? `"${item.transportSlab}"` : 'None',
+      item.netTuitionDue, item.tuitionPaid, item.tuitionPending,
+      item.transportDue, item.transportPaid, item.transportPending,
+      item.annualDue, item.annualPaid, item.annualPending,
+      item.examDue, item.examPaid, item.examPending,
+      item.totalDue, item.totalPaid, item.totalPending,
+      item.status
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `CBSE_Fees_Report_${reportClass}_${reportPeriod}_${selectedSession || '2026-27'}.csv`;
+    link.click();
+    notify('Comprehensive Fees Report CSV downloaded!');
+  };
+
+  // Open Single Student Fee Slip Modal
+  const handleOpenStudentSlip = (reportItem: any) => {
+    setSingleSlipStudent(reportItem);
+  };
+
+  // WhatsApp Automated Fee Reminder Dispatcher
+  const handleSendWhatsAppReminder = (reportItem: any) => {
+    const s = reportItem.student;
+    const phone = s.parent_phone || s.phone || '';
+    const text = buildFeeReminderText({
+      studentName: s.full_name,
+      parentPhone: phone,
+      className: `${reportItem.className} (${reportItem.section})`,
+      pendingAmount: reportItem.totalPending,
+      dueDate: reportPeriod === 'APRIL_ANNUAL' ? '10-Apr-2026' : '10th of current month',
+      feeTitle: `${reportItem.tuitionPending > 0 ? 'Tuition' : ''} ${reportItem.transportPending > 0 ? 'Transport' : ''} ${reportItem.annualPending > 0 ? 'Annual' : ''} Fees`.trim() || 'School Dues',
+      schoolName: selectedSchool?.school_name || 'Delhi Public School'
+    });
+    openWhatsAppDirect(phone, text);
+  };
+
+  // WhatsApp Automated Receipt Dispatcher
+  const handleSendWhatsAppReceipt = (reportItem: any) => {
+    const s = reportItem.student;
+    const phone = s.parent_phone || s.phone || '';
+    const text = buildFeeReceiptText({
+      studentName: s.full_name,
+      parentPhone: phone,
+      className: `${reportItem.className} (${reportItem.section})`,
+      paidAmount: reportItem.totalPaid,
+      receiptNo: `RCPT-${s.id.slice(-4)}-${Date.now().toString().slice(-4)}`,
+      paymentMode: 'Digital Receipt Docket',
+      date: new Date().toLocaleDateString('en-GB'),
+      schoolName: selectedSchool?.school_name || 'Delhi Public School'
+    });
+    openWhatsAppDirect(phone, text);
   };
 
   // Toggle single class checkbox
@@ -1187,42 +1683,70 @@ export function DashboardFees({
           </div>
         </div>
 
-        {/* 5 Primary Navigation Buttons (Full-Width Responsive Grid) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs">
+        {/* 7 Primary Navigation Buttons (Responsive Multi-Row Grid) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs">
           
-          {/* Tab 1: Quick Collect Counter */}
+          {/* Tab 1: Comprehensive Fees Report Engine */}
+          <button
+            type="button"
+            onClick={() => setFeeTab('reports')}
+            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+              feeTab === 'reports'
+                ? 'bg-[#122A24] text-white shadow-xs font-bold'
+                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+            }`}
+          >
+            <BarChart2 className="h-4 w-4 stroke-[1.75] shrink-0 text-amber-400" />
+            <span className="truncate">Fees Report Engine</span>
+          </button>
+
+          {/* Tab 2: Quick Collect Counter */}
           <button
             type="button"
             onClick={() => setFeeTab('collect')}
-            className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
               feeTab === 'collect'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold'
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
             }`}
           >
             <CreditCard className="h-4 w-4 stroke-[1.75] shrink-0" />
-            <span className="truncate">Collect Fees (Counter)</span>
+            <span className="truncate">Collect Fees</span>
           </button>
 
-          {/* Tab 2: Fee Overview & Ledger */}
+          {/* Tab 3: Class-Wise Fee Slips */}
           <button
             type="button"
-            onClick={() => setFeeTab('overview')}
-            className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
-              feeTab === 'overview'
+            onClick={() => setFeeTab('slips')}
+            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+              feeTab === 'slips'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold'
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
             }`}
           >
-            <BarChart2 className="h-4 w-4 stroke-[1.75] shrink-0" />
-            <span className="truncate">Fee Ledger ({invoices.length})</span>
+            <Receipt className="h-4 w-4 stroke-[1.75] shrink-0 text-emerald-600" />
+            <span className="truncate">Class Fee Slips</span>
           </button>
 
-          {/* Tab 3: Monthly Sheet */}
+          {/* Tab 4: Fee Structure & Upload Engine */}
+          <button
+            type="button"
+            onClick={() => setFeeTab('structure')}
+            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+              feeTab === 'structure'
+                ? 'bg-[#122A24] text-white shadow-xs font-bold'
+                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+            }`}
+          >
+            <FileText className="h-4 w-4 stroke-[1.75] shrink-0" />
+            <span className="truncate">Fee Master &amp; Upload</span>
+          </button>
+
+          {/* Tab 5: Month-Wise Sheet */}
           <button
             type="button"
             onClick={() => setFeeTab('monthly')}
-            className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
               feeTab === 'monthly'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold'
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
@@ -1232,25 +1756,25 @@ export function DashboardFees({
             <span className="truncate">Month-Wise Sheet</span>
           </button>
 
-          {/* Tab 4: Fee Structure & Calendar */}
+          {/* Tab 6: Fee Overview & Ledger */}
           <button
             type="button"
-            onClick={() => setFeeTab('structure')}
-            className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
-              feeTab === 'structure'
+            onClick={() => setFeeTab('overview')}
+            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+              feeTab === 'overview'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold'
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
             }`}
           >
-            <FileText className="h-4 w-4 stroke-[1.75] shrink-0" />
-            <span className="truncate">Fee Structure</span>
+            <FileSpreadsheet className="h-4 w-4 stroke-[1.75] shrink-0" />
+            <span className="truncate">Ledger ({invoices.length})</span>
           </button>
 
-          {/* Tab 5: Staff Payroll */}
+          {/* Tab 7: Staff Payroll */}
           <button
             type="button"
             onClick={() => setFeeTab('payroll')}
-            className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
               feeTab === 'payroll'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold'
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
@@ -1294,6 +1818,824 @@ export function DashboardFees({
           </div>
         </div>
       </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          TAB 0: COMPREHENSIVE INSTITUTIONAL FEES REPORT ENGINE
+          ───────────────────────────────────────────────────────────── */}
+      {feeTab === 'reports' && (
+        <div className="space-y-6 animate-fade-in">
+          {!isReportGenerated ? (
+            /* ─────────────────────────────────────────────────────────────
+               STEP 1: PRE-REPORT SELECTION GATE (CHOOSE CLASS & SCOPE FIRST)
+               ───────────────────────────────────────────────────────────── */
+            <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-sm p-6 sm:p-10 space-y-6 max-w-4xl mx-auto animate-fade-in">
+              {/* Header */}
+              <div className="text-center space-y-2 pb-6 border-b border-[#E8F0EA]">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E6F4EA] text-[#0D652D] text-xs font-mono font-bold border border-[#CEEAD6]">
+                  <BarChart2 className="w-4 h-4 text-emerald-700" />
+                  CBSE Institutional Fees Report • Session {selectedSession || '2026-27'}
+                </div>
+                <h2 className="font-display font-black text-2xl sm:text-3xl text-[#122A24] tracking-tight">
+                  Choose Class &amp; Fee Installment Scope
+                </h2>
+                <p className="text-xs sm:text-sm text-[#2D5A4E] max-w-xl mx-auto">
+                  Pehle class, section aur installment scheme select karein, fir exact dues, submitted amount aur pending balance report open hogi.
+                </p>
+              </div>
+
+              {/* 3 Main Required Dropdown Selectors */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* 1. Class */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-mono font-bold uppercase tracking-wider text-[#122A24]">
+                    1. Select Class <span className="text-rose-500">*</span>:
+                  </label>
+                  <select
+                    value={reportClass}
+                    onChange={(e) => setReportClass(e.target.value)}
+                    className="w-full px-3.5 py-3 bg-[#F8FAF9] border-2 border-[#DCE8E0] focus:border-emerald-600 rounded-2xl text-xs sm:text-sm font-bold text-[#122A24] cursor-pointer shadow-2xs focus:outline-none transition-all"
+                  >
+                    <option value="ALL">All Classes (Whole School - {students.length} Scholars)</option>
+                    {uniqueClasses.map(c => {
+                      const count = students.filter(s => s.class_name === c).length;
+                      return (
+                        <option key={c} value={c}>{c} ({count} Scholars)</option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* 2. Section */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-mono font-bold uppercase tracking-wider text-[#122A24]">
+                    2. Select Section:
+                  </label>
+                  <select
+                    value={reportSection}
+                    onChange={(e) => setReportSection(e.target.value)}
+                    className="w-full px-3.5 py-3 bg-[#F8FAF9] border-2 border-[#DCE8E0] focus:border-emerald-600 rounded-2xl text-xs sm:text-sm font-bold text-[#122A24] cursor-pointer shadow-2xs focus:outline-none transition-all"
+                  >
+                    <option value="ALL">All Sections</option>
+                    <option value="A">Section A</option>
+                    <option value="B">Section B</option>
+                    <option value="C">Section C</option>
+                  </select>
+                </div>
+
+                {/* 3. Fee Deposit Scheme */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-mono font-bold uppercase tracking-wider text-[#122A24]">
+                    3. Deposit Scheme / Month:
+                  </label>
+                  <select
+                    value={reportPeriod}
+                    onChange={(e) => setReportPeriod(e.target.value)}
+                    className="w-full px-3.5 py-3 bg-[#F8FAF9] border-2 border-[#DCE8E0] focus:border-emerald-600 rounded-2xl text-xs sm:text-sm font-bold text-[#122A24] cursor-pointer shadow-2xs focus:outline-none transition-all"
+                  >
+                    <option value="APRIL_ANNUAL">Cycle 1: April + Annual Fee</option>
+                    <option value="MAY_JUNE">Cycle 2: May + June</option>
+                    <option value="JULY">Cycle 3: July</option>
+                    <option value="AUGUST">Cycle 4: August</option>
+                    <option value="SEPT_FEB">Cycle 5: September + February</option>
+                    <option value="OCTOBER">Cycle 6: October</option>
+                    <option value="NOVEMBER">Cycle 7: November</option>
+                    <option value="DEC_MARCH">Cycle 8: December + March</option>
+                    <option value="JANUARY">Cycle 9: January (Final Settlement)</option>
+                    <option value="FULL_YEAR">Full Academic Year 2026–27 (12 Months)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Optional Secondary Filters */}
+              <div className="p-4 rounded-2xl bg-[#F8FAF9] border border-[#E8F0EA] space-y-3">
+                <div className="text-xs font-mono font-bold uppercase tracking-wider text-slate-600">
+                  Optional Refinement Filters:
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-500 mb-1">Filter by Specific Fee Head:</label>
+                    <select
+                      value={reportHeadFilter}
+                      onChange={(e) => setReportHeadFilter(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none"
+                    >
+                      <option value="ALL">All Fee Heads (Tuition, Transport, Annual &amp; Exam)</option>
+                      <option value="TUITION">Tuition Fee Only</option>
+                      <option value="TRANSPORT">Transport Fee Only</option>
+                      <option value="ANNUAL">Annual Fee Only</option>
+                      <option value="EXAM">Examination Charges Only</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-500 mb-1">Filter by Payment Status:</label>
+                    <select
+                      value={reportStatusFilter}
+                      onChange={(e) => setReportStatusFilter(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none"
+                    >
+                      <option value="ALL">All Scholars (Paid + Partial + Pending)</option>
+                      <option value="PENDING">Pending Dues Only (Defaulters List)</option>
+                      <option value="PARTIAL">Partial Payment Only</option>
+                      <option value="PAID">Fully Cleared / Paid Only</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Big Action Submit Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsReportGenerated(true);
+                    setSlipClass(reportClass !== 'ALL' ? reportClass : uniqueClasses[0] || 'Class 10');
+                    notify(`Fees Report opened for ${reportClass} (${reportSection})!`);
+                  }}
+                  className="w-full py-4 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-2xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-xl transition-all border-none"
+                >
+                  <BarChart2 className="w-5 h-5 text-emerald-400" />
+                  <span>Generate &amp; Open Fees Report ({scopedClassScholars.length} Scholars)</span>
+                  <ChevronRight className="w-4 h-4 text-emerald-400" />
+                </button>
+              </div>
+
+              {/* Quick Helper Tip */}
+              <div className="text-center text-[11px] font-mono text-slate-500 flex items-center justify-center gap-1.5">
+                <Info className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span>Selected: <strong>{reportClass} ({reportSection})</strong> • Installment: <strong>{getPeriodMeta(reportPeriod).label}</strong></span>
+              </div>
+            </div>
+          ) : (
+            /* ─────────────────────────────────────────────────────────────
+               STEP 2: ACTIVE FEES REPORT REGISTER FOR CHOSEN SCOPE
+               ───────────────────────────────────────────────────────────── */
+            <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 space-y-6 animate-fade-in">
+              
+              {/* Header & Quick Action Row */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA]">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[11px] font-mono font-bold border border-amber-200">
+                      Scope: {reportClass} ({reportSection})
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-md bg-[#E6F4EA] text-[#0D652D] text-[11px] font-mono font-bold border border-[#CEEAD6]">
+                      {getPeriodMeta(reportPeriod).label}
+                    </span>
+                    <span className="text-xs font-mono text-slate-500">{scopedClassScholars.length} Scholars</span>
+                  </div>
+                  <h2 className="font-display font-bold text-xl text-[#122A24] mt-1 tracking-tight flex items-center gap-2">
+                    <BarChart2 className="w-5 h-5 text-emerald-700" />
+                    Fees Report Register: {reportClass} - Section {reportSection}
+                  </h2>
+                  <p className="text-xs text-[#2D5A4E] mt-0.5">
+                    Real-time audit of submitted vs pending fees per scholar across Tuition, Transport, Annual &amp; Exam heads with automated Sibling Concessions.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setIsReportGenerated(false)}
+                    className="px-3.5 py-2 bg-[#EBF5EF] hover:bg-[#D9EDE0] text-[#122A24] border border-[#C5E2CF] rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-emerald-800" />
+                    <span>Change Filter / Scope</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportFeesReportCsv}
+                    className="px-3.5 py-2 bg-[#F8FAF9] hover:bg-slate-100 text-slate-700 border border-[#DCE8E0] rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export CSV</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-3.5 py-2 bg-[#F8FAF9] hover:bg-slate-100 text-slate-700 border border-[#DCE8E0] rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print Register</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSlipClass(reportClass !== 'ALL' ? reportClass : uniqueClasses[0] || 'Class 10');
+                      setFeeTab('slips');
+                    }}
+                    className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer border-none shadow-xs transition-all"
+                  >
+                    <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Generate Class Fee Slips</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 5-Column High-Impact KPI Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="p-4 rounded-2xl bg-[#122A24] text-white border border-[#1C443A] shadow-xs">
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-slate-300">Total Billed Due</div>
+                  <div className="text-xl font-display font-black mt-1">₹{feesReportKpis.totalExpected.toLocaleString()}</div>
+                  <div className="text-[10px] text-slate-300 mt-0.5">{feesReportKpis.totalScholars} Scholars Evaluated</div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-[#F0FDF4] text-emerald-900 border border-[#BBF7D0] shadow-xs">
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-emerald-700 font-bold">Total Fees Submitted</div>
+                  <div className="text-xl font-display font-black text-emerald-800 mt-1">₹{feesReportKpis.totalCollected.toLocaleString()}</div>
+                  <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">Cleared at Cash/Bank</div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-rose-50 text-rose-900 border border-rose-200 shadow-xs">
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-rose-700 font-bold">Total Pending Dues</div>
+                  <div className="text-xl font-display font-black text-rose-700 mt-1">₹{feesReportKpis.totalPending.toLocaleString()}</div>
+                  <div className="text-[10px] text-rose-600 font-semibold mt-0.5">Outstanding Receivables</div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-amber-50 text-amber-900 border border-amber-200 shadow-xs">
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-amber-700 font-bold">Defaulters / Pending</div>
+                  <div className="text-xl font-display font-black text-amber-800 mt-1">{feesReportKpis.defaultersCount} Scholars</div>
+                  <div className="text-[10px] text-amber-700 font-semibold mt-0.5">With Remaining Balances</div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-teal-50 text-teal-900 border border-teal-200 shadow-xs col-span-2 sm:col-span-1">
+                  <div className="text-[11px] font-mono uppercase tracking-wider text-teal-700 font-bold">Collection Recovery</div>
+                  <div className="text-xl font-display font-black text-teal-800 mt-1">{feesReportKpis.collectionRate}%</div>
+                  <div className="text-[10px] text-teal-700 font-semibold mt-0.5">Efficiency Score</div>
+                </div>
+              </div>
+
+              {/* In-Scope Refinement Bar */}
+              <div className="bg-[#F8FAF9] rounded-2xl p-4 border border-[#DCE8E0] space-y-3">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  {/* Search Scholar */}
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder={`Search in ${reportClass} by Name, Roll No, Adm No, Father...`}
+                      value={reportSearch}
+                      onChange={(e) => setReportSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24] focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+
+                  {/* Section Switcher (if ALL or specific) */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-slate-500">Section:</span>
+                    <select
+                      value={reportSection}
+                      onChange={(e) => setReportSection(e.target.value)}
+                      className="px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs font-bold text-[#122A24] focus:outline-none"
+                    >
+                      <option value="ALL">All Sections</option>
+                      <option value="A">Section A</option>
+                      <option value="B">Section B</option>
+                      <option value="C">Section C</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Status & Head Filters Strip */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E8F0EA] text-xs">
+                  {/* Status Pills */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-mono text-slate-500 mr-1">Status:</span>
+                    {(['ALL', 'PAID', 'PARTIAL', 'PENDING'] as const).map(st => (
+                      <button
+                        key={st}
+                        type="button"
+                        onClick={() => setReportStatusFilter(st)}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                          reportStatusFilter === st
+                            ? 'bg-[#122A24] text-white border-[#122A24] shadow-2xs'
+                            : 'bg-white text-slate-600 border-[#DCE8E0] hover:bg-slate-50'
+                        }`}
+                      >
+                        {st === 'ALL' && `All (${scopedClassScholars.length})`}
+                        {st === 'PAID' && `✓ Paid (${scopedClassScholars.filter(x => x.status === 'PAID').length})`}
+                        {st === 'PARTIAL' && `⚡ Partial (${scopedClassScholars.filter(x => x.status === 'PARTIAL').length})`}
+                        {st === 'PENDING' && `⚠️ Pending (${scopedClassScholars.filter(x => x.status === 'PENDING').length})`}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Head Filter Pills */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-mono text-slate-500 mr-1">Dues By Head:</span>
+                    {(['ALL', 'TUITION', 'TRANSPORT', 'ANNUAL', 'EXAM'] as const).map(hd => (
+                      <button
+                        key={hd}
+                        type="button"
+                        onClick={() => setReportHeadFilter(hd)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                          reportHeadFilter === hd
+                            ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold'
+                            : 'bg-white text-slate-600 border-[#DCE8E0] hover:bg-slate-50'
+                        }`}
+                      >
+                        {hd === 'ALL' ? 'All Heads' : hd.charAt(0) + hd.slice(1).toLowerCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Master Report Table */}
+              <div className="overflow-x-auto rounded-2xl border border-[#DCE8E0]">
+                <table className="w-full text-left text-xs border-collapse font-sans">
+                  <thead>
+                    <tr className="bg-[#122A24] text-white text-[11px] font-mono font-bold tracking-wider">
+                      <th className="py-3 px-3 w-10 text-center">ROLL</th>
+                      <th className="py-3 px-3">SCHOLAR PARTICULARS</th>
+                      <th className="py-3 px-3">CLASS &amp; SEC</th>
+                      <th className="py-3 px-3">TRANSPORT</th>
+                      <th className="py-3 px-3 text-right">TUITION FEE</th>
+                      <th className="py-3 px-3 text-right">TRANSPORT FEE</th>
+                      <th className="py-3 px-3 text-right">ANNUAL FEE</th>
+                      <th className="py-3 px-3 text-right">EXAM FEE</th>
+                      <th className="py-3 px-3 text-right">TOTAL DUE</th>
+                      <th className="py-3 px-3 text-right text-emerald-300">SUBMITTED</th>
+                      <th className="py-3 px-3 text-right text-rose-300">PENDING</th>
+                      <th className="py-3 px-3 text-center">STATUS</th>
+                      <th className="py-3 px-3 text-center">ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                    {filteredFeesReportList.length === 0 ? (
+                      <tr>
+                        <td colSpan={13} className="py-12 text-center text-slate-400">
+                          <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2 opacity-60" />
+                          <p className="font-bold text-sm text-slate-600">No matching student dues found</p>
+                          <p className="text-xs text-slate-400 mt-1">Try resetting filters or checking another section.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredFeesReportList.map((item) => (
+                        <tr
+                          key={item.student.id}
+                          className="hover:bg-emerald-50/40 transition-colors"
+                        >
+                          {/* Roll */}
+                          <td className="py-3 px-3 text-center font-mono font-bold text-slate-500">
+                            {item.rollNo}
+                          </td>
+
+                          {/* Scholar Particulars */}
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-[#122A24]">{item.student.full_name}</div>
+                            <div className="text-[11px] text-slate-500 font-mono flex items-center gap-2 mt-0.5">
+                              <span>Adm: {item.student.admission_no || item.student.id.slice(0, 8)}</span>
+                              <span>•</span>
+                              <span>F: {item.fatherName}</span>
+                            </div>
+                            {item.siblingInfo.tuitionDiscountPct > 0 && (
+                              <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10px] font-mono border border-amber-200">
+                                <Sparkles className="w-3 h-3 text-amber-600" />
+                                {item.siblingInfo.childOrder === 2 && '2nd Child: 20% Tuition Concession'}
+                                {item.siblingInfo.childOrder === 3 && '3rd Child: 30% Tuition Concession'}
+                                {item.siblingInfo.childOrder >= 4 && '4th Child: 30% + Free Bus'}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Class & Section */}
+                          <td className="py-3 px-3 font-mono">
+                            <span className="px-2 py-0.5 bg-[#F0FDF4] border border-[#DCFCE7] rounded-md font-bold text-[#122A24] text-[11px]">
+                              {item.className}-{item.section}
+                            </span>
+                          </td>
+
+                          {/* Transport Slab */}
+                          <td className="py-3 px-3 font-mono text-[11px] text-slate-500">
+                            {item.transportOpted ? (
+                              <div>
+                                <span className="font-bold text-emerald-800">{item.transportSlab}</span>
+                                <div className="text-[10px] text-slate-400">₹{item.transportMonthlyRate}/mo</div>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400">Self</span>
+                            )}
+                          </td>
+
+                          {/* Tuition Breakdown */}
+                          <td className="py-3 px-3 text-right font-mono">
+                            <div className="font-bold text-[#122A24]">₹{item.netTuitionDue.toLocaleString()}</div>
+                            <div className="text-[10px] text-slate-400">
+                              Pd: ₹{item.tuitionPaid.toLocaleString()}
+                            </div>
+                            {item.tuitionPending > 0 && (
+                              <div className="text-[10px] text-rose-600 font-bold">
+                                Due: ₹{item.tuitionPending.toLocaleString()}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Transport Breakdown */}
+                          <td className="py-3 px-3 text-right font-mono">
+                            <div className="font-bold text-[#122A24]">₹{item.transportDue.toLocaleString()}</div>
+                            <div className="text-[10px] text-slate-400">
+                              Pd: ₹{item.transportPaid.toLocaleString()}
+                            </div>
+                            {item.transportPending > 0 && (
+                              <div className="text-[10px] text-rose-600 font-bold">
+                                Due: ₹{item.transportPending.toLocaleString()}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Annual Fee Breakdown */}
+                          <td className="py-3 px-3 text-right font-mono">
+                            <div className="font-bold text-[#122A24]">₹{item.annualDue.toLocaleString()}</div>
+                            <div className="text-[10px] text-slate-400">
+                              Pd: ₹{item.annualPaid.toLocaleString()}
+                            </div>
+                            {item.annualPending > 0 && (
+                              <div className="text-[10px] text-rose-600 font-bold">
+                                Due: ₹{item.annualPending.toLocaleString()}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Exam Breakdown */}
+                          <td className="py-3 px-3 text-right font-mono">
+                            <div className="font-bold text-[#122A24]">₹{item.examDue.toLocaleString()}</div>
+                            <div className="text-[10px] text-slate-400">
+                              Pd: ₹{item.examPaid.toLocaleString()}
+                            </div>
+                            {item.examPending > 0 && (
+                              <div className="text-[10px] text-rose-600 font-bold">
+                                Due: ₹{item.examPending.toLocaleString()}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Consolidated Total Due */}
+                          <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 bg-slate-50/50">
+                            ₹{item.totalDue.toLocaleString()}
+                          </td>
+
+                          {/* Submitted / Paid */}
+                          <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700 bg-emerald-50/30">
+                            ₹{item.totalPaid.toLocaleString()}
+                          </td>
+
+                          {/* Pending Dues */}
+                          <td className="py-3 px-3 text-right font-mono font-bold bg-rose-50/30">
+                            {item.totalPending > 0 ? (
+                              <span className="text-rose-700 font-bold">₹{item.totalPending.toLocaleString()}</span>
+                            ) : (
+                              <span className="text-emerald-700 font-bold">₹0 Nil</span>
+                            )}
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3 px-3 text-center">
+                            {item.status === 'PAID' && (
+                              <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3" /> PAID
+                              </span>
+                            )}
+                            {item.status === 'PARTIAL' && (
+                              <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-amber-200">
+                                <AlertTriangle className="w-3 h-3" /> PARTIAL
+                              </span>
+                            )}
+                            {item.status === 'PENDING' && (
+                              <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-rose-200">
+                                <Clock className="w-3 h-3" /> PENDING
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-3 px-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenStudentSlip(item)}
+                                className="px-2 py-1 bg-white hover:bg-slate-100 text-[#122A24] border border-[#DCE8E0] rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                                title="Print / View Official Fee Slip"
+                              >
+                                <Receipt className="w-3.5 h-3.5 text-emerald-700" />
+                                <span>Slip</span>
+                              </button>
+
+                              {item.totalPending > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSendWhatsAppReminder(item)}
+                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                                  title="Send WhatsApp Fee Due Reminder"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>WhatsApp</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSendWhatsAppReceipt(item)}
+                                  className="px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                                  title="Send WhatsApp Payment Receipt"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5 text-slate-500" />
+                                  <span>Receipt</span>
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleQuickCollectFromMonthly(item.student, item.totalPending)}
+                                className="px-2.5 py-1 bg-[#122A24] hover:bg-[#1C443A] text-white border-none rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                                title="Quick Collect Counter"
+                              >
+                                <CreditCard className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Collect</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          TAB: CLASS-WISE BATCH FEE SLIP GENERATOR
+          ───────────────────────────────────────────────────────────── */}
+      {feeTab === 'slips' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Header Control Card */}
+          <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA]">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-md bg-[#E6F4EA] text-[#0D652D] text-[11px] font-mono font-bold border border-[#CEEAD6]">
+                    CBSE Batch Printing
+                  </span>
+                  <span className="text-xs font-mono text-slate-500">Session {selectedSession || '2026-27'}</span>
+                </div>
+                <h2 className="font-display font-bold text-xl text-[#122A24] mt-1 tracking-tight flex items-center gap-2">
+                  <Receipt className="w-5 h-5 text-emerald-700" />
+                  Class-Wise Batch Fee Slip Generator
+                </h2>
+                <p className="text-xs text-[#2D5A4E] mt-0.5">
+                  Select class, section, and fee installment cycle to print authentic two-part CBSE Fee Receipts for all students in one click.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-5 py-2.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer border-none shadow-md transition-all"
+                >
+                  <Printer className="w-4 h-4 text-emerald-400" />
+                  <span>Print All Slips ({feesReportData.filter(i => (slipClass === 'ALL' || i.className === slipClass) && (slipSection === 'ALL' || i.section === slipSection)).length})</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Scope Controls */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#F8FAF9] p-4 rounded-2xl border border-[#DCE8E0]">
+              <div>
+                <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  Select Class:
+                </label>
+                <select
+                  value={slipClass}
+                  onChange={(e) => setSlipClass(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 cursor-pointer"
+                >
+                  {uniqueClasses.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  Select Section:
+                </label>
+                <select
+                  value={slipSection}
+                  onChange={(e) => setSlipSection(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 cursor-pointer"
+                >
+                  <option value="ALL">All Sections</option>
+                  <option value="A">Section A</option>
+                  <option value="B">Section B</option>
+                  <option value="C">Section C</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  Billing Period / Fee Scheme:
+                </label>
+                <select
+                  value={slipPeriod}
+                  onChange={(e) => {
+                    setSlipPeriod(e.target.value);
+                    setReportPeriod(e.target.value);
+                  }}
+                  className="w-full px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 cursor-pointer"
+                >
+                  <option value="APRIL_ANNUAL">Cycle 1: April + Annual Fee</option>
+                  <option value="MAY_JUNE">Cycle 2: May + June</option>
+                  <option value="JULY">Cycle 3: July</option>
+                  <option value="AUGUST">Cycle 4: August</option>
+                  <option value="SEPT_FEB">Cycle 5: September + February</option>
+                  <option value="OCTOBER">Cycle 6: October</option>
+                  <option value="NOVEMBER">Cycle 7: November</option>
+                  <option value="DEC_MARCH">Cycle 8: December + March</option>
+                  <option value="JANUARY">Cycle 9: January (Final Settlement)</option>
+                  <option value="FULL_YEAR">Full Academic Year 2026–27</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Render All Student Fee Slips in Class */}
+          <div className="space-y-8">
+            {feesReportData
+              .filter(i => (slipClass === 'ALL' || i.className === slipClass) && (slipSection === 'ALL' || i.section === slipSection))
+              .map((item, idx) => (
+                <div key={item.student.id} className="bg-white rounded-3xl border border-[#DCE8E0] shadow-sm p-6 sm:p-8 space-y-4 print:border-none print:shadow-none print:p-0 print:m-0 print:break-after-page">
+                  
+                  {/* Two-Part Container */}
+                  <div className="border-2 border-[#122A24] rounded-2xl p-6 bg-white space-y-4">
+                    {/* Header */}
+                    <div className="text-center border-b-2 border-[#122A24] pb-3">
+                      <div className="font-display font-black text-xl text-[#122A24] tracking-tight uppercase">
+                        {selectedSchool?.school_name || 'Delhi Public International School'}
+                      </div>
+                      <div className="text-xs text-slate-600 font-medium mt-0.5">
+                        {selectedSchool?.address || 'Sector 12, Dwarka, New Delhi'} • Phone: {selectedSchool?.phone || '+91 11 2789 0000'}
+                      </div>
+                      <div className="text-[11px] font-mono font-bold text-[#1C443A] mt-1">
+                        CBSE Affiliation No: {selectedSchool?.affiliation_no || '2130042'} | School Code: {selectedSchool?.oasis_code || '84001'}
+                      </div>
+                      <div className="inline-block mt-2 px-3 py-0.5 bg-[#122A24] text-white text-[11px] font-bold uppercase rounded-md tracking-wider">
+                        Official CBSE Student Fee Slip • Session {selectedSession || '2026-27'}
+                      </div>
+                    </div>
+
+                    {/* Metadata Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono border-b border-slate-200 pb-3">
+                      <div>
+                        <span className="text-slate-500">Receipt No: </span>
+                        <strong className="text-[#122A24]">REC-2026-{1000 + idx}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Date: </span>
+                        <strong className="text-[#122A24]">{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Roll No: </span>
+                        <strong className="text-[#122A24]">{item.rollNo}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Scholar No: </span>
+                        <strong className="text-[#122A24]">{item.student.admission_no || item.student.id}</strong>
+                      </div>
+
+                      <div>
+                        <span className="text-slate-500">Scholar Name: </span>
+                        <strong className="text-[#122A24] font-sans font-bold">{item.student.full_name}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Father Name: </span>
+                        <strong className="text-[#122A24]">{item.fatherName}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Class &amp; Sec: </span>
+                        <strong className="text-[#122A24]">{item.className} - {item.section}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Transport: </span>
+                        <strong className="text-[#122A24]">{item.transportOpted ? item.transportSlab : 'Self'}</strong>
+                      </div>
+                    </div>
+
+                    {/* Particulars Table */}
+                    <table className="w-full text-xs border-collapse font-mono">
+                      <thead>
+                        <tr className="border-b-2 border-[#122A24] bg-slate-50">
+                          <th className="py-2 px-2 text-left font-bold w-12">SN</th>
+                          <th className="py-2 px-2 text-left font-bold">FEE HEAD PARTICULARS</th>
+                          <th className="py-2 px-2 text-right font-bold w-32">DUE (₹)</th>
+                          <th className="py-2 px-2 text-right font-bold w-32 text-emerald-800">PAID (₹)</th>
+                          <th className="py-2 px-2 text-right font-bold w-32 text-rose-700">PENDING (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        <tr>
+                          <td className="py-1.5 px-2">1</td>
+                          <td className="py-1.5 px-2">
+                            Tuition &amp; Composite Academic Fee
+                            {item.siblingInfo.tuitionDiscountPct > 0 && (
+                              <span className="text-emerald-700 font-bold ml-1">
+                                (Less: {item.siblingInfo.tuitionDiscountPct}% Sibling Concession - Child #{item.siblingInfo.childOrder})
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-bold">₹{item.netTuitionDue.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right font-bold text-emerald-800">₹{item.tuitionPaid.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right font-bold text-rose-700">₹{item.tuitionPending.toLocaleString()}</td>
+                        </tr>
+
+                        <tr>
+                          <td className="py-1.5 px-2">2</td>
+                          <td className="py-1.5 px-2">
+                            Monthly School Transport Fee ({item.transportOpted ? item.transportSlab : 'Self'})
+                            {item.siblingInfo.freeTransport && (
+                              <span className="text-emerald-700 font-bold ml-1">(4th Child: 100% Free Transport)</span>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-bold">₹{item.transportDue.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right font-bold text-emerald-800">₹{item.transportPaid.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right font-bold text-rose-700">₹{item.transportPending.toLocaleString()}</td>
+                        </tr>
+
+                        <tr>
+                          <td className="py-1.5 px-2">3</td>
+                          <td className="py-1.5 px-2">Institutional Annual Fee &amp; Infrastructure Development</td>
+                          <td className="py-1.5 px-2 text-right font-bold">₹{item.annualDue.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right font-bold text-emerald-800">₹{item.annualPaid.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right font-bold text-rose-700">₹{item.annualPending.toLocaleString()}</td>
+                        </tr>
+
+                        <tr>
+                          <td className="py-1.5 px-2">4</td>
+                          <td className="py-1.5 px-2">CBSE Examination, Assessment &amp; Printing Charges</td>
+                          <td className="py-1.5 px-2 text-right font-bold">₹{item.examDue.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right font-bold text-emerald-800">₹{item.examPaid.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right font-bold text-rose-700">₹{item.examPending.toLocaleString()}</td>
+                        </tr>
+
+                        <tr className="border-t-2 border-[#122A24] bg-slate-50 font-bold">
+                          <td className="py-2 px-2" colSpan={2}>CONSOLIDATED TOTALS</td>
+                          <td className="py-2 px-2 text-right text-sm">₹{item.totalDue.toLocaleString()}</td>
+                          <td className="py-2 px-2 text-right text-sm text-emerald-800">₹{item.totalPaid.toLocaleString()}</td>
+                          <td className="py-2 px-2 text-right text-sm text-rose-700">₹{item.totalPending.toLocaleString()}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    {/* Words & Mode */}
+                    <div className="pt-2 text-xs font-mono space-y-1">
+                      <div>
+                        <span className="text-slate-500">Amount Received in Words: </span>
+                        <strong className="text-[#122A24] uppercase">{numberToWordsINR(item.totalPaid)}</strong>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                        <span>Payment Mode: <strong>CASH / UPI / CHEQUE</strong></span>
+                        <span>Installment Scheme: <strong>{getPeriodMeta(slipPeriod).label}</strong></span>
+                        <span>Fee Status: <strong className={item.status === 'PAID' ? 'text-emerald-700' : 'text-rose-700'}>{item.status}</strong></span>
+                      </div>
+                    </div>
+
+                    {/* Signatures */}
+                    <div className="flex items-end justify-between pt-8 border-t border-dashed border-slate-300 text-xs font-mono">
+                      <div className="text-center">
+                        <div className="w-32 border-b border-slate-400 mb-1"></div>
+                        <span className="text-slate-500">Cashier / Fee Clerk</span>
+                      </div>
+                      <div className="text-center">
+                        <div className="px-3 py-1 bg-slate-100 border border-slate-300 text-[10px] font-bold uppercase rounded mb-1">
+                          INSTITUTIONAL SEAL
+                        </div>
+                        <span className="text-slate-500">DPS Authorized</span>
+                      </div>
+                      <div className="text-center">
+                        <div className="w-32 border-b border-slate-400 mb-1"></div>
+                        <span className="text-slate-500">Principal Signature</span>
+                      </div>
+                    </div>
+
+                    {/* Two-Part Notice */}
+                    <div className="text-center text-[10px] font-mono text-slate-400 pt-2 border-t border-slate-200 flex items-center justify-between">
+                      <span>✂ Cut along line for Parent Copy</span>
+                      <span>[ Accounts Office &amp; Parent Duplicate Record ]</span>
+                    </div>
+
+                  </div>
+                </div>
+              ))}
+          </div>
+
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────
           TAB 1: QUICK FEE COLLECTION & RECEIPT STUDIO (REDESIGNED)
@@ -2451,6 +3793,26 @@ export function DashboardFees({
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              <label className="px-3.5 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all">
+                <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Upload Structure (CSV/JSON)</span>
+                <input
+                  type="file"
+                  accept=".csv, .json"
+                  onChange={handleUploadFeeStructure}
+                  className="hidden"
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={handleDownloadSampleStructureCsv}
+                className="px-3.5 py-2 bg-[#F8FAF9] hover:bg-slate-100 text-slate-700 border border-[#DCE8E0] rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download Sample CSV</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleResetFeeStructure}
@@ -2475,6 +3837,65 @@ export function DashboardFees({
               >
                 {structureSaveSuccess ? 'Saved!' : 'Save All Structure Changes'}
               </button>
+            </div>
+          </div>
+
+          {/* Upload Status Banner */}
+          {uploadFeedback && (
+            <div className="p-3.5 rounded-2xl bg-[#EBF5EF] border border-[#C5E2CF] text-emerald-900 text-xs font-semibold flex items-center gap-2 animate-fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>{uploadFeedback}</span>
+            </div>
+          )}
+
+          {/* Official Sibling Concession & Institutional Regulations Notice Card */}
+          <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 space-y-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-[#E8F0EA]">
+              <Info className="w-5 h-5 text-emerald-700" />
+              <h3 className="font-display font-bold text-sm sm:text-base text-[#122A24]">
+                IMPORTANT NOTICE &amp; CONCESSION REGULATIONS (Session 2026–27)
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-700 leading-relaxed">
+              <div className="space-y-2.5 p-4 rounded-2xl bg-[#F8FAF9] border border-[#E8F0EA]">
+                <div className="font-bold text-[#122A24] flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  Sibling Concession Policy (Same Father Enrolled):
+                </div>
+                <ul className="list-disc pl-5 space-y-1.5 text-[11.5px]">
+                  <li>
+                    <strong>Two children:</strong> Only the <strong>second child</strong> will receive a <strong>20% concession</strong> in monthly tuition fee.
+                  </li>
+                  <li>
+                    <strong>Three children:</strong> Only the <strong>third child</strong> will receive a <strong>30% concession</strong> in monthly tuition fee.
+                  </li>
+                  <li>
+                    <strong>Four children:</strong> The <strong>third child</strong> will receive a <strong>30% concession</strong> in tuition fee, and the <strong>fourth child</strong> will be granted a special facility—<strong>free transportation</strong>.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="space-y-2.5 p-4 rounded-2xl bg-[#F8FAF9] border border-[#E8F0EA]">
+                <div className="font-bold text-[#122A24] flex items-center gap-1.5">
+                  <Coins className="w-4 h-4 text-emerald-700" />
+                  Lump-Sum Payment &amp; Operational Regulations:
+                </div>
+                <ul className="list-disc pl-5 space-y-1.5 text-[11.5px]">
+                  <li>
+                    <strong>Annual Discount:</strong> A discount equal to <strong>one month&apos;s tuition fee</strong> will be given if the entire year&apos;s payment is made at once.
+                  </li>
+                  <li>
+                    <strong>Exclusions:</strong> Books, stationery, uniform, examination charges, emergency health care, and other special events are not included in regular tuition.
+                  </li>
+                  <li>
+                    <strong>Refundable Security Deposit:</strong> Refundable only if the child successfully completes the academic session. Mid-term withdrawal will not be refunded.
+                  </li>
+                  <li>
+                    <strong>Transport Revisions:</strong> If a child&apos;s route is changed, the transportation fees will be revised according to the new distance slab.
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
 
@@ -2961,6 +4382,191 @@ export function DashboardFees({
                   <div className="font-mono text-[11px] text-slate-500">Payment Mode:</div>
                   <strong className="text-[#122A24]">{selectedReceiptInvoice.payment_mode || 'UPI / Online'}</strong>
                   <div className="text-[10px] text-slate-400 mt-1 font-mono">Status: COMPLETED (CBSE Cleared)</div>
+                </div>
+
+                <div className="text-right space-y-6">
+                  <div className="font-mono text-[11px] text-slate-500">Authorized Accounts Signatory</div>
+                  <div className="border-t border-dashed border-slate-400 pt-1 text-[11px] font-bold text-[#122A24] inline-block">
+                    Accounts Officer / Cashier
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          MODAL 1B: OFFICIAL INDIVIDUAL SCHOLAR FEE SLIP (FROM REPORT)
+          ───────────────────────────────────────────────────────────── */}
+      {singleSlipStudent && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8">
+            {/* Modal Controls */}
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200 print:hidden">
+              <div className="flex items-center gap-2">
+                <BadgeCheck className="w-5 h-5 text-emerald-600" />
+                <span className="font-display font-bold text-base text-[#122A24]">Official CBSE Student Fee Slip</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleSendWhatsAppReminder(singleSlipStudent)}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer border-none shadow-xs"
+                  title="Share Fee Slip via WhatsApp"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" /> Share WhatsApp
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer border-none shadow-xs"
+                >
+                  <Printer className="w-3.5 h-3.5" /> Print Slip
+                </button>
+                <button
+                  onClick={() => setSingleSlipStudent(null)}
+                  className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-800 border-none cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Receipt Paper */}
+            <div className="p-6 border-2 border-[#122A24] rounded-2xl space-y-4 bg-white text-slate-800">
+              {/* Institutional Header */}
+              <div className="text-center border-b-2 border-[#122A24] pb-3">
+                <div className="font-display font-black text-xl text-[#122A24] tracking-tight uppercase">
+                  {selectedSchool?.school_name || 'Delhi Public International School'}
+                </div>
+                <div className="text-xs text-slate-600 font-medium mt-0.5">
+                  {selectedSchool?.address || 'Sector 12, Dwarka, New Delhi'} • Phone: {selectedSchool?.phone || '+91 11 2789 0000'}
+                </div>
+                <div className="text-[11px] font-mono font-bold text-[#1C443A] mt-1">
+                  CBSE Affiliation No: {selectedSchool?.affiliation_no || '2130042'} | School Code: {selectedSchool?.oasis_code || '84001'}
+                </div>
+                <div className="inline-block mt-2 px-3 py-0.5 bg-[#122A24] text-white text-[11px] font-bold uppercase rounded-md tracking-wider">
+                  Official Student Fee Slip • Session {selectedSession || '2026-27'}
+                </div>
+              </div>
+
+              {/* Receipt Metadata Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono border-b border-slate-200 pb-3">
+                <div>
+                  <span className="text-slate-500">Receipt No: </span>
+                  <strong className="text-[#122A24]">REC-2026-{singleSlipStudent.rollNo + 1000}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Date: </span>
+                  <strong className="text-[#122A24]">{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Roll No: </span>
+                  <strong className="text-[#122A24]">{singleSlipStudent.rollNo}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Scholar No: </span>
+                  <strong className="text-[#122A24]">{singleSlipStudent.student.admission_no || singleSlipStudent.student.id}</strong>
+                </div>
+
+                <div>
+                  <span className="text-slate-500">Student Name: </span>
+                  <strong className="text-[#122A24] font-sans font-bold">{singleSlipStudent.student.full_name}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Father Name: </span>
+                  <strong className="text-[#122A24]">{singleSlipStudent.fatherName}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Class &amp; Sec: </span>
+                  <strong className="text-[#122A24]">{singleSlipStudent.className} - {singleSlipStudent.section}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">Transport: </span>
+                  <strong className="text-[#122A24]">{singleSlipStudent.transportOpted ? singleSlipStudent.transportSlab : 'Self'}</strong>
+                </div>
+              </div>
+
+              {/* Fee Particulars Table */}
+              <table className="w-full text-xs border-collapse font-mono">
+                <thead>
+                  <tr className="border-b-2 border-[#122A24] bg-slate-50">
+                    <th className="py-2 px-2 text-left font-bold w-12">SN</th>
+                    <th className="py-2 px-2 text-left font-bold">FEE PARTICULARS</th>
+                    <th className="py-2 px-2 text-right font-bold w-24">DUE (₹)</th>
+                    <th className="py-2 px-2 text-right font-bold w-24 text-emerald-800">PAID (₹)</th>
+                    <th className="py-2 px-2 text-right font-bold w-24 text-rose-700">PENDING (₹)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  <tr>
+                    <td className="py-1.5 px-2">1</td>
+                    <td className="py-1.5 px-2">
+                      Tuition &amp; Composite Academic Fee
+                      {singleSlipStudent.siblingInfo.tuitionDiscountPct > 0 && (
+                        <span className="text-emerald-700 font-bold ml-1">
+                          (Less: {singleSlipStudent.siblingInfo.tuitionDiscountPct}% Sibling Concession)
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-1.5 px-2 text-right font-bold">₹{singleSlipStudent.netTuitionDue.toLocaleString()}</td>
+                    <td className="py-1.5 px-2 text-right font-bold text-emerald-800">₹{singleSlipStudent.tuitionPaid.toLocaleString()}</td>
+                    <td className="py-1.5 px-2 text-right font-bold text-rose-700">₹{singleSlipStudent.tuitionPending.toLocaleString()}</td>
+                  </tr>
+
+                  <tr>
+                    <td className="py-1.5 px-2">2</td>
+                    <td className="py-1.5 px-2">
+                      Monthly School Transport Fee ({singleSlipStudent.transportOpted ? singleSlipStudent.transportSlab : 'Self'})
+                      {singleSlipStudent.siblingInfo.freeTransport && (
+                        <span className="text-emerald-700 font-bold ml-1">(4th Child: 100% Free)</span>
+                      )}
+                    </td>
+                    <td className="py-1.5 px-2 text-right font-bold">₹{singleSlipStudent.transportDue.toLocaleString()}</td>
+                    <td className="py-1.5 px-2 text-right font-bold text-emerald-800">₹{singleSlipStudent.transportPaid.toLocaleString()}</td>
+                    <td className="py-1.5 px-2 text-right font-bold text-rose-700">₹{singleSlipStudent.transportPending.toLocaleString()}</td>
+                  </tr>
+
+                  <tr>
+                    <td className="py-1.5 px-2">3</td>
+                    <td className="py-1.5 px-2">Institutional Annual Fee &amp; Infrastructure Development</td>
+                    <td className="py-1.5 px-2 text-right font-bold">₹{singleSlipStudent.annualDue.toLocaleString()}</td>
+                    <td className="py-1.5 px-2 text-right font-bold text-emerald-800">₹{singleSlipStudent.annualPaid.toLocaleString()}</td>
+                    <td className="py-1.5 px-2 text-right font-bold text-rose-700">₹{singleSlipStudent.annualPending.toLocaleString()}</td>
+                  </tr>
+
+                  <tr>
+                    <td className="py-1.5 px-2">4</td>
+                    <td className="py-1.5 px-2">CBSE Examination &amp; Assessment Charges</td>
+                    <td className="py-1.5 px-2 text-right font-bold">₹{singleSlipStudent.examDue.toLocaleString()}</td>
+                    <td className="py-1.5 px-2 text-right font-bold text-emerald-800">₹{singleSlipStudent.examPaid.toLocaleString()}</td>
+                    <td className="py-1.5 px-2 text-right font-bold text-rose-700">₹{singleSlipStudent.examPending.toLocaleString()}</td>
+                  </tr>
+
+                  <tr className="border-t-2 border-[#122A24] bg-slate-50 font-bold">
+                    <td className="py-2 px-2" colSpan={2}>CONSOLIDATED TOTALS</td>
+                    <td className="py-2 px-2 text-right text-sm">₹{singleSlipStudent.totalDue.toLocaleString()}</td>
+                    <td className="py-2 px-2 text-right text-sm text-emerald-800">₹{singleSlipStudent.totalPaid.toLocaleString()}</td>
+                    <td className="py-2 px-2 text-right text-sm text-rose-700">₹{singleSlipStudent.totalPending.toLocaleString()}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* Amount in Words */}
+              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                <span className="text-slate-500 font-mono">Amount Received in Words: </span>
+                <strong className="text-[#122A24] italic uppercase">
+                  {numberToWordsINR(singleSlipStudent.totalPaid)}
+                </strong>
+              </div>
+
+              {/* Payment Mode & Stamp Area */}
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200 text-xs">
+                <div>
+                  <div className="font-mono text-[11px] text-slate-500">Billing Scheme:</div>
+                  <strong className="text-[#122A24]">{getPeriodMeta(reportPeriod).label}</strong>
+                  <div className="text-[10px] text-slate-400 mt-1 font-mono">
+                    Fee Status: <span className={singleSlipStudent.status === 'PAID' ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>{singleSlipStudent.status}</span>
+                  </div>
                 </div>
 
                 <div className="text-right space-y-6">

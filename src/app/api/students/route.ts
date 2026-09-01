@@ -7,7 +7,16 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const schoolId = searchParams.get('school_id') || searchParams.get('schoolId') || undefined;
     const session = searchParams.get('session') || searchParams.get('academic_session') || undefined;
-    const students = await Database.getStudents(schoolId, session);
+    const role = req.headers.get('x-user-role') || searchParams.get('role');
+    const isAdmin = role === 'PRINCIPAL' || role === 'AGENCY_SUPERADMIN' || role === 'ADMIN';
+
+    const rawStudents = await Database.getStudents(schoolId, session);
+    const students = rawStudents.map(s => {
+      if (isAdmin) return s;
+      const { passcode, ...safeStudent } = s as any;
+      return safeStudent;
+    });
+
     return NextResponse.json({ success: true, count: students.length, students });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

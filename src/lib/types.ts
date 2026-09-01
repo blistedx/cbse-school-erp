@@ -225,6 +225,22 @@ export interface TimetableEntry {
   end_time: string;
 }
 
+export interface SubstitutionItem {
+  id: string;
+  period_no: number;
+  period_time: string;
+  class_name: string;
+  section: string;
+  subject: string;
+  absent_teacher_id: string;
+  absent_teacher_name: string;
+  substitute_teacher_id: string;
+  substitute_teacher_name: string;
+  match_reason: 'SUBJECT_SPECIALIST' | 'BALANCED_LOAD' | 'MANUAL_SWAP';
+  status: 'PENDING' | 'CONFIRMED' | 'NOTIFIED';
+  date: string;
+}
+
 export interface Notice {
   id: string;
   school_id: string;
@@ -281,7 +297,10 @@ export interface FeeInvoice {
   paid_amount?: number;
   tuition_fee?: number;
   transport_fee?: number;
+  annual_fee?: number;
   exam_fee?: number;
+  concession_amount?: number;
+  sibling_discount?: number;
   due_date: string;
   status: 'PAID' | 'PENDING' | 'OVERDUE';
   payment_mode?: string;
@@ -424,3 +443,83 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     profile: { can_view: true, can_edit: true, can_add: false, can_delete: false }
   }
 };
+
+export interface ScheduledExamItem {
+  id: string;
+  school_id?: string;
+  academic_session?: string;
+  title: string;
+  type: 'SCHOOL_EXAM' | 'CLASS_TEST';
+  class_name: string;
+  section: string;
+  subject_name: string;
+  subject_code?: string;
+  date: string;
+  time?: string;
+  max_marks: number;
+  pass_marks: number;
+  status: 'MARKS_FILLED' | 'PENDING';
+  created_at?: string;
+}
+
+export interface BookItem {
+  id: string;
+  isbn: string;
+  title: string;
+  author: string;
+  category: string;
+  rack_no: string;
+  total_copies: number;
+  available_copies: number;
+  publisher?: string;
+  price?: number;
+  edition?: string;
+}
+
+export interface BookCirculationRecord {
+  id: string;
+  book_id: string;
+  book_title: string;
+  isbn: string;
+  student_id: string;
+  student_name: string;
+  class_name: string;
+  section: string;
+  issue_date: string;
+  due_date: string;
+  return_date?: string;
+  fine_amount: number;
+  status: 'ISSUED' | 'RETURNED' | 'OVERDUE';
+}
+
+export interface VisitorEntry {
+  id: string;
+  visitor_name: string;
+  phone: string;
+  whom_to_meet: string;
+  purpose: string;
+  badge_no: string;
+  in_time: string;
+  out_time?: string;
+  status: 'CHECKED_IN' | 'CHECKED_OUT';
+  date: string;
+  government_id?: string;
+}
+
+export interface StudentGatePass {
+  id: string;
+  pass_no: string;
+  student_id: string;
+  student_name: string;
+  class_name: string;
+  section: string;
+  parent_name: string;
+  parent_phone: string;
+  escort_relation: string;
+  reason: string;
+  authorized_by: string;
+  issued_at: string;
+  status: 'ISSUED' | 'DEPARTED';
+  date: string;
+}
+

@@ -146,6 +146,19 @@ const DashboardPermissions = dynamic(
   () => import('@/components/blocks/dashboard-permissions').then((m) => m.DashboardPermissions),
   { ssr: false }
 );
+const DashboardCbseReportCard = dynamic(
+  () => import('@/components/blocks/dashboard-cbse-report-card').then((m) => m.DashboardCbseReportCard),
+  { ssr: false }
+);
+const DashboardLibrary = dynamic(
+  () => import('@/components/blocks/dashboard-library').then((m) => m.DashboardLibrary),
+  { ssr: false }
+);
+const DashboardVisitorGate = dynamic(
+  () => import('@/components/blocks/dashboard-visitor-gate').then((m) => m.DashboardVisitorGate),
+  { ssr: false }
+);
+import { sendTestNotification, getNotificationPermissionStatus } from '@/lib/push-notifications';
 
 const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code: string; highlight: string }> = {
   overview: {
@@ -274,6 +287,24 @@ const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code:
     code: 'MOD-20 // PERMISSIONS',
     highlight: 'ADMIN PRIVILEGE MANAGEMENT',
   },
+  report_card: {
+    title: 'REPORT CARDS',
+    subtitle: 'OFFICIAL CBSE 9-POINT REPORT CARD STUDIO',
+    code: 'MOD-21 // SCHOLASTIC',
+    highlight: 'CBSE 9-POINT GRADING & CITATIONS',
+  },
+  library: {
+    title: 'LIBRARY',
+    subtitle: 'BARCODE BOOK REPOSITORY & CIRCULATION',
+    code: 'MOD-22 // LIBRARY',
+    highlight: 'CBSE ACCREDITED CATALOG & CIRCULATION',
+  },
+  visitors: {
+    title: 'SECURITY & GATE PASS',
+    subtitle: 'VISITOR LOG & STUDENT EARLY DISPERSAL',
+    code: 'MOD-23 // SECURITY_GATE',
+    highlight: 'CBSE CHILD SAFETY PROTOCOL',
+  },
 };
 
 function ERPWorkspaceContent() {
@@ -364,6 +395,100 @@ function ERPWorkspaceContent() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const isSuperAdmin = mounted && (currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'AGENCY_SUPERADMIN' || currentUser?.role === 'GOD_ACCESS' || currentUser?.is_god_admin || currentUser?.username?.toLowerCase() === 'blistedx');
 
+  // Agency Superadmin School Purge Modal State (Protected with Captcha)
+  const [purgeTargetSchool, setPurgeTargetSchool] = useState<any>(null);
+  const [captchaChallenge, setCaptchaChallenge] = useState('');
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [confirmInput, setConfirmInput] = useState('');
+  const [purgeLoading, setPurgeLoading] = useState(false);
+  const [purgeError, setPurgeError] = useState('');
+  const [purgeSuccessMessage, setPurgeSuccessMessage] = useState('');
+
+  // PWA Push Notifications Header Menu & Live Test State
+  const [showNotificationMenu, setShowNotificationMenu] = useState(false);
+  const [pushStatus, setPushStatus] = useState<NotificationPermission>('default');
+  const [testingPush, setTestingPush] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setPushStatus(getNotificationPermissionStatus());
+    }
+  }, []);
+
+  const handleTestPushAlert = async () => {
+    setTestingPush(true);
+    const res = await sendTestNotification();
+    setPushStatus(getNotificationPermissionStatus());
+    showAdminToast(res.message);
+    setTestingPush(false);
+  };
+
+  const generateCaptcha = () => {
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setCaptchaChallenge(code);
+    setCaptchaInput('');
+    setConfirmInput('');
+    setPurgeError('');
+  };
+
+  const handleOpenPurgeModal = (school: any) => {
+    setPurgeTargetSchool(school);
+    generateCaptcha();
+  };
+
+  const handleExecutePurge = async () => {
+    if (!purgeTargetSchool) return;
+    setPurgeLoading(true);
+    setPurgeError('');
+
+    try {
+      const res = await fetch('/api/agency/purge-school', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': 'AGENCY_SUPERADMIN'
+        },
+        body: JSON.stringify({
+          school_id: purgeTargetSchool.id,
+          school_code: purgeTargetSchool.school_code,
+          captcha_input: captchaInput,
+          expected_captcha: captchaChallenge,
+          confirmation_text: confirmInput
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPurgeSuccessMessage(data.message);
+        showAdminToast(`School "${purgeTargetSchool.school_name}" permanently deleted.`);
+        
+        const remaining = availableSchools.filter(s => s.id !== purgeTargetSchool.id && s.school_code !== purgeTargetSchool.school_code);
+        setAvailableSchools(remaining);
+
+        setTimeout(() => {
+          setPurgeTargetSchool(null);
+          setPurgeSuccessMessage('');
+          if (remaining.length > 0) {
+            handleSwitchSchool(remaining[0].school_code || remaining[0].id);
+          } else {
+            router.push('/login');
+          }
+        }, 2200);
+      } else {
+        setPurgeError(data.error || 'Failed to purge school.');
+        generateCaptcha();
+      }
+    } catch (err: any) {
+      setPurgeError(err.message || 'Network error.');
+      generateCaptcha();
+    } finally {
+      setPurgeLoading(false);
+    }
+  };
+
   // Granular Role-Based Access Control (RBAC) Permissions Matrix
   const [rolePermissions, setRolePermissions] = useState<RolePermissionMatrix>(() => {
     if (typeof window !== 'undefined') {
@@ -386,7 +511,7 @@ function ERPWorkspaceContent() {
       return [
         'overview', 'students', 'siblings', 'teachers', 'classes', 'subjects',
         'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams',
-        'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs',
+        'report_card', 'library', 'visitors', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs',
         'settings', 'permissions', 'profile'
       ];
     }
@@ -961,6 +1086,12 @@ function ERPWorkspaceContent() {
           } catch (e) {}
         }
         
+        // Security Gate: If user is not authenticated, redirect to login
+        if (!activeUserObj) {
+          router.push('/login');
+          return;
+        }
+        
         const activePrincipalName = targetSchool.principal_name || targetSchool.admin_name || activeUserObj?.full_name || 'Dr. Rajesh Sharma';
         const cleanAdminPin = (targetSchool.admin_pin === 'admin@4317' ? '123456' : targetSchool.admin_pin) || '123456';
         
@@ -998,19 +1129,6 @@ function ERPWorkspaceContent() {
         if (typeof window !== 'undefined') {
           localStorage.setItem('current_school', JSON.stringify(targetSchool));
           localStorage.setItem('last_active_school_id', targetSchool.school_code || targetSchool.id);
-          if (!activeUserObj) {
-            const defaultUser = {
-              id: targetSchool.admin_id || 'admin',
-              school_id: targetSchool.id,
-              username: targetSchool.admin_id || 'admin',
-              role: 'PRINCIPAL',
-              full_name: activePrincipalName,
-              email: `admin@${(targetSchool.school_code || 'dps2026').toLowerCase()}.edu`,
-              status: 'ACTIVE'
-            };
-            setCurrentUser(defaultUser);
-            localStorage.setItem('current_user', JSON.stringify(defaultUser));
-          }
         }
         loadSchoolData(targetSchool.school_code || targetSchool.id || 'DPS2026');
       } else {
@@ -1116,7 +1234,18 @@ function ERPWorkspaceContent() {
     }
 
     try {
-      const fetchOpts = { cache: 'no-store' as RequestCache };
+      const storedUser = typeof window !== 'undefined' ? localStorage.getItem('current_user') : null;
+      let activeRole = currentUser?.role || '';
+      if (!activeRole && storedUser) {
+        try { activeRole = JSON.parse(storedUser).role; } catch (e) {}
+      }
+
+      const fetchOpts = {
+        cache: 'no-store' as RequestCache,
+        headers: {
+          'x-user-role': activeRole || 'ANONYMOUS'
+        }
+      };
       const safeFetchJson = async (url: string) => {
         try {
           const res = await fetch(url, fetchOpts);
@@ -2672,6 +2801,71 @@ function ERPWorkspaceContent() {
             </select>
           </div>
 
+          {/* PWA Push Notification Control Bell */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setPushStatus(getNotificationPermissionStatus());
+                setShowNotificationMenu(!showNotificationMenu);
+              }}
+              className={`p-1.5 sm:px-2.5 sm:py-1 rounded-full border text-xs font-semibold cursor-pointer transition-all shadow-2xs flex items-center gap-1.5 ${
+                pushStatus === 'granted'
+                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                  : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
+              }`}
+              title="PWA Push Notifications Control Center"
+            >
+              <span className="relative flex h-2 w-2">
+                {pushStatus === 'granted' && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                )}
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${pushStatus === 'granted' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+              </span>
+              <Bell className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline text-[11px] font-mono font-bold">
+                {pushStatus === 'granted' ? 'Alerts ON' : 'Enable Alerts'}
+              </span>
+            </button>
+
+            {showNotificationMenu && (
+              <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl border border-slate-200 shadow-xl p-4 z-50 space-y-3 animate-fade-in text-xs">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <span className="font-bold text-[#122A24] flex items-center gap-1.5">
+                    <Bell className="w-3.5 h-3.5 text-emerald-600" />
+                    PWA Push Notifications
+                  </span>
+                  <button
+                    onClick={() => setShowNotificationMenu(false)}
+                    className="text-slate-400 hover:text-slate-600 p-0.5 border-none bg-transparent cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11.5px] leading-relaxed">
+                  Status:{' '}
+                  <strong className={pushStatus === 'granted' ? 'text-emerald-700' : 'text-amber-700'}>
+                    {pushStatus === 'granted' ? '✅ Active on this device' : '⚠️ Permission Required'}
+                  </strong>
+                  <div className="text-[10px] text-slate-500 mt-1">
+                    Delivers real-time student attendance, exam alerts, fees dues, and emergency sirens with sound chime.
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleTestPushAlert}
+                  disabled={testingPush}
+                  className="w-full py-2 px-3 bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition-colors border-none cursor-pointer disabled:opacity-50"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{testingPush ? 'Dispatching Test...' : '🔔 Send Test Push Notification'}</span>
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* User Profile Avatar / Chip */}
           <button
             onClick={() => setActiveTab('profile')}
@@ -3030,6 +3224,28 @@ function ERPWorkspaceContent() {
               </button>
             )}
 
+            {allowedTabs.includes('library') && (
+              <button
+                onClick={() => { setActiveTab('library'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'library' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <BookOpen className="h-4 w-4 shrink-0 text-emerald-300" /> Digital Library &amp; Books
+              </button>
+            )}
+
+            {allowedTabs.includes('visitors') && (
+              <button
+                onClick={() => { setActiveTab('visitors'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'visitors' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <ShieldCheck className="h-4 w-4 shrink-0 text-amber-300" /> Gate Pass &amp; Visitors
+              </button>
+            )}
+
             {allowedTabs.includes('exams') && (
               <button
                 onClick={() => { setActiveTab('exams'); setMobileMenuOpen(false); }}
@@ -3038,6 +3254,17 @@ function ERPWorkspaceContent() {
                 }`}
               >
                 <Award className="h-4 w-4 shrink-0 text-purple-300" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'Report Card & Marksheet' : 'CBSE Exams & Reports'}
+              </button>
+            )}
+
+            {allowedTabs.includes('report_card') && (
+              <button
+                onClick={() => { setActiveTab('report_card'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'report_card' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <GraduationCap className="h-4 w-4 shrink-0 text-amber-300" /> CBSE 9-Point Report Cards
               </button>
             )}
 
@@ -3442,6 +3669,28 @@ function ERPWorkspaceContent() {
               }`}
             >
               <Bus className="h-4 w-4 shrink-0 text-blue-300" /> Transport &amp; GPS Fleet
+            </button>
+          )}
+
+          {allowedTabs.includes('library') && (
+            <button
+              onClick={() => setActiveTab('library')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'library' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <BookOpen className="h-4 w-4 shrink-0 text-emerald-300" /> Digital Library &amp; Books
+            </button>
+          )}
+
+          {allowedTabs.includes('visitors') && (
+            <button
+              onClick={() => setActiveTab('visitors')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'visitors' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <ShieldCheck className="h-4 w-4 shrink-0 text-amber-300" /> Gate Pass &amp; Visitors
             </button>
           )}
 
@@ -6455,6 +6704,7 @@ function ERPWorkspaceContent() {
               <DashboardApprovals
                 selectedSchool={selectedSchool}
                 teachers={teachers}
+                attendance={attendance}
                 selectedSession={selectedSession}
                 isSuperAdmin={isSuperAdmin}
               />
@@ -6997,6 +7247,50 @@ function ERPWorkspaceContent() {
                   </div>
                 </div>
               </div>
+
+              {/* DANGER ZONE: AGENCY SUPERADMIN PERMANENT SCHOOL PURGE */}
+              {isSuperAdmin && (
+                <div className="bg-rose-50/70 p-6 sm:p-7 rounded-3xl border-2 border-rose-300 shadow-xs space-y-4">
+                  <div className="flex items-start justify-between pb-3 border-b border-rose-200 flex-wrap gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-2xl bg-rose-100 border border-rose-300 text-rose-700 flex items-center justify-center font-bold">
+                        <Trash2 className="w-5 h-5 text-rose-700" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="font-display font-bold text-base text-rose-950">
+                            Danger Zone: Permanent School Data Purge
+                          </h2>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-600 text-white">
+                            AGENCY SUPERADMIN ONLY
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-rose-800 mt-0.5">
+                          Erase this entire institution (all students, staff, attendance, marks, invoices, and settings) from MongoDB Atlas and Local DB. Protected with Captcha.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPurgeModal(selectedSchool)}
+                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Purge School Data</span>
+                    </button>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-2xl border border-rose-200 flex items-center justify-between text-xs flex-wrap gap-2">
+                    <span className="text-slate-600">
+                      Active Campus: <strong className="text-rose-900">{selectedSchool?.school_name}</strong> [{selectedSchool?.school_code}]
+                    </span>
+                    <span className="text-[11px] font-mono text-rose-700">
+                      Requires Captcha + Keyword Confirmation
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -7270,6 +7564,35 @@ function ERPWorkspaceContent() {
               schoolName={selectedSchool?.school_name}
               selectedSession={selectedSession}
               attendance={attendance}
+            />
+          )}
+
+          {/* TAB: OFFICIAL CBSE 9-POINT REPORT CARD STUDIO */}
+          {activeTab === 'report_card' && (
+            <DashboardCbseReportCard
+              selectedSchool={selectedSchool}
+              students={students}
+              selectedSession={selectedSession}
+            />
+          )}
+
+          {/* TAB: DIGITAL LIBRARY & BOOK CIRCULATION */}
+          {activeTab === 'library' && (
+            <DashboardLibrary
+              selectedSchool={selectedSchool}
+              students={students}
+              selectedSession={selectedSession}
+              showAdminToast={showAdminToast}
+            />
+          )}
+
+          {/* TAB: SMART GATE PASS & VISITOR SECURITY */}
+          {activeTab === 'visitors' && (
+            <DashboardVisitorGate
+              selectedSchool={selectedSchool}
+              students={students}
+              selectedSession={selectedSession}
+              showAdminToast={showAdminToast}
             />
           )}
 
@@ -10243,6 +10566,153 @@ function ERPWorkspaceContent() {
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* SCHOOL PURGE WITH CAPTCHA MODAL (AGENCY SUPERADMIN) */}
+      {purgeTargetSchool && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border-2 border-rose-400 p-7 max-w-lg w-full shadow-2xl space-y-5 animate-fade-up">
+            <div className="flex items-start justify-between border-b border-rose-100 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-rose-100 flex items-center justify-center text-rose-600">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base text-rose-950">
+                    Purge School &amp; All Data
+                  </h3>
+                  <p className="text-[11px] font-mono text-rose-700">
+                    Agency Superadmin Destructive Action
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPurgeTargetSchool(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 text-xs border-none bg-transparent cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-rose-50 rounded-2xl border border-rose-200 text-xs text-rose-900 space-y-1.5 leading-relaxed">
+              <p className="font-bold">
+                ⚠️ Permanent Deletion Notice:
+              </p>
+              <ul className="list-disc list-inside text-[11px] text-rose-800 space-y-0.5">
+                <li>All Students, Bio Data &amp; Guardian Info</li>
+                <li>All Teachers &amp; Staff records</li>
+                <li>All Classes, Timetables, Attendance &amp; Marks</li>
+                <li>All Fee Invoices &amp; Receipts</li>
+                <li>All Notices, Exams &amp; Settings</li>
+              </ul>
+              <p className="text-[11px] font-semibold text-rose-700 pt-1">
+                Data will be erased from both <span className="underline">MongoDB Atlas</span> and <span className="underline">Local DB</span>.
+              </p>
+            </div>
+
+            <div className="space-y-1 text-xs">
+              <span className="text-slate-500">Target Campus:</span>
+              <div className="font-bold text-[#122A24] text-sm flex items-center gap-2">
+                <span>{purgeTargetSchool.school_name}</span>
+                <span className="px-2 py-0.5 rounded font-mono text-xs bg-rose-100 text-rose-700 font-bold border border-rose-200">
+                  {purgeTargetSchool.school_code}
+                </span>
+              </div>
+            </div>
+
+            {/* Captcha Challenge Box */}
+            <div className="space-y-2 pt-1">
+              <label className="block text-xs font-semibold text-slate-800">
+                1. Security Captcha Challenge *
+              </label>
+              <div className="flex items-center gap-3">
+                <div
+                  className="px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-900 text-emerald-400 font-mono text-lg font-extrabold tracking-[6px] select-none shadow-inner"
+                  style={{ textShadow: '0 0 8px rgba(52, 211, 153, 0.6)' }}
+                >
+                  {captchaChallenge}
+                </div>
+                <button
+                  type="button"
+                  onClick={generateCaptcha}
+                  className="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center gap-1 text-xs cursor-pointer"
+                  title="Reload Captcha"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Reload</span>
+                </button>
+              </div>
+              <input
+                type="text"
+                value={captchaInput}
+                onChange={(e) => setCaptchaInput(e.target.value)}
+                placeholder="Enter Captcha code shown above"
+                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-mono font-bold uppercase tracking-wider focus:outline-rose-500"
+              />
+            </div>
+
+            {/* Confirmation Keyword Box */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-800">
+                2. Type <span className="font-mono text-rose-700 font-bold">DELETE {purgeTargetSchool.school_code}</span> to confirm *
+              </label>
+              <input
+                type="text"
+                value={confirmInput}
+                onChange={(e) => setConfirmInput(e.target.value)}
+                placeholder={`DELETE ${purgeTargetSchool.school_code}`}
+                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:outline-rose-500"
+              />
+            </div>
+
+            {purgeError && (
+              <div className="p-3 bg-rose-100 text-rose-800 border border-rose-300 rounded-xl text-xs font-mono">
+                {purgeError}
+              </div>
+            )}
+
+            {purgeSuccessMessage && (
+              <div className="p-3 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-mono font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{purgeSuccessMessage}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setPurgeTargetSchool(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer border-none bg-transparent"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecutePurge}
+                disabled={
+                  purgeLoading ||
+                  !captchaInput ||
+                  captchaInput.toUpperCase().trim() !== captchaChallenge ||
+                  confirmInput.trim().toUpperCase() !== `DELETE ${purgeTargetSchool.school_code.trim().toUpperCase()}`
+                }
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all cursor-pointer shadow-md border-none"
+              >
+                {purgeLoading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Purging Database...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Permanently Purge School</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "sub_1788279137833_x6t126",
+    "endpoint": "https://wns2-pn1p.notify.windows.com/w/?token=BQYAAAD8u2dhS7X9lrFnxrwXc24aP8XOaeHD5WKQh%2fbFeCHHlsoDki%2bvLzjtIGUK7nsmkhcmW1F%2fTvjyJCxdH0XNdQbA8VjgU7V6KmROP6jS8Q%2bpGnJHrGxleuN%2bePqy95kGtnjjiNC4CUkhMFgf27lkZOLJhHxDixlPIXBboe8Vgj33ZNiyIKrqKdrdZs2pAfxKY4%2f5Nq1Yt44okI%2b906XxeNAfYb%2fcTeI5VP7VPA9bxgcZWUJbPLm7QFS6T4wY58lQiBVKrZunELOLkuquRYtdYEFrCzFsNZDImJgT9snRLU5C9%2bYiz%2be1pTIaa%2fSbojMRh%2b9WojbaxlR9BIT3WDrxM7Wx",
+    "keys": {
+      "p256dh": "BAG1KjvdSZIZldOdnIh-n_6C75bcENBwFppUmmAD31NnhAGQveiMsbR9OROv30n4e3INsEG_Dc5dWok6capOVjY",
+      "auth": "Ur4I7V4TmCZ_6isoiKWceA"
+    },
+    "role": "PRINCIPAL",
+    "userId": "admin",
+    "class_name": "ALL",
+    "createdAt": "2026-09-01T16:22:37.216Z"
+  }
+]

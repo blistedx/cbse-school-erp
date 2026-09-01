@@ -2,7 +2,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { WifiOff, Download, X, RefreshCw } from 'lucide-react';
+import { WifiOff, Download, X, RefreshCw, Bell } from 'lucide-react';
+import { requestNotificationPermission, sendLocalPushNotification } from '@/lib/push-notifications';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -14,6 +15,7 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
   const [showOfflineAlert, setShowOfflineAlert] = useState<boolean>(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState<boolean>(false);
+  const [showNotificationBanner, setShowNotificationBanner] = useState<boolean>(false);
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
@@ -172,10 +174,55 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
 
       window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
+      // 4. Listen for PWA installation completion and immediately request notification permission
+      const handleAppInstalled = async () => {
+        console.log('[PWA] App installed successfully');
+        setShowInstallBanner(false);
+        if ('Notification' in window && Notification.permission !== 'granted') {
+          try {
+            const perm = await requestNotificationPermission();
+            if (perm === 'granted') {
+              sendLocalPushNotification('🔔 Giterp App Installed!', {
+                body: 'Push notifications are now active for real-time school circulars, attendance, and fee alerts.',
+                urgent: true
+              });
+            }
+          } catch (e) {}
+        }
+      };
+      window.addEventListener('appinstalled', handleAppInstalled);
+
+      // 5. If running as standalone installed PWA, prompt for notifications immediately
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+      if (isStandalone && 'Notification' in window && Notification.permission === 'default') {
+        setTimeout(async () => {
+          try {
+            const perm = await requestNotificationPermission();
+            if (perm === 'granted') {
+              sendLocalPushNotification('🔔 Notifications Active!', {
+                body: 'You will receive real-time alerts on your home screen.',
+                urgent: true
+              });
+            }
+          } catch (e) {}
+        }, 1000);
+      }
+
+      // Check notification permission after 2 seconds if default
+      setTimeout(() => {
+        if ('Notification' in window && Notification.permission === 'default') {
+          const dismissed = sessionStorage.getItem('pwa_notif_dismissed');
+          if (!dismissed) {
+            setShowNotificationBanner(true);
+          }
+        }
+      }, 2000);
+
       return () => {
         window.removeEventListener('online', handleOnline);
         window.removeEventListener('offline', handleOffline);
         window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        window.removeEventListener('appinstalled', handleAppInstalled);
       };
     }
   }, []);
@@ -187,11 +234,35 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
     console.log('[PWA] User response to install:', outcome);
     setDeferredPrompt(null);
     setShowInstallBanner(false);
+
+    // Immediately request notification permission during install flow
+    if (outcome === 'accepted' && 'Notification' in window && Notification.permission !== 'granted') {
+      try {
+        const perm = await requestNotificationPermission();
+        if (perm === 'granted') {
+          sendLocalPushNotification('🔔 Notifications Enabled!', {
+            body: 'You will receive instant CBSE school circulars and emergency alerts.',
+            urgent: true
+          });
+        }
+      } catch (e) {}
+    }
   };
 
   const handleDismissInstall = () => {
     setShowInstallBanner(false);
     sessionStorage.setItem('pwa_install_dismissed', 'true');
+  };
+
+  const handleEnableNotifications = async () => {
+    const perm = await requestNotificationPermission();
+    setShowNotificationBanner(false);
+    if (perm === 'granted') {
+      sendLocalPushNotification('🔔 Notifications Enabled!', {
+        body: 'You will receive real-time CBSE school alerts, fee reminders, and attendance updates.',
+        urgent: true
+      });
+    }
   };
 
   const handleUpdateApp = () => {
@@ -218,6 +289,36 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
           >
             <X className="w-3.5 h-3.5" />
           </button>
+        </div>
+      )}
+
+      {/* Enable Push Notifications Banner */}
+      {showNotificationBanner && (
+        <div className="fixed bottom-20 right-4 sm:right-6 z-50 flex items-center gap-3 bg-[#122A24] text-white border border-emerald-500/30 backdrop-blur-xl p-3.5 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-5 duration-300 max-w-sm">
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+            <Bell className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-xs font-display font-bold text-white truncate">Enable Push Alerts</h4>
+            <p className="text-[10.5px] text-slate-300 line-clamp-1">Receive morning absent &amp; emergency broadcasts.</p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={handleEnableNotifications}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-xs transition-colors cursor-pointer border-none"
+            >
+              Allow
+            </button>
+            <button
+              onClick={() => {
+                setShowNotificationBanner(false);
+                sessionStorage.setItem('pwa_notif_dismissed', 'true');
+              }}
+              className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors border-none bg-transparent cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 

@@ -152,10 +152,22 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Listen for message events (e.g. skipWaiting from client)
+// Listen for message events (e.g. skipWaiting or triggerNotification from client)
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+  if (event.data && event.data.type === 'TRIGGER_NOTIFICATION') {
+    const { title, options } = event.data;
+    self.registration.showNotification(title || 'Giterp School ERP', {
+      body: options?.body || 'New institutional update.',
+      icon: options?.icon || '/icons/icon-192.png',
+      badge: options?.badge || '/icons/icon-192.png',
+      tag: options?.tag || 'school-alert',
+      vibrate: options?.urgent ? [300, 100, 300, 100, 300] : [200, 100, 200],
+      requireInteraction: options?.urgent === true,
+      data: options?.data || { url: '/app' }
+    });
   }
 });
 

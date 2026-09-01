@@ -21,7 +21,10 @@ import {
   Mail,
   Phone,
   Key,
-  XCircle
+  XCircle,
+  Trash2,
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import { School, DemoRequest } from '@/lib/types';
 
@@ -47,6 +50,72 @@ export function DashboardAgency() {
   const [adminPin, setAdminPin] = useState('123456');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
+
+  // School Purge Modal State (Protected with Captcha)
+  const [purgeTargetSchool, setPurgeTargetSchool] = useState<School | null>(null);
+  const [captchaChallenge, setCaptchaChallenge] = useState('');
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [confirmInput, setConfirmInput] = useState('');
+  const [purgeLoading, setPurgeLoading] = useState(false);
+  const [purgeError, setPurgeError] = useState('');
+  const [purgeSuccessMessage, setPurgeSuccessMessage] = useState('');
+
+  const generateCaptcha = () => {
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setCaptchaChallenge(code);
+    setCaptchaInput('');
+    setConfirmInput('');
+    setPurgeError('');
+  };
+
+  const handleOpenPurgeModal = (school: School) => {
+    setPurgeTargetSchool(school);
+    generateCaptcha();
+  };
+
+  const handleExecutePurge = async () => {
+    if (!purgeTargetSchool) return;
+    setPurgeLoading(true);
+    setPurgeError('');
+
+    try {
+      const res = await fetch('/api/agency/purge-school', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': 'AGENCY_SUPERADMIN'
+        },
+        body: JSON.stringify({
+          school_id: purgeTargetSchool.id,
+          school_code: purgeTargetSchool.school_code,
+          captcha_input: captchaInput,
+          expected_captcha: captchaChallenge,
+          confirmation_text: confirmInput
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPurgeSuccessMessage(data.message);
+        setSchools(prev => prev.filter(s => s.id !== purgeTargetSchool.id && s.school_code !== purgeTargetSchool.school_code));
+        setTimeout(() => {
+          setPurgeTargetSchool(null);
+          setPurgeSuccessMessage('');
+        }, 2200);
+      } else {
+        setPurgeError(data.error || 'Failed to purge school.');
+        generateCaptcha();
+      }
+    } catch (err: any) {
+      setPurgeError(err.message || 'Network error.');
+      generateCaptcha();
+    } finally {
+      setPurgeLoading(false);
+    }
+  };
 
   useEffect(() => {
     checkAgencyAuth();
@@ -549,18 +618,18 @@ export function DashboardAgency() {
 
             <div className="overflow-x-auto">
               <div className="sheet-ruled px-6 py-4 min-w-[580px]">
-                <div className="grid grid-cols-[1fr_120px_120px_100px_90px] gap-3 items-center h-10 text-xs font-mono tracking-wider uppercase text-slate-500 font-semibold border-b border-[var(--line)]">
+                <div className="grid grid-cols-[1fr_120px_120px_100px_160px] gap-3 items-center h-10 text-xs font-mono tracking-wider uppercase text-slate-500 font-semibold border-b border-[var(--line)]">
                   <span>Institution Name</span>
                   <span>School Code</span>
                   <span>Admin Username</span>
                   <span>Board</span>
-                  <span className="text-right">Action</span>
+                  <span className="text-right">Actions</span>
                 </div>
 
                 {filteredSchools.map((s) => (
                   <div
                     key={s.id}
-                    className="grid grid-cols-[1fr_120px_120px_100px_90px] gap-3 items-center h-[46px] text-xs sm:text-[14px]"
+                    className="grid grid-cols-[1fr_120px_120px_100px_160px] gap-3 items-center h-[46px] text-xs sm:text-[14px]"
                   >
                     <div className="truncate font-semibold text-[var(--ink-navy)]">
                       {s.school_name}
@@ -569,13 +638,22 @@ export function DashboardAgency() {
                     <div className="font-mono text-xs font-semibold text-[var(--red-pen)]">{s.school_code}</div>
                     <div className="font-mono text-xs text-slate-600">{s.admin_id || 'admin'}</div>
                     <div className="font-mono text-xs text-slate-600">{s.board || 'CBSE'}</div>
-                    <div className="text-right">
+                    <div className="text-right flex items-center justify-end gap-2">
                       <Link
                         href={`/app?school=${s.school_code}`}
-                        className="inline-flex items-center gap-1 font-mono text-xs text-[var(--board-1)] hover:text-[var(--red-pen)] font-semibold no-underline"
+                        className="inline-flex items-center gap-1 font-mono text-xs text-[var(--board-1)] hover:text-emerald-700 font-semibold no-underline px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 transition-colors"
                       >
                         Launch →
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPurgeModal(s)}
+                        className="inline-flex items-center gap-1 font-mono text-[11px] text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 px-2 py-1 rounded transition-colors cursor-pointer"
+                        title="Purge School Data (MongoDB + Local DB)"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Purge</span>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -701,6 +779,152 @@ export function DashboardAgency() {
           </div>
         </div>
       </footer>
+      {/* SCHOOL PURGE WITH CAPTCHA MODAL */}
+      {purgeTargetSchool && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border-2 border-rose-400 p-7 max-w-lg w-full shadow-2xl space-y-5 animate-fade-up">
+            <div className="flex items-start justify-between border-b border-rose-100 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base text-rose-950">
+                    Purge School &amp; All Data
+                  </h3>
+                  <p className="text-[11px] font-mono text-rose-700">
+                    Agency Superadmin Destructive Action
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPurgeTargetSchool(null)}
+                className="text-slate-400 hover:text-slate-700 p-1 text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-900 space-y-1.5 leading-relaxed">
+              <p className="font-bold">
+                ⚠️ Danger: This will permanently delete:
+              </p>
+              <ul className="list-disc list-inside text-[11px] text-rose-800 space-y-0.5">
+                <li>All Students &amp; Profiles</li>
+                <li>All Teachers &amp; Staff records</li>
+                <li>All Classes, Timetables, Attendance &amp; Marks</li>
+                <li>All Fee Invoices &amp; Receipts</li>
+                <li>All Notices, Exams &amp; Settings</li>
+              </ul>
+              <p className="text-[11px] font-semibold text-rose-700 pt-1">
+                Data will be erased from both <span className="underline">MongoDB Atlas</span> and <span className="underline">Local DB</span>.
+              </p>
+            </div>
+
+            <div className="space-y-1 text-xs">
+              <span className="text-slate-500">Target Institution:</span>
+              <div className="font-bold text-[#122A24] text-sm flex items-center gap-2">
+                <span>{purgeTargetSchool.school_name}</span>
+                <span className="px-2 py-0.5 rounded font-mono text-xs bg-rose-100 text-rose-700 font-bold border border-rose-200">
+                  {purgeTargetSchool.school_code}
+                </span>
+              </div>
+            </div>
+
+            {/* Captcha Challenge Box */}
+            <div className="space-y-2 pt-1">
+              <label className="block text-xs font-semibold text-slate-800">
+                1. Security Captcha Challenge *
+              </label>
+              <div className="flex items-center gap-3">
+                <div
+                  className="px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-900 text-emerald-400 font-mono text-lg font-extrabold tracking-[6px] select-none shadow-inner"
+                  style={{ textShadow: '0 0 8px rgba(52, 211, 153, 0.6)' }}
+                >
+                  {captchaChallenge}
+                </div>
+                <button
+                  type="button"
+                  onClick={generateCaptcha}
+                  className="p-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center gap-1 text-xs cursor-pointer"
+                  title="Reload Captcha"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Reload</span>
+                </button>
+              </div>
+              <input
+                type="text"
+                value={captchaInput}
+                onChange={(e) => setCaptchaInput(e.target.value)}
+                placeholder="Enter Captcha code shown above"
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-mono font-bold uppercase tracking-wider focus:outline-rose-500"
+              />
+            </div>
+
+            {/* Confirmation Keyword Box */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-800">
+                2. Type <span className="font-mono text-rose-700 font-bold">DELETE {purgeTargetSchool.school_code}</span> to confirm *
+              </label>
+              <input
+                type="text"
+                value={confirmInput}
+                onChange={(e) => setConfirmInput(e.target.value)}
+                placeholder={`DELETE ${purgeTargetSchool.school_code}`}
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:outline-rose-500"
+              />
+            </div>
+
+            {purgeError && (
+              <div className="p-3 bg-rose-100 text-rose-800 border border-rose-300 rounded-xl text-xs font-mono">
+                {purgeError}
+              </div>
+            )}
+
+            {purgeSuccessMessage && (
+              <div className="p-3 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-mono font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{purgeSuccessMessage}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setPurgeTargetSchool(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecutePurge}
+                disabled={
+                  purgeLoading ||
+                  !captchaInput ||
+                  captchaInput.toUpperCase().trim() !== captchaChallenge ||
+                  confirmInput.trim().toUpperCase() !== `DELETE ${purgeTargetSchool.school_code.trim().toUpperCase()}`
+                }
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all cursor-pointer shadow-md"
+              >
+                {purgeLoading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Purging Database...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Permanently Purge School</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
