@@ -547,43 +547,45 @@ export function DashboardAgency() {
               <span>{schools.length} active databases</span>
             </div>
 
-            <div className="sheet-ruled px-6 py-4">
-              <div className="grid grid-cols-[1fr_120px_120px_100px_90px] gap-3 items-center h-10 text-xs font-mono tracking-wider uppercase text-slate-500 font-semibold border-b border-[var(--line)]">
-                <span>Institution Name</span>
-                <span>School Code</span>
-                <span>Admin Username</span>
-                <span>Board</span>
-                <span className="text-right">Action</span>
+            <div className="overflow-x-auto">
+              <div className="sheet-ruled px-6 py-4 min-w-[580px]">
+                <div className="grid grid-cols-[1fr_120px_120px_100px_90px] gap-3 items-center h-10 text-xs font-mono tracking-wider uppercase text-slate-500 font-semibold border-b border-[var(--line)]">
+                  <span>Institution Name</span>
+                  <span>School Code</span>
+                  <span>Admin Username</span>
+                  <span>Board</span>
+                  <span className="text-right">Action</span>
+                </div>
+
+                {filteredSchools.map((s) => (
+                  <div
+                    key={s.id}
+                    className="grid grid-cols-[1fr_120px_120px_100px_90px] gap-3 items-center h-[46px] text-xs sm:text-[14px]"
+                  >
+                    <div className="truncate font-semibold text-[var(--ink-navy)]">
+                      {s.school_name}
+                      {s.city && <span className="text-xs text-slate-500 font-normal ml-2">({s.city})</span>}
+                    </div>
+                    <div className="font-mono text-xs font-semibold text-[var(--red-pen)]">{s.school_code}</div>
+                    <div className="font-mono text-xs text-slate-600">{s.admin_id || 'admin'}</div>
+                    <div className="font-mono text-xs text-slate-600">{s.board || 'CBSE'}</div>
+                    <div className="text-right">
+                      <Link
+                        href={`/app?school=${s.school_code}`}
+                        className="inline-flex items-center gap-1 font-mono text-xs text-[var(--board-1)] hover:text-[var(--red-pen)] font-semibold no-underline"
+                      >
+                        Launch →
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+
+                {filteredSchools.length === 0 && !loading && (
+                  <div className="py-12 text-center space-y-2 text-slate-500 text-xs">
+                    No active schools yet. Approve incoming requests from the Requests tab above.
+                  </div>
+                )}
               </div>
-
-              {filteredSchools.map((s) => (
-                <div
-                  key={s.id}
-                  className="grid grid-cols-[1fr_120px_120px_100px_90px] gap-3 items-center h-[46px] text-[14px]"
-                >
-                  <div className="truncate font-semibold text-[var(--ink-navy)]">
-                    {s.school_name}
-                    {s.city && <span className="text-xs text-slate-500 font-normal ml-2">({s.city})</span>}
-                  </div>
-                  <div className="font-mono text-xs font-semibold text-[var(--red-pen)]">{s.school_code}</div>
-                  <div className="font-mono text-xs text-slate-600">{s.admin_id || 'admin'}</div>
-                  <div className="font-mono text-xs text-slate-600">{s.board || 'CBSE'}</div>
-                  <div className="text-right">
-                    <Link
-                      href={`/app?school=${s.school_code}`}
-                      className="inline-flex items-center gap-1 font-mono text-xs text-[var(--board-1)] hover:text-[var(--red-pen)] font-semibold no-underline"
-                    >
-                      Launch →
-                    </Link>
-                  </div>
-                </div>
-              ))}
-
-              {filteredSchools.length === 0 && !loading && (
-                <div className="py-12 text-center space-y-2 text-slate-500 text-xs">
-                  No active schools yet. Approve incoming requests from the Requests tab above.
-                </div>
-              )}
             </div>
           </div>
         )}

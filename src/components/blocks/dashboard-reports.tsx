@@ -179,9 +179,9 @@ export function DashboardReports({
 
       attendance.forEach(rec => {
         if ((rec as any).teacher_records && Array.isArray((rec as any).teacher_records)) {
-          const match = (rec as any).teacher_records.find((r: any) => r.teacher_id === t.id);
+          const match = (rec as any).teacher_records.find((r: any) => r.teacher_id === t.id || r.staff_code === t.staff_code);
           if (match) {
-            if (match.status === 'PRESENT') {
+            if (match.status === 'PRESENT' || match.status === 'LATE') {
               presentDays++;
               if (rec.date === todayDateStr) isPresentToday = true;
             } else {
@@ -208,11 +208,11 @@ export function DashboardReports({
         percentage,
         punctuality,
         isAbsentToday,
-        todayStatus: isAbsentToday ? 'ABSENT TODAY (Casual Leave)' : 'PRESENT & PUNCHED IN',
-        status: isAbsentToday ? 'On Leave' : 'Active / On Duty'
+        todayStatus: isAbsentToday ? 'ABSENT TODAY (Casual Leave)' : isPresentToday ? 'PRESENT & PUNCHED IN' : 'UNMARKED TODAY',
+        status: isAbsentToday ? 'On Leave' : isPresentToday ? 'Active / On Duty' : 'Pending'
       };
     });
-  }, [teachers]);
+  }, [teachers, attendance, todayDateStr]);
 
   // 4. Exam Marks & Rankings Data
   const examRankingsData = useMemo(() => {

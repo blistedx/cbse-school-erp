@@ -217,28 +217,30 @@ export default async function HomePage() {
               <span className="text-[var(--board-2)] font-semibold">Live</span>
             </div>
 
-            <div className="px-6 py-5 bg-white">
-              <div className="grid grid-cols-[1fr_120px_100px] gap-3 items-center h-10 text-xs font-mono tracking-wider uppercase text-slate-500 font-semibold border-b border-[var(--line)]">
-                <span>School</span>
-                <span>Code</span>
-                <span className="text-right">Status</span>
+            <div className="overflow-x-auto">
+              <div className="px-6 py-5 bg-white min-w-[320px]">
+                <div className="grid grid-cols-[1fr_100px_90px] sm:grid-cols-[1fr_120px_100px] gap-3 items-center h-10 text-xs font-mono tracking-wider uppercase text-slate-500 font-semibold border-b border-[var(--line)]">
+                  <span>School</span>
+                  <span>Code</span>
+                  <span className="text-right">Status</span>
+                </div>
+
+                {schools.map((s) => (
+                  <div key={s.id} className="grid grid-cols-[1fr_100px_90px] sm:grid-cols-[1fr_120px_100px] gap-3 items-center h-[46px] text-xs sm:text-[14.5px] border-b border-slate-100 last:border-b-0">
+                    <span className="font-medium text-[var(--ink-navy)] truncate">{s.school_name}</span>
+                    <span className="font-mono text-xs text-slate-500">{s.school_code}</span>
+                    <span className="text-right font-display font-semibold text-xs text-[var(--board-2)]">
+                      {s.status}
+                    </span>
+                  </div>
+                ))}
+
+                {schools.length === 0 && (
+                  <div className="py-8 text-center text-xs text-slate-400 font-mono">
+                    No institutions registered yet. Be the first school onboarded!
+                  </div>
+                )}
               </div>
-
-              {schools.map((s) => (
-                <div key={s.id} className="grid grid-cols-[1fr_120px_100px] gap-3 items-center h-[46px] text-[14.5px] border-b border-slate-100 last:border-b-0">
-                  <span className="font-medium text-[var(--ink-navy)] truncate">{s.school_name}</span>
-                  <span className="font-mono text-xs text-slate-500">{s.school_code}</span>
-                  <span className="text-right font-display font-semibold text-xs text-[var(--board-2)]">
-                    {s.status}
-                  </span>
-                </div>
-              ))}
-
-              {schools.length === 0 && (
-                <div className="py-8 text-center text-xs text-slate-400 font-mono">
-                  No institutions registered yet. Be the first school onboarded!
-                </div>
-              )}
             </div>
 
             <div className="px-6 py-3.5 border-t border-[var(--line)] flex flex-col sm:flex-row justify-between text-xs text-slate-500 gap-2 bg-slate-50/50">

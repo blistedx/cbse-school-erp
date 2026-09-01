@@ -1,6 +1,25 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
-import { sendWebPushNotification } from '@/lib/web-push';
+import { getBroadcastHistory, sendWebPushNotification } from '@/lib/web-push';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET() {
+  try {
+    const broadcasts = await getBroadcastHistory(50);
+    return NextResponse.json({
+      success: true,
+      count: broadcasts.length,
+      broadcasts
+    });
+  } catch (error: any) {
+    console.error('[API Broadcasts GET Error]:', error);
+    return NextResponse.json(
+      { success: false, error: error?.message || 'Failed to fetch broadcasts' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -12,7 +31,7 @@ export async function POST(request: Request) {
       audience = 'ALL',
       urgent = false,
       senderName = 'School Administration',
-      senderRole = 'ADMIN'
+      senderRole = 'PRINCIPAL'
     } = body;
 
     if (!title || !messageBody) {
@@ -35,12 +54,12 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       results,
-      message: `Dispatched to ${results.sent} active device(s).`
+      message: `Broadcast successfully dispatched to ${results.sent} active device(s).`
     });
   } catch (error: any) {
-    console.error('[API Send Notification Error]:', error);
+    console.error('[API Broadcasts POST Error]:', error);
     return NextResponse.json(
-      { success: false, error: error?.message || 'Failed to dispatch push notification' },
+      { success: false, error: error?.message || 'Failed to dispatch broadcast' },
       { status: 500 }
     );
   }

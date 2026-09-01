@@ -68,7 +68,56 @@ export default function RolePrincipalView({ activeTab, setActiveTab }: RolePrinc
   const [broadcastTitle, setBroadcastTitle] = useState('Heavy Rain Alert: School Timings Adjusted');
   const [broadcastBody, setBroadcastBody] = useState('Due to city meteorological forecast of torrential rain, school will disperse at 01:00 PM today. School buses will depart accordingly.');
   const [isUrgent, setIsUrgent] = useState(true);
-  const [broadcastSuccess, setBroadcastSuccess] = useState(false);
+  const [isSendingBroadcast, setIsSendingBroadcast] = useState(false);
+  const [broadcastSuccessMsg, setBroadcastSuccessMsg] = useState<string | null>(null);
+
+  const handleSendMobileBroadcast = async () => {
+    if (!broadcastTitle.trim() || !broadcastBody.trim()) {
+      alert('Please fill title and message body.');
+      return;
+    }
+
+    setIsSendingBroadcast(true);
+    setBroadcastSuccessMsg(null);
+
+    try {
+      const res = await fetch('/api/notifications/broadcasts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: isUrgent ? `🚨 ${broadcastTitle.trim()}` : broadcastTitle.trim(),
+          body: broadcastBody.trim(),
+          url: '/mobile',
+          audience: broadcastAudience,
+          urgent: isUrgent,
+          senderName: 'Dr. K. S. Mukherjee (Principal)',
+          senderRole: 'PRINCIPAL'
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setBroadcastSuccessMsg(data.message || `Dispatched to ${data.results?.sent || 1} active device(s) successfully!`);
+        // Trigger local notification if permitted
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification(isUrgent ? `🚨 ${broadcastTitle}` : broadcastTitle, {
+              body: broadcastBody,
+              icon: '/icons/icon-192.png',
+              badge: '/icons/icon-192.png'
+            });
+          } catch (e) {}
+        }
+      } else {
+        alert(data.error || 'Failed to dispatch broadcast');
+      }
+    } catch (e: any) {
+      alert('Error: ' + e.message);
+    } finally {
+      setIsSendingBroadcast(false);
+      setTimeout(() => setBroadcastSuccessMsg(null), 6000);
+    }
+  };
 
   const handleApprovalAction = (id: string, action: 'APPROVED' | 'REJECTED') => {
     setPendingApprovals((prev) =>
@@ -309,7 +358,7 @@ export default function RolePrincipalView({ activeTab, setActiveTab }: RolePrinc
                   <button
                     onClick={() => setBroadcastAudience('ALL')}
                     className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                      broadcastAudience === 'ALL' ? 'bg-emerald-700 text-white border-emerald-700' : 'bg-neutral-50 text-neutral-700 border-neutral-200'
+                      broadcastAudience === 'ALL' ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs' : 'bg-neutral-50 text-neutral-700 border-neutral-200'
                     }`}
                   >
                     All 1,200 Families
@@ -317,10 +366,26 @@ export default function RolePrincipalView({ activeTab, setActiveTab }: RolePrinc
                   <button
                     onClick={() => setBroadcastAudience('TEACHERS')}
                     className={`py-2 rounded-xl text-xs font-bold border transition-all ${
-                      broadcastAudience === 'TEACHERS' ? 'bg-emerald-700 text-white border-emerald-700' : 'bg-neutral-50 text-neutral-700 border-neutral-200'
+                      broadcastAudience === 'TEACHERS' ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs' : 'bg-neutral-50 text-neutral-700 border-neutral-200'
                     }`}
                   >
                     All 49 Faculty Staff
+                  </button>
+                  <button
+                    onClick={() => setBroadcastAudience('PARENTS')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                      broadcastAudience === 'PARENTS' ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs' : 'bg-neutral-50 text-neutral-700 border-neutral-200'
+                    }`}
+                  >
+                    Parents Only (1,150)
+                  </button>
+                  <button
+                    onClick={() => setBroadcastAudience('TRANSPORT')}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                      broadcastAudience === 'TRANSPORT' ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs' : 'bg-neutral-50 text-neutral-700 border-neutral-200'
+                    }`}
+                  >
+                    Bus Route Parents (418)
                   </button>
                 </div>
               </div>
@@ -352,18 +417,23 @@ export default function RolePrincipalView({ activeTab, setActiveTab }: RolePrinc
                   onChange={(e) => setIsUrgent(e.target.checked)}
                   className="w-4 h-4 accent-red-600 rounded"
                 />
-                <span className="text-xs font-bold text-red-700">Flag as High Priority / Emergency Alert</span>
+                <span className="text-xs font-bold text-red-700">Flag as High Priority / Emergency Alert (Audible Siren + Web Push)</span>
               </label>
 
+              {broadcastSuccessMsg && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center gap-2 animate-fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{broadcastSuccessMsg}</span>
+                </div>
+              )}
+
               <button
-                onClick={() => {
-                  setBroadcastSuccess(true);
-                  setTimeout(() => setBroadcastSuccess(false), 4000);
-                }}
-                className="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-98 transition-all"
+                onClick={handleSendMobileBroadcast}
+                disabled={isSendingBroadcast}
+                className="w-full py-3.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg active:scale-98 transition-all cursor-pointer"
               >
                 <Send className="w-4 h-4" />
-                {broadcastSuccess ? 'Broadcast Dispatched Instantly via SMS Gateway! ✓' : 'Dispatch Instant Emergency Broadcast'}
+                {isSendingBroadcast ? 'Dispatching Web Push & SMS Alert...' : 'Dispatch Instant Emergency Broadcast'}
               </button>
             </div>
           </div>

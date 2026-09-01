@@ -68,7 +68,8 @@ import {
   UploadCloud,
   ImageIcon,
   FileSpreadsheet,
-  FolderDown
+  FolderDown,
+  HeartHandshake
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview } from '@/lib/types';
@@ -126,6 +127,18 @@ const DashboardDataHub = dynamic(
   () => import('@/components/blocks/dashboard-data-hub').then((m) => m.DashboardDataHub),
   { ssr: false }
 );
+const DashboardSiblings = dynamic(
+  () => import('@/components/blocks/dashboard-siblings').then((m) => m.DashboardSiblings),
+  { ssr: false }
+);
+const OmniSearchModal = dynamic(
+  () => import('@/components/omni-search-modal').then((m) => m.OmniSearchModal),
+  { ssr: false }
+);
+const StudentSummaryModal = dynamic(
+  () => import('@/components/student-summary-modal').then((m) => m.StudentSummaryModal),
+  { ssr: false }
+);
 
 const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code: string; highlight: string }> = {
   overview: {
@@ -139,6 +152,12 @@ const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code:
     subtitle: 'CBSE ENROLLED SCHOLAR REGISTRY & DOSSIERS',
     code: 'MOD-02 // SIS',
     highlight: 'ACADEMIC LIFECYCLE & OASIS',
+  },
+  siblings: {
+    title: 'SIBLINGS',
+    subtitle: 'HOUSEHOLD & MULTI-CHILD ENROLMENT MATRIX',
+    code: 'MOD-02.1 // SIBLINGS',
+    highlight: 'FAMILY CO-ENROLMENT REGISTRY',
   },
   teachers: {
     title: 'FACULTY',
@@ -249,7 +268,9 @@ function ERPWorkspaceContent() {
   const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'teachers' | 'classes' | 'subjects' | 'attendance' | 'fees' | 'reports' | 'certificates' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile' | 'audit_logs' | 'data_hub'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'siblings' | 'teachers' | 'classes' | 'subjects' | 'attendance' | 'fees' | 'reports' | 'certificates' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile' | 'audit_logs' | 'data_hub'>('overview');
+  const [studentSubTab, setStudentSubTab] = useState<'directory' | 'siblings'>('directory');
+  const [summaryStudent, setSummaryStudent] = useState<Student | null>(null);
   const [availableSchools, setAvailableSchools] = useState<School[]>([]);
   const [showExportMenu, setShowExportMenu] = useState<string | null>(null);
   const [feeMenuOpen, setFeeMenuOpen] = useState(true);
@@ -264,6 +285,7 @@ function ERPWorkspaceContent() {
   const [invoices, setInvoices] = useState<FeeInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isOmniSearchOpen, setIsOmniSearchOpen] = useState(false);
 
   // PIN visibility states
   const [showSettingsPin, setShowSettingsPin] = useState(false);
@@ -327,18 +349,18 @@ function ERPWorkspaceContent() {
   const [individualTargetSession, setIndividualTargetSession] = useState<string>('2027-28');
   const [settingsSuccess, setSettingsSuccess] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const isSuperAdmin = currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'AGENCY_SUPERADMIN' || currentUser?.role === 'GOD_ACCESS' || currentUser?.is_god_admin || currentUser?.username?.toLowerCase() === 'blistedx';
+  const isSuperAdmin = mounted && (currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'AGENCY_SUPERADMIN' || currentUser?.role === 'GOD_ACCESS' || currentUser?.is_god_admin || currentUser?.username?.toLowerCase() === 'blistedx');
 
   // Multi-Role RBAC Tab Permission Whitelist
   const ROLE_ALLOWED_TABS: Record<string, string[]> = {
-    SUPERADMIN: ['overview', 'students', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
-    AGENCY_SUPERADMIN: ['overview', 'students', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
-    ADMIN: ['overview', 'students', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
-    PRINCIPAL: ['overview', 'students', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
-    ACCOUNTANT: ['overview', 'students', 'fees', 'reports', 'certificates', 'data_hub', 'notices', 'profile'],
+    SUPERADMIN: ['overview', 'students', 'siblings', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
+    AGENCY_SUPERADMIN: ['overview', 'students', 'siblings', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
+    ADMIN: ['overview', 'students', 'siblings', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
+    PRINCIPAL: ['overview', 'students', 'siblings', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs', 'settings', 'profile'],
+    ACCOUNTANT: ['overview', 'students', 'siblings', 'fees', 'reports', 'certificates', 'data_hub', 'notices', 'profile'],
     TEACHER: ['overview', 'classes', 'subjects', 'attendance', 'exams', 'homework', 'approvals', 'notices', 'profile'],
     STUDENT: ['overview', 'attendance', 'exams', 'homework', 'fees', 'certificates', 'notices', 'profile'],
-    PARENT: ['overview', 'attendance', 'exams', 'homework', 'fees', 'broadcast', 'notices', 'profile']
+    PARENT: ['overview', 'siblings', 'attendance', 'exams', 'homework', 'fees', 'broadcast', 'notices', 'profile']
   };
 
   const effectiveRole = (currentUser?.role || 'PRINCIPAL').toUpperCase();
@@ -454,6 +476,7 @@ function ERPWorkspaceContent() {
 
   // Load User Session & Role from Local Storage on Mount
   useEffect(() => {
+    setMounted(true);
     if (typeof window !== 'undefined') {
       try {
         const storedUser = localStorage.getItem('current_user');
@@ -499,6 +522,18 @@ function ERPWorkspaceContent() {
       if (pollInterval) clearInterval(pollInterval);
     };
   }, [selectedSchool?.id, selectedSchool?.school_code, selectedSession]);
+
+  // Global Ctrl+K / Cmd+K shortcut for Omni-Search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsOmniSearchOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Clean time-based greeting without emojis
   const getISTGreeting = () => {
@@ -986,7 +1021,9 @@ function ERPWorkspaceContent() {
   };
 
   const loadSchoolData = async (schoolId?: string, sessionParam?: string) => {
-    const activeSchool = schoolId || selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+    const activeSchool = (schoolId && schoolId !== selectedSchool?.id)
+      ? schoolId
+      : (selectedSchool?.school_code || schoolId || selectedSchool?.id || 'DPS2026');
     const cleanId = (activeSchool || '').replace(/[^A-Z0-9]/gi, '') || 'DPS2026';
     const targetSession = sessionParam || selectedSession || '2026-27';
     setLoading(true);
@@ -1012,24 +1049,24 @@ function ERPWorkspaceContent() {
 
     try {
       const fetchOpts = { cache: 'no-store' as RequestCache };
-      const [ovRes, stRes, tcRes, clRes, noRes, atRes, inRes] = await Promise.all([
-        fetch(`/api/overview?school_id=${cleanId}&session=${targetSession}`, fetchOpts),
-        fetch(`/api/students?school_id=${cleanId}&session=${targetSession}`, fetchOpts),
-        fetch(`/api/teachers?school_id=${cleanId}&session=${targetSession}`, fetchOpts),
-        fetch(`/api/classes?school_id=${cleanId}&session=${targetSession}`, fetchOpts),
-        fetch(`/api/notices?school_id=${cleanId}&session=${targetSession}`, fetchOpts),
-        fetch(`/api/attendance?school_id=${cleanId}&session=${targetSession}`, fetchOpts),
-        fetch(`/api/fees?school_id=${cleanId}&session=${targetSession}`, fetchOpts)
-      ]);
+      const safeFetchJson = async (url: string) => {
+        try {
+          const res = await fetch(url, fetchOpts);
+          if (!res.ok) return { success: false };
+          return await res.json();
+        } catch (err) {
+          return { success: false };
+        }
+      };
 
       const [ovData, stData, tcData, clData, noData, atData, inData] = await Promise.all([
-        ovRes.json(),
-        stRes.json(),
-        tcRes.json(),
-        clRes.json(),
-        noRes.json(),
-        atRes.json(),
-        inRes.json()
+        safeFetchJson(`/api/overview?school_id=${cleanId}&session=${targetSession}`),
+        safeFetchJson(`/api/students?school_id=${cleanId}&session=${targetSession}`),
+        safeFetchJson(`/api/teachers?school_id=${cleanId}&session=${targetSession}`),
+        safeFetchJson(`/api/classes?school_id=${cleanId}&session=${targetSession}`),
+        safeFetchJson(`/api/notices?school_id=${cleanId}&session=${targetSession}`),
+        safeFetchJson(`/api/attendance?school_id=${cleanId}&session=${targetSession}`),
+        safeFetchJson(`/api/fees?school_id=${cleanId}&session=${targetSession}`)
       ]);
 
       const freshOverview = ovData.success ? ovData : null;
@@ -2515,6 +2552,20 @@ function ERPWorkspaceContent() {
             </div>
           ) : null}
 
+          {/* Universal Omni-Search Trigger Button */}
+          <button
+            type="button"
+            onClick={() => setIsOmniSearchOpen(true)}
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 bg-[#F4F8F5] hover:bg-[#EBF5EF] border border-[#DCE8E0] hover:border-emerald-600/50 text-[#122A24] rounded-full text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
+            title="Quick Search scholars, staff, invoices, classes, notices (Ctrl+K)"
+          >
+            <Search className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+            <span className="hidden sm:inline text-slate-600 font-sans text-[11.5px]">Search anything...</span>
+            <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9.5px] font-mono bg-white border border-[#DCE8E0] rounded text-slate-400 font-bold">
+              Ctrl K
+            </kbd>
+          </button>
+
           {/* Academic Session Switcher Dropdown (Responsive Compact Pill) */}
           <div className="flex items-center gap-1 px-2 sm:px-3 py-1 bg-[#EBF5EF] hover:bg-[#D8EEDF] border border-[#C5E2CF] text-[#122A24] rounded-full text-xs font-bold font-mono shadow-2xs transition-colors shrink-0">
             <Calendar className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
@@ -2653,6 +2704,20 @@ function ERPWorkspaceContent() {
               </button>
             </div>
 
+            {/* Quick Search Button in Mobile Drawer */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setIsOmniSearchOpen(true);
+              }}
+              className="w-full mb-2 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
+            >
+              <Search className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span className="flex-1 text-left">Quick Search Anything...</span>
+              <span className="text-[10px] font-mono bg-white/20 px-1.5 py-0.5 rounded text-white/80">Search</span>
+            </button>
+
             {/* Super Admin School Switcher Widget (Mobile Drawer) */}
             {isSuperAdmin && (
               <div className="mb-3 p-3 bg-white/10 rounded-2xl border border-amber-400/30 space-y-1.5 shadow-xs">
@@ -2676,6 +2741,25 @@ function ERPWorkspaceContent() {
                 </select>
               </div>
             )}
+
+            {/* Native Mobile App Link Button */}
+            <Link
+              href={`/mobile?school=${selectedSchool?.school_code || 'DPS2026'}`}
+              className="mb-3 p-3 bg-gradient-to-r from-emerald-700 to-teal-800 rounded-2xl border border-emerald-400/40 flex items-center justify-between text-white no-underline shadow-md hover:scale-[1.02] transition-transform"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-sm font-bold">
+                  📱
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-white">Native Mobile App</div>
+                  <div className="text-[10px] text-emerald-200">Parent, Teacher & Bus radar</div>
+                </div>
+              </div>
+              <span className="text-xs font-mono font-bold bg-white/20 px-2 py-0.5 rounded-lg">
+                Open →
+              </span>
+            </Link>
 
             {/* Active Role Indicator Badge (Mobile Drawer - Read Only) */}
             <div className="mb-3 px-3 py-2 bg-white/10 rounded-xl border border-white/15 flex items-center justify-between shadow-xs">
@@ -2714,6 +2798,23 @@ function ERPWorkspaceContent() {
                   activeTab === 'students' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
                 }`}>
                   {students.length}
+                </span>
+              </button>
+            )}
+
+            {/* Sibling & Families Hub (Mobile) */}
+            {allowedTabs.includes('siblings') && (
+              <button
+                onClick={() => { setActiveTab('siblings'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'siblings' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <HeartHandshake className="h-4 w-4 shrink-0 text-purple-300" /> Sibling &amp; Families
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-purple-400/20 text-purple-200 border border-purple-400/30">
+                  Family Hub
                 </span>
               </button>
             )}
@@ -3418,6 +3519,7 @@ function ERPWorkspaceContent() {
               userRole={effectiveRole}
               openStudentModal={openStudentModal}
               openTeacherModal={openTeacherModal}
+              onSelectStudent={(s) => setSummaryStudent(s)}
               notices={notices}
               setShowAddNotice={setShowAddNotice}
               setShowAddInvoice={setShowAddInvoice}
@@ -3460,10 +3562,10 @@ function ERPWorkspaceContent() {
                   <div>
                     <div className="flex items-center gap-3">
                       <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
-                        Students Directory
+                        {studentSubTab === 'directory' ? 'Students Directory' : 'Siblings & Families Matrix'}
                       </h1>
                       <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                        {filteredStudents.length} Active Enrolled
+                        {studentSubTab === 'directory' ? `${filteredStudents.length} Active Enrolled` : 'CBSE Family Linkage'}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-[#2D5A4E] font-mono mt-1">
@@ -3471,8 +3573,35 @@ function ERPWorkspaceContent() {
                       <span>/</span>
                       <span>Institutional Registry</span>
                       <span>/</span>
-                      <span className="text-[#122A24] font-semibold">CBSE All Classes (Pre-Primary to XII)</span>
+                      <span className="text-[#122A24] font-semibold">
+                        {studentSubTab === 'directory' ? 'CBSE All Classes (Pre-Primary to XII)' : 'Automated Household & Multi-Child Matching'}
+                      </span>
                     </div>
+                  </div>
+
+                  {/* Sub-tab Pill Switcher */}
+                  <div className="flex items-center bg-[#F4F8F5] p-1 rounded-full border border-[#DCE8E0] shadow-2xs">
+                    <button
+                      onClick={() => setStudentSubTab('directory')}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border-none cursor-pointer transition-all ${
+                        studentSubTab === 'directory'
+                          ? 'bg-[#122A24] text-white shadow-xs'
+                          : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24]'
+                      }`}
+                    >
+                      📋 All Scholars ({students.length})
+                    </button>
+                    <button
+                      onClick={() => setStudentSubTab('siblings')}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border-none cursor-pointer flex items-center gap-1.5 transition-all ${
+                        studentSubTab === 'siblings'
+                          ? 'bg-purple-900 text-white shadow-xs'
+                          : 'bg-transparent text-purple-900 hover:text-purple-950'
+                      }`}
+                    >
+                      <HeartHandshake className="w-3.5 h-3.5" />
+                      <span>👨‍👩‍👧‍👦 Siblings Hub</span>
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -3573,6 +3702,8 @@ function ERPWorkspaceContent() {
                   </div>
                 </div>
 
+                {studentSubTab === 'directory' ? (
+                  <>
                 {/* Sub Header Controls Bar (Tier 1: Title, Status Tabs, Session, View Mode, Sort) */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -3981,9 +4112,9 @@ function ERPWorkspaceContent() {
                                 {/* Admission No */}
                                 <td className="py-3.5 px-4 font-mono font-medium">
                                   <button
-                                    onClick={() => openStudentModal(s)}
+                                    onClick={() => setSummaryStudent(s)}
                                     className="text-[#122A24] hover:text-emerald-700 font-bold border-none bg-transparent p-0 cursor-pointer text-left block tracking-tight transition-colors"
-                                    title="View & Edit Full CBSE Profile"
+                                    title="Inspect 360° Dossier & Siblings"
                                   >
                                     {s.admission_no}
                                   </button>
@@ -3999,15 +4130,16 @@ function ERPWorkspaceContent() {
                                 <td className="py-3.5 px-4">
                                   <div className="flex items-center gap-2.5">
                                     {s.photo || s.avatar ? (
-                                      <img src={s.photo || s.avatar} alt={s.full_name} className="w-8 h-8 rounded-full object-cover border shrink-0 shadow-2xs" />
+                                      <img src={s.photo || s.avatar} alt={s.full_name} className="w-8 h-8 rounded-full object-cover border shrink-0 shadow-2xs cursor-pointer" onClick={() => setSummaryStudent(s)} />
                                     ) : (
-                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border shrink-0 shadow-2xs font-mono ${avatarStyle}`}>
+                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border shrink-0 shadow-2xs font-mono cursor-pointer ${avatarStyle}`} onClick={() => setSummaryStudent(s)}>
                                         {initials}
                                       </div>
                                     )}
                                     <div>
-                                      <div className="font-semibold text-[#122A24] hover:text-emerald-700 cursor-pointer transition-colors" onClick={() => openStudentModal(s)}>
-                                        {s.full_name}
+                                      <div className="font-semibold text-[#122A24] hover:text-emerald-700 cursor-pointer transition-colors flex items-center gap-1.5" onClick={() => setSummaryStudent(s)}>
+                                        <span>{s.full_name}</span>
+                                        <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-mono font-normal">360°</span>
                                       </div>
                                       {s.apaar_id && (
                                         <div className="text-[10px] text-slate-400 font-mono">PEN: {s.apaar_id}</div>
@@ -4263,7 +4395,7 @@ function ERPWorkspaceContent() {
                                   {initials}
                                 </div>
                                 <div>
-                                  <h3 className="font-semibold text-[#122A24] text-sm leading-tight hover:text-emerald-700 cursor-pointer" onClick={() => openStudentModal(s)}>
+                                  <h3 className="font-semibold text-[#122A24] text-sm leading-tight hover:text-emerald-700 cursor-pointer" onClick={() => setSummaryStudent(s)}>
                                     {s.full_name}
                                   </h3>
                                   <div className="text-[11px] font-mono text-[#1C443A] font-bold mt-0.5">
@@ -4301,6 +4433,13 @@ function ERPWorkspaceContent() {
                           </div>
 
                           <div className="mt-4 pt-3 border-t border-[#E8F0EA] flex items-center justify-between gap-1.5">
+                            <button
+                              onClick={() => setSummaryStudent(s)}
+                              className="p-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 cursor-pointer transition-colors"
+                              title="Inspect 360° Scholar Summary & Siblings"
+                            >
+                              <GraduationCap className="h-3.5 w-3.5" />
+                            </button>
                             <button
                               onClick={() => handleQuickCollectFee(s)}
                               className="flex-1 py-1.5 bg-[#EBF5EF] hover:bg-[#D9EDE0] text-[#122A24] font-mono font-bold text-xs rounded-full border border-[#C5E2CF] transition-colors cursor-pointer text-center shadow-2xs"
@@ -4394,6 +4533,55 @@ function ERPWorkspaceContent() {
                     </button>
                   </div>
                 )}
+                  </>
+                ) : (
+                  <div className="pt-2">
+                    <DashboardSiblings
+                      students={students}
+                      invoices={invoices}
+                      onSelectStudent={(s) => setSummaryStudent(s)}
+                      onCollectFee={(s) => handleQuickCollectFee(s)}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: SIBLINGS & HOUSEHOLD DIRECTORY */}
+          {activeTab === 'siblings' && (
+            <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
+              <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
+                {/* Background Watermark */}
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-purple-900/[0.06] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                >
+                  SIBLINGS
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
+                        Siblings &amp; Household Hub
+                      </h1>
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-purple-50 text-purple-900 border border-purple-200">
+                        CBSE Family Linkage
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#2D5A4E] font-mono mt-1">
+                      Automated parent matching across Father &amp; Mother names, phone registry and address coordinates.
+                    </p>
+                  </div>
+                </div>
+
+                <DashboardSiblings
+                  students={students}
+                  invoices={invoices}
+                  onSelectStudent={(s) => setSummaryStudent(s)}
+                  onCollectFee={(s) => handleQuickCollectFee(s)}
+                />
               </div>
             </div>
           )}
@@ -9981,6 +10169,39 @@ function ERPWorkspaceContent() {
           <span>Menu</span>
         </button>
       </div>
+
+      {/* UNIVERSAL OMNI-SEARCH & COMMAND PALETTE */}
+      <OmniSearchModal
+        isOpen={isOmniSearchOpen}
+        onClose={() => setIsOmniSearchOpen(false)}
+        students={students}
+        teachers={teachers}
+        invoices={invoices}
+        classes={classes}
+        notices={notices}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab as any);
+        }}
+        onSelectStudent={(s) => {
+          setSummaryStudent(s);
+        }}
+        onSelectTeacher={(t) => {
+          openTeacherModal(t);
+        }}
+      />
+
+      {/* STUDENT 360° SUMMARY & SIBLINGS DOSSIER MODAL */}
+      <StudentSummaryModal
+        isOpen={!!summaryStudent}
+        onClose={() => setSummaryStudent(null)}
+        student={summaryStudent}
+        allStudents={students}
+        invoices={invoices}
+        attendanceRecords={attendance}
+        onSelectSibling={(sib) => setSummaryStudent(sib)}
+        onEditStudent={(s) => openStudentModal(s)}
+        onCollectFee={(s) => handleQuickCollectFee(s)}
+      />
 
       {/* FLOATING ADMIN ACTION TOAST NOTIFICATION */}
       {actionSuccessMsg && (

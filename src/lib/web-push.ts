@@ -4,8 +4,9 @@ import fs from 'fs';
 import path from 'path';
 import { getDatabase } from '@/lib/mongodb';
 
-// File path for storing subscriptions locally as fallback
+// File path for storing subscriptions and broadcast logs locally as fallback
 const SUBSCRIPTIONS_FILE = path.join(process.cwd(), 'data', 'push_subscriptions.json');
+const BROADCASTS_FILE = path.join(process.cwd(), 'data', 'broadcast_notifications.json');
 
 // VAPID Keys Setup — must match keys used at subscription time on the client
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BHPK2Kr3RVjmnjxjUCqpt3Bq3x-dElAKKhWcTP0E3-6nWx80qDLrNOmUcVyiIYb07Ry0Fa-edBtQhpNcAaAtnV0';
@@ -28,6 +29,20 @@ export interface PushSubscriptionRecord {
   role?: string;
   userId?: string;
   class_name?: string;
+  createdAt: string;
+}
+
+export interface BroadcastRecord {
+  id: string;
+  title: string;
+  body: string;
+  url: string;
+  audience: string;
+  urgent: boolean;
+  senderName?: string;
+  senderRole?: string;
+  deliveredCount: number;
+  timestamp: string;
   createdAt: string;
 }
 
@@ -116,19 +131,82 @@ export async function saveSubscription(sub: {
   }
 }
 
+// Read saved broadcast notifications
+export async function getBroadcastHistory(limit = 30): Promise<BroadcastRecord[]> {
+  try {
+    const db = await getDatabase();
+    if (db) {
+      const records = await db
+        .collection<BroadcastRecord>('broadcast_notifications')
+        .find({})
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
+      if (records && records.length > 0) {
+        return records;
+      }
+    }
+  } catch (e) {
+    console.warn('[WebPush] MongoDB broadcast read error, falling back to local file:', e);
+  }
+
+  try {
+    if (fs.existsSync(BROADCASTS_FILE)) {
+      const data = fs.readFileSync(BROADCASTS_FILE, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) {
+        return parsed.slice(0, limit);
+      }
+    }
+  } catch (e) {}
+
+  return [];
+}
+
+// Save a broadcast notification to history
+export async function saveBroadcastRecord(record: BroadcastRecord): Promise<void> {
+  try {
+    const db = await getDatabase();
+    if (db) {
+      await db.collection('broadcast_notifications').insertOne(record as any);
+    }
+  } catch (e) {
+    console.warn('[WebPush] Mongo save broadcast notice:', e);
+  }
+
+  try {
+    let list: BroadcastRecord[] = [];
+    if (fs.existsSync(BROADCASTS_FILE)) {
+      try {
+        list = JSON.parse(fs.readFileSync(BROADCASTS_FILE, 'utf-8'));
+      } catch (e) {}
+    }
+    list.unshift(record);
+    const dir = path.dirname(BROADCASTS_FILE);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(BROADCASTS_FILE, JSON.stringify(list.slice(0, 100), null, 2), 'utf-8');
+  } catch (e) {}
+}
+
 // Dispatch Web Push notification to all subscribers or targeted audience
 export async function sendWebPushNotification({
   title,
   body,
   url = '/app',
   audience = 'ALL',
-  urgent = false
+  urgent = false,
+  senderName = 'School Administration',
+  senderRole = 'PRINCIPAL'
 }: {
   title: string;
   body: string;
   url?: string;
   audience?: string;
   urgent?: boolean;
+  senderName?: string;
+  senderRole?: string;
 }) {
   const subscriptions = await getSavedSubscriptions();
   const results = {
@@ -138,17 +216,14 @@ export async function sendWebPushNotification({
     errors: [] as string[]
   };
 
-  if (subscriptions.length === 0) {
-    return results;
-  }
-
   const payload = JSON.stringify({
     title,
     body,
     icon: '/icons/icon-192.png',
-    badge: '/icons/icon.svg',
+    badge: '/icons/icon-192.png',
     urgent,
-    data: { url }
+    tag: `bc-${Date.now()}`,
+    data: { url, audience, urgent, timestamp: new Date().toISOString() }
   });
 
   const deadEndpoints: string[] = [];
@@ -189,9 +264,26 @@ export async function sendWebPushNotification({
     } catch (e) {}
   }
 
+  // Record this broadcast to history
+  const broadcastLog: BroadcastRecord = {
+    id: `bc_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    title,
+    body,
+    url,
+    audience,
+    urgent,
+    senderName,
+    senderRole,
+    deliveredCount: results.sent,
+    timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    createdAt: new Date().toISOString()
+  };
+  await saveBroadcastRecord(broadcastLog);
+
   return results;
 }
 
 export function getVapidPublicKey() {
   return VAPID_PUBLIC_KEY;
 }
+

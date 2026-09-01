@@ -198,8 +198,21 @@ self.addEventListener('push', (event) => {
     ]
   };
 
+  // Notify all open client tabs/windows in real time
+  const notifyClients = self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    clientList.forEach((client) => {
+      client.postMessage({
+        type: 'NEW_BROADCAST',
+        payload: data
+      });
+    });
+  });
+
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Giterp School ERP', notificationOptions)
+    Promise.all([
+      self.registration.showNotification(data.title || 'Giterp School ERP', notificationOptions),
+      notifyClients
+    ])
   );
 });
 

@@ -70,6 +70,9 @@ export default function MobileShell({
   const [showNotificationCenter, setShowNotificationCenter] = useState(false);
   const [showQuickActionSheet, setShowQuickActionSheet] = useState(false);
   const [currentTime, setCurrentTime] = useState('09:41');
+  const [pushPermission, setPushPermission] = useState<NotificationPermission>('default');
+  const [isEnablingPush, setIsEnablingPush] = useState(false);
+  const [pushMessage, setPushMessage] = useState<string | null>(null);
 
   // Realistic time
   useEffect(() => {
@@ -82,6 +85,13 @@ export default function MobileShell({
     updateTime();
     const interval = setInterval(updateTime, 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Check push permission on client
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPushPermission(Notification.permission);
+    }
   }, []);
 
   const [notifications, setNotifications] = useState<MobileNotification[]>([
@@ -131,6 +141,137 @@ export default function MobileShell({
       roleTag: 'DRIVER'
     }
   ]);
+
+  // Fetch live broadcasts from API
+  const fetchLiveBroadcasts = async () => {
+    try {
+      const res = await fetch('/api/notifications/broadcasts');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.broadcasts)) {
+        const mappedBroadcasts: MobileNotification[] = data.broadcasts.map((bc: any) => ({
+          id: bc.id,
+          title: bc.urgent ? `🚨 ${bc.title}` : `📢 ${bc.title}`,
+          description: bc.body,
+          time: bc.timestamp || 'Recent',
+          read: false,
+          type: 'broadcast',
+          roleTag: (bc.audience === 'TEACHERS' ? 'TEACHER' : bc.audience === 'TRANSPORT' ? 'DRIVER' : 'PARENT') as UserRole
+        }));
+
+        setNotifications((prev) => {
+          // Merge unique by ID
+          const existingIds = new Set(prev.map((n) => n.id));
+          const newOnes = mappedBroadcasts.filter((n) => !existingIds.has(n.id));
+          return [...newOnes, ...prev];
+        });
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    fetchLiveBroadcasts();
+    const timer = setInterval(fetchLiveBroadcasts, 15000);
+
+    // Listen for instant Service Worker push event messages
+    const handleBroadcastEvent = (e: any) => {
+      const bcData = e.detail;
+      if (bcData) {
+        const incoming: MobileNotification = {
+          id: `bc_${Date.now()}`,
+          title: bcData.urgent ? `🚨 ${bcData.title}` : `📢 ${bcData.title}`,
+          description: bcData.body || 'New announcement received.',
+          time: 'Just now',
+          read: false,
+          type: 'broadcast',
+          roleTag: (bcData.audience === 'TEACHERS' ? 'TEACHER' : 'PARENT') as UserRole
+        };
+        setNotifications((prev) => [incoming, ...prev]);
+      }
+    };
+
+    window.addEventListener('giterp_broadcast', handleBroadcastEvent);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('giterp_broadcast', handleBroadcastEvent);
+    };
+  }, []);
+
+  // One-tap Enable Push Notifications on Mobile
+  const handleEnableWebPush = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setPushMessage('Push notifications not supported on this device/browser.');
+      return;
+    }
+
+    setIsEnablingPush(true);
+    setPushMessage(null);
+
+    try {
+      let perm = Notification.permission;
+      if (perm !== 'granted') {
+        perm = await Notification.requestPermission();
+      }
+      setPushPermission(perm);
+
+      if (perm !== 'granted') {
+        setPushMessage('Permission not granted. Please allow notifications in site settings.');
+        setIsEnablingPush(false);
+        return;
+      }
+
+      const keyRes = await fetch('/api/notifications/vapid-key');
+      const keyData = await keyRes.json();
+      const publicKey = keyData?.publicKey;
+
+      if (!publicKey) {
+        throw new Error('VAPID key unavailable');
+      }
+
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        const reg = await navigator.serviceWorker.ready;
+        const clean = publicKey.trim();
+        const padding = '='.repeat((4 - (clean.length % 4)) % 4);
+        const base64 = (clean + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+        }
+
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: outputArray
+          });
+        }
+
+        await fetch('/api/notifications/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            endpoint: sub.endpoint,
+            keys: {
+              p256dh: sub.toJSON().keys?.p256dh,
+              auth: sub.toJSON().keys?.auth
+            },
+            role: activeRole,
+            userId: `${activeRole.toLowerCase()}_mobile`
+          })
+        });
+
+        setPushMessage('🎉 Web Push active! You will receive all school broadcasts instantly.');
+      } else {
+        setPushMessage('✅ Notifications active on this device!');
+      }
+    } catch (e: any) {
+      setPushMessage('Notice: ' + (e.message || e));
+    } finally {
+      setIsEnablingPush(false);
+      setTimeout(() => setPushMessage(null), 5000);
+    }
+  };
 
   const unreadCount = notifications.filter(n => !n.read && (n.roleTag === activeRole || n.type === 'broadcast')).length;
 
@@ -445,47 +586,88 @@ export default function MobileShell({
                 </div>
               </div>
 
-              <div className="overflow-y-auto space-y-2.5 pr-1 mt-2 flex-1 hide-scrollbar">
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className={`p-3.5 rounded-2xl border transition-all ${
-                      n.read ? 'bg-neutral-50/70 border-neutral-200' : 'bg-emerald-50/50 border-emerald-200 shadow-sm'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="text-xs font-bold text-neutral-900">{n.title}</h4>
-                      <span className="text-[10px] text-neutral-400 whitespace-nowrap">{n.time}</span>
-                    </div>
-                    <p className="text-xs text-neutral-600 mt-1 leading-relaxed">{n.description}</p>
-                    <div className="mt-2.5 flex items-center justify-between">
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-neutral-200/70 text-neutral-700 uppercase tracking-wider">
-                        {n.roleTag}
-                      </span>
-                      <button
-                        onClick={() => {
-                          if (n.type === 'fee') {
-                            setActiveRole('PARENT');
-                            setActiveTab('fees');
-                          } else if (n.type === 'bus') {
-                            setActiveRole('PARENT');
-                            setActiveTab('bus');
-                          } else if (n.type === 'homework') {
-                            setActiveRole('TEACHER');
-                            setActiveTab('homework');
-                          } else if (n.type === 'urgent') {
-                            setActiveRole('PRINCIPAL');
-                            setActiveTab('approvals');
-                          }
-                          setShowNotificationCenter(false);
-                        }}
-                        className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1 hover:underline"
-                      >
-                        View Details →
-                      </button>
-                    </div>
+              {/* Push Permission Prompt inside Drawer */}
+              {pushPermission !== 'granted' && (
+                <div className="mb-3 p-3.5 bg-gradient-to-r from-emerald-900 to-teal-900 text-white rounded-2xl shadow-sm border border-emerald-500/30 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-amber-300 shrink-0 animate-bounce" />
+                    <div className="text-xs font-bold">Enable Push Notifications</div>
                   </div>
-                ))}
+                  <p className="text-[11px] text-emerald-200 leading-snug">
+                    Receive instant CBSE broadcasts, fee receipts, and emergency alerts on this device.
+                  </p>
+                  <button
+                    onClick={handleEnableWebPush}
+                    disabled={isEnablingPush}
+                    className="mt-1 py-1.5 px-3 bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs rounded-xl shadow-xs transition-all active:scale-98 flex items-center justify-center gap-1 cursor-pointer border-none"
+                  >
+                    {isEnablingPush ? 'Activating Web Push...' : '🔔 Turn On Push Alerts'}
+                  </button>
+                </div>
+              )}
+
+              {pushMessage && (
+                <div className="mb-3 p-2.5 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl text-xs font-semibold animate-fade-in">
+                  {pushMessage}
+                </div>
+              )}
+
+              <div className="overflow-y-auto space-y-2.5 pr-1 mt-1 flex-1 hide-scrollbar">
+                {notifications.map((n) => {
+                  const isBroadcast = n.type === 'broadcast' || n.title.includes('📢') || n.title.includes('🚨');
+                  return (
+                    <div
+                      key={n.id}
+                      className={`p-3.5 rounded-2xl border transition-all ${
+                        isBroadcast
+                          ? 'bg-amber-50/70 border-amber-300 shadow-sm ring-1 ring-amber-400/30'
+                          : n.read
+                          ? 'bg-neutral-50/70 border-neutral-200'
+                          : 'bg-emerald-50/50 border-emerald-200 shadow-sm'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="text-xs font-bold text-neutral-900 flex items-center gap-1">
+                          {n.title}
+                        </h4>
+                        <span className="text-[10px] text-neutral-400 whitespace-nowrap">{n.time}</span>
+                      </div>
+                      <p className="text-xs text-neutral-700 mt-1 leading-relaxed">{n.description}</p>
+                      <div className="mt-2.5 flex items-center justify-between">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                          isBroadcast
+                            ? 'bg-amber-200 text-amber-900'
+                            : 'bg-neutral-200/70 text-neutral-700'
+                        }`}>
+                          {isBroadcast ? 'CBSE BROADCAST' : n.roleTag}
+                        </span>
+                        <button
+                          onClick={() => {
+                            if (n.type === 'fee') {
+                              setActiveRole('PARENT');
+                              setActiveTab('fees');
+                            } else if (n.type === 'bus') {
+                              setActiveRole('PARENT');
+                              setActiveTab('bus');
+                            } else if (n.type === 'homework') {
+                              setActiveRole('TEACHER');
+                              setActiveTab('homework');
+                            } else if (n.type === 'urgent') {
+                              setActiveRole('PRINCIPAL');
+                              setActiveTab('approvals');
+                            } else if (n.type === 'broadcast') {
+                              setActiveTab('home');
+                            }
+                            setShowNotificationCenter(false);
+                          }}
+                          className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1 hover:underline"
+                        >
+                          View Details →
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

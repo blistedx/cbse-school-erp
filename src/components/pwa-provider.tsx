@@ -87,6 +87,59 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
                 });
               }
             });
+            // Auto-sync Web Push subscription if permission is already granted
+            if ('PushManager' in window && 'Notification' in window && Notification.permission === 'granted') {
+              fetch('/api/notifications/vapid-key')
+                .then(res => res.json())
+                .then(async (keyData) => {
+                  if (keyData?.publicKey) {
+                    const clean = keyData.publicKey.trim();
+                    const padding = '='.repeat((4 - (clean.length % 4)) % 4);
+                    const base64 = (clean + padding).replace(/-/g, '+').replace(/_/g, '/');
+                    const rawData = window.atob(base64);
+                    const outputArray = new Uint8Array(rawData.length);
+                    for (let i = 0; i < rawData.length; ++i) {
+                      outputArray[i] = rawData.charCodeAt(i);
+                    }
+
+                    let sub = await reg.pushManager.getSubscription();
+                    if (!sub) {
+                      sub = await reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: outputArray
+                      });
+                    }
+
+                    if (sub) {
+                      const user = localStorage.getItem('current_user');
+                      let role = 'ALL';
+                      let userId = 'device';
+                      try {
+                        if (user) {
+                          const parsed = JSON.parse(user);
+                          role = parsed.role || 'ALL';
+                          userId = parsed.username || parsed.id || 'device';
+                        }
+                      } catch (e) {}
+
+                      fetch('/api/notifications/subscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          endpoint: sub.endpoint,
+                          keys: {
+                            p256dh: sub.toJSON().keys?.p256dh,
+                            auth: sub.toJSON().keys?.auth
+                          },
+                          role,
+                          userId
+                        })
+                      }).catch(() => {});
+                    }
+                  }
+                })
+                .catch(() => {});
+            }
           })
           .catch((err) => {
             console.warn('[PWA] Service Worker registration failed:', err);
@@ -99,6 +152,9 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
               refreshing = true;
               window.location.reload();
             }
+          }
+          if (event.data && event.data.type === 'NEW_BROADCAST') {
+            window.dispatchEvent(new CustomEvent('giterp_broadcast', { detail: event.data.payload }));
           }
         };
         navigator.serviceWorker.addEventListener('message', handleSwMessage);

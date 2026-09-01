@@ -41,7 +41,7 @@ export function DashboardBroadcast({ schoolName = 'DPS International — CBSE' }
   const [subscriberCount, setSubscriberCount] = useState<number>(0);
   const [isSubscribing, setIsSubscribing] = useState<boolean>(false);
 
-  const [broadcastHistory, setBroadcastHistory] = useState([
+  const [broadcastHistory, setBroadcastHistory] = useState<any[]>([
     {
       id: 'bc1',
       title: 'CBSE Mid-Term Exam Schedule Announced',
@@ -61,6 +61,25 @@ export function DashboardBroadcast({ schoolName = 'DPS International — CBSE' }
       urgent: true
     },
   ]);
+
+  const fetchLiveBroadcastHistory = useCallback(async () => {
+    try {
+      const res = await fetch('/api/notifications/broadcasts');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.broadcasts) && data.broadcasts.length > 0) {
+        const mapped = data.broadcasts.map((b: any) => ({
+          id: b.id,
+          title: b.title,
+          audience: b.audience === 'ALL' ? 'All 1,200 Families' : b.audience === 'FACULTY' || b.audience === 'TEACHERS' ? 'All 49 Faculty Staff' : b.audience === 'BUS_PARENTS' || b.audience === 'TRANSPORT' ? 'Bus Route Parents (418)' : 'Parents Only',
+          channel: b.urgent ? 'High-Priority Web Push + Siren' : 'Web Push + SMS Gateway',
+          time: b.timestamp || 'Recent',
+          delivered: `${Math.max(b.deliveredCount || 1, 1)} Device(s) Alerted`,
+          urgent: b.urgent
+        }));
+        setBroadcastHistory(mapped);
+      }
+    } catch (e) {}
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -113,7 +132,9 @@ export function DashboardBroadcast({ schoolName = 'DPS International — CBSE' }
         setSubscriberCount(data.count);
       }
     } catch (e) {}
-  }, []);
+
+    fetchLiveBroadcastHistory();
+  }, [fetchLiveBroadcastHistory]);
 
   useEffect(() => {
     checkPushStatus();

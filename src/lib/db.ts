@@ -348,6 +348,18 @@ export const Database = {
 
   async getSchoolById(schoolId: string): Promise<School | null> {
     if (!schoolId) return null;
+    const schools = await this.getSchools();
+    const rawInput = schoolId.trim().toUpperCase();
+    const cleanInput = rawInput.replace(/[^A-Z0-9]/g, '');
+
+    // 1. Direct ID Match
+    let matched = schools.find(s => (s.id || '').toUpperCase() === rawInput || (s.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanInput);
+    if (matched) return matched;
+
+    // 2. Direct School Code Match
+    matched = schools.find(s => (s.school_code || '').toUpperCase() === rawInput || (s.school_code || '').toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanInput);
+    if (matched) return matched;
+
     return this.getSchoolByCode(schoolId);
   },
 
@@ -1749,13 +1761,15 @@ export const Database = {
     const totalStudents = students.length;
     const totalTeachers = teachers.length;
 
-    // Today's date in YYYY-MM-DD
-    const todayDateStr = new Date().toISOString().split('T')[0];
+    // Helper for local date string in YYYY-MM-DD
+    const now = new Date();
+    const localDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const isoDateStr = now.toISOString().split('T')[0];
 
-    // Deduplicate attendance records by class & section (keep newest record only)
+    // Deduplicate attendance records by class & section for today
     const latestTodayMap = new Map<string, AttendanceRecord>();
     attendance.forEach(a => {
-      if (a.date === todayDateStr) {
+      if (a.date === localDateStr || a.date === isoDateStr) {
         const key = `${(a.class_name || '').toLowerCase().trim()}_${(a.section || '').toLowerCase().trim()}`;
         latestTodayMap.set(key, a);
       }

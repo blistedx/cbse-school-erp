@@ -71,6 +71,7 @@ interface DashboardOverviewProps {
   userRole?: string;
   openStudentModal: (student?: Student) => void;
   openTeacherModal: (teacher?: Teacher) => void;
+  onSelectStudent?: (student: Student) => void;
   setShowAddNotice?: (show: boolean) => void;
   setShowAddInvoice: (show: boolean) => void;
   setViewInvoice: (invoice: FeeInvoice) => void;
@@ -90,6 +91,7 @@ export function DashboardOverview({
   userRole = 'PRINCIPAL',
   openStudentModal,
   openTeacherModal,
+  onSelectStudent,
   setShowAddNotice,
   setShowAddInvoice,
   setViewInvoice,
@@ -99,23 +101,36 @@ export function DashboardOverview({
   const [calendarFilter, setCalendarFilter] = useState<'all' | 'events' | 'holidays'>('all');
 
   // Pure Live MongoDB Daily Attendance Calculation for TODAY strictly
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const localDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const isoDateStr = now.toISOString().split('T')[0];
 
   // 1. Student Attendance Statistics (Strictly for TODAY)
   const totalStudentsCount = Array.isArray(students) ? students.length : (overview?.kpis?.totalStudents ?? 0);
-  const isStudentAttendanceMarkedToday = overview?.kpis?.isStudentAttendanceMarkedToday ?? (
-    attendance.some(a => a.date === todayDateStr && (a.class_name || '').toLowerCase() !== 'faculty' && (a.class_name || '').toLowerCase() !== 'staff')
-  );
   
-  const studentTodayRecords = attendance.filter(a => 
-    a.date === todayDateStr && 
-    (a.class_name || '').toLowerCase() !== 'faculty' && 
-    (a.class_name || '').toLowerCase() !== 'staff'
-  );
+  // Find all student attendance logs for today (deduplicated by class and section)
+  const studentTodayMap = new Map<string, AttendanceRecord>();
+  attendance.forEach(a => {
+    if (
+      (a.date === localDateStr || a.date === isoDateStr) &&
+      (a.class_name || '').toLowerCase() !== 'faculty' &&
+      (a.class_name || '').toLowerCase() !== 'staff'
+    ) {
+      const key = `${(a.class_name || '').toLowerCase().trim()}_${(a.section || '').toLowerCase().trim()}`;
+      studentTodayMap.set(key, a);
+    }
+  });
+
+  const studentTodayRecords = Array.from(studentTodayMap.values());
+  const isStudentAttendanceMarkedToday = studentTodayRecords.length > 0 || (overview?.kpis?.isStudentAttendanceMarkedToday ?? false);
   
-  const studentPresentCount = isStudentAttendanceMarkedToday 
-    ? (overview?.kpis?.studentsPresentToday ?? studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0))
-    : 0;
+  const studentPresentCount = studentTodayRecords.length > 0
+    ? studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0)
+    : (overview?.kpis?.studentsPresentToday ?? 0);
+
+  const studentEnrolledInLogged = studentTodayRecords.length > 0
+    ? studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.total_students) || 0), 0)
+    : totalStudentsCount;
 
   // School-wide Attendance Percentage (Scholars Present / Total School Scholars)
   const studentAttendanceRate = isStudentAttendanceMarkedToday && totalStudentsCount > 0
@@ -129,16 +144,16 @@ export function DashboardOverview({
   // 2. Faculty & Staff Statistics (Strictly for TODAY)
   const totalTeachersCount = Array.isArray(teachers) ? teachers.length : (overview?.kpis?.totalTeachers ?? 0);
   const facultyTodayRecords = attendance.filter(a => 
-    a.date === todayDateStr && 
+    (a.date === localDateStr || a.date === isoDateStr) &&
     (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
   );
 
-  const isFacultyAttendanceMarkedToday = overview?.kpis?.isFacultyAttendanceMarkedToday ?? (facultyTodayRecords.length > 0);
-  const latestFacRec = facultyTodayRecords[facultyTodayRecords.length - 1];
+  const latestFacRec = facultyTodayRecords.length > 0 ? facultyTodayRecords[facultyTodayRecords.length - 1] : null;
+  const isFacultyAttendanceMarkedToday = !!latestFacRec || (overview?.kpis?.isFacultyAttendanceMarkedToday ?? false);
 
-  const facultyPresentCount = isFacultyAttendanceMarkedToday
-    ? (overview?.kpis?.facultyPresentToday ?? (latestFacRec ? (Number(latestFacRec.present_count) || 0) : totalTeachersCount))
-    : 0;
+  const facultyPresentCount = latestFacRec
+    ? Number(latestFacRec.present_count) || 0
+    : (overview?.kpis?.facultyPresentToday ?? (isFacultyAttendanceMarkedToday ? totalTeachersCount : 0));
 
   // School-wide Faculty Attendance Percentage (Faculty Present / Total Faculty)
   const facultyAttendanceRate = isFacultyAttendanceMarkedToday && totalTeachersCount > 0
@@ -146,9 +161,9 @@ export function DashboardOverview({
     : 0;
 
   const facultyOnLeave = isFacultyAttendanceMarkedToday
-    ? (latestFacRec?.absent_count !== undefined 
-        ? Number(latestFacRec.absent_count) + (Number(latestFacRec.leave_count) || 0)
-        : Math.max(0, totalTeachersCount - facultyPresentCount))
+    ? (latestFacRec?.leave_count !== undefined 
+        ? Number(latestFacRec.leave_count) + (Number(latestFacRec.absent_count) || 0)
+        : (latestFacRec?.absent_count !== undefined ? Number(latestFacRec.absent_count) : Math.max(0, totalTeachersCount - facultyPresentCount)))
     : 0;
 
   // 3. Fee & Revenue Statistics (Pure Live Live Data)
@@ -175,39 +190,81 @@ export function DashboardOverview({
   // Display Notices (From MongoDB)
   const displayNotices = (notices && notices.length > 0) ? notices.slice(0, 4) : [];
 
-  // Faculty On-Duty Roster (Live from Teachers DB)
+  // Faculty On-Duty Roster (Live from Teachers DB & Daily Faculty Attendance Records)
   const activeFacultyRoster = teachers.length > 0 
-    ? teachers.slice(0, 5).map((t, idx) => {
+    ? teachers.slice(0, 6).map((t, idx) => {
         const teacherName = (t as any).name || t.full_name || 'Faculty Member';
         const teacherCode = (t as any).employee_code || t.staff_code || `TCH-00${idx + 1}`;
         const teacherDept = (t as any).subject || t.department || 'Academic Faculty';
-        const isPresent = t.status === 'ACTIVE' || (t.status as string) === 'Active';
+        
+        let status = 'Pending Roll Call';
+        let checkIn = 'Awaiting Punch';
+        let isPresent = false;
+
+        if (latestFacRec && Array.isArray((latestFacRec as any).teacher_records) && (latestFacRec as any).teacher_records.length > 0) {
+          const rec = (latestFacRec as any).teacher_records.find((r: any) => r.teacher_id === t.id || r.staff_code === t.staff_code);
+          if (rec) {
+            if (rec.status === 'PRESENT' || rec.status === 'LATE') {
+              status = 'Present';
+              checkIn = `07:${String(45 + (idx * 3)).padStart(2, '0')} AM`;
+              isPresent = true;
+            } else if (rec.status === 'LEAVE') {
+              status = 'On Leave';
+              checkIn = 'Approved Leave';
+              isPresent = false;
+            } else if (rec.status === 'ABSENT') {
+              status = 'Absent';
+              checkIn = 'Unexcused';
+              isPresent = false;
+            }
+          } else {
+            status = 'Present';
+            checkIn = `07:${String(45 + (idx * 3)).padStart(2, '0')} AM`;
+            isPresent = true;
+          }
+        } else if (isFacultyAttendanceMarkedToday) {
+          status = 'Present';
+          checkIn = `07:${String(45 + (idx * 3)).padStart(2, '0')} AM`;
+          isPresent = true;
+        }
+
         return {
+          id: t.id,
           name: teacherName,
           code: teacherCode,
           dept: teacherDept,
           role: t.designation || 'Teacher',
-          status: isPresent ? 'Present' : 'On Leave',
-          checkIn: !isPresent ? 'Sanctioned' : `07:${45 + (idx * 5)} AM`,
+          status,
+          isPresent,
+          checkIn,
           room: `Campus Staff`
         };
       })
     : [];
 
-  // Class Attendance Leaders (Live from Classes DB)
+  // Class Attendance Leaders (Live from Classes DB & Today Attendance Records)
   const topClasses = classes.length > 0
     ? classes.slice(0, 5).map((cls, idx) => {
         const classNameStr = cls.class_name || (cls as any).name || 'Class';
-        const clsStudents = students.filter(s => (s.class_name || '').toLowerCase() === classNameStr.toLowerCase());
-        const count = clsStudents.length > 0 ? clsStudents.length : 35;
+        const secStr = cls.section || 'A';
+        const todayRec = studentTodayRecords.find(a => 
+          (a.class_name || '').toLowerCase().trim() === classNameStr.toLowerCase().trim() &&
+          (a.section || '').toUpperCase().trim() === secStr.toUpperCase().trim()
+        );
+        const isLogged = !!todayRec;
+        const clsStudents = students.filter(s => (s.class_name || '').toLowerCase() === classNameStr.toLowerCase() && (!cls.section || (s.section || '').toUpperCase() === secStr.toUpperCase()));
+        const count = isLogged ? (Number(todayRec.total_students) || clsStudents.length || 35) : (clsStudents.length > 0 ? clsStudents.length : 35);
+        const present = isLogged ? (Number(todayRec.present_count) || 0) : 0;
+        const rate = isLogged && count > 0 ? Number(((present / count) * 100).toFixed(1)) : 0;
         return {
           name: `${classNameStr}${cls.section ? ` - ${cls.section}` : ''}`,
           teacher: cls.class_teacher || (cls as any).class_teacher_name || 'Class Faculty',
           students: count,
           capacity: Math.max(40, count),
-          rate: Math.min(99.4, 98.6 - idx * 0.8),
+          rate: isLogged ? rate : 0,
           rank: idx + 1,
-          avatar: (classNameStr || 'C')[0] || 'C'
+          avatar: (classNameStr || 'C')[0] || 'C',
+          isLogged
         };
       })
     : [];
@@ -630,8 +687,9 @@ export function DashboardOverview({
               <div className="my-3">
                 <div className="font-display font-bold text-3xl text-emerald-900 tracking-tight">PRESENT</div>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                    Punch In: 08:15 AM (Morning Assembly)
+                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Punch In: 08:15 AM (Morning Assembly)</span>
                   </span>
                 </div>
               </div>
@@ -647,7 +705,7 @@ export function DashboardOverview({
               className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group cursor-pointer"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">Term 1 Performance</span>
+                <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-purple-800 transition-colors">Term 1 Performance</span>
                 <div className="w-9 h-9 rounded-2xl bg-purple-50 text-purple-700 border border-purple-200/70 flex items-center justify-center shadow-xs group-hover:scale-110 transition-all">
                   <Award className="w-4.5 h-4.5 text-purple-700" />
                 </div>
@@ -697,7 +755,7 @@ export function DashboardOverview({
               className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group cursor-pointer"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">Bus &amp; Transit Telemetry</span>
+                <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-blue-800 transition-colors">Bus &amp; Transit Telemetry</span>
                 <div className="w-9 h-9 rounded-2xl bg-blue-50 text-blue-700 border border-blue-200/70 flex items-center justify-center shadow-xs group-hover:scale-110 transition-all">
                   <Bus className="w-4.5 h-4.5 text-blue-700" />
                 </div>
@@ -823,8 +881,9 @@ export function DashboardOverview({
                   {totalPaid > 0 ? (totalPaid >= 100000 ? `₹${(totalPaid / 100000).toFixed(2)}L` : `₹${totalPaid.toLocaleString()}`) : '₹0'}
                 </div>
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 whitespace-nowrap group-hover:bg-emerald-100 transition-colors">
-                    {collectionRate}% Collected • Term 1
+                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 group-hover:bg-emerald-100 transition-colors">
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>{collectionRate}% Realization Rate</span>
                   </span>
                 </div>
               </div>
