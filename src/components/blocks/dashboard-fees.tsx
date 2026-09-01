@@ -48,6 +48,7 @@ import {
   Save,
   RotateCcw,
   Upload,
+  AlertTriangle,
   MessageCircle
 } from 'lucide-react';
 import { FeeInvoice, Student, School, ClassRoom, Teacher } from '@/lib/types';

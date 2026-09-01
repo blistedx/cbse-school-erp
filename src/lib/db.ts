@@ -588,10 +588,10 @@ export const Database = {
       memoryStore.attendance = memoryStore.attendance.filter(a => !matchesSchool(a.school_id));
       if (!summary.attendance) summary.attendance = prevLen - memoryStore.attendance.length;
     }
-    if (Array.isArray(memoryStore.invoices)) {
-      const prevLen = memoryStore.invoices.length;
-      memoryStore.invoices = memoryStore.invoices.filter(i => !matchesSchool(i.school_id));
-      if (!summary.invoices) summary.invoices = prevLen - memoryStore.invoices.length;
+    if (Array.isArray(memoryStore.fee_invoices)) {
+      const prevLen = memoryStore.fee_invoices.length;
+      memoryStore.fee_invoices = memoryStore.fee_invoices.filter(i => !matchesSchool(i.school_id));
+      if (!summary.fee_invoices) summary.fee_invoices = prevLen - memoryStore.fee_invoices.length;
     }
     if (Array.isArray(memoryStore.notices)) {
       const prevLen = memoryStore.notices.length;

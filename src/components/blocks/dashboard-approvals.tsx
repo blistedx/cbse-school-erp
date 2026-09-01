@@ -29,7 +29,7 @@ import {
   BookOpen,
   AlertTriangle
 } from 'lucide-react';
-import { Teacher, School, SubstitutionItem } from '@/lib/types';
+import { Teacher, School, SubstitutionItem, AttendanceRecord } from '@/lib/types';
 
 export interface LeaveApplication {
   id: string;

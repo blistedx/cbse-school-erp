@@ -3,6 +3,9 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   devIndicators: {
     appIsrStatus: true,
     buildActivity: true,

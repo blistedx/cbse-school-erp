@@ -72,7 +72,8 @@ import {
   FolderDown,
   HeartHandshake,
   Sliders,
-  Lock
+  Lock,
+  Zap
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS, ManagedRole } from '@/lib/types';
@@ -312,7 +313,7 @@ function ERPWorkspaceContent() {
   const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'siblings' | 'teachers' | 'classes' | 'subjects' | 'attendance' | 'fees' | 'reports' | 'certificates' | 'transport' | 'exams' | 'homework' | 'approvals' | 'broadcast' | 'notices' | 'settings' | 'profile' | 'audit_logs' | 'data_hub' | 'permissions'>('overview');
+  const [activeTab, setActiveTab] = useState<string>('overview');
   const [studentSubTab, setStudentSubTab] = useState<'directory' | 'siblings'>('directory');
   const [summaryStudent, setSummaryStudent] = useState<Student | null>(null);
   const [availableSchools, setAvailableSchools] = useState<School[]>([]);

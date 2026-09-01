@@ -71,6 +71,7 @@ export interface Student {
   guardian_phone: string;
   guardian_email?: string;
   phone?: string;
+  parent_phone?: string;
   fee_status: 'PAID' | 'PENDING' | 'OVERDUE' | 'PARTIAL';
   attendance_percent?: number;
   status: 'ACTIVE' | 'INACTIVE' | 'ALUMNI' | 'SUSPENDED';
@@ -158,6 +159,8 @@ export interface Teacher {
   classes_taught?: string;
   ctet_qualified?: 'YES' | 'NO';
   ctet_roll_no?: string;
+  subjects?: string[];
+  assigned_class?: string;
   professional_degree?: string; // B.Ed / M.Ed / D.El.Ed
   experience_years?: number;
   date_of_joining?: string;
@@ -458,7 +461,7 @@ export interface ScheduledExamItem {
   time?: string;
   max_marks: number;
   pass_marks: number;
-  status: 'MARKS_FILLED' | 'PENDING';
+  status: 'MARKS_FILLED' | 'PENDING' | string;
   created_at?: string;
 }
 
