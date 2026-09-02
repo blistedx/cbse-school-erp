@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { APP_INFO } from '@/lib/app-info';
 
 type Role = 'Admin' | 'Teacher' | 'Student' | 'Parent';
 
@@ -388,6 +389,11 @@ export default function LoginPage() {
           <Link className="back" href="/request-demo" style={{ marginTop: '8px' }}>
             New school? Request a demo →
           </Link>
+
+          <div style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid #E2ECE5', textAlign: 'center', fontFamily: 'monospace', fontSize: '11px', color: '#52796F' }}>
+            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10B981', marginRight: '6px' }} />
+            Build #{APP_INFO.buildNumber} • {APP_INFO.releaseTag}
+          </div>
         </div>
       </div>
     </div>

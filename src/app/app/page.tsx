@@ -80,6 +80,7 @@ import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, A
 import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
 import { apiFetch } from '@/lib/api-client';
 import { APP_INFO } from '@/lib/app-info';
+import AppInfoModal from '@/components/app-info-modal';
 
 const DashboardOverview = dynamic(
   () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
@@ -327,6 +328,7 @@ function ERPWorkspaceContent() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isOmniSearchOpen, setIsOmniSearchOpen] = useState(false);
+  const [showAppInfoModal, setShowAppInfoModal] = useState(false);
 
   // PIN visibility states
   const [showSettingsPin, setShowSettingsPin] = useState(false);
@@ -2908,6 +2910,18 @@ function ERPWorkspaceContent() {
             </select>
           </div>
 
+          {/* Universal Live Build # Badge & Diagnostics Modal Trigger */}
+          <button
+            type="button"
+            onClick={() => setShowAppInfoModal(true)}
+            className="px-2 sm:px-2.5 py-1 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-[10px] sm:text-[11px] font-mono font-bold flex items-center gap-1.5 shadow-2xs border border-emerald-400/40 cursor-pointer transition-all shrink-0"
+            title="Click to view App Info, Live Build Number & Diagnostics"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="hidden sm:inline text-emerald-300">Build</span>
+            <span className="text-white font-mono">#{APP_INFO.buildNumber}</span>
+          </button>
+
           {/* PWA Push Notification Control Bell */}
           <div className="relative">
             <button
@@ -3499,6 +3513,20 @@ function ERPWorkspaceContent() {
                 </div>
               </div>
             </div>
+
+            {/* Mobile Navigation Drawer Build Information Badge */}
+            <div 
+              onClick={() => { setShowAppInfoModal(true); setMobileMenuOpen(false); }}
+              className="mt-2 p-2.5 rounded-xl bg-black/25 border border-white/10 flex items-center justify-between text-[10px] font-mono text-slate-300 cursor-pointer hover:bg-black/35 transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>v{APP_INFO.version}</span>
+              </span>
+              <span className="text-emerald-300 font-bold tracking-wider">
+                #{APP_INFO.buildNumber} →
+              </span>
+            </div>
           </aside>
         </div>
       )}
@@ -3949,13 +3977,17 @@ function ERPWorkspaceContent() {
           </div>
 
           {/* Institutional Version & Build Information Badge */}
-          <div className="mt-2 px-2 py-1.5 rounded-lg bg-black/20 border border-white/10 flex items-center justify-between text-[10px] font-mono text-slate-300">
+          <div 
+            onClick={() => setShowAppInfoModal(true)}
+            className="mt-2 px-2.5 py-1.5 rounded-lg bg-black/20 hover:bg-black/30 border border-white/10 flex items-center justify-between text-[10px] font-mono text-slate-300 cursor-pointer transition-colors"
+            title="Click to view full App Info & Diagnostics"
+          >
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span>v{APP_INFO.version}</span>
             </span>
-            <span className="text-emerald-300/90 font-semibold tracking-wider">
-              #{APP_INFO.buildNumber}
+            <span className="text-emerald-300 font-semibold tracking-wider">
+              #{APP_INFO.buildNumber} →
             </span>
           </div>
         </aside>
@@ -11156,6 +11188,12 @@ function ERPWorkspaceContent() {
           </div>
         </div>
       )}
+
+      {/* App Information & Build Diagnostics Modal */}
+      <AppInfoModal
+        isOpen={showAppInfoModal}
+        onClose={() => setShowAppInfoModal(false)}
+      />
     </div>
   );
 }
