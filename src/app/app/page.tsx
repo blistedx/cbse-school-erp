@@ -79,6 +79,7 @@ import dynamic from 'next/dynamic';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS, ManagedRole } from '@/lib/types';
 import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
 import { apiFetch } from '@/lib/api-client';
+import { APP_INFO } from '@/lib/app-info';
 
 const DashboardOverview = dynamic(
   () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
@@ -3945,6 +3946,17 @@ function ERPWorkspaceContent() {
                 Theme &amp; Profile →
               </span>
             </div>
+          </div>
+
+          {/* Institutional Version & Build Information Badge */}
+          <div className="mt-2 px-2 py-1.5 rounded-lg bg-black/20 border border-white/10 flex items-center justify-between text-[10px] font-mono text-slate-300">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>v{APP_INFO.version}</span>
+            </span>
+            <span className="text-emerald-300/90 font-semibold tracking-wider">
+              #{APP_INFO.buildNumber}
+            </span>
           </div>
         </aside>
 
@@ -7909,6 +7921,24 @@ function ERPWorkspaceContent() {
                         </div>
                       </div>
                     ))}
+                  </div>
+
+                  {/* App Information & Build Metadata */}
+                  <div className="p-4 rounded-2xl bg-[#EBF5EF]/60 border border-[#C5E2CF] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-display font-bold text-[#122A24]">{APP_INFO.name}</span>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono text-[10px] font-bold">
+                          v{APP_INFO.version}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#2D5A4E] font-mono">
+                        Build #{APP_INFO.buildNumber} • {APP_INFO.releaseTag} • {APP_INFO.releaseDate}
+                      </p>
+                    </div>
+                    <div className="text-[10px] font-mono text-emerald-900 bg-white/80 px-3 py-1.5 rounded-xl border border-[#C5E2CF] self-start sm:self-auto font-semibold">
+                      ● Active Production Instance
+                    </div>
                   </div>
                 </div>
               </form>
