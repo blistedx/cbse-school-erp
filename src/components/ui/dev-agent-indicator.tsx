@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Terminal, RefreshCw, AlertTriangle, CheckCircle, Database, X, ChevronUp, Bug, Activity, Trash2 } from 'lucide-react';
-import { APP_INFO } from '@/lib/app-info';
 
 interface ErrorLog {
   id: string;
@@ -126,8 +125,7 @@ export default function DevAgentIndicator() {
             className="cursor-pointer hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900/80 backdrop-blur-md border border-zinc-800 text-[11px] font-medium text-zinc-300 shadow-lg hover:border-zinc-700 transition"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Live Build</span>
-            <span className="font-mono text-emerald-400 font-bold text-[10px]">#{APP_INFO.buildNumber}</span>
+            <span>Fast Refresh Live</span>
             {errorCount > 0 && (
               <span className="px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 font-bold text-[10px]">
                 {errorCount} {errorCount === 1 ? 'Error' : 'Errors'}
@@ -149,11 +147,11 @@ export default function DevAgentIndicator() {
               <div>
                 <div className="text-xs font-bold text-zinc-100 flex items-center gap-1.5">
                   Next.js Live Agent
-                  <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 font-mono font-semibold border border-emerald-500/20">
-                    Build #{APP_INFO.buildNumber}
+                  <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20">
+                    Active
                   </span>
                 </div>
-                <div className="text-[10px] text-zinc-400">{APP_INFO.releaseTag} • {APP_INFO.releaseDate}</div>
+                <div className="text-[10px] text-zinc-400">Offline Rendering &amp; Error Inspector</div>
               </div>
             </div>
             <div className="flex items-center gap-1">

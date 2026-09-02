@@ -79,8 +79,6 @@ import dynamic from 'next/dynamic';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS, ManagedRole } from '@/lib/types';
 import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
 import { apiFetch } from '@/lib/api-client';
-import { APP_INFO } from '@/lib/app-info';
-import AppInfoModal from '@/components/app-info-modal';
 
 const DashboardOverview = dynamic(
   () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
@@ -328,7 +326,6 @@ function ERPWorkspaceContent() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isOmniSearchOpen, setIsOmniSearchOpen] = useState(false);
-  const [showAppInfoModal, setShowAppInfoModal] = useState(false);
 
   // PIN visibility states
   const [showSettingsPin, setShowSettingsPin] = useState(false);
@@ -2910,18 +2907,6 @@ function ERPWorkspaceContent() {
             </select>
           </div>
 
-          {/* Universal Live Build # Badge & Diagnostics Modal Trigger */}
-          <button
-            type="button"
-            onClick={() => setShowAppInfoModal(true)}
-            className="px-2 sm:px-2.5 py-1 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-[10px] sm:text-[11px] font-mono font-bold flex items-center gap-1.5 shadow-2xs border border-emerald-400/40 cursor-pointer transition-all shrink-0"
-            title="Click to view App Info, Live Build Number & Diagnostics"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="hidden sm:inline text-emerald-300">Build</span>
-            <span className="text-white font-mono">#{APP_INFO.buildNumber}</span>
-          </button>
-
           {/* PWA Push Notification Control Bell */}
           <div className="relative">
             <button
@@ -3513,20 +3498,6 @@ function ERPWorkspaceContent() {
                 </div>
               </div>
             </div>
-
-            {/* Mobile Navigation Drawer Build Information Badge */}
-            <div 
-              onClick={() => { setShowAppInfoModal(true); setMobileMenuOpen(false); }}
-              className="mt-2 p-2.5 rounded-xl bg-black/25 border border-white/10 flex items-center justify-between text-[10px] font-mono text-slate-300 cursor-pointer hover:bg-black/35 transition-colors"
-            >
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>v{APP_INFO.version}</span>
-              </span>
-              <span className="text-emerald-300 font-bold tracking-wider">
-                #{APP_INFO.buildNumber} →
-              </span>
-            </div>
           </aside>
         </div>
       )}
@@ -3974,21 +3945,6 @@ function ERPWorkspaceContent() {
                 Theme &amp; Profile →
               </span>
             </div>
-          </div>
-
-          {/* Institutional Version & Build Information Badge */}
-          <div 
-            onClick={() => setShowAppInfoModal(true)}
-            className="mt-2 px-2.5 py-1.5 rounded-lg bg-black/20 hover:bg-black/30 border border-white/10 flex items-center justify-between text-[10px] font-mono text-slate-300 cursor-pointer transition-colors"
-            title="Click to view full App Info & Diagnostics"
-          >
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>v{APP_INFO.version}</span>
-            </span>
-            <span className="text-emerald-300 font-semibold tracking-wider">
-              #{APP_INFO.buildNumber} →
-            </span>
           </div>
         </aside>
 
@@ -7954,24 +7910,6 @@ function ERPWorkspaceContent() {
                       </div>
                     ))}
                   </div>
-
-                  {/* App Information & Build Metadata */}
-                  <div className="p-4 rounded-2xl bg-[#EBF5EF]/60 border border-[#C5E2CF] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-display font-bold text-[#122A24]">{APP_INFO.name}</span>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono text-[10px] font-bold">
-                          v{APP_INFO.version}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-[#2D5A4E] font-mono">
-                        Build #{APP_INFO.buildNumber} • {APP_INFO.releaseTag} • {APP_INFO.releaseDate}
-                      </p>
-                    </div>
-                    <div className="text-[10px] font-mono text-emerald-900 bg-white/80 px-3 py-1.5 rounded-xl border border-[#C5E2CF] self-start sm:self-auto font-semibold">
-                      ● Active Production Instance
-                    </div>
-                  </div>
                 </div>
               </form>
             </div>
@@ -11188,12 +11126,6 @@ function ERPWorkspaceContent() {
           </div>
         </div>
       )}
-
-      {/* App Information & Build Diagnostics Modal */}
-      <AppInfoModal
-        isOpen={showAppInfoModal}
-        onClose={() => setShowAppInfoModal(false)}
-      />
     </div>
   );
 }
