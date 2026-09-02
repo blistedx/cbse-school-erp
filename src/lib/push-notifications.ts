@@ -94,7 +94,8 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
             try {
               if (userStr) {
                 const parsed = JSON.parse(userStr);
-                role = parsed.role || 'ALL';
+                // Use login/account role, not the view-mode display role
+                role = parsed.login_role || parsed.original_role || parsed.role || 'ALL';
                 userId = parsed.username || parsed.id || 'device';
               }
             } catch (e) {}

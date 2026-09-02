@@ -119,7 +119,10 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
                       try {
                         if (user) {
                           const parsed = JSON.parse(user);
-                          role = parsed.role || 'ALL';
+                          // Use the actual login/account role, NOT the view-mode display role.
+                          // login_role / original_role persist the authenticated identity;
+                          // parsed.role changes when admin switches "View as Student/Teacher".
+                          role = parsed.login_role || parsed.original_role || parsed.role || 'ALL';
                           userId = parsed.username || parsed.id || 'device';
                         }
                       } catch (e) {}

@@ -388,16 +388,9 @@ export const Database = {
     });
     if (matched) return matched;
 
-    matched = schools.find(s => (s.school_name || '').toUpperCase() === rawInput || (s.school_name || '').toUpperCase().includes(rawInput));
-    if (matched) return matched;
-
-    matched = schools.find(s => {
-      const cleanDbCode = (s.school_code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-      return cleanDbCode.startsWith(cleanInput) || cleanInput.startsWith(cleanDbCode.replace(/202[0-9]/g, ''));
-    });
-    if (matched) return matched;
-
-    return matched || null;
+    // NOTE: Partial school name match removed to prevent school enumeration (M2).
+    // Only exact school_code or school_id matches are accepted.
+    return null;
   },
 
   async createSchool(schoolData: Partial<School>): Promise<School> {
@@ -626,7 +619,7 @@ export const Database = {
 
     // 0. AGENCY SUPERADMIN AUTHENTICATION
     const agencyPass = process.env.AGENCY_ADMIN_PASS || 'admin@4317';
-    if ((uname === 'BLISTEDX' || uname === 'AGENCY_ADMIN') && (pwd === agencyPass || pwd === 'admin@4317')) {
+    if (uname === 'BLISTEDX' && pwd === agencyPass) {
       const allSchools = await this.getSchools();
       let targetSchool = schoolCode ? await this.getSchoolByCode(schoolCode) : null;
       if (!targetSchool && allSchools.length > 0) {
@@ -682,7 +675,8 @@ export const Database = {
       // Fallback to default initial PIN only if no passcode or DOB is registered
       if (validStudentPasswords.length === 0) validStudentPasswords.push('123456');
 
-      if (validStudentPasswords.includes(pwd) || validStudentPasswords.includes(pwd.toUpperCase())) {
+      // Case-sensitive comparison
+      if (validStudentPasswords.includes(pwd)) {
         const isParentRole = roleUpper === 'PARENT' || roleUpper === 'PARENTS';
 
         return {
@@ -714,7 +708,8 @@ export const Database = {
       const validTeacherPasswords = [teacherPasscode].filter(Boolean);
       if (validTeacherPasswords.length === 0) validTeacherPasswords.push('123456');
 
-      if (validTeacherPasswords.includes(pwd) || validTeacherPasswords.includes(pwd.toUpperCase())) {
+      // Case-sensitive comparison
+      if (validTeacherPasswords.includes(pwd)) {
         return {
           user: {
             id: matchedTeacher.id,
@@ -731,15 +726,17 @@ export const Database = {
     }
 
     // 3. Administrator / Principal Login (Strict validation)
-    const expectedAdminId = (school.admin_id || 'admin').trim().toUpperCase();
+    // Removed universal 'ADMIN' master username — only school-specific admin_id accepted.
+    const expectedAdminId = (school.admin_id || '').trim().toUpperCase();
     const expectedPin = (school.admin_pin || '').trim();
 
     const isUsernameValid =
-      uname === expectedAdminId ||
-      uname === 'ADMIN' ||
-      uname === (school.school_code || '').trim().toUpperCase();
+      Boolean(expectedAdminId) &&
+      (uname === expectedAdminId ||
+       uname === (school.school_code || '').trim().toUpperCase());
 
-    const isPasswordValid = Boolean(expectedPin) && (pwd === expectedPin || pwd.toUpperCase() === expectedPin.toUpperCase());
+    // Case-sensitive password comparison to preserve full entropy.
+    const isPasswordValid = Boolean(expectedPin) && pwd === expectedPin;
 
     if (isPasswordValid && isUsernameValid) {
       return {

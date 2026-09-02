@@ -2,9 +2,12 @@
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
 import nodemailer from 'nodemailer';
+import { requireRole, AGENCY_ONLY } from '@/lib/auth-guard';
 
 export async function POST(request: Request) {
   try {
+    const auth = requireRole(request, AGENCY_ONLY);
+    if (auth instanceof NextResponse) return auth;
     const body = await request.json();
     const { requestId, schoolCode, adminId, adminPin, action } = body;
 

@@ -184,8 +184,18 @@ export default function LoginPage() {
         } else {
           setSuccess('Authentication successful! Loading ERP workspace...');
         }
-        localStorage.setItem('current_user', JSON.stringify(data.user));
+        localStorage.setItem('current_user', JSON.stringify({
+          ...data.user,
+          // Persist the authenticated login role separately so push subscriptions
+          // always register with the correct role even if the display role changes
+          // (e.g. admin previewing as student/teacher).
+          login_role: data.user.role
+        }));
         localStorage.setItem('current_school', JSON.stringify(data.school));
+        // Store signed session token for secure API calls
+        if (data.session_token) {
+          localStorage.setItem('erp_session_token', data.session_token);
+        }
         setTimeout(() => {
           router.push(`/app?school=${data.school?.school_code || effectiveSchoolCode || 'DPS2026'}`);
         }, 600);

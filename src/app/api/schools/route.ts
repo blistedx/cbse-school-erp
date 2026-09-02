@@ -1,12 +1,13 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
+import { extractToken, verifySessionToken, requireRole, AGENCY_ONLY } from '@/lib/auth-guard';
 
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const role = req.headers.get('x-user-role') || searchParams.get('role');
-    const isAgencyAdmin = role === 'AGENCY_SUPERADMIN';
+    const token = extractToken(req);
+    const auth = token ? verifySessionToken(token) : null;
+    const isAgencyAdmin = auth?.role === 'AGENCY_SUPERADMIN';
 
     const rawSchools = await Database.getSchools();
     const schools = rawSchools.map(s => {
@@ -23,6 +24,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const auth = requireRole(req, AGENCY_ONLY);
+    if (auth instanceof NextResponse) return auth;
     const body = await req.json();
     const school = await Database.createSchool(body);
     return NextResponse.json({

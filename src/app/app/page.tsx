@@ -78,6 +78,7 @@ import {
 import dynamic from 'next/dynamic';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS, ManagedRole } from '@/lib/types';
 import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
+import { apiFetch } from '@/lib/api-client';
 
 const DashboardOverview = dynamic(
   () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
@@ -135,6 +136,10 @@ const DashboardSiblings = dynamic(
   () => import('@/components/blocks/dashboard-siblings').then((m) => m.DashboardSiblings),
   { ssr: false }
 );
+const DashboardStudentPortal = dynamic(
+  () => import('@/components/blocks/dashboard-student-portal').then((m) => m.DashboardStudentPortal),
+  { ssr: false }
+);
 const OmniSearchModal = dynamic(
   () => import('@/components/omni-search-modal').then((m) => m.OmniSearchModal),
   { ssr: false }
@@ -145,10 +150,6 @@ const StudentSummaryModal = dynamic(
 );
 const DashboardPermissions = dynamic(
   () => import('@/components/blocks/dashboard-permissions').then((m) => m.DashboardPermissions),
-  { ssr: false }
-);
-const DashboardCbseReportCard = dynamic(
-  () => import('@/components/blocks/dashboard-cbse-report-card').then((m) => m.DashboardCbseReportCard),
   { ssr: false }
 );
 const DashboardLibrary = dynamic(
@@ -288,12 +289,6 @@ const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code:
     code: 'MOD-20 // PERMISSIONS',
     highlight: 'ADMIN PRIVILEGE MANAGEMENT',
   },
-  report_card: {
-    title: 'REPORT CARDS',
-    subtitle: 'OFFICIAL CBSE 9-POINT REPORT CARD STUDIO',
-    code: 'MOD-21 // SCHOLASTIC',
-    highlight: 'CBSE 9-POINT GRADING & CITATIONS',
-  },
   library: {
     title: 'LIBRARY',
     subtitle: 'BARCODE BOOK REPOSITORY & CIRCULATION',
@@ -394,7 +389,7 @@ function ERPWorkspaceContent() {
   const [individualTargetSession, setIndividualTargetSession] = useState<string>('2027-28');
   const [settingsSuccess, setSettingsSuccess] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const isSuperAdmin = mounted && (currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'AGENCY_SUPERADMIN' || currentUser?.role === 'GOD_ACCESS' || currentUser?.is_god_admin || currentUser?.username?.toLowerCase() === 'blistedx');
+  const isSuperAdmin = mounted && !!currentUser && (currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'AGENCY_SUPERADMIN' || currentUser?.role === 'GOD_ACCESS' || currentUser?.is_god_admin || currentUser?.username?.toLowerCase() === 'blistedx');
 
   // Agency Superadmin School Purge Modal State (Protected with Captcha)
   const [purgeTargetSchool, setPurgeTargetSchool] = useState<any>(null);
@@ -447,7 +442,7 @@ function ERPWorkspaceContent() {
     setPurgeError('');
 
     try {
-      const res = await fetch('/api/agency/purge-school', {
+      const res = await apiFetch('/api/agency/purge-school', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -504,15 +499,16 @@ function ERPWorkspaceContent() {
   // Admin Role Preview Simulation
   const [previewRole, setPreviewRole] = useState<string | null>(null);
 
-  const effectiveRole = (previewRole || currentUser?.role || 'PRINCIPAL').toUpperCase();
+  const effectiveRole = (previewRole || currentUser?.role || '').toUpperCase();
 
   // Dynamically compute allowed tabs based on Admin configured role permissions
   const allowedTabs = React.useMemo(() => {
+    if (!currentUser && !previewRole) return [];
     if (['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole)) {
       return [
         'overview', 'students', 'siblings', 'teachers', 'classes', 'subjects',
         'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams',
-        'report_card', 'library', 'visitors', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs',
+        'library', 'visitors', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs',
         'settings', 'permissions', 'profile'
       ];
     }
@@ -533,22 +529,28 @@ function ERPWorkspaceContent() {
     }
     if (!tabs.includes('profile')) tabs.push('profile');
     return tabs;
-  }, [effectiveRole, rolePermissions]);
+  }, [currentUser, previewRole, effectiveRole, rolePermissions]);
 
   // Action level permissions for current active role
   const currentRoleModulePerms = React.useMemo(() => {
+    if (!currentUser && !previewRole) {
+      return (moduleId: string) => ({ can_view: false, can_edit: false, can_add: false, can_delete: false });
+    }
     const isFullAdmin = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole);
     if (isFullAdmin) {
       return (moduleId: string) => ({ can_view: true, can_edit: true, can_add: true, can_delete: true });
     }
     const roleConfig = rolePermissions[effectiveRole as ManagedRole];
     return (moduleId: string) => {
-      if (!roleConfig || !roleConfig[moduleId]) {
-        return { can_view: false, can_edit: false, can_add: false, can_delete: false };
-      }
-      return roleConfig[moduleId];
+      const perms = roleConfig?.[moduleId];
+      return {
+        can_view: !!perms?.can_view,
+        can_edit: !!perms?.can_edit,
+        can_add: !!perms?.can_add,
+        can_delete: !!perms?.can_delete
+      };
     };
-  }, [effectiveRole, rolePermissions]);
+  }, [currentUser, previewRole, effectiveRole, rolePermissions]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState('');
   const showToast = (msg: string) => {
@@ -671,6 +673,15 @@ function ERPWorkspaceContent() {
         if (storedUser) {
           const parsed = JSON.parse(storedUser);
           setCurrentUser(parsed);
+          if (['TEACHER', 'STUDENT', 'PARENT'].includes(parsed.role?.toUpperCase())) {
+            setProfileForm({
+              full_name: parsed.full_name || '',
+              username: parsed.username || '',
+              admin_pin: '',
+              email: parsed.email || '',
+              phone: parsed.phone || ''
+            });
+          }
         }
       } catch (e) {}
     }
@@ -1033,7 +1044,7 @@ function ERPWorkspaceContent() {
         }
       }
 
-      const schRes = await fetch('/api/schools');
+      const schRes = await apiFetch('/api/schools');
       const schData = await schRes.json();
       if (schData.success && Array.isArray(schData.schools)) {
         setAvailableSchools(schData.schools);
@@ -1089,7 +1100,12 @@ function ERPWorkspaceContent() {
         
         // Security Gate: If user is not authenticated, redirect to login
         if (!activeUserObj) {
-          router.push('/login');
+          setCurrentUser(null);
+          if (typeof window !== 'undefined') {
+            window.location.replace('/login');
+          } else {
+            router.replace('/login');
+          }
           return;
         }
         
@@ -1120,13 +1136,26 @@ function ERPWorkspaceContent() {
             localStorage.setItem('giterp_role_permissions', JSON.stringify(targetSchool.role_permissions));
           }
         }
-        setProfileForm({
-          full_name: activePrincipalName,
-          username: targetSchool.admin_id || activeUserObj?.username || 'admin',
-          admin_pin: cleanAdminPin,
-          email: activeUserObj?.email || `admin@${(targetSchool.school_code || 'dps2026').toLowerCase()}.edu`,
-          phone: activeUserObj?.phone || ''
-        });
+        const isTeacherRole = activeUserObj?.role?.toUpperCase() === 'TEACHER';
+        const isStudentOrParentRole = ['STUDENT', 'PARENT'].includes(activeUserObj?.role?.toUpperCase());
+
+        if (isTeacherRole || isStudentOrParentRole) {
+          setProfileForm({
+            full_name: activeUserObj?.full_name || '',
+            username: activeUserObj?.username || '',
+            admin_pin: '', // Never expose school admin PIN to teachers or students
+            email: activeUserObj?.email || '',
+            phone: activeUserObj?.phone || ''
+          });
+        } else {
+          setProfileForm({
+            full_name: activeUserObj?.full_name || activePrincipalName,
+            username: activeUserObj?.username || targetSchool.admin_id || 'admin',
+            admin_pin: cleanAdminPin,
+            email: activeUserObj?.email || `admin@${(targetSchool.school_code || 'dps2026').toLowerCase()}.edu`,
+            phone: activeUserObj?.phone || ''
+          });
+        }
         if (typeof window !== 'undefined') {
           localStorage.setItem('current_school', JSON.stringify(targetSchool));
           localStorage.setItem('last_active_school_id', targetSchool.school_code || targetSchool.id);
@@ -1164,8 +1193,43 @@ function ERPWorkspaceContent() {
     e.preventDefault();
     if (!selectedSchool) return;
     try {
+      const isTeacher = currentUser?.role?.toUpperCase() === 'TEACHER';
+      const isStudent = ['STUDENT', 'PARENT'].includes(currentUser?.role?.toUpperCase());
+
+      // 1. TEACHER / STUDENT PERSONAL CREDENTIALS UPDATE
+      if (isTeacher || isStudent) {
+        const res = await apiFetch('/api/auth/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            full_name: profileForm.full_name,
+            email: profileForm.email,
+            phone: profileForm.phone,
+            new_password: profileForm.admin_pin // Entered in password box
+          })
+        });
+        const data = await res.json();
+        if (data.success && data.user) {
+          const updatedUser = {
+            ...(currentUser || {}),
+            ...data.user
+          };
+          setCurrentUser(updatedUser);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('current_user', JSON.stringify(updatedUser));
+          }
+          setShowProfileModal(false);
+          setProfileForm(prev => ({ ...prev, admin_pin: '' }));
+          showAdminToast(data.message || 'Personal credentials updated successfully!');
+        } else {
+          alert(data.error || 'Failed to update credentials.');
+        }
+        return;
+      }
+
+      // 2. PRINCIPAL / ADMINISTRATOR SCHOOL MASTER CREDENTIALS UPDATE
       const sanitizedPin = profileForm.admin_pin === 'admin@4317' ? '123456' : profileForm.admin_pin;
-      const res = await fetch('/api/school/settings', {
+      const res = await apiFetch('/api/school/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1200,10 +1264,11 @@ function ERPWorkspaceContent() {
           localStorage.setItem('current_school', JSON.stringify(data.school));
         }
         setShowProfileModal(false);
-        showAdminToast('Profile credentials saved successfully.');
+        showAdminToast('School administrator credentials saved successfully.');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      showAdminToast('Error updating credentials: ' + (e.message || ''));
     }
   };
 
@@ -1249,7 +1314,7 @@ function ERPWorkspaceContent() {
       };
       const safeFetchJson = async (url: string) => {
         try {
-          const res = await fetch(url, fetchOpts);
+          const res = await apiFetch(url, fetchOpts);
           if (!res.ok) return { success: false };
           return await res.json();
         } catch (err) {
@@ -1354,7 +1419,7 @@ function ERPWorkspaceContent() {
         ? { id: editingStudentId, school_id: selectedSchool.id, academic_session: studentForm.academic_session || selectedSession, ...studentForm }
         : { school_id: selectedSchool.id, academic_session: studentForm.academic_session || selectedSession, ...studentForm };
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1399,7 +1464,7 @@ function ERPWorkspaceContent() {
   const handleDeleteStudent = async (id: string) => {
     if (!confirm('Are you sure you want to delete this student record?')) return;
     try {
-      await fetch(`/api/students?id=${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/students?id=${id}`, { method: 'DELETE' });
       showAdminToast('Student record deleted successfully.');
       if (selectedSchool) loadSchoolData(selectedSchool.id);
     } catch (e) {
@@ -1411,7 +1476,7 @@ function ERPWorkspaceContent() {
   const handleToggleStudentStatus = async (student: Student, targetStatus?: 'ACTIVE' | 'INACTIVE') => {
     const nextStatus = targetStatus || (student.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE');
     try {
-      const res = await fetch('/api/students', {
+      const res = await apiFetch('/api/students', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: student.id, status: nextStatus })
@@ -1431,7 +1496,7 @@ function ERPWorkspaceContent() {
     try {
       await Promise.all(
         selectedStudentIds.map(id =>
-          fetch('/api/students', {
+          apiFetch('/api/students', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, status: targetStatus })
@@ -1452,7 +1517,7 @@ function ERPWorkspaceContent() {
     try {
       await Promise.all(
         selectedStudentIds.map(id =>
-          fetch(`/api/students?id=${id}`, { method: 'DELETE' })
+          apiFetch(`/api/students?id=${id}`, { method: 'DELETE' })
         )
       );
       showAdminToast(`Successfully deleted ${selectedStudentIds.length} student records.`);
@@ -1474,7 +1539,7 @@ function ERPWorkspaceContent() {
     if (!pinModal || !selectedSchool) return;
     try {
       const url = pinModal.type === 'student' ? '/api/students' : '/api/teachers';
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: pinModal.id, passcode: customPinInput })
@@ -1502,7 +1567,7 @@ function ERPWorkspaceContent() {
         ? { id: editingTeacherId, school_id: selectedSchool.id, academic_session: teacherForm.academic_session || selectedSession, ...teacherForm }
         : { school_id: selectedSchool.id, academic_session: teacherForm.academic_session || selectedSession, ...teacherForm };
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1524,7 +1589,7 @@ function ERPWorkspaceContent() {
   const handleToggleTeacherStatus = async (teacher: Teacher, targetStatus?: 'ACTIVE' | 'INACTIVE') => {
     const nextStatus = targetStatus || (teacher.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE');
     try {
-      const res = await fetch('/api/teachers', {
+      const res = await apiFetch('/api/teachers', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: teacher.id, status: nextStatus })
@@ -1544,7 +1609,7 @@ function ERPWorkspaceContent() {
     try {
       await Promise.all(
         selectedTeacherIds.map(id =>
-          fetch('/api/teachers', {
+          apiFetch('/api/teachers', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, status: targetStatus })
@@ -1565,7 +1630,7 @@ function ERPWorkspaceContent() {
     try {
       await Promise.all(
         selectedTeacherIds.map(id =>
-          fetch(`/api/teachers?id=${id}`, { method: 'DELETE' })
+          apiFetch(`/api/teachers?id=${id}`, { method: 'DELETE' })
         )
       );
       showAdminToast(`Deleted ${selectedTeacherIds.length} faculty records.`);
@@ -1618,7 +1683,7 @@ function ERPWorkspaceContent() {
   const handleDeleteTeacher = async (id: string) => {
     if (!confirm('Are you sure you want to remove this faculty record?')) return;
     try {
-      await fetch(`/api/teachers?id=${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/teachers?id=${id}`, { method: 'DELETE' });
       if (selectedSchool) loadSchoolData(selectedSchool.id);
     } catch (e) {
       console.error(e);
@@ -1636,7 +1701,7 @@ function ERPWorkspaceContent() {
         ? { id: editingClassId, academic_session: selectedSession, ...classForm } 
         : { school_id: selectedSchool.id, academic_session: selectedSession, ...classForm };
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1656,7 +1721,7 @@ function ERPWorkspaceContent() {
   const handleDeleteClass = async (id: string) => {
     if (!confirm('Are you sure you want to delete this class & section?')) return;
     try {
-      await fetch(`/api/classes?id=${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/classes?id=${id}`, { method: 'DELETE' });
       showAdminToast('Class & division deleted successfully.');
       if (selectedSchool) loadSchoolData(selectedSchool.id);
     } catch (e) {
@@ -1709,7 +1774,7 @@ function ERPWorkspaceContent() {
             max_marks: Number(subjectForm.max_marks) || 100
           };
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1743,7 +1808,7 @@ function ERPWorkspaceContent() {
     if (!confirm(`Are you sure you want to remove "${subjectName}" from ${manageSubjectsClass.class_name} - Section ${manageSubjectsClass.section}?`)) return;
     setSubjectSaving(true);
     try {
-      const res = await fetch(`/api/classes/subjects?class_id=${manageSubjectsClass.id}&subject_id=${subjectId}`, {
+      const res = await apiFetch(`/api/classes/subjects?class_id=${manageSubjectsClass.id}&subject_id=${subjectId}`, {
         method: 'DELETE'
       });
       const data = await res.json();
@@ -1764,7 +1829,7 @@ function ERPWorkspaceContent() {
     if (!confirm(`Reset subjects to prescribed CBSE curriculum standards for ${manageSubjectsClass.class_name}? This will restore all standard CBSE subjects.`)) return;
     setSubjectSaving(true);
     try {
-      const res = await fetch('/api/classes/subjects', {
+      const res = await apiFetch('/api/classes/subjects', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ class_id: manageSubjectsClass.id })
@@ -1786,7 +1851,7 @@ function ERPWorkspaceContent() {
   const handleToggleClassStatus = async (cls: ClassRoom, targetStatus?: 'ACTIVE' | 'INACTIVE') => {
     const nextStatus = targetStatus || (cls.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE');
     try {
-      const res = await fetch('/api/classes', {
+      const res = await apiFetch('/api/classes', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: cls.id, status: nextStatus })
@@ -1806,7 +1871,7 @@ function ERPWorkspaceContent() {
     try {
       await Promise.all(
         selectedClassIds.map(id =>
-          fetch('/api/classes', {
+          apiFetch('/api/classes', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, status: targetStatus })
@@ -1827,7 +1892,7 @@ function ERPWorkspaceContent() {
     try {
       await Promise.all(
         selectedClassIds.map(id =>
-          fetch(`/api/classes?id=${id}`, { method: 'DELETE' })
+          apiFetch(`/api/classes?id=${id}`, { method: 'DELETE' })
         )
       );
       showAdminToast(`Deleted ${selectedClassIds.length} classes.`);
@@ -1843,7 +1908,7 @@ function ERPWorkspaceContent() {
     e.preventDefault();
     if (!selectedSchool) return;
     try {
-      const res = await fetch('/api/notices', {
+      const res = await apiFetch('/api/notices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ school_id: selectedSchool.id, academic_session: selectedSession, ...noticeForm })
@@ -1862,7 +1927,7 @@ function ERPWorkspaceContent() {
   const handleDeleteNotice = async (id: string) => {
     if (!confirm('Are you sure you want to delete this notice?')) return;
     try {
-      await fetch(`/api/notices?id=${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/notices?id=${id}`, { method: 'DELETE' });
       if (selectedSchool) loadSchoolData(selectedSchool.id);
     } catch (e) {
       console.error(e);
@@ -1875,7 +1940,7 @@ function ERPWorkspaceContent() {
     if (!selectedSchool) return;
     const totalCalc = Number(invoiceForm.tuition_fee || 0) + Number(invoiceForm.transport_fee || 0) + Number(invoiceForm.exam_fee || 0);
     try {
-      const res = await fetch('/api/fees', {
+      const res = await apiFetch('/api/fees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1919,7 +1984,7 @@ function ERPWorkspaceContent() {
   const handleToggleInvoiceStatus = async (invoice: FeeInvoice) => {
     const nextStatus = invoice.status === 'PAID' ? 'PENDING' : 'PAID';
     try {
-      const res = await fetch('/api/fees', {
+      const res = await apiFetch('/api/fees', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1943,7 +2008,7 @@ function ERPWorkspaceContent() {
   const handleDeleteInvoice = async (id: string) => {
     if (!confirm('Are you sure you want to delete this invoice?')) return;
     try {
-      await fetch(`/api/fees?id=${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/fees?id=${id}`, { method: 'DELETE' });
       if (selectedSchool) loadSchoolData(selectedSchool.id);
     } catch (e) {
       console.error(e);
@@ -2000,7 +2065,7 @@ function ERPWorkspaceContent() {
         }
       });
 
-      const res = await fetch('/api/attendance', {
+      const res = await apiFetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2068,7 +2133,7 @@ function ERPWorkspaceContent() {
         }
       });
 
-      const res = await fetch('/api/attendance', {
+      const res = await apiFetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2100,7 +2165,7 @@ function ERPWorkspaceContent() {
   const handleDeleteAttendanceLog = async (id: string) => {
     if (!confirm('Are you sure you want to delete this attendance session record?')) return;
     try {
-      const res = await fetch(`/api/attendance?id=${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/attendance?id=${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success && selectedSchool) {
         showAdminToast('Attendance log removed from database!');
@@ -2117,27 +2182,31 @@ function ERPWorkspaceContent() {
     if (!selectedSchool) return;
     setSettingsSuccess('');
     try {
-      const res = await fetch('/api/school/settings', {
+      const res = await apiFetch('/api/school/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ school_id: selectedSchool.id, ...settingsForm })
       });
       const data = await res.json();
       if (data.success && data.school) {
-        setSelectedSchool(data.school);
-        const updatedUser = {
-          ...(currentUser || {}),
-          full_name: settingsForm.principal_name || 'Dr. Rajesh Sharma'
-        };
-        setCurrentUser(updatedUser);
-        setProfileForm(prev => ({
-          ...prev,
-          full_name: settingsForm.principal_name,
-          admin_pin: settingsForm.admin_pin
-        }));
+        const isMasterAdmin = !currentUser || ['PRINCIPAL', 'ADMIN', 'SUPERADMIN', 'AGENCY_SUPERADMIN'].includes(currentUser?.role?.toUpperCase());
+        if (isMasterAdmin) {
+          const updatedUser = {
+            ...(currentUser || {}),
+            full_name: settingsForm.principal_name || 'Dr. Rajesh Sharma'
+          };
+          setCurrentUser(updatedUser);
+          setProfileForm(prev => ({
+            ...prev,
+            full_name: settingsForm.principal_name,
+            admin_pin: settingsForm.admin_pin
+          }));
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('current_user', JSON.stringify(updatedUser));
+          }
+        }
         if (typeof window !== 'undefined') {
           localStorage.setItem('current_school', JSON.stringify(data.school));
-          localStorage.setItem('current_user', JSON.stringify(updatedUser));
         }
         setSettingsSuccess('Institutional settings and security PIN updated successfully!');
         setTimeout(() => setSettingsSuccess(''), 3000);
@@ -2152,7 +2221,7 @@ function ERPWorkspaceContent() {
     setMongoSyncLoading(true);
     setMongoSyncMsg('');
     try {
-      const res = await fetch('/api/sync/mongodb');
+      const res = await apiFetch('/api/sync/mongodb');
       const data = await res.json();
       setMongoSyncData(data);
       if (data.mongoStatus?.connected) {
@@ -2171,7 +2240,7 @@ function ERPWorkspaceContent() {
     setMongoSyncLoading(true);
     setMongoSyncMsg('');
     try {
-      const res = await fetch('/api/sync/mongodb', { method: 'POST' });
+      const res = await apiFetch('/api/sync/mongodb', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         showAdminToast(data.message || 'All records successfully synchronized to MongoDB Atlas!');
@@ -2243,7 +2312,7 @@ function ERPWorkspaceContent() {
 
     setPromotionExecuting(true);
     try {
-      const res = await fetch('/api/students/promote', {
+      const res = await apiFetch('/api/students/promote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2310,7 +2379,7 @@ function ERPWorkspaceContent() {
         roll_no: individualTargetRoll || undefined
       }];
 
-      const res = await fetch('/api/students/promote', {
+      const res = await apiFetch('/api/students/promote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2338,8 +2407,24 @@ function ERPWorkspaceContent() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('current_user');
       localStorage.removeItem('current_school');
+      localStorage.removeItem('giterp_role_permissions');
+      localStorage.removeItem('erp_session_token'); // Invalidate signed session token
+      try {
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith('erp_active_marks_teacher_') || key.startsWith('cbse_') || key === 'agency_auth') {
+            localStorage.removeItem(key);
+          }
+        });
+      } catch (_) {}
+      sessionStorage.clear();
     }
-    router.push('/login');
+    setCurrentUser(null);
+    setPreviewRole(null);
+    if (typeof window !== 'undefined') {
+      window.location.replace('/login');
+    } else {
+      router.replace('/login');
+    }
   };
 
   const formatClassDisplay = (cls?: string) => {
@@ -2629,6 +2714,15 @@ function ERPWorkspaceContent() {
   // 6. FILTERED NOTICES
   const filteredNotices = (notices || []).filter(n => {
     if (!n) return false;
+
+    // Student Role Protection: Students can ONLY see student notices or school-wide circulars
+    if (effectiveRole === 'STUDENT') {
+      const aud = (n.target_audience || '').toUpperCase();
+      if (aud !== 'STUDENTS' && aud !== 'ALL' && aud !== 'PARENTS_STUDENTS' && aud !== 'PUBLIC') {
+        return false;
+      }
+    }
+
     if (noticeAudienceFilter !== 'ALL' && n.target_audience !== noticeAudienceFilter) return false;
     
     if (!_sq.trim()) return true;
@@ -2657,6 +2751,17 @@ function ERPWorkspaceContent() {
   const totalBilled = invoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
   const totalPaid = invoices.filter(i => i.status === 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
   const totalPending = invoices.filter(i => i.status !== 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+
+  if (mounted && !currentUser) {
+    return (
+      <div className="h-[100dvh] w-full flex items-center justify-center bg-[#122A24] text-white font-mono text-xs">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+          <span>Authenticating ERP Session...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div suppressHydrationWarning className="h-[100dvh] max-h-[100dvh] w-full max-w-full flex flex-col overflow-hidden bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased">
@@ -2880,10 +2985,13 @@ function ERPWorkspaceContent() {
             <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full font-display font-bold flex items-center justify-center text-xs sm:text-[10px] ${
               activeTab === 'profile' ? 'bg-white text-[#122A24]' : 'bg-[#122A24] text-white'
             }`}>
-              {(profileForm.full_name || currentUser?.full_name || selectedSchool?.principal_name || 'A')[0]?.toUpperCase()}
+              {(currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()}
             </div>
-            <span className="hidden md:inline max-w-[120px] truncate">
-              {profileForm.full_name || currentUser?.full_name || selectedSchool?.principal_name || 'My Profile'}
+            <span className="hidden md:inline max-w-[140px] truncate">
+              {currentUser?.full_name || profileForm.full_name || 'My Profile'}
+            </span>
+            <span className="hidden xl:inline text-[9.5px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase font-bold">
+              {currentUser?.role || 'USER'}
             </span>
           </button>
 
@@ -3255,17 +3363,6 @@ function ERPWorkspaceContent() {
                 }`}
               >
                 <Award className="h-4 w-4 shrink-0 text-purple-300" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'Report Card & Marksheet' : 'CBSE Exams & Reports'}
-              </button>
-            )}
-
-            {allowedTabs.includes('report_card') && (
-              <button
-                onClick={() => { setActiveTab('report_card'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'report_card' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <GraduationCap className="h-4 w-4 shrink-0 text-amber-300" /> CBSE 9-Point Report Cards
               </button>
             )}
 
@@ -4051,22 +4148,24 @@ function ERPWorkspaceContent() {
                       )}
                     </div>
 
-                    {/* Promotion Studio - hidden on mobile */}
-                    <button
-                      onClick={() => {
-                        setPromotionSourceClass('Class 9');
-                        setPromotionSourceSection('ALL');
-                        setPromotionTargetClass('Class 10');
-                        setPromotionTargetSection('SAME');
-                        setPromotionActionsMap({});
-                        setShowPromotionStudio(true);
-                      }}
-                      className="hidden sm:flex px-3.5 py-2 bg-[#EBF5EF] hover:bg-[#DCE8E0] text-[#122A24] border border-[#C5E2CF] rounded-full text-xs font-semibold items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
-                      title="Bulk promote or graduate scholars into next academic session"
-                    >
-                      <GraduationCap className="h-4 w-4 text-emerald-700" />
-                      <span>Promotion Studio</span>
-                    </button>
+                    {/* Promotion Studio - only for Admin/Principal */}
+                    {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole) && (
+                      <button
+                        onClick={() => {
+                          setPromotionSourceClass('Class 9');
+                          setPromotionSourceSection('ALL');
+                          setPromotionTargetClass('Class 10');
+                          setPromotionTargetSection('SAME');
+                          setPromotionActionsMap({});
+                          setShowPromotionStudio(true);
+                        }}
+                        className="hidden sm:flex px-3.5 py-2 bg-[#EBF5EF] hover:bg-[#DCE8E0] text-[#122A24] border border-[#C5E2CF] rounded-full text-xs font-semibold items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                        title="Bulk promote or graduate scholars into next academic session"
+                      >
+                        <GraduationCap className="h-4 w-4 text-emerald-700" />
+                        <span>Promotion Studio</span>
+                      </button>
+                    )}
 
                     {/* Primary Add Button — guarded by role permissions */}
                     {currentRoleModulePerms('students').can_add && (
@@ -4541,25 +4640,32 @@ function ERPWorkspaceContent() {
                                   {s.gender || 'Female'}
                                 </td>
 
-                                {/* Status Badge (1-Click Toggle for Admin) */}
+                                {/* Status Badge (1-Click Toggle for Admin, Static for Teachers) */}
                                 <td className="py-3.5 px-3">
-                                  <button
-                                    onClick={() => handleToggleStudentStatus(s)}
-                                    className="cursor-pointer border-none bg-transparent p-0 flex items-center text-left"
-                                    title={`Click to switch to ${s.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE'}`}
-                                  >
-                                    {s.status !== 'INACTIVE' ? (
-                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold bg-[#EBF5EF] hover:bg-emerald-100 text-[#1C443A] border border-[#C5E2CF] transition-colors shadow-2xs">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                                        Active
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors shadow-2xs">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                        Inactive
-                                      </span>
-                                    )}
-                                  </button>
+                                  {currentRoleModulePerms('students').can_edit ? (
+                                    <button
+                                      onClick={() => handleToggleStudentStatus(s)}
+                                      className="cursor-pointer border-none bg-transparent p-0 flex items-center text-left"
+                                      title={`Click to switch to ${s.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE'}`}
+                                    >
+                                      {s.status !== 'INACTIVE' ? (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold bg-[#EBF5EF] hover:bg-emerald-100 text-[#1C443A] border border-[#C5E2CF] transition-colors shadow-2xs">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                                          Active
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors shadow-2xs">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                          Inactive
+                                        </span>
+                                      )}
+                                    </button>
+                                  ) : (
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold ${s.status !== 'INACTIVE' ? 'bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                                      <span className={`w-1.5 h-1.5 rounded-full ${s.status !== 'INACTIVE' ? 'bg-[#10B981]' : 'bg-rose-500'}`} />
+                                      {s.status !== 'INACTIVE' ? 'Active' : 'Inactive'}
+                                    </span>
+                                  )}
                                 </td>
 
                                 {/* Date of Join */}
@@ -4602,88 +4708,127 @@ function ERPWorkspaceContent() {
                                       <Mail className="h-3.5 w-3.5" />
                                     </a>
 
-                                    {/* Collect Fees Pill Button */}
-                                    <button
-                                      onClick={() => handleQuickCollectFee(s)}
-                                      className="px-3 py-1 bg-[#EBF5EF] hover:bg-[#D9EDE0] text-[#122A24] font-mono text-xs font-bold rounded-full border border-[#C5E2CF] transition-colors whitespace-nowrap shadow-2xs cursor-pointer"
-                                      title="Collect Tuition / Term Fees"
-                                    >
-                                      Collect Fees
-                                    </button>
+                                    {/* Collect Fees Pill Button — only if fee add permission */}
+                                    {currentRoleModulePerms('fees').can_add && (
+                                      <button
+                                        onClick={() => handleQuickCollectFee(s)}
+                                        className="px-3 py-1 bg-[#EBF5EF] hover:bg-[#D9EDE0] text-[#122A24] font-mono text-xs font-bold rounded-full border border-[#C5E2CF] transition-colors whitespace-nowrap shadow-2xs cursor-pointer"
+                                        title="Collect Tuition / Term Fees"
+                                      >
+                                        Collect Fees
+                                      </button>
+                                    )}
 
-                                    {/* Options Popover Menu with Admin Powers */}
+                                    {/* Options Popover Menu with Role Permissions */}
                                     <div className="relative">
                                       <button
                                         onClick={() => setActiveStudentMenuId(activeStudentMenuId === s.id ? null : s.id)}
                                         className="w-7 h-7 rounded-full text-slate-400 hover:text-[#122A24] hover:bg-[#EBF5EF] flex items-center justify-center border-none bg-transparent cursor-pointer transition-colors"
-                                        title="Admin Powers & Actions"
+                                        title="Scholar Actions"
                                       >
                                         <MoreVertical className="h-4 w-4" />
                                       </button>
 
                                       {activeStudentMenuId === s.id && (
                                         <div className="absolute right-0 mt-1 w-48 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
+                                          {/* Inspect Dossier (always available) */}
                                           <button
                                             onClick={() => {
                                               setActiveStudentMenuId(null);
-                                              openStudentModal(s);
+                                              setSummaryStudent(s);
                                             }}
                                             className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
                                           >
-                                            <Edit className="h-3.5 w-3.5 text-emerald-700" />
-                                            <span>Edit Profile</span>
+                                            <User className="h-3.5 w-3.5 text-emerald-700" />
+                                            <span>View Scholar Dossier</span>
                                           </button>
-                                          <button
-                                            onClick={() => {
-                                              setActiveStudentMenuId(null);
-                                              handleToggleStudentStatus(s);
-                                            }}
-                                            className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
-                                          >
-                                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
-                                            <span>{s.status === 'INACTIVE' ? 'Set Active' : 'Set Inactive'}</span>
-                                          </button>
-                                          <button
-                                            onClick={() => {
-                                              setActiveStudentMenuId(null);
-                                              handleOpenPinModal('student', s.id, s.full_name, s.passcode || '123456');
-                                            }}
-                                            className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
-                                          >
-                                            <Settings className="h-3.5 w-3.5 text-[#122A24]" />
-                                            <span>Reset Login PIN</span>
-                                          </button>
-                                          <button
-                                            onClick={() => {
-                                              setActiveStudentMenuId(null);
-                                              handleQuickCollectFee(s);
-                                            }}
-                                            className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
-                                          >
-                                            <CreditCard className="h-3.5 w-3.5 text-emerald-700" />
-                                            <span>Fee Invoice</span>
-                                          </button>
-                                          <button
-                                            onClick={() => {
-                                              setActiveStudentMenuId(null);
-                                              handleOpenIndividualPromotion(s);
-                                            }}
-                                            className="w-full text-left px-3.5 py-1.5 hover:bg-emerald-50 border-none bg-transparent cursor-pointer flex items-center gap-2 text-emerald-800 font-semibold"
-                                          >
-                                            <GraduationCap className="h-3.5 w-3.5 text-emerald-700" />
-                                            <span>Promote / Graduate</span>
-                                          </button>
-                                          <div className="border-t border-[#E8F0EA] my-1" />
-                                          <button
-                                            onClick={() => {
-                                              setActiveStudentMenuId(null);
-                                              handleDeleteStudent(s.id);
-                                            }}
-                                            className="w-full text-left px-3.5 py-1.5 hover:bg-rose-50 border-none bg-transparent cursor-pointer flex items-center gap-2 text-rose-600 font-semibold"
-                                          >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                            <span>Delete Student</span>
-                                          </button>
+
+                                          {/* Edit Profile */}
+                                          {currentRoleModulePerms('students').can_edit && (
+                                            <button
+                                              onClick={() => {
+                                                setActiveStudentMenuId(null);
+                                                openStudentModal(s);
+                                              }}
+                                              className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
+                                            >
+                                              <Edit className="h-3.5 w-3.5 text-emerald-700" />
+                                              <span>Edit Profile</span>
+                                            </button>
+                                          )}
+
+                                          {/* Toggle Status */}
+                                          {currentRoleModulePerms('students').can_edit && (
+                                            <button
+                                              onClick={() => {
+                                                setActiveStudentMenuId(null);
+                                                handleToggleStudentStatus(s);
+                                              }}
+                                              className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
+                                            >
+                                              <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+                                              <span>{s.status === 'INACTIVE' ? 'Set Active' : 'Set Inactive'}</span>
+                                            </button>
+                                          )}
+
+                                          {/* Reset PIN */}
+                                          {currentRoleModulePerms('students').can_edit && (
+                                            <button
+                                              onClick={() => {
+                                                setActiveStudentMenuId(null);
+                                                handleOpenPinModal('student', s.id, s.full_name, s.passcode || '123456');
+                                              }}
+                                              className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
+                                            >
+                                              <Settings className="h-3.5 w-3.5 text-[#122A24]" />
+                                              <span>Reset Login PIN</span>
+                                            </button>
+                                          )}
+
+                                          {/* Fee Invoice */}
+                                          {currentRoleModulePerms('fees').can_view && (
+                                            <button
+                                              onClick={() => {
+                                                setActiveStudentMenuId(null);
+                                                handleQuickCollectFee(s);
+                                              }}
+                                              className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
+                                            >
+                                              <CreditCard className="h-3.5 w-3.5 text-emerald-700" />
+                                              <span>Fee Invoice</span>
+                                            </button>
+                                          )}
+
+                                          {/* Promote / Graduate (Admin/Principal only) */}
+                                          {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole) && (
+                                            <button
+                                              onClick={() => {
+                                                setActiveStudentMenuId(null);
+                                                handleOpenIndividualPromotion(s);
+                                              }}
+                                              className="w-full text-left px-3.5 py-1.5 hover:bg-emerald-50 border-none bg-transparent cursor-pointer flex items-center gap-2 text-emerald-800 font-semibold"
+                                            >
+                                              <GraduationCap className="h-3.5 w-3.5 text-emerald-700" />
+                                              <span>Promote / Graduate</span>
+                                            </button>
+                                          )}
+
+                                          {/* Delete Student */}
+                                          {currentRoleModulePerms('students').can_delete && (
+                                            <>
+                                              <div className="border-t border-[#E8F0EA] my-1" />
+                                              <button
+                                                onClick={() => {
+                                                  setActiveStudentMenuId(null);
+                                                  handleDeleteStudent(s.id);
+                                                }}
+                                                className="w-full text-left px-3.5 py-1.5 hover:bg-rose-50 border-none bg-transparent cursor-pointer flex items-center gap-2 text-rose-600 font-semibold"
+                                              >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                                <span>Delete Student</span>
+                                              </button>
+                                            </>
+                                          )}
                                         </div>
                                       )}
                                     </div>
@@ -5068,13 +5213,15 @@ function ERPWorkspaceContent() {
                       )}
                     </div>
 
-                    {/* Primary Add Button */}
-                    <button
-                      onClick={() => openTeacherModal()}
-                      className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all border-none cursor-pointer"
-                    >
-                      <Plus className="h-4 w-4" /> Add Faculty (CBSE)
-                    </button>
+                    {/* Primary Add Button — guarded by role permissions */}
+                    {currentRoleModulePerms('teachers').can_add && (
+                      <button
+                        onClick={() => openTeacherModal()}
+                        className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all border-none cursor-pointer"
+                      >
+                        <Plus className="h-4 w-4" /> Add Faculty (CBSE)
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -5469,13 +5616,15 @@ function ERPWorkspaceContent() {
                                 {/* Staff Code */}
                                 <td className="py-3.5 px-4 font-mono font-medium">
                                   <button
-                                    onClick={() => openTeacherModal(t)}
-                                    className="text-[#122A24] hover:text-emerald-700 font-bold border-none bg-transparent p-0 cursor-pointer text-left block tracking-tight transition-colors"
-                                    title="View & Edit Full CBSE Faculty Record"
+                                    onClick={() => currentRoleModulePerms('teachers').can_edit && openTeacherModal(t)}
+                                    className={`text-[#122A24] font-bold border-none bg-transparent p-0 block tracking-tight transition-colors ${currentRoleModulePerms('teachers').can_edit ? 'hover:text-emerald-700 cursor-pointer' : 'cursor-default'}`}
+                                    title="CBSE Faculty Record"
                                   >
                                     {t.staff_code}
                                   </button>
-                                  <span className="text-[10px] text-slate-400 font-mono block">PIN: {t.passcode || '123456'}</span>
+                                  {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole) && (
+                                    <span className="text-[10px] text-slate-400 font-mono block">PIN: {t.passcode || '123456'}</span>
+                                  )}
                                 </td>
 
                                 {/* Name with Circular Avatar */}
@@ -5489,7 +5638,7 @@ function ERPWorkspaceContent() {
                                       </div>
                                     )}
                                     <div>
-                                      <div className="font-semibold text-[#122A24] hover:text-emerald-700 cursor-pointer transition-colors" onClick={() => openTeacherModal(t)}>
+                                      <div className={`font-semibold text-[#122A24] transition-colors ${currentRoleModulePerms('teachers').can_edit ? 'hover:text-emerald-700 cursor-pointer' : 'cursor-default'}`} onClick={() => currentRoleModulePerms('teachers').can_edit && openTeacherModal(t)}>
                                         {t.full_name}
                                       </div>
                                       <div className="text-[10.5px] text-[#2D5A4E] font-medium">{t.professional_degree || 'B.Ed'}</div>
@@ -5528,70 +5677,83 @@ function ERPWorkspaceContent() {
                                   {formatDateDisplay(t.date_of_joining, '29 Aug 2026')}
                                 </td>
 
-                                {/* Status Badge (1-Click Toggle for Admin) */}
+                                {/* Status Badge (1-Click Toggle for Admin, Static for Non-Admins) */}
                                 <td className="py-3.5 px-3">
-                                  <button
-                                    onClick={() => handleToggleTeacherStatus(t)}
-                                    className="cursor-pointer border-none bg-transparent p-0 flex items-center text-left"
-                                    title={`Click to switch to ${t.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE'}`}
-                                  >
-                                    {t.status !== 'INACTIVE' ? (
-                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold bg-[#EBF5EF] hover:bg-emerald-100 text-[#1C443A] border border-[#C5E2CF] transition-colors shadow-2xs">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                                        Active
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors shadow-2xs">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                        Inactive
-                                      </span>
-                                    )}
-                                  </button>
+                                  {currentRoleModulePerms('teachers').can_edit ? (
+                                    <button
+                                      onClick={() => handleToggleTeacherStatus(t)}
+                                      className="cursor-pointer border-none bg-transparent p-0 flex items-center text-left"
+                                      title={`Click to switch to ${t.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE'}`}
+                                    >
+                                      {t.status !== 'INACTIVE' ? (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold bg-[#EBF5EF] hover:bg-emerald-100 text-[#1C443A] border border-[#C5E2CF] transition-colors shadow-2xs">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                                          Active
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors shadow-2xs">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                          Inactive
+                                        </span>
+                                      )}
+                                    </button>
+                                  ) : (
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold ${t.status !== 'INACTIVE' ? 'bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                                      <span className={`w-1.5 h-1.5 rounded-full ${t.status !== 'INACTIVE' ? 'bg-[#10B981]' : 'bg-rose-500'}`} />
+                                      {t.status !== 'INACTIVE' ? 'Active' : 'Inactive'}
+                                    </span>
+                                  )}
                                 </td>
 
-                                {/* Action â‹® Popover with Admin Powers */}
+                                {/* Action ⋯ Popover */}
                                 <td className="py-3.5 px-3 text-center">
                                   <div className="relative inline-block text-left">
                                     <button
                                       onClick={() => setActiveTeacherMenuId(activeTeacherMenuId === t.id ? null : t.id)}
                                       className="w-7 h-7 rounded-full text-slate-400 hover:text-[#122A24] hover:bg-[#EBF5EF] flex items-center justify-center border-none bg-transparent cursor-pointer transition-colors"
-                                      title="Admin Powers & Actions"
+                                      title="Faculty Actions"
                                     >
                                       <MoreVertical className="h-4 w-4" />
                                     </button>
 
                                     {activeTeacherMenuId === t.id && (
                                       <div className="absolute right-0 mt-1 w-48 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
-                                        <button
-                                          onClick={() => {
-                                            setActiveTeacherMenuId(null);
-                                            openTeacherModal(t);
-                                          }}
-                                          className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
-                                        >
-                                          <Edit className="h-3.5 w-3.5 text-emerald-700" />
-                                          <span>Edit Profile</span>
-                                        </button>
-                                        <button
-                                          onClick={() => {
-                                            setActiveTeacherMenuId(null);
-                                            handleToggleTeacherStatus(t);
-                                          }}
-                                          className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
-                                        >
-                                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
-                                          <span>{t.status === 'INACTIVE' ? 'Set Active' : 'Set Inactive'}</span>
-                                        </button>
-                                        <button
-                                          onClick={() => {
-                                            setActiveTeacherMenuId(null);
-                                            handleOpenPinModal('teacher', t.id, t.full_name, t.passcode || '123456');
-                                          }}
-                                          className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
-                                        >
-                                          <Settings className="h-3.5 w-3.5 text-[#122A24]" />
-                                          <span>Reset Staff PIN</span>
-                                        </button>
+                                        {currentRoleModulePerms('teachers').can_edit && (
+                                          <button
+                                            onClick={() => {
+                                              setActiveTeacherMenuId(null);
+                                              openTeacherModal(t);
+                                            }}
+                                            className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
+                                          >
+                                            <Edit className="h-3.5 w-3.5 text-emerald-700" />
+                                            <span>Edit Profile</span>
+                                          </button>
+                                        )}
+                                        {currentRoleModulePerms('teachers').can_edit && (
+                                          <button
+                                            onClick={() => {
+                                              setActiveTeacherMenuId(null);
+                                              handleToggleTeacherStatus(t);
+                                            }}
+                                            className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
+                                          >
+                                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+                                            <span>{t.status === 'INACTIVE' ? 'Set Active' : 'Set Inactive'}</span>
+                                          </button>
+                                        )}
+                                        {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole) && (
+                                          <button
+                                            onClick={() => {
+                                              setActiveTeacherMenuId(null);
+                                              handleOpenPinModal('teacher', t.id, t.full_name, t.passcode || '123456');
+                                            }}
+                                            className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
+                                          >
+                                            <Settings className="h-3.5 w-3.5 text-[#122A24]" />
+                                            <span>Reset Staff PIN</span>
+                                          </button>
+                                        )}
                                         <a
                                           href={`tel:${t.phone}`}
                                           className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24] no-underline"
@@ -5606,17 +5768,21 @@ function ERPWorkspaceContent() {
                                           <Mail className="h-3.5 w-3.5 text-emerald-700" />
                                           <span>Send Email</span>
                                         </a>
-                                        <div className="border-t border-[#E8F0EA] my-1" />
-                                        <button
-                                          onClick={() => {
-                                            setActiveTeacherMenuId(null);
-                                            handleDeleteTeacher(t.id);
-                                          }}
-                                          className="w-full text-left px-3.5 py-1.5 hover:bg-rose-50 border-none bg-transparent cursor-pointer flex items-center gap-2 text-rose-600 font-semibold"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                          <span>Delete Faculty</span>
-                                        </button>
+                                        {currentRoleModulePerms('teachers').can_delete && (
+                                          <>
+                                            <div className="border-t border-[#E8F0EA] my-1" />
+                                            <button
+                                              onClick={() => {
+                                                setActiveTeacherMenuId(null);
+                                                handleDeleteTeacher(t.id);
+                                              }}
+                                              className="w-full text-left px-3.5 py-1.5 hover:bg-rose-50 border-none bg-transparent cursor-pointer flex items-center gap-2 text-rose-600 font-semibold"
+                                            >
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                              <span>Delete Faculty</span>
+                                            </button>
+                                          </>
+                                        )}
                                       </div>
                                     )}
                                   </div>
@@ -5928,17 +6094,19 @@ function ERPWorkspaceContent() {
                       )}
                     </div>
 
-                    {/* Primary Add Button */}
-                    <button
-                      onClick={() => {
-                        setClassForm({ class_name: 'Class 10', section: 'A', class_teacher: '', room_no: 'Room 101', capacity: 40 });
-                        setEditingClassId(null);
-                        setShowAddClass(true);
-                      }}
-                      className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all border-none cursor-pointer"
-                    >
-                      <Plus className="h-4 w-4" /> Add Class
-                    </button>
+                    {/* Primary Add Button — guarded by role permissions */}
+                    {currentRoleModulePerms('classes').can_add && (
+                      <button
+                        onClick={() => {
+                          setClassForm({ class_name: 'Class 10', section: 'A', class_teacher: '', room_no: 'Room 101', capacity: 40 });
+                          setEditingClassId(null);
+                          setShowAddClass(true);
+                        }}
+                        className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all border-none cursor-pointer"
+                      >
+                        <Plus className="h-4 w-4" /> Add Class
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -6309,25 +6477,32 @@ function ERPWorkspaceContent() {
                                 {c.room_no || 'Room 101'}
                               </td>
 
-                              {/* Status Badge (1-Click Toggle for Admin) */}
+                              {/* Status Badge (1-Click Toggle for Admin, Static for Non-Admins) */}
                               <td className="py-3.5 px-3">
-                                <button
-                                  onClick={() => handleToggleClassStatus(c)}
-                                  className="cursor-pointer border-none bg-transparent p-0 flex items-center text-left"
-                                  title={`Click to switch to ${c.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE'}`}
-                                >
-                                  {c.status !== 'INACTIVE' ? (
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold bg-[#EBF5EF] hover:bg-emerald-100 text-[#1C443A] border border-[#C5E2CF] transition-colors shadow-2xs">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                                      Active
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors shadow-2xs">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                      Inactive
-                                    </span>
-                                  )}
-                                </button>
+                                {currentRoleModulePerms('classes').can_edit ? (
+                                  <button
+                                    onClick={() => handleToggleClassStatus(c)}
+                                    className="cursor-pointer border-none bg-transparent p-0 flex items-center text-left"
+                                    title={`Click to switch to ${c.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE'}`}
+                                  >
+                                    {c.status !== 'INACTIVE' ? (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold bg-[#EBF5EF] hover:bg-emerald-100 text-[#1C443A] border border-[#C5E2CF] transition-colors shadow-2xs">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                                        Active
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors shadow-2xs">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                        Inactive
+                                      </span>
+                                    )}
+                                  </button>
+                                ) : (
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-semibold ${c.status !== 'INACTIVE' ? 'bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${c.status !== 'INACTIVE' ? 'bg-[#10B981]' : 'bg-rose-500'}`} />
+                                    {c.status !== 'INACTIVE' ? 'Active' : 'Inactive'}
+                                  </span>
+                                )}
                               </td>
 
                               {/* Action â‹® Popover with Admin Powers */}
@@ -6343,34 +6518,38 @@ function ERPWorkspaceContent() {
 
                                   {activeClassMenuId === c.id && (
                                     <div className="absolute right-0 mt-1 w-48 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
-                                      <button
-                                        onClick={() => {
-                                          setActiveClassMenuId(null);
-                                          setClassForm({
-                                            class_name: c.class_name,
-                                            section: c.section,
-                                            class_teacher: c.class_teacher || '',
-                                            room_no: c.room_no || 'Room 101',
-                                            capacity: c.capacity || 40
-                                          });
-                                          setEditingClassId(c.id);
-                                          setShowAddClass(true);
-                                        }}
-                                        className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
-                                      >
-                                        <Edit className="h-3.5 w-3.5 text-emerald-700" />
-                                        <span>Edit Class Info</span>
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          setActiveClassMenuId(null);
-                                          handleToggleClassStatus(c);
-                                        }}
-                                        className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
-                                      >
-                                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
-                                        <span>{c.status === 'INACTIVE' ? 'Set Active' : 'Set Inactive'}</span>
-                                      </button>
+                                      {currentRoleModulePerms('classes').can_edit && (
+                                        <button
+                                          onClick={() => {
+                                            setActiveClassMenuId(null);
+                                            setClassForm({
+                                              class_name: c.class_name,
+                                              section: c.section,
+                                              class_teacher: c.class_teacher || '',
+                                              room_no: c.room_no || 'Room 101',
+                                              capacity: c.capacity || 40
+                                            });
+                                            setEditingClassId(c.id);
+                                            setShowAddClass(true);
+                                          }}
+                                          className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
+                                        >
+                                          <Edit className="h-3.5 w-3.5 text-emerald-700" />
+                                          <span>Edit Class Info</span>
+                                        </button>
+                                      )}
+                                      {currentRoleModulePerms('classes').can_edit && (
+                                        <button
+                                          onClick={() => {
+                                            setActiveClassMenuId(null);
+                                            handleToggleClassStatus(c);
+                                          }}
+                                          className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
+                                        >
+                                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
+                                          <span>{c.status === 'INACTIVE' ? 'Set Active' : 'Set Inactive'}</span>
+                                        </button>
+                                      )}
                                       <button
                                         onClick={() => {
                                           setActiveClassMenuId(null);
@@ -6382,17 +6561,21 @@ function ERPWorkspaceContent() {
                                         <Users className="h-3.5 w-3.5 text-emerald-700" />
                                         <span>View Students</span>
                                       </button>
-                                      <div className="border-t border-[#E8F0EA] my-1" />
-                                      <button
-                                        onClick={() => {
-                                          setActiveClassMenuId(null);
-                                          handleDeleteClass(c.id);
-                                        }}
-                                        className="w-full text-left px-3.5 py-1.5 hover:bg-rose-50 border-none bg-transparent cursor-pointer flex items-center gap-2 text-rose-600 font-semibold"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                        <span>Delete Class</span>
-                                      </button>
+                                      {currentRoleModulePerms('classes').can_delete && (
+                                        <>
+                                          <div className="border-t border-[#E8F0EA] my-1" />
+                                          <button
+                                            onClick={() => {
+                                              setActiveClassMenuId(null);
+                                              handleDeleteClass(c.id);
+                                            }}
+                                            className="w-full text-left px-3.5 py-1.5 hover:bg-rose-50 border-none bg-transparent cursor-pointer flex items-center gap-2 text-rose-600 font-semibold"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                            <span>Delete Class</span>
+                                          </button>
+                                        </>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -6501,32 +6684,62 @@ function ERPWorkspaceContent() {
             />
           )}
 
-          {/* TAB 5: ATTENDANCE HUB (3 USER-SPECIFIED PANELS) */}
+          {/* TAB 5: ATTENDANCE HUB (STUDENT vs ADMIN/FACULTY) */}
           {activeTab === 'attendance' && (
-            <DashboardAttendance
-              selectedSchool={selectedSchool}
-                              students={students}
-              teachers={teachers}
-              classes={classes}
-              attendance={attendance}
-              selectedSession={selectedSession}
-              onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.id, selectedSession)}
-              showAdminToast={showAdminToast}
-            />
+            effectiveRole === 'STUDENT' ? (
+              <DashboardStudentPortal
+                currentUser={currentUser}
+                selectedSchool={selectedSchool}
+                students={students}
+                invoices={invoices}
+                attendance={attendance}
+                selectedSession={selectedSession}
+                activeView="attendance"
+                setActiveTab={setActiveTab}
+                showAdminToast={showAdminToast}
+              />
+            ) : (
+              <DashboardAttendance
+                selectedSchool={selectedSchool}
+                students={students}
+                teachers={teachers}
+                classes={classes}
+                attendance={attendance}
+                selectedSession={selectedSession}
+                userRole={effectiveRole}
+                currentUser={currentUser}
+                onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.id, selectedSession)}
+                showAdminToast={showAdminToast}
+              />
+            )
           )}
 
-          {/* TAB 6: FEES & INVOICE MANAGEMENT */}
+          {/* TAB 6: FEES & INVOICE MANAGEMENT (STUDENT vs ADMIN) */}
           {activeTab === 'fees' && (
-            <DashboardFees
-              selectedSchool={selectedSchool}
-              students={students}
-              invoices={invoices}
-              classes={classes}
-              teachers={teachers}
-              selectedSession={selectedSession}
-              onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession)}
-              showAdminToast={showAdminToast}
-            />
+            effectiveRole === 'STUDENT' ? (
+              <DashboardStudentPortal
+                currentUser={currentUser}
+                selectedSchool={selectedSchool}
+                students={students}
+                invoices={invoices}
+                attendance={attendance}
+                selectedSession={selectedSession}
+                activeView="fees"
+                setActiveTab={setActiveTab}
+                showAdminToast={showAdminToast}
+              />
+            ) : (
+              <DashboardFees
+                selectedSchool={selectedSchool}
+                students={students}
+                invoices={invoices}
+                classes={classes}
+                teachers={teachers}
+                selectedSession={selectedSession}
+                onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession)}
+                showAdminToast={showAdminToast}
+              />
+            )
           )}
 
           {/* TAB: COMPREHENSIVE SCHOOL REPORTS & MASTER DOSSIERS */}
@@ -6565,22 +6778,29 @@ function ERPWorkspaceContent() {
                       </span>
                     </div>
                     <p className="text-xs text-[#2D5A4E] mt-0.5 font-mono">
-                      Publish circulars and announcements for students, teachers, and parents
+                      {effectiveRole === 'STUDENT'
+                        ? 'Official student circulars, academic advisories, and school activity notices'
+                        : 'Publish circulars and announcements for students, teachers, and parents'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setShowAddNotice(true)}
-                    className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all border-none cursor-pointer"
-                  >
-                    <Plus className="h-4 w-4" /> Post Notice
-                  </button>
+                  {currentRoleModulePerms('notices').can_add && effectiveRole !== 'STUDENT' && (
+                    <button
+                      onClick={() => setShowAddNotice(true)}
+                      className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all border-none cursor-pointer"
+                    >
+                      <Plus className="h-4 w-4" /> Post Notice
+                    </button>
+                  )}
                 </div>
 
                 {/* Filter Toolbar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[11px] font-mono text-[#2D5A4E] font-bold">Target Audience:</span>
-                    {(['ALL', 'TEACHERS', 'STUDENTS', 'PARENTS'] as const).map(aud => (
+                    {(effectiveRole === 'STUDENT'
+                      ? (['ALL', 'STUDENTS'] as const)
+                      : (['ALL', 'TEACHERS', 'STUDENTS', 'PARENTS'] as const)
+                    ).map(aud => (
                       <button
                         key={aud}
                         onClick={() => setNoticeAudienceFilter(aud)}
@@ -6590,7 +6810,7 @@ function ERPWorkspaceContent() {
                             : 'bg-[#F4F8F5] text-[#122A24] border-[#DCE8E0] hover:bg-[#EBF5EF]'
                         }`}
                       >
-                        {aud === 'ALL' ? 'All Audiences' : aud}
+                        {aud === 'ALL' ? (effectiveRole === 'STUDENT' ? 'All Student Circulars' : 'All Audiences') : aud}
                       </button>
                     ))}
                   </div>
@@ -6662,13 +6882,15 @@ function ERPWorkspaceContent() {
                             <span>•</span>
                             <span className="font-semibold text-slate-700">By {n.posted_by}</span>
                           </div>
-                          <button
-                            onClick={() => handleDeleteNotice(n.id)}
-                            className="text-slate-400 hover:text-rose-600 border-none bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                            title="Delete Circular"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {currentRoleModulePerms('notices').can_delete && effectiveRole !== 'STUDENT' && (
+                            <button
+                              onClick={() => handleDeleteNotice(n.id)}
+                              className="text-slate-400 hover:text-rose-600 border-none bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                              title="Delete Circular"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                       <h3 className="font-display font-semibold text-lg text-[#122A24]">{n.title}</h3>
@@ -6677,7 +6899,9 @@ function ERPWorkspaceContent() {
                   ))}
                   {filteredNotices.length === 0 && (
                     <div className="py-12 text-center text-xs text-[#2D5A4E] font-mono bg-[#F9FCFA] rounded-2xl border border-[#DCE8E0]">
-                      No active notices found matching your filter. Click "+ Post Notice" above to publish circulars.
+                      {effectiveRole === 'STUDENT'
+                        ? 'No active student notices found at this time.'
+                        : 'No active notices found matching your filter. Click "+ Post Notice" above to publish circulars.'}
                     </div>
                   )}
                 </div>
@@ -6688,14 +6912,28 @@ function ERPWorkspaceContent() {
           {/* TAB: CERTIFICATES & DOCKET STUDIO */}
           {activeTab === 'certificates' && (
             <div className="space-y-6 animate-fade-in">
-              <DashboardCertificates
-                selectedSchool={selectedSchool}
-                students={students}
-                teachers={teachers}
-                classes={classes}
-                selectedSession={selectedSession}
-                isSuperAdmin={isSuperAdmin}
-              />
+              {effectiveRole === 'STUDENT' ? (
+                <DashboardStudentPortal
+                  currentUser={currentUser}
+                  selectedSchool={selectedSchool}
+                  students={students}
+                  invoices={invoices}
+                  attendance={attendance}
+                  selectedSession={selectedSession}
+                  activeView="certificates"
+                  setActiveTab={setActiveTab}
+                  showAdminToast={showAdminToast}
+                />
+              ) : (
+                <DashboardCertificates
+                  selectedSchool={selectedSchool}
+                  students={students}
+                  teachers={teachers}
+                  classes={classes}
+                  selectedSession={selectedSession}
+                  isSuperAdmin={isSuperAdmin}
+                />
+              )}
             </div>
           )}
 
@@ -6708,6 +6946,8 @@ function ERPWorkspaceContent() {
                 attendance={attendance}
                 selectedSession={selectedSession}
                 isSuperAdmin={isSuperAdmin}
+                userRole={effectiveRole}
+                currentUser={currentUser}
               />
             </div>
           )}
@@ -6730,7 +6970,7 @@ function ERPWorkspaceContent() {
                 schoolId={selectedSchool?.school_code || selectedSchool?.id || 'DPS2026'}
                 onSavePermissions={async (updated) => {
                   setRolePermissions(updated);
-                  const res = await fetch('/api/school/permissions', {
+                  const res = await apiFetch('/api/school/permissions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -6818,7 +7058,7 @@ function ERPWorkspaceContent() {
                   schoolId={selectedSchool?.school_code || selectedSchool?.id || 'DPS2026'}
                   onSavePermissions={async (updated) => {
                     setRolePermissions(updated);
-                    const res = await fetch('/api/school/permissions', {
+                    const res = await apiFetch('/api/school/permissions', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
@@ -7296,6 +7536,7 @@ function ERPWorkspaceContent() {
           )}
 
           {/* TAB 9: USER PROFILE & SECURITY STUDIO */}
+          {/* TAB: MY USER PROFILE (STRICTLY ROLE ISOLATED: TEACHER VS ADMIN) */}
           {activeTab === 'profile' && (
             <div className="space-y-6 max-w-5xl mx-auto animate-fade-in">
               {/* Header */}
@@ -7306,20 +7547,19 @@ function ERPWorkspaceContent() {
                       My User Profile
                     </h1>
                     <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                      Active Account
+                      Active {currentUser?.role || 'Account'}
                     </span>
                   </div>
                   <p className="text-xs text-[#2D5A4E] mt-1">
-                    Manage your personal credentials, master security PIN, and institutional access parameters.
+                    {currentUser?.role === 'TEACHER'
+                      ? 'Manage your personal faculty credentials, contact channels, and secure teacher sign-in passcode.'
+                      : 'Manage your personal credentials, master security PIN, and institutional access parameters.'}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => {
-                      localStorage.removeItem('current_user');
-                      router.push('/login');
-                    }}
+                    onClick={handleLogout}
                     className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <LogOut className="h-4 w-4" /> Sign Out
@@ -7338,19 +7578,19 @@ function ERPWorkspaceContent() {
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left relative z-10">
                   <div className="w-20 h-20 rounded-2xl bg-white/15 border-2 border-white/30 text-white font-display font-bold text-3xl flex items-center justify-center shadow-lg shrink-0">
-                    {(profileForm.full_name || currentUser?.full_name || selectedSchool?.principal_name || 'A')[0]?.toUpperCase()}
+                    {(currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()}
                   </div>
                   <div>
                     <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
                       <h2 className="font-display font-bold text-xl sm:text-2xl text-white">
-                        {profileForm.full_name || currentUser?.full_name || selectedSchool?.principal_name || 'Administrator'}
+                        {currentUser?.full_name || profileForm.full_name || 'My Profile'}
                       </h2>
                       <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-emerald-400/30 text-emerald-300 border border-emerald-400/40">
-                        {currentUser?.role || 'Principal / Superadmin'}
+                        {currentUser?.role || 'TEACHER'}
                       </span>
                     </div>
                     <div className="text-xs text-slate-300 font-mono mt-1 flex items-center justify-center sm:justify-start gap-3 flex-wrap">
-                      <span>ID: <strong>{profileForm.username || currentUser?.username || selectedSchool?.admin_id || 'admin'}</strong></span>
+                      <span>{currentUser?.role === 'TEACHER' ? 'Staff Code:' : 'Admin ID:'} <strong>{currentUser?.username || profileForm.username || 'EMP01'}</strong></span>
                       <span>•</span>
                       <span>School: <strong>{selectedSchool?.school_name || 'Delhi Public School'}</strong></span>
                       <span>•</span>
@@ -7359,10 +7599,26 @@ function ERPWorkspaceContent() {
                   </div>
                 </div>
 
-                <div className="shrink-0 bg-white/10 px-4 py-3 rounded-2xl border border-white/15 text-center">
+                <div className="shrink-0 bg-white/10 px-4 py-3 rounded-2xl border border-white/15 text-center relative z-10">
                   <div className="text-[10.5px] font-mono text-emerald-300 uppercase tracking-wider">Access Clearance</div>
-                  <div className="text-sm font-bold text-white mt-0.5">Tier-1 Full Access</div>
-                  <div className="text-[9.5px] text-slate-300 font-mono mt-0.5">CBSE Master Console</div>
+                  <div className="text-sm font-bold text-white mt-0.5">
+                    {currentUser?.role === 'STUDENT'
+                      ? 'Scholar Student Access'
+                      : currentUser?.role === 'TEACHER'
+                      ? 'Faculty Tier-2 Access'
+                      : currentUser?.role === 'PARENT'
+                      ? 'Parent Ward Access'
+                      : 'Tier-1 Full Access'}
+                  </div>
+                  <div className="text-[9.5px] text-slate-300 font-mono mt-0.5">
+                    {currentUser?.role === 'STUDENT'
+                      ? 'CBSE Scholar Portal'
+                      : currentUser?.role === 'TEACHER'
+                      ? 'CBSE Educator Console'
+                      : currentUser?.role === 'PARENT'
+                      ? 'CBSE Parent Connect'
+                      : 'CBSE Master Console'}
+                  </div>
                 </div>
               </div>
 
@@ -7377,33 +7633,53 @@ function ERPWorkspaceContent() {
                         Personal Information
                       </h3>
                       <p className="text-[11px] text-[#2D5A4E]">
-                        Your name, institutional ID, and official contact channels.
+                        Your official name, staff identification, and contact channels.
                       </p>
                     </div>
 
                     <div className="space-y-3.5 text-xs">
                       <div>
-                        <label className="block font-semibold text-[#122A24] mb-1">Full Legal Name *</label>
+                        <label className="block font-semibold text-[#122A24] mb-1">
+                          Full Legal Name {['STUDENT', 'TEACHER', 'PARENT'].includes(currentUser?.role || '') ? '' : '*'}
+                        </label>
                         <input
                           type="text"
-                          required
+                          required={!['STUDENT', 'TEACHER', 'PARENT'].includes(currentUser?.role || '')}
+                          disabled={['STUDENT', 'TEACHER', 'PARENT'].includes(currentUser?.role || '')}
                           value={profileForm.full_name}
                           onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
-                          placeholder="e.g. Dr. Rajesh Sharma"
-                          className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24]"
+                          placeholder={currentUser?.role === 'STUDENT' ? 'Scholar Official Name' : currentUser?.role === 'TEACHER' ? 'e.g. Dr. Aniruddh Shastri' : 'e.g. Dr. Rajesh Sharma'}
+                          className={`w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] ${
+                            ['STUDENT', 'TEACHER', 'PARENT'].includes(currentUser?.role || '') ? 'bg-[#F4F8F5] cursor-not-allowed text-slate-600' : ''
+                          }`}
                         />
+                        {['STUDENT', 'TEACHER', 'PARENT'].includes(currentUser?.role || '') && (
+                          <p className="text-[10px] text-slate-400 font-mono mt-1">
+                            🔒 Official Registered Name. Contact school administration to request name corrections.
+                          </p>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div>
-                          <label className="block font-semibold text-[#122A24] mb-1">Admin ID / Username *</label>
+                          <label className="block font-semibold text-[#122A24] mb-1">
+                            {currentUser?.role === 'STUDENT'
+                              ? 'Scholar Admission No.'
+                              : currentUser?.role === 'TEACHER'
+                              ? 'Faculty Staff Code'
+                              : currentUser?.role === 'PARENT'
+                              ? 'Parent Account ID'
+                              : 'Admin ID / Username'}
+                          </label>
                           <input
                             type="text"
-                            required
-                            value={profileForm.username}
-                            onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })}
-                            className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl font-mono text-xs text-[#122A24]"
+                            disabled={true}
+                            value={profileForm.username || currentUser?.username || ''}
+                            className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl font-mono text-xs text-slate-600 bg-[#F4F8F5] cursor-not-allowed font-bold"
                           />
+                          <p className="text-[10px] text-slate-400 font-mono mt-1">
+                            🔒 User ID is system generated and cannot be modified.
+                          </p>
                         </div>
 
                         <div>
@@ -7411,25 +7687,29 @@ function ERPWorkspaceContent() {
                           <input
                             type="text"
                             disabled
-                            value={currentUser?.role || 'PRINCIPAL'}
+                            value={currentUser?.role || 'STUDENT'}
                             className="w-full px-3.5 py-2.5 bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl font-mono text-xs text-slate-500 font-bold cursor-not-allowed"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block font-semibold text-[#122A24] mb-1">Official Email Address</label>
+                        <label className="block font-semibold text-[#122A24] mb-1">
+                          {currentUser?.role === 'STUDENT' ? 'Student / Contact Email Address' : 'Official Email Address'}
+                        </label>
                         <input
                           type="email"
                           value={profileForm.email}
                           onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                          placeholder="admin@school.edu"
+                          placeholder={currentUser?.role === 'STUDENT' ? 'student@dps2026.edu' : currentUser?.role === 'TEACHER' ? 'faculty@school.edu' : 'admin@school.edu'}
                           className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs text-[#122A24]"
                         />
                       </div>
 
                       <div>
-                        <label className="block font-semibold text-[#122A24] mb-1">Contact Phone / WhatsApp</label>
+                        <label className="block font-semibold text-[#122A24] mb-1">
+                          {currentUser?.role === 'STUDENT' ? 'Primary Guardian Phone / WhatsApp' : 'Contact Phone / WhatsApp'}
+                        </label>
                         <input
                           type="tel"
                           value={profileForm.phone}
@@ -7441,28 +7721,43 @@ function ERPWorkspaceContent() {
                     </div>
                   </div>
 
-                  {/* Card 2: Security PIN & Password */}
+                  {/* Card 2: Security PIN & Password (STRICTLY ISOLATED BY ROLE) */}
                   <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4 flex flex-col justify-between">
                     <div className="space-y-4">
                       <div className="pb-3 border-b border-[#E8F0EA]">
                         <h3 className="font-display font-bold text-base text-[#122A24] flex items-center gap-2">
                           <ShieldCheck className="h-4 w-4 text-emerald-700" />
-                          Security &amp; PIN Authentication
+                          {currentUser?.role === 'STUDENT'
+                            ? 'Student Passcode & Security'
+                            : currentUser?.role === 'TEACHER'
+                            ? 'Teacher Personal Password'
+                            : 'Security & PIN Authentication'}
                         </h3>
                         <p className="text-[11px] text-[#2D5A4E]">
-                          Master passcode used for institutional sign-in and sensitive operations.
+                          {currentUser?.role === 'STUDENT'
+                            ? 'Your private sign-in passcode for student portal access. Changing this only affects your scholar profile.'
+                            : currentUser?.role === 'TEACHER'
+                            ? 'Your private sign-in passcode for faculty login. Changing this only affects your teacher profile.'
+                            : 'Master passcode used for institutional sign-in and sensitive operations.'}
                         </p>
                       </div>
 
                       <div className="space-y-3.5 text-xs">
                         <div>
-                          <label className="block font-semibold text-[#122A24] mb-1">School Admin Security PIN / Passcode *</label>
+                          <label className="block font-semibold text-[#122A24] mb-1">
+                            {currentUser?.role === 'STUDENT'
+                              ? 'Change Student Sign-in Passcode'
+                              : currentUser?.role === 'TEACHER'
+                              ? 'Change Teacher Sign-in Passcode'
+                              : 'School Admin Security PIN / Passcode *'}
+                          </label>
                           <div className="relative">
                             <input
                               type={showProfilePin ? "text" : "password"}
-                              required
+                              required={!['STUDENT', 'TEACHER', 'PARENT'].includes(currentUser?.role || '')}
                               value={profileForm.admin_pin}
                               onChange={(e) => setProfileForm({ ...profileForm, admin_pin: e.target.value })}
+                              placeholder={['STUDENT', 'TEACHER', 'PARENT'].includes(currentUser?.role || '') ? 'Enter new passcode (leave blank to keep current)' : '••••••'}
                               className="w-full px-3.5 py-2.5 pr-10 border border-[#DCE8E0] rounded-xl font-mono text-xs font-bold text-[#122A24] bg-emerald-50/50"
                             />
                             <button
@@ -7475,19 +7770,43 @@ function ERPWorkspaceContent() {
                             </button>
                           </div>
                           <p className="text-[10.5px] text-[#2D5A4E] mt-1 font-mono">
-                            Used to log into the administrative portal alongside School Code.
+                            {currentUser?.role === 'STUDENT'
+                              ? '🔒 Protected: Modifying this only changes YOUR student passcode and CANNOT change school admin PIN or faculty credentials.'
+                              : currentUser?.role === 'TEACHER'
+                              ? '🔒 Protected: Modifying this only changes YOUR teacher passcode and CANNOT change the school admin PIN.'
+                              : 'Used to log into the administrative portal alongside School Code.'}
                           </p>
                         </div>
 
                         <div className="p-4 bg-[#F8FAF9] rounded-2xl border border-[#DCE8E0] space-y-2 text-xs">
                           <div className="font-bold text-[#122A24] flex items-center gap-1.5">
                             <CheckCircle2 className="h-4 w-4 text-emerald-700" />
-                            Session Security &amp; Persistence
+                            {currentUser?.role === 'STUDENT'
+                              ? 'Scholar Security Isolation'
+                              : currentUser?.role === 'TEACHER'
+                              ? 'Faculty Security Isolation'
+                              : 'Session Security & Persistence'}
                           </div>
                           <ul className="text-[11px] text-[#2D5A4E] space-y-1 list-disc pl-4">
-                            <li>Changes sync immediately to MongoDB Atlas &amp; local database.</li>
-                            <li>Session remains authenticated across all page navigations.</li>
-                            <li>Multi-school workspace access is strictly isolated.</li>
+                            {currentUser?.role === 'STUDENT' ? (
+                              <>
+                                <li>Your passcode is strictly private to your scholar profile (Admission No: {currentUser?.username || 'DPS-2026-0001'}).</li>
+                                <li>School Admin PIN and Faculty credentials are fully isolated and protected from student access.</li>
+                                <li>Password changes take effect immediately across all active sessions.</li>
+                              </>
+                            ) : currentUser?.role === 'TEACHER' ? (
+                              <>
+                                <li>Your passcode is strictly private to your faculty profile (Staff Code: {currentUser?.username || 'EMP01'}).</li>
+                                <li>School Admin PIN and Principal credentials are fully isolated and protected from faculty modification.</li>
+                                <li>Password changes take effect immediately across all sessions.</li>
+                              </>
+                            ) : (
+                              <>
+                                <li>Changes sync immediately to MongoDB Atlas &amp; local database.</li>
+                                <li>Session remains authenticated across all page navigations.</li>
+                                <li>Multi-school workspace access is strictly isolated.</li>
+                              </>
+                            )}
                           </ul>
                         </div>
                       </div>
@@ -7498,7 +7817,13 @@ function ERPWorkspaceContent() {
                         type="submit"
                         className="px-6 py-2.5 bg-[#122A24] hover:bg-[#1C443A] text-white font-semibold rounded-full shadow-xs cursor-pointer border-none text-xs transition-colors flex items-center gap-1.5"
                       >
-                        <Save className="h-4 w-4" /> Save Profile Changes
+                        <Save className="h-4 w-4" /> {
+                          currentUser?.role === 'STUDENT'
+                            ? 'Save Student Profile'
+                            : currentUser?.role === 'TEACHER'
+                            ? 'Save Teacher Profile'
+                            : 'Save Profile Changes'
+                        }
                       </button>
                     </div>
                   </div>
@@ -7508,36 +7833,79 @@ function ERPWorkspaceContent() {
                 <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
                   <div className="pb-3 border-b border-[#E8F0EA]">
                     <h3 className="font-display font-bold text-base text-[#122A24]">
-                      Assigned Administrative Powers
+                      {currentUser?.role === 'STUDENT'
+                        ? 'Assigned Scholar Access Modules'
+                        : currentUser?.role === 'TEACHER'
+                        ? 'Assigned Faculty Workspace Modules'
+                        : 'Assigned Administrative Powers'}
                     </h3>
                     <p className="text-[11px] text-[#2D5A4E]">
-                      Your account has full executive access across all 12 platform modules.
+                      {currentUser?.role === 'STUDENT'
+                        ? 'Your student account is authorized for personal attendance, homework submission, datesheet, and fee receipts.'
+                        : currentUser?.role === 'TEACHER'
+                        ? 'Your faculty account is authorized for academic instruction, classroom turnout, coursework, and grading.'
+                        : 'Your account has full executive access across all 12 platform modules.'}
                     </p>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
-                    {[
-                      { label: 'Overview Analytics', icon: BarChart3, status: 'Full Access' },
-                      { label: 'Student Registry', icon: GraduationCap, status: 'Full Access' },
-                      { label: 'Faculty Management', icon: Users, status: 'Full Access' },
-                      { label: 'Classes & Sections', icon: Layers, status: 'Full Access' },
-                      { label: 'Daily Attendance', icon: CalendarCheck, status: 'Full Access' },
-                      { label: 'Fee Invoicing', icon: CreditCard, status: 'Full Access' },
-                      { label: 'Transport & GPS', icon: Bus, status: 'Full Access' },
-                      { label: 'CBSE Examinations', icon: Award, status: 'Full Access' },
-                      { label: 'Homework Dispatch', icon: FileText, status: 'Full Access' },
-                      { label: 'Principal Approvals', icon: CheckCircle2, status: 'Full Access' },
-                      { label: 'Emergency Broadcast', icon: Radio, status: 'Full Access' },
-                      { label: 'Notice Board', icon: Bell, status: 'Full Access' },
-                    ].map((mod, i) => (
-                      <div key={i} className="p-3 bg-[#F9FCFA] border border-[#DCE8E0] rounded-2xl flex flex-col justify-between space-y-2">
+                    {(currentUser?.role === 'STUDENT' ? [
+                      { label: 'My Attendance', icon: CalendarCheck, status: 'Verified Turnout', active: true },
+                      { label: 'Homework Diary', icon: FileText, status: 'View & Submit', active: true },
+                      { label: 'Report Cards', icon: Award, status: 'CBSE Marksheet', active: true },
+                      { label: 'Fee Invoices', icon: CreditCard, status: 'Personal Receipts', active: true },
+                      { label: 'School Circulars', icon: Bell, status: 'Read Notices', active: true },
+                      { label: 'Certificates', icon: Award, status: 'Attested Copies', active: true },
+                      { label: 'Faculty Directory', icon: Users, status: 'No Access', active: false },
+                      { label: 'Student SIS Roster', icon: GraduationCap, status: 'No Access', active: false },
+                      { label: 'Class Scheduling', icon: Layers, status: 'No Access', active: false },
+                      { label: 'Broadcast Gateway', icon: Radio, status: 'No Access', active: false },
+                      { label: 'Institutional Reports', icon: FileSpreadsheet, status: 'No Access', active: false },
+                      { label: 'System Settings', icon: ShieldCheck, status: 'No Access', active: false },
+                    ] : currentUser?.role === 'TEACHER' ? [
+                      { label: 'Class Attendance', icon: CalendarCheck, status: 'Mark & Roll Call', active: true },
+                      { label: 'CBSE Marks Entry', icon: Award, status: 'Grade Entry', active: true },
+                      { label: 'Homework Dispatch', icon: FileText, status: 'Create & Assign', active: true },
+                      { label: 'Student Directory', icon: GraduationCap, status: 'Classroom View', active: true },
+                      { label: 'Course Curriculum', icon: Layers, status: 'Syllabus Tracker', active: true },
+                      { label: 'Official Circulars', icon: Bell, status: 'Read Directives', active: true },
+                      { label: 'Fee Invoicing', icon: CreditCard, status: 'No Access', active: false },
+                      { label: 'Faculty Management', icon: Users, status: 'No Access', active: false },
+                      { label: 'School Reports', icon: FileSpreadsheet, status: 'No Access', active: false },
+                      { label: 'System Settings', icon: ShieldCheck, status: 'No Access', active: false },
+                    ] : [
+                      { label: 'Overview Analytics', icon: BarChart3, status: 'Full Access', active: true },
+                      { label: 'Student Registry', icon: GraduationCap, status: 'Full Access', active: true },
+                      { label: 'Faculty Management', icon: Users, status: 'Full Access', active: true },
+                      { label: 'Classes & Sections', icon: Layers, status: 'Full Access', active: true },
+                      { label: 'Daily Attendance', icon: CalendarCheck, status: 'Full Access', active: true },
+                      { label: 'Fee Invoicing', icon: CreditCard, status: 'Full Access', active: true },
+                      { label: 'Transport & GPS', icon: Bus, status: 'Full Access', active: true },
+                      { label: 'CBSE Examinations', icon: Award, status: 'Full Access', active: true },
+                      { label: 'Homework Dispatch', icon: FileText, status: 'Full Access', active: true },
+                      { label: 'Principal Approvals', icon: CheckCircle2, status: 'Full Access', active: true },
+                      { label: 'Emergency Broadcast', icon: Radio, status: 'Full Access', active: true },
+                      { label: 'Notice Board', icon: Bell, status: 'Full Access', active: true },
+                    ]).map((mod, i) => (
+                      <div
+                        key={i}
+                        className={`p-3 rounded-2xl flex flex-col justify-between space-y-2 border transition-all ${
+                          mod.active
+                            ? 'bg-[#F9FCFA] border-[#DCE8E0]'
+                            : 'bg-slate-50/70 border-slate-200 opacity-60'
+                        }`}
+                      >
                         <div className="flex items-center justify-between">
-                          <mod.icon className="h-4 w-4 text-emerald-700" />
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          <mod.icon className={`h-4 w-4 ${mod.active ? 'text-emerald-700' : 'text-slate-400'}`} />
+                          <span className={`w-2 h-2 rounded-full ${mod.active ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                         </div>
                         <div>
-                          <div className="font-semibold text-[#122A24] text-[11px] leading-tight">{mod.label}</div>
-                          <div className="text-[9px] font-mono text-emerald-700 font-bold mt-0.5">{mod.status}</div>
+                          <div className={`font-semibold text-[11px] leading-tight ${mod.active ? 'text-[#122A24]' : 'text-slate-500'}`}>
+                            {mod.label}
+                          </div>
+                          <div className={`text-[9px] font-mono font-bold mt-0.5 ${mod.active ? 'text-emerald-700' : 'text-slate-400'}`}>
+                            {mod.status}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -7557,24 +7925,32 @@ function ERPWorkspaceContent() {
 
           {/* TAB: CBSE EXAMINATIONS & DIGITAL MARKSHEETS */}
           {activeTab === 'exams' && (
-            <DashboardExams
-              students={students}
-              classes={classes}
-              teachers={teachers}
-              selectedSchool={selectedSchool}
-              schoolName={selectedSchool?.school_name}
-              selectedSession={selectedSession}
-              attendance={attendance}
-            />
-          )}
-
-          {/* TAB: OFFICIAL CBSE 9-POINT REPORT CARD STUDIO */}
-          {activeTab === 'report_card' && (
-            <DashboardCbseReportCard
-              selectedSchool={selectedSchool}
-              students={students}
-              selectedSession={selectedSession}
-            />
+            effectiveRole === 'STUDENT' ? (
+              <DashboardStudentPortal
+                currentUser={currentUser}
+                selectedSchool={selectedSchool}
+                students={students}
+                invoices={invoices}
+                attendance={attendance}
+                selectedSession={selectedSession}
+                activeView="exams"
+                setActiveTab={setActiveTab}
+                showAdminToast={showAdminToast}
+              />
+            ) : (
+              <DashboardExams
+                students={students}
+                classes={classes}
+                teachers={teachers}
+                selectedSchool={selectedSchool}
+                schoolName={selectedSchool?.school_name}
+                selectedSession={selectedSession}
+                attendance={attendance}
+                userRole={effectiveRole}
+                currentUser={currentUser}
+                onLogout={handleLogout}
+              />
+            )
           )}
 
           {/* TAB: DIGITAL LIBRARY & BOOK CIRCULATION */}
@@ -7602,6 +7978,8 @@ function ERPWorkspaceContent() {
             <DashboardHomework
               students={students}
               schoolName={selectedSchool?.school_name}
+              userRole={effectiveRole}
+              currentUser={currentUser}
             />
           )}
 
@@ -9613,8 +9991,16 @@ function ERPWorkspaceContent() {
           <div className="bg-white rounded-t-3xl sm:rounded-3xl border border-[#DCE8E0] p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center pb-2 border-b border-[#E8F0EA]">
               <div>
-                <span className="font-mono text-[10px] text-[#2D5A4E] font-bold uppercase tracking-wider">Account Credentials</span>
-                <h2 className="font-display font-bold text-lg text-[#122A24] mt-0.5">Customize Profile</h2>
+                <span className="font-mono text-[10px] text-[#2D5A4E] font-bold uppercase tracking-wider">
+                  {currentUser?.role === 'TEACHER' ? 'Faculty Credentials' : 'Account Credentials'}
+                </span>
+                <h2 className="font-display font-bold text-lg text-[#122A24] mt-0.5">
+                  {currentUser?.role === 'STUDENT'
+                    ? 'Student Profile & Passcode'
+                    : currentUser?.role === 'TEACHER'
+                    ? 'Teacher Profile & Passcode'
+                    : 'Customize Profile'}
+                </h2>
               </div>
               <button onClick={() => setShowProfileModal(false)} className="p-1 text-slate-400 hover:text-slate-700 border-none bg-transparent cursor-pointer">
                 <X className="h-5 w-5" />
@@ -9623,36 +10009,56 @@ function ERPWorkspaceContent() {
 
             <form onSubmit={handleSaveProfile} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-semibold text-[#122A24] mb-1">Display Name (Principal / Administrator)</label>
+                <label className="block font-semibold text-[#122A24] mb-1">
+                  {currentUser?.role === 'STUDENT'
+                    ? 'Scholar Official Name'
+                    : currentUser?.role === 'TEACHER'
+                    ? 'Faculty Official Name'
+                    : 'Display Name (Principal / Administrator) *'}
+                </label>
                 <input
                   type="text"
-                  required
+                  required={!['STUDENT', 'TEACHER', 'PARENT'].includes(currentUser?.role || '')}
+                  disabled={['STUDENT', 'TEACHER', 'PARENT'].includes(currentUser?.role || '')}
                   value={profileForm.full_name}
                   onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
-                  placeholder="e.g. Dr. Rajesh Sharma"
-                  className="w-full px-3 py-2.5 border border-[#DCE8E0] rounded-xl font-medium"
+                  className={`w-full px-3 py-2.5 border border-[#DCE8E0] rounded-xl font-medium ${
+                    ['STUDENT', 'TEACHER', 'PARENT'].includes(currentUser?.role || '') ? 'bg-[#F4F8F5] cursor-not-allowed text-slate-600' : ''
+                  }`}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#122A24] mb-1">Admin Username / ID</label>
+                  <label className="block font-semibold text-[#122A24] mb-1">
+                    {currentUser?.role === 'STUDENT'
+                      ? 'Scholar Admission No.'
+                      : currentUser?.role === 'TEACHER'
+                      ? 'Staff Code'
+                      : 'Admin Username / ID'}
+                  </label>
                   <input
                     type="text"
-                    required
-                    value={profileForm.username}
-                    onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-[#DCE8E0] rounded-xl font-mono"
+                    disabled={true}
+                    value={profileForm.username || currentUser?.username || ''}
+                    className="w-full px-3 py-2.5 border border-[#DCE8E0] rounded-xl font-mono bg-[#F4F8F5] cursor-not-allowed font-bold text-slate-600"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[#122A24] mb-1">Security PIN / Passcode</label>
+                  <label className="block font-semibold text-[#122A24] mb-1">
+                    {currentUser?.role === 'STUDENT'
+                      ? 'New Passcode'
+                      : currentUser?.role === 'TEACHER'
+                      ? 'New Passcode'
+                      : 'Security PIN / Passcode'}
+                  </label>
                   <div className="relative">
                     <input
                       type={showModalPin ? "text" : "password"}
-                      required
+                      required={!['STUDENT', 'TEACHER', 'PARENT'].includes(currentUser?.role || '')}
                       value={profileForm.admin_pin}
                       onChange={(e) => setProfileForm({ ...profileForm, admin_pin: e.target.value })}
+                      placeholder={['STUDENT', 'TEACHER', 'PARENT'].includes(currentUser?.role || '') ? 'Leave blank to keep' : '••••••'}
                       className="w-full px-3 py-2.5 pr-9 border border-[#DCE8E0] rounded-xl font-mono text-xs font-bold text-[#122A24]"
                     />
                     <button
@@ -9674,7 +10080,7 @@ function ERPWorkspaceContent() {
                     type="email"
                     value={profileForm.email}
                     onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                    placeholder="admin@school.edu"
+                    placeholder={currentUser?.role === 'TEACHER' ? 'faculty@school.edu' : 'admin@school.edu'}
                     className="w-full px-3 py-2.5 border border-[#DCE8E0] rounded-xl"
                   />
                 </div>
@@ -9702,7 +10108,11 @@ function ERPWorkspaceContent() {
                   type="submit"
                   className="px-5 py-2.5 bg-[#122A24] hover:bg-[#1C443A] text-white font-semibold rounded-full cursor-pointer border-none shadow-xs text-xs"
                 >
-                  Save Profile
+                  {currentUser?.role === 'STUDENT'
+                    ? 'Update Student Passcode'
+                    : currentUser?.role === 'TEACHER'
+                    ? 'Update Credentials'
+                    : 'Save Profile'}
                 </button>
               </div>
             </form>

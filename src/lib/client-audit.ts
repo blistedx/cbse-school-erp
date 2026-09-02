@@ -1,5 +1,6 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { AuditLogEntry } from './types';
+import { apiFetch } from './api-client';
 
 /**
  * Client-Side Audit Logger Helper
@@ -27,7 +28,7 @@ export async function recordAudit({
   try {
     if (typeof window === 'undefined') return;
 
-    fetch('/api/audit-logs', {
+    apiFetch('/api/audit-logs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

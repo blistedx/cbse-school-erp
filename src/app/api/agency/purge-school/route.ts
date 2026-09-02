@@ -7,11 +7,7 @@ export async function POST(req: Request) {
     const roleHeader = req.headers.get('x-user-role');
     const body = await req.json();
 
-    const role = roleHeader || body.role;
-    const isAgencyAdmin =
-      role === 'AGENCY_SUPERADMIN' ||
-      body.username?.toLowerCase() === 'blistedx' ||
-      body.user_id === 'blistedx-god-master';
+    const isAgencyAdmin = roleHeader === 'AGENCY_SUPERADMIN';
 
     // 1. Authorization Guard
     if (!isAgencyAdmin) {

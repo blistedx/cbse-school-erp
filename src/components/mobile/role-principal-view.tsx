@@ -1,6 +1,7 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 'use client';
 
+import { apiFetch } from '@/lib/api-client';
 import React, { useState } from 'react';
 import {
   AlertTriangle,
@@ -81,7 +82,7 @@ export default function RolePrincipalView({ activeTab, setActiveTab }: RolePrinc
     setBroadcastSuccessMsg(null);
 
     try {
-      const res = await fetch('/api/notifications/broadcasts', {
+      const res = await apiFetch('/api/notifications/broadcasts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

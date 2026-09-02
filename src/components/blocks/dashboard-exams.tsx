@@ -62,6 +62,9 @@ export interface DashboardExamsProps {
   schoolName?: string;
   selectedSession?: string;
   attendance?: AttendanceRecord[];
+  userRole?: string;
+  currentUser?: any;
+  onLogout?: () => void;
 }
 
 export interface StudentSubjectMark {
@@ -96,9 +99,11 @@ export interface ScheduledExamItem {
   subject_name: string;
   subject_code?: string;
   date: string;
+  time?: string;
+  school_id?: string;
   max_marks: number;
   pass_marks: number;
-  status: 'MARKS_FILLED' | 'PENDING';
+  status: 'MARKS_FILLED' | 'PENDING' | string;
 }
 
 // CBSE Official 9-Point Grading Scale Formula
@@ -128,10 +133,17 @@ export function DashboardExams({
   selectedSchool = null,
   schoolName = 'Delhi Public International School',
   selectedSession = '2026-27',
-  attendance = []
+  attendance = [],
+  userRole = '',
+  currentUser = null,
+  onLogout
 }: DashboardExamsProps) {
+  const isTeacher = userRole === 'TEACHER' || currentUser?.role === 'TEACHER';
+
   // Navigation View Tab: 'planner' | 'ledger' | 'student_dossier' | 'broadsheet'
-  const [activeView, setActiveView] = useState<'planner' | 'ledger' | 'student_dossier' | 'broadsheet'>('planner');
+  const [activeView, setActiveView] = useState<'planner' | 'ledger' | 'student_dossier' | 'broadsheet'>(
+    userRole === 'STUDENT' ? 'student_dossier' : 'planner'
+  );
 
   // 1. Comprehensive Dynamic Class and Section Extraction (Merge classes prop & all student classes)
   const sortedClassesList = useMemo(() => {
@@ -389,6 +401,15 @@ export function DashboardExams({
     setIsClassLockedToTeacher(false);
     setSelectedSubjectFocus('ALL');
     showToast('Signed out of Teacher Marks Portal.');
+
+    // If the active user role in the ERP is a Teacher, cleanly log them out of the whole system
+    if (userRole === 'TEACHER' || currentUser?.role === 'TEACHER') {
+      if (onLogout) {
+        onLogout();
+      } else if (typeof window !== 'undefined') {
+        window.location.replace('/login');
+      }
+    }
   };
 
   // Filtered displayed subjects in ledger table according to focus mode
@@ -594,7 +615,16 @@ export function DashboardExams({
   // ═════════════════════════════════════════════════════════════════════
   // ADVANCED POST EXAM & CLASS TEST ENGINE (MULTI-CLASS CAPABILITY)
   // ═════════════════════════════════════════════════════════════════════
-  const [postExamType, setPostExamType] = useState<'SCHOOL_EXAM' | 'CLASS_TEST'>('SCHOOL_EXAM');
+  const [postExamType, setPostExamType] = useState<'SCHOOL_EXAM' | 'CLASS_TEST'>(() => isTeacher ? 'CLASS_TEST' : 'SCHOOL_EXAM');
+
+  useEffect(() => {
+    if (isTeacher && postExamType !== 'CLASS_TEST') {
+      setPostExamType('CLASS_TEST');
+      setPostExamTitle('Unit Test 1');
+      setPostMaxMarks(20);
+      setPostPassMarks(7);
+    }
+  }, [isTeacher, postExamType]);
   const [postExamTitle, setPostExamTitle] = useState('Periodic Assessment 2 (PA-2)');
   const [postSelectedClassIds, setPostSelectedClassIds] = useState<string[]>([]);
   const [postSubjectMode, setPostSubjectMode] = useState<'SPECIFIC' | 'ALL_CBSE'>('SPECIFIC');
@@ -612,6 +642,28 @@ export function DashboardExams({
       setPostSelectedClassIds([sortedClassesList[0].id]);
     }
   }, [sortedClassesList]);
+
+  // Classes available for posting tests (strictly isolated to assigned class for Class Teachers)
+  const availableClassesForPost = useMemo(() => {
+    if (isTeacher && activeClassTeacherClass) {
+      return [activeClassTeacherClass];
+    }
+    return sortedClassesList;
+  }, [isTeacher, activeClassTeacherClass, sortedClassesList]);
+
+  // Ensure postSelectedClassIds is locked to activeClassTeacherClass for teachers
+  useEffect(() => {
+    if (isTeacher && activeClassTeacherClass) {
+      setPostSelectedClassIds([activeClassTeacherClass.id]);
+    }
+  }, [isTeacher, activeClassTeacherClass]);
+
+  // Lock listClassFilter to assigned class for teachers
+  useEffect(() => {
+    if (isTeacher && activeClassTeacherClass && listClassFilter === 'ALL') {
+      setListClassFilter(activeClassTeacherClass.class_name);
+    }
+  }, [isTeacher, activeClassTeacherClass, listClassFilter]);
 
   // Multi-Class Selection Controls
   const handleToggleSelectClass = (clsId: string) => {
@@ -748,7 +800,7 @@ export function DashboardExams({
             school_id: schoolId,
             academic_session: selectedSession,
             title: `${postExamTitle} - ${cName} ${sec}`,
-            type: postExamType,
+            type: isTeacher ? 'CLASS_TEST' : postExamType,
             class_name: cName,
             section: sec,
             subject_name: sub.name,
@@ -987,6 +1039,25 @@ export function DashboardExams({
   const [dossierStudentSearch, setDossierStudentSearch] = useState('');
   const [dossierActiveStudentId, setDossierActiveStudentId] = useState<string>('');
   const [dossierExamFilter, setDossierExamFilter] = useState<string>('ALL');
+
+  // Automatically lock student report card to logged-in student
+  useEffect(() => {
+    if (userRole === 'STUDENT' && currentUser) {
+      const matched = students.find(s =>
+        s.id === currentUser.id ||
+        (s.admission_no && currentUser.username && s.admission_no.toLowerCase() === currentUser.username.toLowerCase()) ||
+        (s.full_name && currentUser.full_name && s.full_name.toLowerCase() === currentUser.full_name.toLowerCase())
+      ) || students[0];
+      if (matched) {
+        setDossierActiveStudentId(matched.id);
+        const matchedClass = sortedClassesList.find(c =>
+          (c.class_name || '').toLowerCase() === (matched.class_name || '').toLowerCase() &&
+          (c.section || 'A').toUpperCase() === (matched.section || 'A').toUpperCase()
+        );
+        if (matchedClass) setDossierClassId(matchedClass.id);
+      }
+    }
+  }, [userRole, currentUser, students, sortedClassesList]);
 
   // Initialize dossier class
   useEffect(() => {
@@ -2021,21 +2092,8 @@ export function DashboardExams({
           </div>
         </div>
 
-        {/* 4 Primary Navigation Tabs */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs max-w-4xl">
-          <button
-            type="button"
-            onClick={() => setActiveView('planner')}
-            className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
-              activeView === 'planner'
-                ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
-            }`}
-          >
-            <Calendar className="h-4 w-4 shrink-0" />
-            <span>Exam Planner &amp; Tests</span>
-          </button>
-
+        {/* Navigation Tabs: Adaptive for Student vs Staff */}
+        <div className={`grid ${userRole === 'STUDENT' ? 'grid-cols-2 max-w-md' : 'grid-cols-2 lg:grid-cols-4 max-w-4xl'} gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs`}>
           <button
             type="button"
             onClick={() => setActiveView('student_dossier')}
@@ -2046,34 +2104,51 @@ export function DashboardExams({
             }`}
           >
             <GraduationCap className="h-4 w-4 shrink-0" />
-            <span>Student Report Cards</span>
+            <span>{userRole === 'STUDENT' ? 'My Term Report Card' : 'Student Report Cards'}</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveView('ledger')}
+            onClick={() => setActiveView('planner')}
             className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
-              activeView === 'ledger'
+              activeView === 'planner'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold'
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
             }`}
           >
-            <BookOpen className="h-4 w-4 shrink-0" />
-            <span>Class Marks Ledger</span>
+            <Calendar className="h-4 w-4 shrink-0" />
+            <span>{userRole === 'STUDENT' ? 'Exam Datesheet' : 'Exam Planner & Tests'}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveView('broadsheet')}
-            className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
-              activeView === 'broadsheet'
-                ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
-            }`}
-          >
-            <FileSpreadsheet className="h-4 w-4 shrink-0" />
-            <span>Annual Broadsheet</span>
-          </button>
+          {userRole !== 'STUDENT' && (
+            <>
+              <button
+                type="button"
+                onClick={() => setActiveView('ledger')}
+                className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+                  activeView === 'ledger'
+                    ? 'bg-[#122A24] text-white shadow-xs font-bold'
+                    : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+                }`}
+              >
+                <BookOpen className="h-4 w-4 shrink-0" />
+                <span>Class Marks Ledger</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveView('broadsheet')}
+                className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+                  activeView === 'broadsheet'
+                    ? 'bg-[#122A24] text-white shadow-xs font-bold'
+                    : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+                }`}
+              >
+                <FileSpreadsheet className="h-4 w-4 shrink-0" />
+                <span>Annual Broadsheet</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -2087,7 +2162,7 @@ export function DashboardExams({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
             {/* LEFT COLUMN (7 COLS): SCHEDULED EXAMS & CLASS TESTS LIST */}
-            <div className="lg:col-span-7 bg-white p-5 sm:p-6 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
+            <div className={`${userRole === 'STUDENT' ? 'lg:col-span-12' : 'lg:col-span-7'} bg-white p-5 sm:p-6 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4`}>
               
               {/* Header & Filter Pill Tabs */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8F0EA]">
@@ -2150,14 +2225,16 @@ export function DashboardExams({
                     <span>Date Sheet</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowWholeSchoolModal(true)}
-                    className="px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs border-none cursor-pointer transition-all"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Bulk Master</span>
-                  </button>
+                  {!isTeacher && (
+                    <button
+                      type="button"
+                      onClick={() => setShowWholeSchoolModal(true)}
+                      className="px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs border-none cursor-pointer transition-all"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Bulk Master</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -2179,12 +2256,20 @@ export function DashboardExams({
                     onChange={(e) => setListClassFilter(e.target.value)}
                     className="w-full px-2 py-1.5 rounded-xl border border-[#DCE8E0] text-xs font-bold bg-[#F8FAF9] text-[#122A24] outline-none cursor-pointer"
                   >
-                    <option value="ALL">All Classes</option>
-                    {sortedClassesList.map(c => (
-                      <option key={c.id} value={c.class_name}>
-                        {c.class_name} ({c.section || 'A'})
+                    {isTeacher && activeClassTeacherClass ? (
+                      <option value={activeClassTeacherClass.class_name}>
+                        {activeClassTeacherClass.class_name} ({activeClassTeacherClass.section || 'A'}) — Your Class
                       </option>
-                    ))}
+                    ) : (
+                      <>
+                        <option value="ALL">All Classes</option>
+                        {sortedClassesList.map(c => (
+                          <option key={c.id} value={c.class_name}>
+                            {c.class_name} ({c.section || 'A'})
+                          </option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 </div>
                 <div className="sm:col-span-3">
@@ -2288,26 +2373,30 @@ export function DashboardExams({
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenExamLedger(exam)}
-                            className="px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs border-none cursor-pointer transition-all"
-                            title="Open Marks Ledger for this class"
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                            <span>Submit Marks</span>
-                          </button>
+                        {userRole !== 'STUDENT' && (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenExamLedger(exam)}
+                              className="px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs border-none cursor-pointer transition-all"
+                              title="Open Marks Ledger for this class"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                              <span>Submit Marks</span>
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteExam(exam.id, exam.title)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border-none bg-transparent cursor-pointer"
-                            title="Delete exam slot"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
+                            {(!isTeacher || exam.type === 'CLASS_TEST') && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteExam(exam.id, exam.title)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border-none bg-transparent cursor-pointer"
+                                title="Delete exam slot"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))
@@ -2315,7 +2404,8 @@ export function DashboardExams({
               </div>
             </div>
 
-            {/* RIGHT COLUMN (5 COLS): POST EXAM OR CLASS TEST ENGINE (MULTI-CLASS CAPABILITY) */}
+            {/* RIGHT COLUMN (5 COLS): POST EXAM OR CLASS TEST ENGINE (MULTI-CLASS CAPABILITY - HIDDEN FOR STUDENTS) */}
+            {userRole !== 'STUDENT' && (
             <div className="lg:col-span-5 bg-white p-5 sm:p-6 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
               
               {/* Form Header */}
@@ -2336,24 +2426,26 @@ export function DashboardExams({
                 </span>
               </div>
 
-              {/* Type Toggle Tabs: School Exam vs Class Test */}
+              {/* Type Toggle Tabs: School Exam vs Class Test (Teachers restricted to Class Tests only) */}
               <div className="flex items-center gap-2 bg-[#F4F8F5] p-1 rounded-2xl border border-[#DCE8E0]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPostExamType('SCHOOL_EXAM');
-                    setPostExamTitle('Periodic Assessment 2 (PA-2)');
-                    setPostMaxMarks(40);
-                    setPostPassMarks(14);
-                  }}
-                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all border-none cursor-pointer flex items-center justify-center gap-1.5 ${
-                    postExamType === 'SCHOOL_EXAM'
-                      ? 'bg-[#122A24] text-white shadow-2xs'
-                      : 'bg-transparent text-slate-600 hover:text-[#122A24]'
-                  }`}
-                >
-                  <span>🏛️ School Exam</span>
-                </button>
+                {!isTeacher && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPostExamType('SCHOOL_EXAM');
+                      setPostExamTitle('Periodic Assessment 2 (PA-2)');
+                      setPostMaxMarks(40);
+                      setPostPassMarks(14);
+                    }}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all border-none cursor-pointer flex items-center justify-center gap-1.5 ${
+                      postExamType === 'SCHOOL_EXAM'
+                        ? 'bg-[#122A24] text-white shadow-2xs'
+                        : 'bg-transparent text-slate-600 hover:text-[#122A24]'
+                    }`}
+                  >
+                    <span>🏛️ School Exam</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -2368,17 +2460,24 @@ export function DashboardExams({
                       : 'bg-transparent text-slate-600 hover:text-[#122A24]'
                   }`}
                 >
-                  <span>⚡ Class Test</span>
+                  <span>⚡ Class Test / Quiz</span>
                 </button>
               </div>
+
+              {isTeacher && (
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 font-medium flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                  <span>Faculty Permission: Teachers can schedule classroom unit tests and quizzes. Official School Examinations are scheduled by School Administration.</span>
+                </div>
+              )}
 
               {/* Quick Presets Strip */}
               <div className="space-y-1">
                 <span className="text-[10.5px] font-mono font-bold text-slate-500 uppercase">
-                  {postExamType === 'SCHOOL_EXAM' ? 'School Exam Presets:' : 'Class Test Presets:'}
+                  {!isTeacher && postExamType === 'SCHOOL_EXAM' ? 'School Exam Presets:' : 'Class Test Presets:'}
                 </span>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {postExamType === 'SCHOOL_EXAM' ? (
+                  {!isTeacher && postExamType === 'SCHOOL_EXAM' ? (
                     <>
                       <button type="button" onClick={() => applyExamPreset('Periodic Assessment 1 (PA-1)', 40, 'SCHOOL_EXAM')} className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold bg-[#F8FAF9] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] cursor-pointer">PA-1 (40M)</button>
                       <button type="button" onClick={() => applyExamPreset('Periodic Assessment 2 (PA-2)', 40, 'SCHOOL_EXAM')} className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold bg-[#F8FAF9] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] cursor-pointer">PA-2 (40M)</button>
@@ -2425,29 +2524,31 @@ export function DashboardExams({
                       </span>
                     </label>
 
-                    {/* Group & Bulk Shortcuts */}
-                    <div className="flex items-center gap-1.5 text-[10.5px] font-mono">
-                      <button
-                        type="button"
-                        onClick={handleSelectAllClasses}
-                        className="text-emerald-800 font-bold hover:underline bg-transparent border-none cursor-pointer p-0"
-                      >
-                        {postSelectedClassIds.length === sortedClassesList.length ? 'Clear All' : 'Select All'}
-                      </button>
-                      <span className="text-slate-300">•</span>
-                      <button type="button" onClick={() => handleSelectClassGroup('PRIMARY')} className="text-slate-600 hover:text-[#122A24] bg-transparent border-none cursor-pointer p-0">I-V</button>
-                      <span className="text-slate-300">•</span>
-                      <button type="button" onClick={() => handleSelectClassGroup('MIDDLE')} className="text-slate-600 hover:text-[#122A24] bg-transparent border-none cursor-pointer p-0">VI-VIII</button>
-                      <span className="text-slate-300">•</span>
-                      <button type="button" onClick={() => handleSelectClassGroup('SECONDARY')} className="text-slate-600 hover:text-[#122A24] bg-transparent border-none cursor-pointer p-0">IX-X</button>
-                      <span className="text-slate-300">•</span>
-                      <button type="button" onClick={() => handleSelectClassGroup('SENIOR')} className="text-slate-600 hover:text-[#122A24] bg-transparent border-none cursor-pointer p-0">XI-XII</button>
-                    </div>
+                    {/* Group & Bulk Shortcuts (Hidden for Teachers) */}
+                    {!isTeacher && (
+                      <div className="flex items-center gap-1.5 text-[10.5px] font-mono">
+                        <button
+                          type="button"
+                          onClick={handleSelectAllClasses}
+                          className="text-emerald-800 font-bold hover:underline bg-transparent border-none cursor-pointer p-0"
+                        >
+                          {postSelectedClassIds.length === sortedClassesList.length ? 'Clear All' : 'Select All'}
+                        </button>
+                        <span className="text-slate-300">•</span>
+                        <button type="button" onClick={() => handleSelectClassGroup('PRIMARY')} className="text-slate-600 hover:text-[#122A24] bg-transparent border-none cursor-pointer p-0">I-V</button>
+                        <span className="text-slate-300">•</span>
+                        <button type="button" onClick={() => handleSelectClassGroup('MIDDLE')} className="text-slate-600 hover:text-[#122A24] bg-transparent border-none cursor-pointer p-0">VI-VIII</button>
+                        <span className="text-slate-300">•</span>
+                        <button type="button" onClick={() => handleSelectClassGroup('SECONDARY')} className="text-slate-600 hover:text-[#122A24] bg-transparent border-none cursor-pointer p-0">IX-X</button>
+                        <span className="text-slate-300">•</span>
+                        <button type="button" onClick={() => handleSelectClassGroup('SENIOR')} className="text-slate-600 hover:text-[#122A24] bg-transparent border-none cursor-pointer p-0">XI-XII</button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Multi-Class Selectable Chips Container */}
                   <div className="p-2.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-2xl max-h-36 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                    {sortedClassesList.map(c => {
+                    {availableClassesForPost.map(c => {
                       const isSel = postSelectedClassIds.includes(c.id);
                       const cName = c.class_name || (c as any).name || 'Class';
                       return (
@@ -2635,6 +2736,7 @@ export function DashboardExams({
                 </div>
               </form>
             </div>
+            )}
           </div>
         </div>
       )}
@@ -2646,7 +2748,8 @@ export function DashboardExams({
       {activeView === 'student_dossier' && (
         <div className="space-y-6 animate-fade-in">
           
-          {/* Top Card: Class & Student Report Card Selector */}
+          {/* Top Card: Class & Student Report Card Selector (Hidden for students to protect privacy) */}
+          {userRole !== 'STUDENT' && (
           <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-6 space-y-4">
             
             {/* Header with Class Dropdown */}
@@ -2757,6 +2860,7 @@ export function DashboardExams({
               </button>
             </div>
           </div>
+          )}
 
           {/* Student Dossier Main Container (Profile Card + Vitals + Matrix) */}
           {activeDossierStudent && (
@@ -3199,20 +3303,14 @@ export function DashboardExams({
                   )}
                 </div>
 
-                {isClassTeacherOfCurrentClass && isClassLockedToTeacher ? (
+                {isTeacher && activeClassTeacherClass ? (
                   <div className="flex items-center gap-1.5">
-                    <div className="flex-1 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl text-xs font-bold text-emerald-900 flex items-center justify-between">
-                      <span className="truncate">{currentClass?.class_name} - Section {currentClass?.section || 'A'}</span>
-                      <span className="text-[10.5px] font-mono font-normal text-emerald-700 ml-1 shrink-0">Your Class</span>
+                    <div className="flex-1 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl text-xs font-bold text-emerald-900 flex items-center justify-between shadow-2xs">
+                      <span className="truncate">{activeClassTeacherClass.class_name} - Section {activeClassTeacherClass.section || 'A'}</span>
+                      <span className="text-[10px] font-mono font-bold bg-[#122A24] text-white px-2 py-0.5 rounded-full ml-1 shrink-0">
+                        Assigned Homeroom
+                      </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsClassLockedToTeacher(false)}
-                      className="p-2 bg-white hover:bg-slate-100 border border-[#DCE8E0] rounded-xl text-slate-500 hover:text-slate-800 cursor-pointer shrink-0"
-                      title="Unlock to switch class (Subject Teacher Mode)"
-                    >
-                      <Unlock className="h-3.5 w-3.5" />
-                    </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5">
@@ -3223,27 +3321,13 @@ export function DashboardExams({
                     >
                       {sortedClassesList.map(c => {
                         const cName = c.class_name || (c as any).name || 'Class';
-                        const isTeacherAssigned = activeClassTeacherClass?.id === c.id;
                         return (
                           <option key={c.id} value={c.id}>
-                            {cName} — Section {c.section || 'A'} {isTeacherAssigned ? '🎖️ (Your Class)' : ''}
+                            {cName} — Section {c.section || 'A'}
                           </option>
                         );
                       })}
                     </select>
-                    {activeClassTeacherClass && !isClassLockedToTeacher && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedClassId(activeClassTeacherClass.id);
-                          setIsClassLockedToTeacher(true);
-                        }}
-                        className="p-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-emerald-800 cursor-pointer shrink-0"
-                        title="Return to your assigned class"
-                      >
-                        <Lock className="h-3.5 w-3.5" />
-                      </button>
-                    )}
                   </div>
                 )}
               </div>
@@ -4770,7 +4854,7 @@ export function DashboardExams({
       {/* ─────────────────────────────────────────────────────────────
           WHOLE-SCHOOL MASTER SCHEDULER STUDIO MODAL
           ───────────────────────────────────────────────────────────── */}
-      {showWholeSchoolModal && (
+      {!isTeacher && showWholeSchoolModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-[#DCE8E0] max-w-xl w-full p-6 sm:p-7 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">

@@ -23,6 +23,22 @@ async function fullMongoSync() {
     }
   } catch (e) {}
 
+  const subPath = path.join(process.cwd(), 'data', 'push_subscriptions.json');
+  let pushSubscriptions = [];
+  try {
+    if (fs.existsSync(subPath)) {
+      pushSubscriptions = JSON.parse(fs.readFileSync(subPath, 'utf8'));
+    }
+  } catch (e) {}
+
+  const broadcastPath = path.join(process.cwd(), 'data', 'broadcast_notifications.json');
+  let broadcastNotifications = [];
+  try {
+    if (fs.existsSync(broadcastPath)) {
+      broadcastNotifications = JSON.parse(fs.readFileSync(broadcastPath, 'utf8'));
+    }
+  } catch (e) {}
+
   const collectionsToSync = {
     schools: store.schools || [],
     students: store.students || [],
@@ -34,7 +50,9 @@ async function fullMongoSync() {
     timetable: store.timetable || [],
     holidays: store.holidays || [],
     users: store.users || [],
-    audit_logs: auditLogs
+    audit_logs: auditLogs,
+    push_subscriptions: pushSubscriptions,
+    broadcast_notifications: broadcastNotifications
   };
 
   console.log('\n--- 📤 Uploading & Syncing Data to MongoDB Atlas Cloud ---');
@@ -42,7 +60,7 @@ async function fullMongoSync() {
     if (items && items.length > 0) {
       const ops = items.map(item => {
         const { _id, ...clean } = item;
-        const filter = clean.id ? { id: clean.id } : (clean.invoice_no ? { invoice_no: clean.invoice_no } : (clean.email ? { email: clean.email } : clean));
+        const filter = clean.endpoint ? { endpoint: clean.endpoint } : (clean.id ? { id: clean.id } : (clean.invoice_no ? { invoice_no: clean.invoice_no } : (clean.email ? { email: clean.email } : clean)));
         return {
           updateOne: {
             filter: filter,

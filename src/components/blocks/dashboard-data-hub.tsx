@@ -1,6 +1,7 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 'use client';
 
+import { apiFetch } from '@/lib/api-client';
 import React, { useState, useRef } from 'react';
 import {
   Download,
@@ -286,7 +287,7 @@ export function DashboardDataHub({
         const schoolId = selectedSchool?.id || 'DPS2026';
         for (const row of parsedRows) {
           if (row.full_name || row.admission_no) {
-            await fetch('/api/students', {
+            await apiFetch('/api/students', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({

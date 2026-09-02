@@ -1,6 +1,7 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 'use client';
 
+import { apiFetch } from '@/lib/api-client';
 import React, { useState, useMemo } from 'react';
 import {
   BookOpen,
@@ -180,7 +181,7 @@ export function DashboardSubjects({
     setSaving(true);
     try {
       if (modalMode === 'ADD') {
-        const res = await fetch('/api/classes/subjects', {
+        const res = await apiFetch('/api/classes/subjects', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -200,7 +201,7 @@ export function DashboardSubjects({
           alert(data.error || 'Failed to add subject');
         }
       } else if (modalMode === 'EDIT' && editingSubjectId) {
-        const res = await fetch('/api/classes/subjects', {
+        const res = await apiFetch('/api/classes/subjects', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -234,7 +235,7 @@ export function DashboardSubjects({
     if (!confirm(`Are you sure you want to remove "${subjectName}" from this class curriculum?`)) return;
 
     try {
-      const res = await fetch(`/api/classes/subjects?class_id=${classId}&subject_id=${subjectId}`, {
+      const res = await apiFetch(`/api/classes/subjects?class_id=${classId}&subject_id=${subjectId}`, {
         method: 'DELETE'
       });
       const data = await res.json();
@@ -255,7 +256,7 @@ export function DashboardSubjects({
 
     setResettingClassId(cls.id);
     try {
-      const res = await fetch('/api/classes/subjects', {
+      const res = await apiFetch('/api/classes/subjects', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ class_id: cls.id })
@@ -279,7 +280,7 @@ export function DashboardSubjects({
     setSaving(true);
     try {
       for (const cls of classes) {
-        await fetch('/api/classes/subjects', {
+        await apiFetch('/api/classes/subjects', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ class_id: cls.id })

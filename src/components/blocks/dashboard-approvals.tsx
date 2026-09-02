@@ -55,14 +55,33 @@ export interface DashboardApprovalsProps {
   attendance?: AttendanceRecord[];
   selectedSession?: string;
   isSuperAdmin?: boolean;
+  userRole?: string;
+  currentUser?: any;
 }
 
 export function DashboardApprovals({
   selectedSchool,
   teachers = [],
   attendance = [],
-  selectedSession = '2026-27'
+  selectedSession = '2026-27',
+  isSuperAdmin = false,
+  userRole,
+  currentUser
 }: DashboardApprovalsProps) {
+  const isTeacher = userRole === 'TEACHER' || currentUser?.role === 'TEACHER';
+
+  // Current logged in teacher identity
+  const currentTeacher = useMemo(() => {
+    if (!currentUser) return teachers[0];
+    const tId = (currentUser.id || '').toLowerCase().trim();
+    const tCode = (currentUser.username || currentUser.staff_code || '').toLowerCase().trim();
+    const tName = (currentUser.full_name || '').toLowerCase().trim();
+    return teachers.find(t => 
+      t.id.toLowerCase().trim() === tId ||
+      (t.staff_code && t.staff_code.toLowerCase().trim() === tCode) ||
+      t.full_name.toLowerCase().trim() === tName
+    ) || null;
+  }, [teachers, currentUser]);
   // Leave Applications State
   const [leaveApplications, setLeaveApplications] = useState<LeaveApplication[]>([
     {
@@ -82,7 +101,19 @@ export function DashboardApprovals({
   ]);
 
   // Form State
-  const [applicantId, setApplicantId] = useState<string>(teachers[0]?.id || '');
+  const [applicantId, setApplicantId] = useState<string>(() => {
+    if (isTeacher && currentTeacher) return currentTeacher.id;
+    return teachers[0]?.id || '';
+  });
+
+  // Auto-lock to logged-in teacher if role is TEACHER
+  React.useEffect(() => {
+    if (isTeacher && currentTeacher) {
+      setApplicantId(currentTeacher.id);
+    } else if (teachers.length > 0 && !applicantId) {
+      setApplicantId(teachers[0].id);
+    }
+  }, [teachers, applicantId, isTeacher, currentTeacher]);
   const [leaveType, setLeaveType] = useState<string>('Casual Leave (CL) — Paid');
   const [startDate, setStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -101,12 +132,7 @@ export function DashboardApprovals({
   const [simulatedAbsentId, setSimulatedAbsentId] = useState('');
   const [simulatedAbsentReason, setSimulatedAbsentReason] = useState('Medical Leave (Emergency)');
 
-  // Auto-set first teacher if empty
-  React.useEffect(() => {
-    if (teachers.length > 0 && !applicantId) {
-      setApplicantId(teachers[0].id);
-    }
-  }, [teachers, applicantId]);
+
 
   // Derived Stats
   const pendingCount = useMemo(() => {
@@ -368,7 +394,9 @@ export function DashboardApprovals({
       return;
     }
 
-    const selectedTeacher = teachers.find(t => t.id === applicantId) || teachers[0];
+    const selectedTeacher = isTeacher && currentTeacher 
+      ? currentTeacher 
+      : (teachers.find(t => t.id === applicantId) || teachers[0]);
     const sDate = new Date(startDate);
     const eDate = new Date(endDate);
     const diffTime = Math.max(0, eDate.getTime() - sDate.getTime());
@@ -547,14 +575,16 @@ export function DashboardApprovals({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setShowQuickAbsentModal(true)}
-              className="px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-[#122A24] font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Mark Teacher Absent</span>
-            </button>
+            {!isTeacher && (
+              <button
+                type="button"
+                onClick={() => setShowQuickAbsentModal(true)}
+                className="px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-[#122A24] font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Mark Teacher Absent</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -620,19 +650,21 @@ export function DashboardApprovals({
                 <p className="text-[11px] text-emerald-800 font-normal">
                   All scheduled periods running on time. Use the button below to mark today's absent teachers and trigger smart substitutions.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (teachers.length > 0 && !simulatedAbsentId) {
-                      setSimulatedAbsentId(teachers[0].id);
-                    }
-                    setShowQuickAbsentModal(true);
-                  }}
-                  className="mt-2 px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold rounded-xl inline-flex items-center gap-1.5 cursor-pointer shadow-xs border-none transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Mark Teacher Absent Now</span>
-                </button>
+                {!isTeacher && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (teachers.length > 0 && !simulatedAbsentId) {
+                        setSimulatedAbsentId(teachers[0].id);
+                      }
+                      setShowQuickAbsentModal(true);
+                    }}
+                    className="mt-2 px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold rounded-xl inline-flex items-center gap-1.5 cursor-pointer shadow-xs border-none transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Mark Teacher Absent Now</span>
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-2.5">
@@ -785,23 +817,32 @@ export function DashboardApprovals({
           )}
 
           <form onSubmit={handleApplyLeave} className="space-y-4">
-            {/* Applicant Employee */}
+            {/* Applicant Faculty (Locked to Self for Teachers) */}
             <div className="space-y-1">
-              <label className="block text-xs font-bold text-[#122A24]">Applicant Employee</label>
-              <select
-                value={applicantId}
-                onChange={(e) => setApplicantId(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-white border border-[#C5E2CF] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none cursor-pointer shadow-2xs"
-              >
-                {teachers.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.full_name} ({t.staff_code || t.id}) — {t.department || 'Faculty'}
-                  </option>
-                ))}
-                {teachers.length === 0 && (
-                  <option value="">No registered teachers found</option>
-                )}
-              </select>
+              <label className="block text-xs font-bold text-[#122A24]">Applicant Faculty Member</label>
+              {isTeacher ? (
+                <div className="w-full px-3.5 py-2.5 bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl text-xs font-bold text-[#122A24] flex items-center justify-between shadow-2xs">
+                  <span>{currentTeacher?.full_name || currentUser?.full_name} ({currentTeacher?.staff_code || currentUser?.username})</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#122A24] text-white">
+                    Personal Leave Only
+                  </span>
+                </div>
+              ) : (
+                <select
+                  value={applicantId}
+                  onChange={(e) => setApplicantId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#C5E2CF] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none cursor-pointer shadow-2xs"
+                >
+                  {teachers.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.full_name} ({t.staff_code || t.id}) — {t.department || 'Faculty'}
+                    </option>
+                  ))}
+                  {teachers.length === 0 && (
+                    <option value="">No registered teachers found</option>
+                  )}
+                </select>
+              )}
             </div>
 
             {/* Leave Type */}
@@ -884,14 +925,23 @@ export function DashboardApprovals({
           <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">
             <div>
               <h2 className="font-display font-bold text-base text-[#122A24]">
-                Leave Application History
+                {isTeacher ? 'My Leave Application History' : 'Leave Application History'}
               </h2>
               <p className="text-xs text-[#2D5A4E]">
-                All submitted faculty &amp; employee leave requests
+                {isTeacher ? 'Track status of your submitted leave requests' : 'All submitted faculty & employee leave requests'}
               </p>
             </div>
             <span className="text-xs font-mono font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-600">
-              Total {leaveApplications.length}
+              {isTeacher
+                ? `Total ${leaveApplications.filter(app => {
+                    const tId = (currentTeacher?.id || currentUser?.id || '').toLowerCase().trim();
+                    const tName = (currentTeacher?.full_name || currentUser?.full_name || '').toLowerCase().trim();
+                    return (
+                      (app.employee_id && app.employee_id.toLowerCase().trim() === tId) ||
+                      (app.employee_name && app.employee_name.toLowerCase().trim() === tName)
+                    );
+                  }).length}`
+                : `Total ${leaveApplications.length}`}
             </span>
           </div>
 
@@ -908,7 +958,17 @@ export function DashboardApprovals({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E8F0EA] text-slate-700">
-                {leaveApplications.map(app => (
+                {leaveApplications
+                  .filter(app => {
+                    if (!isTeacher) return true;
+                    const tId = (currentTeacher?.id || currentUser?.id || '').toLowerCase().trim();
+                    const tName = (currentTeacher?.full_name || currentUser?.full_name || '').toLowerCase().trim();
+                    return (
+                      (app.employee_id && app.employee_id.toLowerCase().trim() === tId) ||
+                      (app.employee_name && app.employee_name.toLowerCase().trim() === tName)
+                    );
+                  })
+                  .map(app => (
                   <tr key={app.id} className="hover:bg-[#F9FCFA] transition-colors">
                     <td className="py-3 px-3.5">
                       <div className="font-bold text-[#122A24]">{app.employee_name}</div>
@@ -935,25 +995,37 @@ export function DashboardApprovals({
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right">
-                      {app.status === 'PENDING' ? (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateStatus(app.id, 'APPROVED')}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10.5px] border-none cursor-pointer transition-colors"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateStatus(app.id, 'REJECTED')}
-                            className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10.5px] border border-rose-200 cursor-pointer transition-colors"
-                          >
-                            Reject
-                          </button>
-                        </div>
+                      {isTeacher ? (
+                        app.status === 'PENDING' ? (
+                          <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[10.5px] font-mono">
+                            Pending Approval
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono text-slate-500 font-semibold">
+                            {app.status === 'APPROVED' ? 'Approved by Admin' : 'Declined by Admin'}
+                          </span>
+                        )
                       ) : (
-                        <span className="text-[10px] font-mono text-slate-400">Processed</span>
+                        app.status === 'PENDING' ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateStatus(app.id, 'APPROVED')}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10.5px] border-none cursor-pointer transition-colors"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateStatus(app.id, 'REJECTED')}
+                              className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10.5px] border border-rose-200 cursor-pointer transition-colors"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] font-mono text-slate-400">Processed</span>
+                        )
                       )}
                     </td>
                   </tr>
@@ -972,8 +1044,8 @@ export function DashboardApprovals({
 
       </div>
 
-      {/* MODAL: QUICK SIMULATE / MARK ABSENT TEACHER */}
-      {showQuickAbsentModal && (
+      {/* MODAL: QUICK SIMULATE / MARK ABSENT TEACHER (ADMIN ONLY) */}
+      {!isTeacher && showQuickAbsentModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-[#DCE8E0] p-6 max-w-md w-full shadow-2xl space-y-4 animate-fade-in">
             <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">

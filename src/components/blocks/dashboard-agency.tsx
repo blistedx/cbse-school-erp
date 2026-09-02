@@ -27,6 +27,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { School, DemoRequest } from '@/lib/types';
+import { apiFetch } from '@/lib/api-client';
 
 export function DashboardAgency() {
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
@@ -83,7 +84,7 @@ export function DashboardAgency() {
     setPurgeError('');
 
     try {
-      const res = await fetch('/api/agency/purge-school', {
+      const res = await apiFetch('/api/agency/purge-school', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +136,7 @@ export function DashboardAgency() {
         } catch (e) {}
       }
 
-      if (isSessionAuthed || isGodUser) {
+      if (isSessionAuthed && isGodUser) {
         setIsAuthenticated(true);
         loadData();
       } else {
@@ -145,33 +146,42 @@ export function DashboardAgency() {
     }
   };
 
-  const handleAgencyLogin = (e: React.FormEvent) => {
+  const handleAgencyLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthLoading(true);
     setAuthError('');
 
-    const id = agencyIdInput.trim().toLowerCase();
+    const id = agencyIdInput.trim();
     const pass = agencyPassInput.trim();
 
-    if (id === 'blistedx' && pass === 'admin@4317') {
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('agency_auth', 'true');
-        const godUser = {
-          id: 'blistedx-god-master',
-          username: 'blistedx',
-          role: 'AGENCY_SUPERADMIN',
-          full_name: 'BlistedX (God Access Superadmin)',
-          email: 'blistedx@giterp.io',
-          is_god_admin: true,
-          status: 'ACTIVE'
-        };
-        localStorage.setItem('current_user', JSON.stringify(godUser));
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          school_code: 'DPS2026',
+          username: id,
+          password: pass,
+          role: 'AGENCY_SUPERADMIN'
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.user) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('agency_auth', 'true');
+          localStorage.setItem('current_user', JSON.stringify(data.user));
+          if (data.session_token) {
+            localStorage.setItem('erp_session_token', data.session_token);
+          }
+        }
+        setIsAuthenticated(true);
+        loadData();
+      } else {
+        setAuthError(data.error || '❌ Invalid Agency credentials. Access strictly restricted to authorized Superadmins.');
       }
-      setIsAuthenticated(true);
-      setAuthLoading(false);
-      loadData();
-    } else {
-      setAuthError('❌ Invalid Agency credentials. Access strictly restricted to authorized Superadmins.');
+    } catch (err: any) {
+      setAuthError('❌ Connection error: ' + (err?.message || 'Login failed'));
+    } finally {
       setAuthLoading(false);
     }
   };
@@ -179,6 +189,16 @@ export function DashboardAgency() {
   const handleLockConsole = () => {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('agency_auth');
+      localStorage.removeItem('erp_session_token');
+      try {
+        const storedUser = localStorage.getItem('current_user');
+        if (storedUser) {
+          const userObj = JSON.parse(storedUser);
+          if (userObj.username?.toLowerCase() === 'blistedx' || userObj.role === 'AGENCY_SUPERADMIN' || userObj.is_god_admin) {
+            localStorage.removeItem('current_user');
+          }
+        }
+      } catch (_) {}
     }
     setIsAuthenticated(false);
     setAgencyPassInput('');
@@ -188,8 +208,8 @@ export function DashboardAgency() {
     setLoading(true);
     try {
       const [schRes, reqRes] = await Promise.all([
-        fetch('/api/schools'),
-        fetch('/api/request-demo')
+        apiFetch('/api/schools'),
+        apiFetch('/api/request-demo')
       ]);
       const schData = await schRes.json();
       const reqData = await reqRes.json();
@@ -224,7 +244,7 @@ export function DashboardAgency() {
     setActionMessage('');
 
     try {
-      const res = await fetch('/api/agency/approve-demo', {
+      const res = await apiFetch('/api/agency/approve-demo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -256,7 +276,7 @@ export function DashboardAgency() {
   const handleReject = async (requestId: string) => {
     if (!confirm('Are you sure you want to reject this request?')) return;
     try {
-      await fetch('/api/agency/approve-demo', {
+      await apiFetch('/api/agency/approve-demo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requestId, action: 'REJECT' })

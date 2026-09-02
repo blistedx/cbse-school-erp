@@ -1,0 +1,44 @@
+[
+  {
+    "id": "bc_1788344733073_6avq1",
+    "title": "All Audience Test",
+    "body": "This should reach ALL roles",
+    "url": "/app",
+    "audience": "ALL",
+    "urgent": false,
+    "senderName": "School Administration",
+    "senderRole": "ADMIN",
+    "deliveredCount": 2,
+    "timestamp": "03:55 PM",
+    "createdAt": "2026-09-02T10:25:33.073Z",
+    "_id": "6a97f99de4a3fc4570368197"
+  },
+  {
+    "id": "bc_1788344716762_zf4m4",
+    "title": "Faculty Only Test",
+    "body": "This should only reach TEACHER/PRINCIPAL/ADMIN roles",
+    "url": "/app",
+    "audience": "FACULTY",
+    "urgent": false,
+    "senderName": "School Administration",
+    "senderRole": "ADMIN",
+    "deliveredCount": 1,
+    "timestamp": "03:55 PM",
+    "createdAt": "2026-09-02T10:25:16.763Z",
+    "_id": "6a97f98ce4a3fc4570368196"
+  },
+  {
+    "id": "bc_1788344333767_6fqlu",
+    "title": "Test Faculty Push",
+    "body": "Testing push delivery to FACULTY audience",
+    "url": "/app",
+    "audience": "FACULTY",
+    "urgent": false,
+    "senderName": "School Administration",
+    "senderRole": "ADMIN",
+    "deliveredCount": 2,
+    "timestamp": "03:48 PM",
+    "createdAt": "2026-09-02T10:18:54.038Z",
+    "_id": "6a97f80ee4a3fc4570368195"
+  }
+]

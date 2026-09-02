@@ -2,9 +2,12 @@
 import { NextResponse } from 'next/server';
 import { checkMongoStatus, getDatabase } from '@/lib/mongodb';
 import { Database } from '@/lib/db';
+import { requireAuth, requireRole, AGENCY_ONLY } from '@/lib/auth-guard';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const auth = requireAuth(req);
+    if (auth instanceof NextResponse) return auth;
     const status = await checkMongoStatus();
     let cloudCounts = { schools: 0, students: 0, teachers: 0, classes: 0, attendance: 0, fee_invoices: 0, notices: 0 };
     
@@ -54,6 +57,8 @@ export async function GET() {
 // POST: Upload / Sync all Local Data to MongoDB Atlas
 export async function POST(req: Request) {
   try {
+    const auth = requireRole(req, AGENCY_ONLY);
+    if (auth instanceof NextResponse) return auth;
     const db = await getDatabase();
     if (!db) {
       const status = await checkMongoStatus();

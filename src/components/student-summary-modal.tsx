@@ -5,6 +5,7 @@ import React, { useState, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { Student, FeeInvoice, AttendanceRecord } from '@/lib/types';
 import { getStudentSiblings, getStudentAssessmentReport } from '@/lib/student-helper';
+import { getStudentMonthlyFeeSchedule } from '@/lib/monthly-fee-helper';
 
 interface StudentSummaryModalProps {
   isOpen: boolean;
@@ -41,6 +42,11 @@ export function StudentSummaryModal({
     return getStudentAssessmentReport(student);
   }, [student]);
 
+  const monthlySchedule = useMemo(() => {
+    if (!student) return null;
+    return getStudentMonthlyFeeSchedule(student, invoices);
+  }, [student, invoices]);
+
   const studentInvoices = useMemo(() => {
     if (!student) return [];
     return invoices.filter(
@@ -48,9 +54,7 @@ export function StudentSummaryModal({
     );
   }, [student, invoices]);
 
-  const totalPending = studentInvoices
-    .filter(i => i.status !== 'PAID')
-    .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const totalPending = monthlySchedule ? monthlySchedule.currentBalanceDue : 0;
 
   if (!isOpen || !student) return null;
 
@@ -530,60 +534,148 @@ export function StudentSummaryModal({
             </div>
           )}
 
-          {/* TAB 5: FEES */}
+          {/* TAB 5: FEES & MONTH-WISE BREAKDOWN */}
           {activeTab === 'fees' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h3 className="font-display font-bold text-base text-[#122A24]">
-                    Fee Invoices &amp; Payment Ledger
+                    Month-Wise Fee Ledger
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Tuition, Transport, Examination &amp; Laboratory charges.
+                    Itemized monthly record of Tuition, Annual, Transport &amp; Examination fees deposited for this scholar.
                   </p>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                  student.fee_status === 'PAID' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
-                }`}>
-                  Status: {student.fee_status}
-                </span>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                    student.fee_status === 'PAID' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+                  }`}>
+                    Status: {student.fee_status || 'REGULAR'}
+                  </span>
+                  {onCollectFee && totalPending > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onCollectFee(student)}
+                      className="px-3 py-1 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors shadow-2xs border-none"
+                    >
+                      Collect Dues →
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {studentInvoices.length > 0 ? (
-                <div className="rounded-2xl border border-[#E2ECE5] overflow-hidden bg-white">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead className="bg-[#F8FAF9] border-b border-[#E2ECE5] text-[11px] text-slate-600 uppercase font-bold">
+              {/* 3 Metrics Pill Strip */}
+              {monthlySchedule && (
+                <div className="grid grid-cols-3 gap-3 text-xs">
+                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                    <span className="text-[11px] text-slate-500 uppercase tracking-wider block font-semibold">Annual Demand</span>
+                    <strong className="text-base text-slate-900 font-bold tabular-nums">₹{monthlySchedule.totalAnnualBilled.toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className="p-3 bg-emerald-50/60 rounded-2xl border border-emerald-200">
+                    <span className="text-[11px] text-emerald-800 uppercase tracking-wider block font-semibold">Total Paid</span>
+                    <strong className="text-base text-emerald-900 font-bold tabular-nums">₹{monthlySchedule.totalPaidToDate.toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div className="p-3 bg-amber-50/60 rounded-2xl border border-amber-200">
+                    <span className="text-[11px] text-amber-800 uppercase tracking-wider block font-semibold">Balance Due</span>
+                    <strong className={`text-base font-bold tabular-nums ${monthlySchedule.currentBalanceDue > 0 ? 'text-amber-900' : 'text-emerald-700'}`}>
+                      ₹{monthlySchedule.currentBalanceDue.toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+                </div>
+              )}
+
+              {/* 12-Month Table */}
+              {monthlySchedule && (
+                <div className="rounded-2xl border border-[#E2ECE5] overflow-x-auto bg-white">
+                  <table className="w-full text-xs text-left border-collapse min-w-[760px]">
+                    <thead className="bg-[#122A24] text-white text-xs font-semibold uppercase tracking-wider">
                       <tr>
-                        <th className="p-3">Invoice No</th>
-                        <th className="p-3">Due Date</th>
-                        <th className="p-3">Amount</th>
-                        <th className="p-3">Payment Mode</th>
-                        <th className="p-3 text-right">Status</th>
+                        <th className="p-3 px-3.5">Month &amp; Cycle</th>
+                        <th className="p-3 px-2 text-right">Tuition</th>
+                        <th className="p-3 px-2 text-right">Annual</th>
+                        <th className="p-3 px-2 text-right">Transport</th>
+                        <th className="p-3 px-2 text-right">Exam &amp; Lab</th>
+                        <th className="p-3 px-2 text-right">Total Billed</th>
+                        <th className="p-3 px-2 text-right text-emerald-300 font-bold">Total Paid</th>
+                        <th className="p-3 px-2 text-right">Balance Due</th>
+                        <th className="p-3 px-3 text-center">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {studentInvoices.map(inv => (
-                        <tr key={inv.id} className="hover:bg-slate-50">
-                          <td className="p-3 font-bold text-slate-900">#{inv.invoice_no || inv.id}</td>
-                          <td className="p-3 text-slate-600">{inv.due_date || '10 Oct 2026'}</td>
-                          <td className="p-3 font-bold text-[#122A24]">₹{Number(inv.amount).toLocaleString()}</td>
-                          <td className="p-3 text-slate-600">{inv.payment_mode || 'Online / UPI'}</td>
-                          <td className="p-3 text-right">
-                            <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                              inv.status === 'PAID' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                      {monthlySchedule.months.map(m => (
+                        <tr key={m.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 px-3.5">
+                            <span className="font-bold text-[#122A24] text-sm">{m.month}</span>
+                            <span className="text-[11px] text-slate-400 block mt-0.5">Inv: #{m.invoiceNo}</span>
+                          </td>
+                          <td className="p-3 px-2 text-right font-semibold text-slate-800 tabular-nums text-sm">
+                            ₹{m.tuitionFee.toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 px-2 text-right tabular-nums text-sm">
+                            {m.annualFee > 0 ? (
+                              <span className="text-indigo-900 font-semibold">₹{m.annualFee.toLocaleString('en-IN')}</span>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+                          <td className="p-3 px-2 text-right tabular-nums text-sm">
+                            {m.transportFee > 0 ? (
+                              <span className="text-slate-800 font-semibold">₹{m.transportFee.toLocaleString('en-IN')}</span>
+                            ) : (
+                              <span className="text-slate-300">₹0</span>
+                            )}
+                          </td>
+                          <td className="p-3 px-2 text-right tabular-nums text-sm">
+                            {m.examFee > 0 ? (
+                              <span className="text-purple-900 font-semibold">₹{m.examFee.toLocaleString('en-IN')}</span>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+                          <td className="p-3 px-2 text-right font-bold text-slate-900 tabular-nums text-sm">
+                            ₹{m.totalBilled.toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 px-2 text-right font-bold text-emerald-800 bg-emerald-50/40 tabular-nums text-sm">
+                            ₹{m.paidAmount.toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-3 px-2 text-right font-bold tabular-nums text-sm">
+                            {m.balanceDue > 0 ? (
+                              <span className="text-amber-800">₹{m.balanceDue.toLocaleString('en-IN')}</span>
+                            ) : (
+                              <span className="text-emerald-700">₹0</span>
+                            )}
+                          </td>
+                          <td className="p-3 px-3 text-center">
+                            <span className={`px-2.5 py-1 rounded-full font-semibold text-xs inline-block ${
+                              m.status === 'PAID'
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                : m.status === 'PARTIAL'
+                                ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                : m.status === 'PENDING'
+                                ? 'bg-rose-100 text-rose-900 border border-rose-300'
+                                : 'bg-slate-100 text-slate-500 border border-slate-200'
                             }`}>
-                              {inv.status}
+                              {m.status}
                             </span>
                           </td>
                         </tr>
                       ))}
                     </tbody>
+                    <tfoot className="bg-slate-50 border-t-2 border-slate-300 font-bold text-xs text-slate-800">
+                      <tr>
+                        <td className="p-3 px-3.5 uppercase tracking-wider text-xs">Session Total</td>
+                        <td className="p-3 px-2 text-right tabular-nums text-sm">₹{monthlySchedule.months.reduce((s, m) => s + m.tuitionFee, 0).toLocaleString('en-IN')}</td>
+                        <td className="p-3 px-2 text-right tabular-nums text-sm text-indigo-900">₹{monthlySchedule.months.reduce((s, m) => s + m.annualFee, 0).toLocaleString('en-IN')}</td>
+                        <td className="p-3 px-2 text-right tabular-nums text-sm">₹{monthlySchedule.months.reduce((s, m) => s + m.transportFee, 0).toLocaleString('en-IN')}</td>
+                        <td className="p-3 px-2 text-right tabular-nums text-sm text-purple-900">₹{monthlySchedule.months.reduce((s, m) => s + m.examFee, 0).toLocaleString('en-IN')}</td>
+                        <td className="p-3 px-2 text-right tabular-nums text-sm text-slate-900">₹{monthlySchedule.totalAnnualBilled.toLocaleString('en-IN')}</td>
+                        <td className="p-3 px-2 text-right tabular-nums text-sm text-emerald-800 bg-emerald-100/70 font-extrabold">₹{monthlySchedule.totalPaidToDate.toLocaleString('en-IN')}</td>
+                        <td className="p-3 px-2 text-right tabular-nums text-sm text-amber-900">₹{monthlySchedule.currentBalanceDue.toLocaleString('en-IN')}</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
                   </table>
-                </div>
-              ) : (
-                <div className="p-6 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] text-center text-xs text-slate-500">
-                  <p className="font-bold text-slate-700">No Outstanding Invoices</p>
-                  <p className="mt-0.5">All institutional dues for the academic session are clear.</p>
                 </div>
               )}
             </div>

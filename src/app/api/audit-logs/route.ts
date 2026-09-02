@@ -1,9 +1,12 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { getAuditLogs, logAuditEvent, exportAuditLogsToCsv } from '@/lib/audit-logger';
+import { requireRole, requireAuth, ADMIN_ROLES } from '@/lib/auth-guard';
 
 export async function GET(request: Request) {
   try {
+    const auth = requireRole(request, ADMIN_ROLES);
+    if (auth instanceof NextResponse) return auth;
     const { searchParams } = new URL(request.url);
     const moduleFilter = searchParams.get('module') || undefined;
     const severityFilter = searchParams.get('severity') || undefined;
@@ -52,6 +55,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const auth = requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
     const body = await request.json();
     const { action, module, summary, severity, details, targetId, targetName, actor, school_id, session } = body;
 

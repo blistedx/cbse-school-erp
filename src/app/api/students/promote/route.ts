@@ -1,9 +1,12 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
+import { requireRole, ADMIN_ROLES } from '@/lib/auth-guard';
 
 export async function POST(req: Request) {
   try {
+    const auth = requireRole(req, ADMIN_ROLES);
+    if (auth instanceof NextResponse) return auth;
     const body = await req.json();
     const { promotions, school_id } = body;
 

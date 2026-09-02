@@ -2,9 +2,12 @@
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
 import { DEFAULT_ROLE_PERMISSIONS, RolePermissionMatrix } from '@/lib/types';
+import { requireRole, ADMIN_ROLES } from '@/lib/auth-guard';
 
 export async function GET(req: Request) {
   try {
+    const auth = requireRole(req, ADMIN_ROLES);
+    if (auth instanceof NextResponse) return auth;
     const { searchParams } = new URL(req.url);
     const schoolId = searchParams.get('school_id') || searchParams.get('school') || 'DPS2026';
 
@@ -32,6 +35,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const auth = requireRole(req, ADMIN_ROLES);
+    if (auth instanceof NextResponse) return auth;
     const body = await req.json();
     const { school_id, permissions } = body;
 

@@ -1,14 +1,17 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
+import { requireAuth, requireRole, ADMIN_ROLES } from '@/lib/auth-guard';
 
 export async function GET(req: Request) {
   try {
+    const auth = requireAuth(req);
+    if (auth instanceof NextResponse) return auth;
     const { searchParams } = new URL(req.url);
     const schoolId = searchParams.get('school_id') || searchParams.get('schoolId') || undefined;
     const session = searchParams.get('session') || searchParams.get('academic_session') || undefined;
-    const role = req.headers.get('x-user-role') || searchParams.get('role');
-    const isAdmin = role === 'PRINCIPAL' || role === 'AGENCY_SUPERADMIN' || role === 'ADMIN';
+    const role = auth.role;
+    const isAdmin = role === 'PRINCIPAL' || role === 'AGENCY_SUPERADMIN';
 
     const rawStudents = await Database.getStudents(schoolId, session);
     const students = rawStudents.map(s => {
@@ -25,6 +28,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const auth = requireRole(req, ADMIN_ROLES);
+    if (auth instanceof NextResponse) return auth;
     const body = await req.json();
     if (body.action === 'UPDATE' || (body.id && body.is_update)) {
       const { id, ...updates } = body;
@@ -44,6 +49,8 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
+    const auth = requireRole(req, ADMIN_ROLES);
+    if (auth instanceof NextResponse) return auth;
     const body = await req.json();
     const { id, ...updates } = body;
     if (!id) {
@@ -58,6 +65,8 @@ export async function PUT(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
+    const auth = requireRole(req, ADMIN_ROLES);
+    if (auth instanceof NextResponse) return auth;
     const body = await req.json();
     const { id, ...updates } = body;
     if (!id) {
@@ -72,6 +81,8 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const auth = requireRole(req, ADMIN_ROLES);
+    if (auth instanceof NextResponse) return auth;
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) {

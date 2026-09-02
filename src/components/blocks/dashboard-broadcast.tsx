@@ -190,7 +190,18 @@ export function DashboardBroadcast({ schoolName = 'DPS International — CBSE' }
           applicationServerKey: convertedKey
         });
 
-        // 4. Send subscription to server
+        // 4. Send subscription to server — use actual login role, not hardcoded
+        let deviceRole = 'ADMIN';
+        let deviceUserId = 'admin_device';
+        try {
+          const userStr = localStorage.getItem('current_user');
+          if (userStr) {
+            const parsed = JSON.parse(userStr);
+            deviceRole = parsed.login_role || parsed.original_role || parsed.role || 'ADMIN';
+            deviceUserId = parsed.username || parsed.id || 'admin_device';
+          }
+        } catch (e) {}
+
         const saveRes = await fetch('/api/notifications/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -200,8 +211,8 @@ export function DashboardBroadcast({ schoolName = 'DPS International — CBSE' }
               p256dh: sub.toJSON().keys?.p256dh,
               auth: sub.toJSON().keys?.auth
             },
-            role: 'ADMIN',
-            userId: 'admin_device'
+            role: deviceRole,
+            userId: deviceUserId
           })
         });
 

@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
 import { sendDemoRequestEmail } from '@/lib/email';
+import { requireRole, AGENCY_ONLY } from '@/lib/auth-guard';
 
 export async function POST(request: Request) {
   try {
@@ -56,11 +57,13 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const auth = requireRole(request, AGENCY_ONLY);
+    if (auth instanceof NextResponse) return auth;
     const requests = await Database.getDemoRequests();
     return NextResponse.json({ success: true, requests });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to fetch demo requests.' }, { status: 500 });
   }
 }

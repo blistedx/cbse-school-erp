@@ -55,6 +55,8 @@ interface DashboardAttendanceProps {
   classes: ClassRoom[];
   attendance: AttendanceRecord[];
   selectedSession: string;
+  userRole?: string;
+  currentUser?: any;
   onRefresh: () => void;
   showAdminToast: (msg: string) => void;
 }
@@ -66,14 +68,43 @@ export function DashboardAttendance({
   classes,
   attendance,
   selectedSession,
+  userRole,
+  currentUser,
   onRefresh,
   showAdminToast
 }: DashboardAttendanceProps) {
+  const isTeacher = userRole === 'TEACHER' || currentUser?.role === 'TEACHER';
   // 4 Primary Tabs (Daily Mark, Monthly Register, Summary Analytics, Holiday Studio)
   const [attendanceTab, setAttendanceTab] = useState<'mark_attendance' | 'monthly_sheet' | 'attendance_summary' | 'holiday_calendar'>('mark_attendance');
   
   // Sorted Classes
   const sortedClasses = useMemo(() => sortClassesChronologically(classes), [classes]);
+
+  // 🔒 STRICT ROLE-BASED CLASS ASSIGNMENT:
+  // Class Teachers can ONLY see and mark attendance for their designated assigned class.
+  // Subject Teachers (with NO class assigned) CANNOT mark attendance for any class.
+  const assignedClasses = useMemo(() => {
+    if (!isTeacher) return sortedClasses;
+
+    const tId = (currentUser?.id || '').toLowerCase().trim();
+    const tName = (currentUser?.full_name || '').toLowerCase().trim();
+    const tCode = (currentUser?.username || currentUser?.staff_code || '').toLowerCase().trim();
+
+    return sortedClasses.filter(c => {
+      const cTeacherId = ((c as any).class_teacher_id || '').toLowerCase().trim();
+      const cTeacherName = ((c as any).class_teacher_name || c.class_teacher || '').toLowerCase().trim();
+      const cTeacher = (c.class_teacher || '').toLowerCase().trim();
+
+      return (
+        (cTeacherId && (cTeacherId === tId || cTeacherId === (currentUser as any)?.staff_code?.toLowerCase())) ||
+        (cTeacherName && (cTeacherName === tName || cTeacherName === tCode)) ||
+        (cTeacher && (cTeacher === tName || cTeacher === tCode))
+      );
+    });
+  }, [sortedClasses, isTeacher, currentUser]);
+
+  const isSubjectTeacherOnly = isTeacher && assignedClasses.length === 0;
+  const selectableClasses = isTeacher ? assignedClasses : sortedClasses;
 
   // ─────────────────────────────────────────────────────────────────
   // HOLIDAYS & ACADEMIC CLOSURES STATE
@@ -225,7 +256,7 @@ export function DashboardAttendance({
   // ─────────────────────────────────────────────────────────────────
   // TAB 1: MARK STUDENT ATTENDANCE STATE
   // ─────────────────────────────────────────────────────────────────
-  const [selectedClassId, setSelectedClassId] = useState<string>(sortedClasses[0]?.id || '');
+  const [selectedClassId, setSelectedClassId] = useState<string>(() => selectableClasses[0]?.id || '');
   const [attendanceDate, setAttendanceDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [attendanceType, setAttendanceType] = useState<'STUDENT' | 'FACULTY'>('STUDENT');
   const [searchRosterQuery, setSearchRosterQuery] = useState<string>('');
@@ -234,9 +265,23 @@ export function DashboardAttendance({
   const [showAbsentAlertModal, setShowAbsentAlertModal] = useState<boolean>(false);
   const loadedContextKeyRef = React.useRef<string>('');
 
+  // Keep selectedClassId strictly within authorized selectableClasses
+  useEffect(() => {
+    if (selectableClasses.length > 0 && !selectableClasses.some(c => c.id === selectedClassId)) {
+      setSelectedClassId(selectableClasses[0].id);
+    }
+  }, [selectableClasses, selectedClassId]);
+
+  // If teacher, force attendanceType to STUDENT
+  useEffect(() => {
+    if (isTeacher && attendanceType !== 'STUDENT') {
+      setAttendanceType('STUDENT');
+    }
+  }, [isTeacher, attendanceType]);
+
   const selectedClass = useMemo(() => {
-    return sortedClasses.find(c => c.id === selectedClassId) || sortedClasses[0] || null;
-  }, [sortedClasses, selectedClassId]);
+    return selectableClasses.find(c => c.id === selectedClassId) || selectableClasses[0] || null;
+  }, [selectableClasses, selectedClassId]);
 
   const classStudents = useMemo(() => {
     if (!selectedClass) return [];
@@ -342,6 +387,18 @@ export function DashboardAttendance({
           status: studentStatuses[s.id] || 'PRESENT'
         }));
 
+        if (isTeacher && isSubjectTeacherOnly) {
+          alert('Access Denied: Subject teachers cannot record classroom attendance. Only designated Class Teachers can record roll call.');
+          setSavingAttendance(false);
+          return;
+        }
+
+        if (isTeacher && !assignedClasses.some(c => c.id === selectedClass.id)) {
+          alert(`Access Denied: You are not authorized to mark attendance for ${selectedClass.class_name}-${selectedClass.section}. Only its designated Class Teacher can mark attendance.`);
+          setSavingAttendance(false);
+          return;
+        }
+
         const payload = {
           school_id: targetSchoolId,
           academic_session: selectedSession,
@@ -351,7 +408,7 @@ export function DashboardAttendance({
           total_students: total,
           present_count: present,
           absent_count: absent,
-          marked_by: 'Admin / Class Incharge',
+          marked_by: isTeacher ? (currentUser?.full_name ? `${currentUser.full_name} (Class Teacher)` : 'Class Teacher') : 'Admin / Principal',
           student_records: studentRecords
         };
 
@@ -452,13 +509,19 @@ export function DashboardAttendance({
   // ─────────────────────────────────────────────────────────────────
   // TAB 2: MONTHLY ATTENDANCE SHEET STATE & MATRIX BUILDER
   // ─────────────────────────────────────────────────────────────────
-  const [sheetClassId, setSheetClassId] = useState<string>(sortedClasses[0]?.id || '');
+  const [sheetClassId, setSheetClassId] = useState<string>(() => selectableClasses[0]?.id || '');
   const [sheetYear, setSheetYear] = useState<number>(2026);
   const [sheetMonth, setSheetMonth] = useState<number>(8); // August (1-12)
 
+  useEffect(() => {
+    if (selectableClasses.length > 0 && (!sheetClassId || !selectableClasses.some(c => c.id === sheetClassId))) {
+      setSheetClassId(selectableClasses[0].id);
+    }
+  }, [selectableClasses, sheetClassId]);
+
   const currentSheetClass = useMemo(() => {
-    return sortedClasses.find(c => c.id === sheetClassId) || sortedClasses[0] || null;
-  }, [sortedClasses, sheetClassId]);
+    return selectableClasses.find(c => c.id === sheetClassId) || selectableClasses[0] || null;
+  }, [selectableClasses, sheetClassId]);
 
   const sheetStudents = useMemo(() => {
     if (!currentSheetClass) return [];
@@ -542,7 +605,8 @@ export function DashboardAttendance({
   const todayDateStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
   const classSummaryData = useMemo(() => {
-    return sortedClasses.map(cls => {
+    const targetList = isTeacher ? selectableClasses : sortedClasses;
+    return targetList.map(cls => {
       const clsStudents = students.filter(s => {
         const cName = (cls.class_name || '').toLowerCase().trim();
         const cSec = (cls.section || '').toLowerCase().trim();
@@ -578,7 +642,7 @@ export function DashboardAttendance({
     });
   }, [sortedClasses, students, attendance, todayDateStr]);
 
-  const totalClassesCount = sortedClasses.length;
+  const totalClassesCount = isTeacher ? selectableClasses.length : sortedClasses.length;
   const markedClassesTodayCount = classSummaryData.filter(c => c.isMarked).length;
   const totalSchoolStudents = students.length;
   const totalStudentsPresentToday = classSummaryData.reduce((acc, curr) => acc + curr.presentCount, 0);
@@ -695,18 +759,20 @@ export function DashboardAttendance({
           </button>
 
           {/* Tab 4: Declare Holidays & Calendar */}
-          <button
-            type="button"
-            onClick={() => setAttendanceTab('holiday_calendar')}
-            className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
-              attendanceTab === 'holiday_calendar'
-                ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
-            }`}
-          >
-            <Palmtree className="h-4 w-4 stroke-[1.75] shrink-0" />
-            <span className="truncate">Declare Holidays ({holidays.length})</span>
-          </button>
+          {!isTeacher && (
+            <button
+              type="button"
+              onClick={() => setAttendanceTab('holiday_calendar')}
+              className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+                attendanceTab === 'holiday_calendar'
+                  ? 'bg-[#122A24] text-white shadow-xs font-bold'
+                  : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+              }`}
+            >
+              <Palmtree className="h-4 w-4 stroke-[1.75] shrink-0" />
+              <span className="truncate">Declare Holidays ({holidays.length})</span>
+            </button>
+          )}
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
@@ -714,6 +780,46 @@ export function DashboardAttendance({
             ───────────────────────────────────────────────────────────── */}
         {attendanceTab === 'mark_attendance' && (
           <div className="space-y-6 animate-fade-in">
+            {/* Subject Teacher Restriction Notice */}
+            {isSubjectTeacherOnly && (
+              <div className="bg-amber-50/90 border-2 border-amber-300 rounded-3xl p-8 sm:p-12 text-center space-y-4 max-w-2xl mx-auto my-6 shadow-xs">
+                <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-900 mx-auto flex items-center justify-center font-bold">
+                  <AlertCircle className="w-8 h-8 text-amber-700" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-xl text-[#122A24]">
+                    Subject Teacher Access Restriction
+                  </h3>
+                  <p className="text-xs text-amber-950 font-mono mt-1 font-bold uppercase tracking-wider">
+                    CBSE Homeroom Roll Call Policy
+                  </p>
+                </div>
+                <p className="text-xs text-slate-700 leading-relaxed max-w-lg mx-auto">
+                  You are logged in as <strong>{currentUser?.full_name || 'Faculty Member'}</strong> (Subject Teacher). In accordance with CBSE institutional regulations, <strong>daily homeroom attendance can ONLY be marked by the designated Class Teacher</strong> for their assigned class.
+                </p>
+                <div className="p-3.5 bg-white rounded-2xl border border-amber-200 text-xs font-mono text-amber-900 inline-block shadow-2xs">
+                  🔒 You are not currently assigned as a Class Teacher to any class. Contact the Principal / Administrator office if you have been designated for homeroom duties.
+                </div>
+              </div>
+            )}
+
+            {/* Class Teacher Confirmation Banner */}
+            {isTeacher && !isSubjectTeacherOnly && selectedClass && (
+              <div className="p-3.5 bg-[#EBF5EF] rounded-2xl border border-[#C5E2CF] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-mono text-[#122A24]">
+                    Assigned Homeroom: <strong>{selectedClass.class_name} - Section {selectedClass.section}</strong> • Class Teacher: <strong>{currentUser?.full_name}</strong>
+                  </span>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#122A24] text-white">
+                  AUTHORIZED CLASS TEACHER
+                </span>
+              </div>
+            )}
+
+            {!isSubjectTeacherOnly && (
+            <>
             {/* Holiday Alert Notification Banner if active date is declared holiday */}
             {activeDateHoliday && (
               <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
@@ -737,29 +843,31 @@ export function DashboardAttendance({
             {/* Top Filter Bar */}
             <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3">
-                {/* Roster Type Selector (Students vs Faculty) */}
-                <div className="flex items-center bg-white p-1 rounded-xl border border-[#DCE8E0] shadow-2xs">
-                  <button
-                    type="button"
-                    onClick={() => setAttendanceType('STUDENT')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer flex items-center gap-1.5 transition-colors ${
-                      attendanceType === 'STUDENT' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-600'
-                    }`}
-                  >
-                    <Users className="h-3.5 w-3.5" />
-                    <span>Class Students</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAttendanceType('FACULTY')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer flex items-center gap-1.5 transition-colors ${
-                      attendanceType === 'FACULTY' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-600'
-                    }`}
-                  >
-                    <GraduationCap className="h-3.5 w-3.5" />
-                    <span>Faculty Directorate</span>
-                  </button>
-                </div>
+                {/* Roster Type Selector (Students vs Faculty - HIDDEN FOR TEACHERS) */}
+                {!isTeacher && (
+                  <div className="flex items-center bg-white p-1 rounded-xl border border-[#DCE8E0] shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setAttendanceType('STUDENT')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer flex items-center gap-1.5 transition-colors ${
+                        attendanceType === 'STUDENT' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-600'
+                      }`}
+                    >
+                      <Users className="h-3.5 w-3.5" />
+                      <span>Class Students</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAttendanceType('FACULTY')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer flex items-center gap-1.5 transition-colors ${
+                        attendanceType === 'FACULTY' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-600'
+                      }`}
+                    >
+                      <GraduationCap className="h-3.5 w-3.5" />
+                      <span>Faculty Directorate</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Class Selector (Chronological) */}
                 {attendanceType === 'STUDENT' && (
@@ -770,9 +878,9 @@ export function DashboardAttendance({
                       onChange={(e) => setSelectedClassId(e.target.value)}
                       className="bg-transparent border-none text-xs font-bold text-[#122A24] focus:outline-none cursor-pointer pr-1"
                     >
-                      {sortedClasses.map(c => (
+                      {selectableClasses.map(c => (
                         <option key={c.id} value={c.id}>
-                          {c.class_name} - Section {c.section}
+                          {c.class_name} - Section {c.section} {isTeacher ? '(Assigned Class)' : ''}
                         </option>
                       ))}
                     </select>
@@ -964,6 +1072,8 @@ export function DashboardAttendance({
                 </table>
               </div>
             </div>
+            </>
+            )}
           </div>
         )}
 
@@ -972,6 +1082,31 @@ export function DashboardAttendance({
             ───────────────────────────────────────────────────────────── */}
         {attendanceTab === 'monthly_sheet' && (
           <div className="space-y-6 animate-fade-in">
+            {/* Subject Teacher Restriction Notice */}
+            {isSubjectTeacherOnly && (
+              <div className="bg-amber-50/90 border-2 border-amber-300 rounded-3xl p-8 sm:p-12 text-center space-y-4 max-w-2xl mx-auto my-6 shadow-xs">
+                <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-900 mx-auto flex items-center justify-center font-bold">
+                  <AlertCircle className="w-8 h-8 text-amber-700" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-xl text-[#122A24]">
+                    Subject Teacher Access Restriction
+                  </h3>
+                  <p className="text-xs text-amber-950 font-mono mt-1 font-bold uppercase tracking-wider">
+                    CBSE Homeroom Roll Call Policy
+                  </p>
+                </div>
+                <p className="text-xs text-slate-700 leading-relaxed max-w-lg mx-auto">
+                  You are logged in as <strong>{currentUser?.full_name || 'Faculty Member'}</strong> (Subject Teacher). In accordance with CBSE institutional regulations, <strong>monthly attendance registers are managed strictly by designated Class Teachers</strong> for their assigned homerooms.
+                </p>
+                <div className="p-3.5 bg-white rounded-2xl border border-amber-200 text-xs font-mono text-amber-900 inline-block shadow-2xs">
+                  🔒 You are not currently assigned as a Class Teacher to any class. Contact the Principal / Administrator office if you have been designated for homeroom duties.
+                </div>
+              </div>
+            )}
+
+            {!isSubjectTeacherOnly && (
+            <>
             {/* Top Sheet Controls */}
             <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3">
@@ -1016,17 +1151,26 @@ export function DashboardAttendance({
                 {/* Class & Section Selector */}
                 <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-[#DCE8E0] text-xs shadow-2xs">
                   <span className="text-[10.5px] font-mono font-bold text-slate-500 uppercase">Class:</span>
-                  <select
-                    value={sheetClassId}
-                    onChange={(e) => setSheetClassId(e.target.value)}
-                    className="bg-transparent border-none text-xs font-bold text-[#122A24] focus:outline-none cursor-pointer pr-1"
-                  >
-                    {sortedClasses.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.class_name} - Section {c.section}
-                      </option>
-                    ))}
-                  </select>
+                  {isTeacher ? (
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-[#122A24] px-1">
+                      <span>{currentSheetClass ? `${currentSheetClass.class_name} - Section ${currentSheetClass.section}` : 'No Assigned Class'}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#122A24] text-white">
+                        Homeroom
+                      </span>
+                    </div>
+                  ) : (
+                    <select
+                      value={sheetClassId}
+                      onChange={(e) => setSheetClassId(e.target.value)}
+                      className="bg-transparent border-none text-xs font-bold text-[#122A24] focus:outline-none cursor-pointer pr-1"
+                    >
+                      {sortedClasses.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.class_name} - Section {c.section}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 
@@ -1206,6 +1350,8 @@ export function DashboardAttendance({
                 </table>
               </div>
             </div>
+            </>
+            )}
           </div>
         )}
 
@@ -1512,7 +1658,8 @@ export function DashboardAttendance({
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* LEFT: DECLARE HOLIDAY FORM (5 Columns) */}
+              {/* LEFT: DECLARE HOLIDAY FORM (5 Columns - HIDDEN FOR TEACHERS) */}
+              {!isTeacher && (
               <div className="lg:col-span-5 bg-[#F8FAF9] rounded-2xl border border-[#E2ECE5] p-5 space-y-4 shadow-2xs">
                 <div className="flex items-center justify-between pb-3 border-b border-[#E2ECE5]">
                   <h4 className="font-display font-bold text-sm text-[#122A24] flex items-center gap-2">
@@ -1697,9 +1844,10 @@ export function DashboardAttendance({
                   </button>
                 </form>
               </div>
+              )}
 
-              {/* RIGHT: INSTITUTIONAL HOLIDAYS CALENDAR REGISTRY (7 Columns) */}
-              <div className="lg:col-span-7 space-y-4">
+              {/* RIGHT: INSTITUTIONAL HOLIDAYS CALENDAR REGISTRY (Full 12 cols for Teacher, 7 for Admin) */}
+              <div className={`${isTeacher ? 'lg:col-span-12' : 'lg:col-span-7'} space-y-4`}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-[#DCE8E0]">
                   <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />

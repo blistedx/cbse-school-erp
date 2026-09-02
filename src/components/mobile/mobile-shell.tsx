@@ -1,6 +1,7 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 'use client';
 
+import { apiFetch } from '@/lib/api-client';
 import React, { useState, useEffect } from 'react';
 import {
   Bell,
@@ -145,7 +146,7 @@ export default function MobileShell({
   // Fetch live broadcasts from API
   const fetchLiveBroadcasts = async () => {
     try {
-      const res = await fetch('/api/notifications/broadcasts');
+      const res = await apiFetch('/api/notifications/broadcasts');
       const data = await res.json();
       if (data.success && Array.isArray(data.broadcasts)) {
         const mappedBroadcasts: MobileNotification[] = data.broadcasts.map((bc: any) => ({
@@ -220,7 +221,7 @@ export default function MobileShell({
         return;
       }
 
-      const keyRes = await fetch('/api/notifications/vapid-key');
+      const keyRes = await apiFetch('/api/notifications/vapid-key');
       const keyData = await keyRes.json();
       const publicKey = keyData?.publicKey;
 
@@ -247,7 +248,7 @@ export default function MobileShell({
           });
         }
 
-        await fetch('/api/notifications/subscribe', {
+        await apiFetch('/api/notifications/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

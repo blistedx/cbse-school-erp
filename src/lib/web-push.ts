@@ -209,8 +209,34 @@ export async function sendWebPushNotification({
   senderRole?: string;
 }) {
   const subscriptions = await getSavedSubscriptions();
+
+  // ── Audience-Based Filtering ──────────────────────────────────────
+  // Map broadcast audience targets to the subscription roles they should reach.
+  // Subscriptions with role 'ALL' always receive every broadcast.
+  const AUDIENCE_ROLE_MAP: Record<string, string[]> = {
+    'FACULTY':     ['TEACHER', 'FACULTY', 'PRINCIPAL', 'ADMIN', 'VICE_PRINCIPAL'],
+    'TEACHERS':    ['TEACHER', 'FACULTY', 'PRINCIPAL', 'ADMIN', 'VICE_PRINCIPAL'],
+    'PARENTS':     ['PARENT'],
+    'BUS_PARENTS': ['PARENT', 'BUS_PARENT'],
+    'STUDENTS':    ['STUDENT'],
+  };
+
+  let targetSubs = subscriptions;
+  const upperAudience = (audience || 'ALL').toUpperCase();
+
+  if (upperAudience !== 'ALL') {
+    const allowedRoles = AUDIENCE_ROLE_MAP[upperAudience] || [];
+    if (allowedRoles.length > 0) {
+      targetSubs = subscriptions.filter(sub => {
+        const subRole = (sub.role || 'ALL').toUpperCase();
+        // 'ALL' role subscriptions always receive every broadcast
+        return subRole === 'ALL' || allowedRoles.includes(subRole);
+      });
+    }
+  }
+
   const results = {
-    total: subscriptions.length,
+    total: targetSubs.length,
     sent: 0,
     failed: 0,
     errors: [] as string[]
@@ -228,7 +254,7 @@ export async function sendWebPushNotification({
 
   const deadEndpoints: string[] = [];
 
-  for (const sub of subscriptions) {
+  for (const sub of targetSubs) {
     try {
       await webpush.sendNotification(
         {

@@ -6,9 +6,9 @@
       "p256dh": "BAG1KjvdSZIZldOdnIh-n_6C75bcENBwFppUmmAD31NnhAGQveiMsbR9OROv30n4e3INsEG_Dc5dWok6capOVjY",
       "auth": "Ur4I7V4TmCZ_6isoiKWceA"
     },
-    "role": "PRINCIPAL",
-    "userId": "admin",
+    "role": "STUDENT",
+    "userId": "DPS-2026-0128",
     "class_name": "ALL",
-    "createdAt": "2026-09-01T16:34:21.661Z"
+    "createdAt": "2026-09-02T10:12:05.220Z"
   }
 ]
