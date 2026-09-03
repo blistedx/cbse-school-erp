@@ -1,0 +1,12 @@
+.next
+node_modules
+.git
+.agents
+scratch
+test
+legacy_html
+*.log
+*.tsbuildinfo
+.netlify
+deploy_to_netlify.zip
+cookies.txt
