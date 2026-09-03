@@ -2953,7 +2953,7 @@ function ERPWorkspaceContent() {
             </select>
           </div>
 
-          {/* PWA Push Notification & Missed Broadcasts Control Bell */}
+          {/* Notification Bell Icon */}
           <div className="relative">
             <button
               type="button"
@@ -2961,32 +2961,28 @@ function ERPWorkspaceContent() {
                 setPushStatus(getNotificationPermissionStatus());
                 setShowBroadcastInbox(true);
               }}
-              className={`p-1.5 sm:px-2.5 sm:py-1 rounded-full border text-xs font-semibold cursor-pointer transition-all shadow-2xs flex items-center gap-1.5 ${
+              className={`relative p-2 rounded-full border text-xs font-semibold cursor-pointer transition-all shadow-2xs flex items-center justify-center ${
                 unreadBroadcastCount > 0
                   ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300 ring-2 ring-rose-400/30'
                   : pushStatus === 'granted'
                   ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
                   : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
               }`}
-              title="View School Broadcast Notices & Missed Push Alerts"
+              title="Notifications & Alerts"
+              aria-label="Notifications"
             >
-              <span className="relative flex h-2 w-2">
-                {unreadBroadcastCount > 0 ? (
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                ) : pushStatus === 'granted' ? (
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                ) : null}
-                <span className={`relative inline-flex rounded-full h-2 w-2 ${
-                  unreadBroadcastCount > 0 ? 'bg-rose-500' : pushStatus === 'granted' ? 'bg-emerald-500' : 'bg-amber-500'
-                }`}></span>
-              </span>
-              <Bell className={`h-3.5 w-3.5 ${unreadBroadcastCount > 0 ? 'text-rose-600 animate-bounce' : ''}`} />
-              <span className="hidden sm:inline text-[11px] font-mono font-bold">
-                {unreadBroadcastCount > 0 ? `${unreadBroadcastCount} Alert${unreadBroadcastCount > 1 ? 's' : ''}` : 'Broadcasts'}
-              </span>
-              {unreadBroadcastCount > 0 && (
-                <span className="px-1.5 py-0.2 bg-rose-600 text-white rounded-full text-[9px] font-bold font-mono shadow-xs">
+              <Bell className={`h-4 w-4 ${unreadBroadcastCount > 0 ? 'text-rose-600 animate-bounce' : 'text-slate-700'}`} />
+              {unreadBroadcastCount > 0 ? (
+                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 min-w-[17px] h-[17px] bg-rose-600 text-white rounded-full text-[9px] font-bold font-mono flex items-center justify-center shadow-xs">
                   {unreadBroadcastCount}
+                </span>
+              ) : pushStatus === 'granted' ? (
+                <span className="absolute top-1.5 right-1.5 flex h-1.5 w-1.5">
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                </span>
+              ) : (
+                <span className="absolute top-1.5 right-1.5 flex h-1.5 w-1.5">
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
                 </span>
               )}
             </button>

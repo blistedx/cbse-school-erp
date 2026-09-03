@@ -274,12 +274,12 @@ export default function BroadcastInboxModal({
         <div className="p-4 sm:p-5 bg-gradient-to-r from-[#122A24] via-[#1A3D34] to-[#122A24] text-white flex items-center justify-between shrink-0 shadow-md">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300 shadow-inner">
-              <Radio className="w-5 h-5 animate-pulse" />
+              <Bell className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-display font-bold tracking-tight text-white flex items-center gap-1.5">
-                  School Broadcast Notices
+                  Notifications &amp; Alerts
                 </h2>
                 {unreadCount > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white font-mono text-[10.5px] font-bold shadow-xs animate-pulse">
@@ -288,7 +288,7 @@ export default function BroadcastInboxModal({
                 )}
               </div>
               <p className="text-[11px] text-emerald-200/80 font-mono">
-                Real-time &amp; archived circulars for {normalizedRole === 'ALL' ? 'All Roles' : normalizedRole}
+                Recent updates, notices &amp; missed push alerts for {normalizedRole === 'ALL' ? 'All Roles' : normalizedRole}
               </p>
             </div>
           </div>
