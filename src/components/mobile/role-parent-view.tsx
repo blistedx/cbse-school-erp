@@ -24,8 +24,12 @@ import {
   ShieldCheck,
   TrendingUp,
   User,
-  X
+  X,
+  Radio,
+  Bell,
+  AlertTriangle
 } from 'lucide-react';
+import BroadcastInboxModal from '@/components/broadcast-inbox-modal';
 
 export interface RoleParentViewProps {
   activeTab: string;
@@ -52,6 +56,32 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
 
   // Fee Receipt Preview Modal
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [recentBroadcasts, setRecentBroadcasts] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchRecent = async () => {
+      try {
+        const res = await fetch('/api/notifications/broadcasts');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.broadcasts)) {
+          const parentBc = data.broadcasts.filter((b: any) => {
+            const aud = (b.audience || 'ALL').toUpperCase();
+            return aud === 'ALL' || aud === 'PARENTS' || aud === 'BUS_PARENTS';
+          });
+          setRecentBroadcasts(parentBc);
+        }
+      } catch (_) {}
+    };
+    fetchRecent();
+    const interval = setInterval(fetchRecent, 20000);
+    const onLivePush = () => fetchRecent();
+    window.addEventListener('giterp_broadcast', onLivePush);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('giterp_broadcast', onLivePush);
+    };
+  }, []);
 
   const studentData = {
     aarav: {
@@ -199,6 +229,46 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
           ───────────────────────────────────────────────────────────── */}
       {activeTab === 'home' && (
         <div className="space-y-4 animate-fade-in">
+          {/* Latest School Broadcast Alert Card for Parents */}
+          {recentBroadcasts.length > 0 && (
+            <div className={`p-4 rounded-2xl border shadow-sm transition-all ${
+              recentBroadcasts[0].urgent
+                ? 'bg-rose-50/90 border-rose-300 ring-2 ring-rose-400/20'
+                : 'bg-amber-50/90 border-amber-300'
+            }`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono text-[9px] font-bold uppercase tracking-wider ${
+                  recentBroadcasts[0].urgent ? 'bg-rose-600 text-white' : 'bg-amber-600 text-white'
+                }`}>
+                  {recentBroadcasts[0].urgent ? <AlertTriangle className="w-2.5 h-2.5" /> : <Radio className="w-2.5 h-2.5" />}
+                  {recentBroadcasts[0].urgent ? '🚨 Urgent School Alert' : '📢 Official Circular'}
+                </span>
+                <span className="text-[10px] font-mono text-neutral-500">
+                  {recentBroadcasts[0].timestamp || 'Recent'}
+                </span>
+              </div>
+              <h4 className="text-xs font-bold text-neutral-900 mt-2 line-clamp-1">
+                {recentBroadcasts[0].title}
+              </h4>
+              <p className="text-xs text-neutral-700 mt-1 line-clamp-2 leading-relaxed">
+                {recentBroadcasts[0].body}
+              </p>
+              <div className="mt-3 flex items-center justify-between pt-2 border-t border-neutral-200/60 text-xs">
+                <span className="text-[10.5px] text-neutral-500 font-mono">
+                  {recentBroadcasts.length} broadcast notice{recentBroadcasts.length > 1 ? 's' : ''}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowBroadcastModal(true)}
+                  className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 text-white text-[11px] font-bold rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer border-none"
+                >
+                  <Bell className="w-3 h-3 text-amber-300" />
+                  <span>View All Alerts →</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Live Bus Alert Banner */}
           <div
             onClick={() => setActiveTab('bus')}
@@ -1051,6 +1121,14 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
           </div>
         </div>
       )}
+
+      {/* Broadcast Inbox Modal for Parents */}
+      <BroadcastInboxModal
+        isOpen={showBroadcastModal}
+        onClose={() => setShowBroadcastModal(false)}
+        userRole="PARENT"
+        userName="Parent"
+      />
     </div>
   );
 }

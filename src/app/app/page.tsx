@@ -161,6 +161,7 @@ const DashboardVisitorGate = dynamic(
   { ssr: false }
 );
 import { sendTestNotification, getNotificationPermissionStatus } from '@/lib/push-notifications';
+import BroadcastInboxModal, { getReadBroadcastIds } from '@/components/broadcast-inbox-modal';
 
 const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code: string; highlight: string }> = {
   overview: {
@@ -552,6 +553,51 @@ function ERPWorkspaceContent() {
     };
   }, [currentUser, previewRole, effectiveRole, rolePermissions]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showBroadcastInbox, setShowBroadcastInbox] = useState(false);
+  const [unreadBroadcastCount, setUnreadBroadcastCount] = useState(0);
+
+  const checkUnreadBroadcasts = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/notifications/broadcasts');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.broadcasts)) {
+        const readIds = getReadBroadcastIds();
+        const role = (previewRole || currentUser?.role || 'ALL').toUpperCase();
+        const isFullAdmin = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(role);
+        const count = data.broadcasts.filter((b: any) => {
+          if (readIds.has(b.id)) return false;
+          if (isFullAdmin) return true;
+          const aud = (b.audience || 'ALL').toUpperCase();
+          if (role === 'TEACHER' || role === 'FACULTY') {
+            return aud === 'ALL' || aud === 'FACULTY' || aud === 'TEACHERS';
+          }
+          if (role === 'PARENT') {
+            return aud === 'ALL' || aud === 'PARENTS' || aud === 'BUS_PARENTS';
+          }
+          if (role === 'STUDENT') {
+            return aud === 'ALL' || aud === 'STUDENTS';
+          }
+          if (role === 'DRIVER') {
+            return aud === 'ALL' || aud === 'TRANSPORT' || aud === 'BUS_PARENTS';
+          }
+          return true;
+        }).length;
+        setUnreadBroadcastCount(count);
+      }
+    } catch (_) {}
+  }, [previewRole, currentUser]);
+
+  useEffect(() => {
+    checkUnreadBroadcasts();
+    const timer = setInterval(checkUnreadBroadcasts, 25000);
+    const onLivePush = () => checkUnreadBroadcasts();
+    window.addEventListener('giterp_broadcast', onLivePush);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('giterp_broadcast', onLivePush);
+    };
+  }, [checkUnreadBroadcasts]);
+
   const [actionSuccessMsg, setActionSuccessMsg] = useState('');
   const showToast = (msg: string) => {
     setActionSuccessMsg(msg);
@@ -2907,69 +2953,43 @@ function ERPWorkspaceContent() {
             </select>
           </div>
 
-          {/* PWA Push Notification Control Bell */}
+          {/* PWA Push Notification & Missed Broadcasts Control Bell */}
           <div className="relative">
             <button
               type="button"
               onClick={() => {
                 setPushStatus(getNotificationPermissionStatus());
-                setShowNotificationMenu(!showNotificationMenu);
+                setShowBroadcastInbox(true);
               }}
               className={`p-1.5 sm:px-2.5 sm:py-1 rounded-full border text-xs font-semibold cursor-pointer transition-all shadow-2xs flex items-center gap-1.5 ${
-                pushStatus === 'granted'
+                unreadBroadcastCount > 0
+                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300 ring-2 ring-rose-400/30'
+                  : pushStatus === 'granted'
                   ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
                   : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
               }`}
-              title="PWA Push Notifications Control Center"
+              title="View School Broadcast Notices & Missed Push Alerts"
             >
               <span className="relative flex h-2 w-2">
-                {pushStatus === 'granted' && (
+                {unreadBroadcastCount > 0 ? (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                ) : pushStatus === 'granted' ? (
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                )}
-                <span className={`relative inline-flex rounded-full h-2 w-2 ${pushStatus === 'granted' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                ) : null}
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                  unreadBroadcastCount > 0 ? 'bg-rose-500' : pushStatus === 'granted' ? 'bg-emerald-500' : 'bg-amber-500'
+                }`}></span>
               </span>
-              <Bell className="h-3.5 w-3.5" />
+              <Bell className={`h-3.5 w-3.5 ${unreadBroadcastCount > 0 ? 'text-rose-600 animate-bounce' : ''}`} />
               <span className="hidden sm:inline text-[11px] font-mono font-bold">
-                {pushStatus === 'granted' ? 'Alerts ON' : 'Enable Alerts'}
+                {unreadBroadcastCount > 0 ? `${unreadBroadcastCount} Alert${unreadBroadcastCount > 1 ? 's' : ''}` : 'Broadcasts'}
               </span>
+              {unreadBroadcastCount > 0 && (
+                <span className="px-1.5 py-0.2 bg-rose-600 text-white rounded-full text-[9px] font-bold font-mono shadow-xs">
+                  {unreadBroadcastCount}
+                </span>
+              )}
             </button>
-
-            {showNotificationMenu && (
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl border border-slate-200 shadow-xl p-4 z-50 space-y-3 animate-fade-in text-xs">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                  <span className="font-bold text-[#122A24] flex items-center gap-1.5">
-                    <Bell className="w-3.5 h-3.5 text-emerald-600" />
-                    PWA Push Notifications
-                  </span>
-                  <button
-                    onClick={() => setShowNotificationMenu(false)}
-                    className="text-slate-400 hover:text-slate-600 p-0.5 border-none bg-transparent cursor-pointer"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11.5px] leading-relaxed">
-                  Status:{' '}
-                  <strong className={pushStatus === 'granted' ? 'text-emerald-700' : 'text-amber-700'}>
-                    {pushStatus === 'granted' ? '✅ Active on this device' : '⚠️ Permission Required'}
-                  </strong>
-                  <div className="text-[10px] text-slate-500 mt-1">
-                    Delivers real-time student attendance, exam alerts, fees dues, and emergency sirens with sound chime.
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleTestPushAlert}
-                  disabled={testingPush}
-                  className="w-full py-2 px-3 bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition-colors border-none cursor-pointer disabled:opacity-50"
-                >
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{testingPush ? 'Dispatching Test...' : '🔔 Send Test Push Notification'}</span>
-                </button>
-              </div>
-            )}
           </div>
 
           {/* User Profile Avatar / Chip */}
@@ -3417,6 +3437,26 @@ function ERPWorkspaceContent() {
               </button>
             )}
 
+            {/* Broadcast Notices / Missed Alerts Inbox for All Roles */}
+            <button
+              type="button"
+              onClick={() => { setShowBroadcastInbox(true); setMobileMenuOpen(false); }}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left bg-transparent text-slate-200 hover:text-white hover:bg-white/10 group"
+            >
+              <span className="flex items-center gap-3">
+                <Radio className="h-4 w-4 shrink-0 text-amber-300 group-hover:animate-pulse" /> Broadcast Notices
+              </span>
+              {unreadBroadcastCount > 0 ? (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-rose-500 text-white animate-pulse">
+                  {unreadBroadcastCount} new
+                </span>
+              ) : (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-white/15 text-slate-300">
+                  Inbox
+                </span>
+              )}
+            </button>
+
 
 
             <div className="my-2 border-t border-white/15" />
@@ -3853,6 +3893,26 @@ function ERPWorkspaceContent() {
               </span>
             </button>
           )}
+
+          {/* School Broadcast Alerts / Missed Notices Inbox (Available to All Roles) */}
+          <button
+            type="button"
+            onClick={() => setShowBroadcastInbox(true)}
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left bg-transparent text-slate-200 hover:text-white hover:bg-white/10 group"
+          >
+            <span className="flex items-center gap-3">
+              <Radio className="h-4 w-4 shrink-0 text-amber-300 group-hover:animate-pulse" /> Broadcast Notices
+            </span>
+            {unreadBroadcastCount > 0 ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-rose-500 text-white animate-pulse">
+                {unreadBroadcastCount} new
+              </span>
+            ) : (
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-white/15 text-slate-300">
+                Inbox
+              </span>
+            )}
+          </button>
 
           <div className="my-3 border-t border-white/10" />
 
@@ -11126,6 +11186,17 @@ function ERPWorkspaceContent() {
           </div>
         </div>
       )}
+
+      {/* School Broadcast Notices & Missed Push Alerts Inbox Modal */}
+      <BroadcastInboxModal
+        isOpen={showBroadcastInbox}
+        onClose={() => {
+          setShowBroadcastInbox(false);
+          checkUnreadBroadcasts();
+        }}
+        userRole={effectiveRole}
+        userName={currentUser?.full_name || currentUser?.username}
+      />
     </div>
   );
 }

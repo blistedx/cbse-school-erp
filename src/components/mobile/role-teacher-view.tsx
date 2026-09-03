@@ -22,8 +22,12 @@ import {
   Filter,
   Search,
   Upload,
-  X
+  X,
+  Radio,
+  Bell,
+  AlertTriangle
 } from 'lucide-react';
+import BroadcastInboxModal from '@/components/broadcast-inbox-modal';
 
 export interface RoleTeacherViewProps {
   activeTab: string;
@@ -91,6 +95,32 @@ export default function RoleTeacherView({ activeTab, setActiveTab }: RoleTeacher
   const [leaveReason, setLeaveReason] = useState('Casual Leave - Personal Work');
   const [substituteTeacher, setSubstituteTeacher] = useState('Mr. Vikram Singh (Social Science)');
   const [leaveSubmitted, setLeaveSubmitted] = useState(false);
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [recentBroadcasts, setRecentBroadcasts] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchRecent = async () => {
+      try {
+        const res = await fetch('/api/notifications/broadcasts');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.broadcasts)) {
+          const facultyBc = data.broadcasts.filter((b: any) => {
+            const aud = (b.audience || 'ALL').toUpperCase();
+            return aud === 'ALL' || aud === 'FACULTY' || aud === 'TEACHERS';
+          });
+          setRecentBroadcasts(facultyBc);
+        }
+      } catch (_) {}
+    };
+    fetchRecent();
+    const interval = setInterval(fetchRecent, 20000);
+    const onLivePush = () => fetchRecent();
+    window.addEventListener('giterp_broadcast', onLivePush);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('giterp_broadcast', onLivePush);
+    };
+  }, []);
 
   const presentCount = studentsAttendance.filter((s) => s.status === 'P').length;
   const absentCount = studentsAttendance.filter((s) => s.status === 'A').length;
@@ -150,6 +180,46 @@ export default function RoleTeacherView({ activeTab, setActiveTab }: RoleTeacher
           ───────────────────────────────────────────────────────────── */}
       {activeTab === 'home' && (
         <div className="space-y-4 animate-fade-in">
+          {/* Latest School Broadcast Alert Card */}
+          {recentBroadcasts.length > 0 && (
+            <div className={`p-4 rounded-2xl border shadow-sm transition-all ${
+              recentBroadcasts[0].urgent
+                ? 'bg-rose-50/90 border-rose-300 ring-2 ring-rose-400/20'
+                : 'bg-amber-50/90 border-amber-300'
+            }`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-mono text-[9px] font-bold uppercase tracking-wider ${
+                  recentBroadcasts[0].urgent ? 'bg-rose-600 text-white' : 'bg-amber-600 text-white'
+                }`}>
+                  {recentBroadcasts[0].urgent ? <AlertTriangle className="w-2.5 h-2.5" /> : <Radio className="w-2.5 h-2.5" />}
+                  {recentBroadcasts[0].urgent ? '🚨 Urgent Broadcast' : '📢 Faculty Notice'}
+                </span>
+                <span className="text-[10px] font-mono text-neutral-500">
+                  {recentBroadcasts[0].timestamp || 'Recent'}
+                </span>
+              </div>
+              <h4 className="text-xs font-bold text-neutral-900 mt-2 line-clamp-1">
+                {recentBroadcasts[0].title}
+              </h4>
+              <p className="text-xs text-neutral-700 mt-1 line-clamp-2 leading-relaxed">
+                {recentBroadcasts[0].body}
+              </p>
+              <div className="mt-3 flex items-center justify-between pt-2 border-t border-neutral-200/60 text-xs">
+                <span className="text-[10.5px] text-neutral-500 font-mono">
+                  {recentBroadcasts.length} notice{recentBroadcasts.length > 1 ? 's' : ''} in repository
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowBroadcastModal(true)}
+                  className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 text-white text-[11px] font-bold rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer border-none"
+                >
+                  <Bell className="w-3 h-3 text-amber-300" />
+                  <span>View All Notices →</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Quick Roll Call Call-to-Action Banner */}
           <div className="p-4 bg-white rounded-2xl border border-neutral-200 shadow-sm flex items-center justify-between">
             <div>
@@ -607,6 +677,14 @@ export default function RoleTeacherView({ activeTab, setActiveTab }: RoleTeacher
           </div>
         </div>
       )}
+
+      {/* Broadcast Inbox Modal for Teachers */}
+      <BroadcastInboxModal
+        isOpen={showBroadcastModal}
+        onClose={() => setShowBroadcastModal(false)}
+        userRole="TEACHER"
+        userName="Faculty Staff"
+      />
     </div>
   );
 }

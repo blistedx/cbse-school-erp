@@ -53,7 +53,7 @@ export interface MobileNotification {
   time: string;
   read: boolean;
   type: 'fee' | 'attendance' | 'bus' | 'homework' | 'broadcast' | 'urgent';
-  roleTag: UserRole;
+  roleTag: UserRole | 'ALL';
 }
 
 export default function MobileShell({
@@ -156,7 +156,15 @@ export default function MobileShell({
           time: bc.timestamp || 'Recent',
           read: false,
           type: 'broadcast',
-          roleTag: (bc.audience === 'TEACHERS' ? 'TEACHER' : bc.audience === 'TRANSPORT' ? 'DRIVER' : 'PARENT') as UserRole
+          roleTag: (
+            bc.audience === 'FACULTY' || bc.audience === 'TEACHERS'
+              ? 'TEACHER'
+              : bc.audience === 'TRANSPORT' || bc.audience === 'DRIVER'
+              ? 'DRIVER'
+              : bc.audience === 'PARENTS'
+              ? 'PARENT'
+              : 'ALL'
+          )
         }));
 
         setNotifications((prev) => {
@@ -184,7 +192,15 @@ export default function MobileShell({
           time: 'Just now',
           read: false,
           type: 'broadcast',
-          roleTag: (bcData.audience === 'TEACHERS' ? 'TEACHER' : 'PARENT') as UserRole
+          roleTag: (
+            bcData.audience === 'FACULTY' || bcData.audience === 'TEACHERS'
+              ? 'TEACHER'
+              : bcData.audience === 'TRANSPORT' || bcData.audience === 'DRIVER'
+              ? 'DRIVER'
+              : bcData.audience === 'PARENTS'
+              ? 'PARENT'
+              : 'ALL'
+          )
         };
         setNotifications((prev) => [incoming, ...prev]);
       }
@@ -274,7 +290,7 @@ export default function MobileShell({
     }
   };
 
-  const unreadCount = notifications.filter(n => !n.read && (n.roleTag === activeRole || n.type === 'broadcast')).length;
+  const unreadCount = notifications.filter(n => !n.read && (n.roleTag === activeRole || n.roleTag === 'ALL' || n.type === 'broadcast')).length;
 
   const markAllRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
