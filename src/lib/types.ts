@@ -126,6 +126,7 @@ export interface Student {
   state?: string;
   pincode?: string;
   transport_opted?: 'YES' | 'NO';
+  transport_slab_id?: string;
   bus_route_no?: string;
   pickup_point?: string;
 
@@ -300,6 +301,7 @@ export interface FeeInvoice {
   paid_amount?: number;
   tuition_fee?: number;
   transport_fee?: number;
+  admission_fee?: number;
   annual_fee?: number;
   exam_fee?: number;
   concession_amount?: number;

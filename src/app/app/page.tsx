@@ -73,12 +73,15 @@ import {
   HeartHandshake,
   Sliders,
   Lock,
-  Zap
+  Zap,
+  Calculator,
+  Receipt
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS, ManagedRole } from '@/lib/types';
 import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
 import { apiFetch } from '@/lib/api-client';
+import { calculateRegistrationFees, DEFAULT_TRANSPORT_FEES } from '@/lib/fee-calculator';
 
 const DashboardOverview = dynamic(
   () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
@@ -852,7 +855,9 @@ function ERPWorkspaceContent() {
     city: '',
     state: '',
     pincode: '',
+    admission_type: 'NEW',
     transport_opted: 'NO',
+    transport_slab_id: '1',
     bus_route_no: '',
     pickup_point: '',
     emergency_contact_name: '',
@@ -860,6 +865,28 @@ function ERPWorkspaceContent() {
     medical_conditions: ''
   };
   const [studentForm, setStudentForm] = useState<Partial<Student>>(initialStudentForm);
+  const [collectFeeNow, setCollectFeeNow] = useState(false);
+  const [initialFeePaymentMode, setInitialFeePaymentMode] = useState<'CASH' | 'UPI' | 'ONLINE' | 'CHEQUE'>('CASH');
+
+  // Real-time automatic fee computation for registration form
+  const registrationFeeBreakdown = useMemo(() => {
+    return calculateRegistrationFees({
+      className: studentForm.class_name || 'Class 10',
+      admissionType: studentForm.admission_type || 'NEW',
+      admissionDate: studentForm.admission_date || new Date().toISOString().split('T')[0],
+      academicSession: studentForm.academic_session || selectedSession,
+      transportOpted: studentForm.transport_opted || 'NO',
+      transportSlabId: studentForm.transport_slab_id || '1',
+    });
+  }, [
+    studentForm.class_name,
+    studentForm.admission_type,
+    studentForm.admission_date,
+    studentForm.academic_session,
+    studentForm.transport_opted,
+    studentForm.transport_slab_id,
+    selectedSession
+  ]);
 
   // CBSE Standard Options Constants
   const STANDARD_DESIGNATIONS = [
@@ -1461,9 +1488,10 @@ function ERPWorkspaceContent() {
       const isEditing = !!editingStudentId;
       const url = '/api/students';
       const method = isEditing ? 'PATCH' : 'POST';
+      const finalFeeStatus = (!isEditing && collectFeeNow) ? 'PAID' : (studentForm.fee_status || 'PENDING');
       const payload = isEditing
         ? { id: editingStudentId, school_id: selectedSchool.id, academic_session: studentForm.academic_session || selectedSession, ...studentForm }
-        : { school_id: selectedSchool.id, academic_session: studentForm.academic_session || selectedSession, ...studentForm };
+        : { school_id: selectedSchool.id, academic_session: studentForm.academic_session || selectedSession, ...studentForm, fee_status: finalFeeStatus };
 
       const res = await apiFetch(url, {
         method,
@@ -1472,9 +1500,48 @@ function ERPWorkspaceContent() {
       });
       const data = await res.json();
       if (data.success) {
+        // Automatically create initial admission fee invoice on new registration
+        if (!isEditing && data.student) {
+          try {
+            const invPayload = {
+              school_id: selectedSchool.id,
+              academic_session: studentForm.academic_session || selectedSession,
+              invoice_no: `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
+              student_id: data.student.id,
+              student_name: data.student.full_name,
+              admission_no: data.student.admission_no,
+              class_name: data.student.class_name,
+              month: registrationFeeBreakdown.periodLabel,
+              amount: registrationFeeBreakdown.totalPayable,
+              paid_amount: collectFeeNow ? registrationFeeBreakdown.totalPayable : 0,
+              tuition_fee: registrationFeeBreakdown.tuitionFeeTotal,
+              transport_fee: registrationFeeBreakdown.transportFeeTotal,
+              admission_fee: registrationFeeBreakdown.admissionFee,
+              annual_fee: registrationFeeBreakdown.annualFee,
+              status: collectFeeNow ? 'PAID' : 'PENDING',
+              payment_mode: collectFeeNow ? initialFeePaymentMode : 'Pending Settlement',
+              paid_date: collectFeeNow ? new Date().toISOString().split('T')[0] : undefined,
+              due_date: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0]
+            };
+            await apiFetch('/api/fees', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(invPayload)
+            });
+          } catch (invErr) {
+            console.error('Initial fee invoice generation error:', invErr);
+          }
+        }
+
         setShowStudentModal(false);
         setEditingStudentId(null);
         setStudentForm(initialStudentForm);
+        setCollectFeeNow(false);
+        showAdminToast(
+          isEditing
+            ? 'Student profile updated!'
+            : `Student "${data.student?.full_name || studentForm.full_name}" registered with fee schedule of ₹${registrationFeeBreakdown.totalPayable.toLocaleString('en-IN')} (${collectFeeNow ? 'PAID' : 'PENDING'})!`
+        );
         loadSchoolData(selectedSchool.id);
       }
     } catch (e) {
@@ -1490,13 +1557,19 @@ function ERPWorkspaceContent() {
         ...studentToEdit,
         passcode: studentToEdit.passcode || '123456'
       });
+      setCollectFeeNow(false);
     } else {
       setEditingStudentId(null);
       setStudentForm({
         ...initialStudentForm,
         admission_no: `ADM-${Date.now().toString().slice(-4)}`,
+        admission_date: new Date().toISOString().split('T')[0],
+        admission_type: 'NEW',
+        transport_opted: 'NO',
+        transport_slab_id: '1',
         passcode: '123456'
       });
+      setCollectFeeNow(false);
     }
     setStudentModalTab('basic');
     setShowStudentModal(true);
@@ -8133,7 +8206,7 @@ function ERPWorkspaceContent() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
                   <div>
                     <label className="block font-semibold text-[var(--ink-navy)] mb-1">Class Enrolled *</label>
                     <select
@@ -8195,18 +8268,40 @@ function ERPWorkspaceContent() {
                     </select>
                   </div>
                   <div>
-                    <label className="block font-semibold text-[var(--ink-navy)] mb-1">Roll No</label>
+                    <label className="block font-semibold text-[var(--ink-navy)] mb-1">Admission Type *</label>
+                    <select
+                      required
+                      value={studentForm.admission_type || 'NEW'}
+                      onChange={(e) => setStudentForm({ ...studentForm, admission_type: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-semibold text-emerald-900"
+                    >
+                      <option value="NEW">New Admission (Admission + Annual + Tuition)</option>
+                      <option value="OLD">Old / Existing Student (Annual + Tuition)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-[var(--ink-navy)] mb-1">Date of Admission *</label>
                     <input
-                      type="text"
-                      value={studentForm.roll_no || ''}
-                      onChange={(e) => setStudentForm({ ...studentForm, roll_no: e.target.value })}
-                      placeholder="101"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white"
+                      type="date"
+                      required
+                      value={studentForm.admission_date || ''}
+                      onChange={(e) => setStudentForm({ ...studentForm, admission_date: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white font-medium"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div>
+                    <label className="block font-semibold text-[var(--ink-navy)] mb-1">Roll No (Optional)</label>
+                    <input
+                      type="text"
+                      value={studentForm.roll_no || ''}
+                      onChange={(e) => setStudentForm({ ...studentForm, roll_no: e.target.value })}
+                      placeholder="e.g. 101"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white"
+                    />
+                  </div>
                   <div>
                     <label className="block font-semibold text-[var(--ink-navy)] mb-1">Primary Guardian / Parent Name *</label>
                     <input
@@ -8573,18 +8668,36 @@ function ERPWorkspaceContent() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2 border-t border-slate-200">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5 pt-2 border-t border-slate-200">
                   <div>
                     <label className="block font-semibold text-[var(--ink-navy)] mb-1">Transport Required?</label>
                     <select
                       value={studentForm.transport_opted || 'NO'}
                       onChange={(e) => setStudentForm({ ...studentForm, transport_opted: e.target.value as any })}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-xs"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-xs font-semibold"
                     >
                       <option value="NO">No (Self Conveyance)</option>
                       <option value="YES">Yes (School Bus / Van)</option>
                     </select>
                   </div>
+
+                  {studentForm.transport_opted === 'YES' && (
+                    <div>
+                      <label className="block font-semibold text-[var(--ink-navy)] mb-1">Distance Slab (Monthly Rate)</label>
+                      <select
+                        value={studentForm.transport_slab_id || '1'}
+                        onChange={(e) => setStudentForm({ ...studentForm, transport_slab_id: e.target.value })}
+                        className="w-full px-3 py-2 border border-emerald-300 rounded-lg bg-emerald-50/50 text-xs font-medium text-emerald-950"
+                      >
+                        {DEFAULT_TRANSPORT_FEES.map((slab) => (
+                          <option key={slab.id} value={slab.id}>
+                            {slab.slab} — ₹{slab.monthlyFee}/month
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block font-semibold text-[var(--ink-navy)] mb-1">Bus Route No</label>
                     <input
@@ -8606,6 +8719,210 @@ function ERPWorkspaceContent() {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* SECTION 6: AUTO-CALCULATED INSTITUTIONAL FEE SCHEDULE & DUES BREAKDOWN */}
+              <div className="p-4 sm:p-5 bg-gradient-to-br from-emerald-50/80 via-teal-50/40 to-slate-50 rounded-2xl border-2 border-emerald-300/80 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-emerald-200/80">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-6 h-6 rounded-full bg-emerald-700 text-white font-mono font-bold text-xs flex items-center justify-center shadow-xs">
+                      6
+                    </span>
+                    <div>
+                      <h3 className="font-display font-bold text-sm sm:text-base text-[#122A24] flex items-center gap-2">
+                        <Calculator className="w-4 h-4 text-emerald-700" />
+                        Auto-Calculated Admission Fee &amp; Dues Schedule
+                      </h3>
+                      <p className="text-[11px] text-emerald-800/90 font-mono">
+                        Charges applied automatically as per CBSE Institutional Fee Master (Session {selectedSession || '2026-27'})
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="self-start sm:self-auto px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 font-mono text-[10.5px] font-bold">
+                    {registrationFeeBreakdown.admissionType === 'NEW' ? 'New Admission' : 'Old / Existing Student'}
+                  </span>
+                </div>
+
+                {/* Calculation Summary Key Metrics */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                  <div className="p-3 bg-white/90 rounded-xl border border-emerald-200/70 shadow-2xs">
+                    <span className="text-[10.5px] text-slate-500 block">Class Rate</span>
+                    <strong className="text-sm text-slate-800 font-display">
+                      ₹{registrationFeeBreakdown.monthlyTuitionRate.toLocaleString('en-IN')}/mo
+                    </strong>
+                    <span className="text-[10px] text-slate-400 block font-mono mt-0.5">{registrationFeeBreakdown.className}</span>
+                  </div>
+
+                  <div className="p-3 bg-white/90 rounded-xl border border-emerald-200/70 shadow-2xs">
+                    <span className="text-[10.5px] text-slate-500 block">Billing Period</span>
+                    <strong className="text-sm text-emerald-900 font-display">
+                      {registrationFeeBreakdown.monthCount} {registrationFeeBreakdown.monthCount === 1 ? 'Month' : 'Months'}
+                    </strong>
+                    <span className="text-[10px] text-emerald-700 block font-mono mt-0.5 truncate" title={registrationFeeBreakdown.periodLabel}>
+                      {registrationFeeBreakdown.periodLabel}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-white/90 rounded-xl border border-emerald-200/70 shadow-2xs">
+                    <span className="text-[10.5px] text-slate-500 block">Transport Facility</span>
+                    <strong className="text-sm text-slate-800 font-display">
+                      {registrationFeeBreakdown.isTransportOpted ? `₹${registrationFeeBreakdown.monthlyTransportRate}/mo` : 'Self'}
+                    </strong>
+                    <span className="text-[10px] text-slate-400 block font-mono mt-0.5">
+                      {registrationFeeBreakdown.isTransportOpted ? registrationFeeBreakdown.selectedTransportSlab?.slab : 'Not opted'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-emerald-700 text-white rounded-xl shadow-2xs">
+                    <span className="text-[10.5px] text-emerald-200 block">Total Initial Payable</span>
+                    <strong className="text-base font-bold font-mono block mt-0.5">
+                      ₹{registrationFeeBreakdown.totalPayable.toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Itemized Line Items Table */}
+                <div className="bg-white rounded-xl border border-emerald-200/80 overflow-hidden shadow-2xs">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-[11px]">
+                        <th className="p-2.5 pl-3.5">Fee Head</th>
+                        <th className="p-2.5">Schedule / Basis</th>
+                        <th className="p-2.5 pr-3.5 text-right">Amount (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-[11.5px]">
+                      {registrationFeeBreakdown.admissionType === 'NEW' ? (
+                        <tr>
+                          <td className="p-2.5 pl-3.5 font-medium text-slate-900">
+                            Admission Fee (One-Time)
+                          </td>
+                          <td className="p-2.5 text-slate-500 font-mono text-[11px]">
+                            New student enrollment registration
+                          </td>
+                          <td className="p-2.5 pr-3.5 text-right font-mono font-bold text-slate-900">
+                            ₹{registrationFeeBreakdown.admissionFee.toLocaleString('en-IN')}
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr className="bg-slate-50/50">
+                          <td className="p-2.5 pl-3.5 font-medium text-slate-500">
+                            Admission Fee (One-Time)
+                          </td>
+                          <td className="p-2.5 text-slate-400 font-mono text-[11px]">
+                            Waived (Old / Existing Student Readmission)
+                          </td>
+                          <td className="p-2.5 pr-3.5 text-right font-mono font-bold text-emerald-700">
+                            ₹0
+                          </td>
+                        </tr>
+                      )}
+
+                      <tr>
+                        <td className="p-2.5 pl-3.5 font-medium text-slate-900">
+                          Annual Charges (Institutional Maintenance)
+                        </td>
+                        <td className="p-2.5 text-slate-500 font-mono text-[11px]">
+                          Annual session fee ({registrationFeeBreakdown.className.includes('11') || registrationFeeBreakdown.className.includes('12') || registrationFeeBreakdown.className.includes('9') || registrationFeeBreakdown.className.includes('10') ? 'Classes IX to XII' : 'Classes PG to VIII'})
+                        </td>
+                        <td className="p-2.5 pr-3.5 text-right font-mono font-bold text-slate-900">
+                          ₹{registrationFeeBreakdown.annualFee.toLocaleString('en-IN')}
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td className="p-2.5 pl-3.5 font-medium text-slate-900">
+                          Tuition Fee ({registrationFeeBreakdown.monthCount} {registrationFeeBreakdown.monthCount === 1 ? 'Month' : 'Months'} from April)
+                        </td>
+                        <td className="p-2.5 text-slate-500 font-mono text-[11px]">
+                          {registrationFeeBreakdown.monthCount} × ₹{registrationFeeBreakdown.monthlyTuitionRate.toLocaleString('en-IN')} ({registrationFeeBreakdown.periodLabel})
+                        </td>
+                        <td className="p-2.5 pr-3.5 text-right font-mono font-bold text-slate-900">
+                          ₹{registrationFeeBreakdown.tuitionFeeTotal.toLocaleString('en-IN')}
+                        </td>
+                      </tr>
+
+                      {registrationFeeBreakdown.isTransportOpted ? (
+                        <tr>
+                          <td className="p-2.5 pl-3.5 font-medium text-slate-900">
+                            School Transport / Bus Fee ({registrationFeeBreakdown.monthCount} {registrationFeeBreakdown.monthCount === 1 ? 'Month' : 'Months'})
+                          </td>
+                          <td className="p-2.5 text-slate-500 font-mono text-[11px]">
+                            {registrationFeeBreakdown.selectedTransportSlab?.slab} • {registrationFeeBreakdown.monthCount} × ₹{registrationFeeBreakdown.monthlyTransportRate.toLocaleString('en-IN')}
+                          </td>
+                          <td className="p-2.5 pr-3.5 text-right font-mono font-bold text-slate-900">
+                            ₹{registrationFeeBreakdown.transportFeeTotal.toLocaleString('en-IN')}
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr className="bg-slate-50/50">
+                          <td className="p-2.5 pl-3.5 font-medium text-slate-400">
+                            School Transport / Bus Fee
+                          </td>
+                          <td className="p-2.5 text-slate-400 font-mono text-[11px]">
+                            Self conveyance opted
+                          </td>
+                          <td className="p-2.5 pr-3.5 text-right font-mono text-slate-400">
+                            ₹0
+                          </td>
+                        </tr>
+                      )}
+
+                      <tr className="bg-emerald-50/80 font-bold border-t-2 border-emerald-300">
+                        <td colSpan={2} className="p-3 pl-3.5 text-emerald-950 font-display text-xs">
+                          TOTAL INITIAL DUES PAYABLE
+                        </td>
+                        <td className="p-3 pr-3.5 text-right font-mono text-sm text-emerald-900">
+                          ₹{registrationFeeBreakdown.totalPayable.toLocaleString('en-IN')}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Instant Fee Collection Controls */}
+                {!editingStudentId && (
+                  <div className="p-3.5 rounded-xl bg-white border border-emerald-300/80 space-y-2.5">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={collectFeeNow}
+                        onChange={(e) => setCollectFeeNow(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500"
+                      />
+                      <span className="font-semibold text-xs text-[#122A24] flex items-center gap-1.5">
+                        <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+                        Collect Admission Fee Now &amp; Issue Official Receipt Immediately
+                      </span>
+                    </label>
+
+                    {collectFeeNow ? (
+                      <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-fade-in">
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-600 font-medium">Payment Mode:</span>
+                          <select
+                            value={initialFeePaymentMode}
+                            onChange={(e) => setInitialFeePaymentMode(e.target.value as any)}
+                            className="px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-slate-50 font-semibold"
+                          >
+                            <option value="CASH">Cash Deposit</option>
+                            <option value="UPI">UPI / QR Code</option>
+                            <option value="ONLINE">Net Banking / Card</option>
+                            <option value="CHEQUE">Bank Cheque</option>
+                          </select>
+                        </div>
+                        <span className="text-[11px] text-emerald-700 font-medium">
+                          ✓ Student fee status will be set to PAID and receipt generated.
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-500 font-mono">
+                        An official invoice of ₹{registrationFeeBreakdown.totalPayable.toLocaleString('en-IN')} will be generated on the student's dues ledger with status PENDING.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Bottom Sticky Action Bar */}
