@@ -1,6 +1,6 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.0 (Build 2026.09.03.111) */
-const CACHE_NAME = 'giterp-core-v8-111';
-const API_CACHE_NAME = 'giterp-api-session-v8-111';
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 (Build 2026.09.03.112) */
+const CACHE_NAME = 'giterp-core-v8-112';
+const API_CACHE_NAME = 'giterp-api-session-v8-112';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
@@ -66,7 +66,7 @@ self.addEventListener('fetch', (event) => {
   // Strategy A: API Routes (Strict Live Network First - Never serve stale cache when online!)
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
-      fetch(request, { cache: 'no-store' })
+      fetch(request)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const clone = networkResponse.clone();
@@ -97,7 +97,7 @@ self.addEventListener('fetch', (event) => {
   // Strategy B: HTML Page Navigations (Strict Live Network First - always fresh from server when online)
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request, { cache: 'no-cache' })
+      fetch(request)
         .then((response) => {
           if (response && response.status === 200) {
             const responseClone = response.clone();
@@ -111,7 +111,9 @@ self.addEventListener('fetch', (event) => {
             return cachedResponse;
           }
           const offlineFallback = await caches.match(OFFLINE_URL);
-          return offlineFallback || new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+          if (offlineFallback) return offlineFallback;
+          const rootFallback = (await caches.match('/app')) || (await caches.match('/login')) || (await caches.match('/'));
+          return rootFallback || new Response('<!DOCTYPE html><html><head><meta http-equiv="refresh" content="3"><title>Loading...</title></head><body style="background:#122A24;color:white;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><div style="text-align:center;"><h2>Reconnecting to ERP...</h2><p>Please wait a moment.</p></div></body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
         })
     );
     return;

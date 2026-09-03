@@ -410,9 +410,7 @@ export default function LoginPage() {
           </Link>
 
           <div
-            onClick={() => forcePurgeAppCache()}
-            title="Tap to refresh and clear any cached assets"
-            style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid #E2ECE5', textAlign: 'center', fontFamily: 'monospace', fontSize: '11px', color: '#52796F', cursor: 'pointer' }}
+            style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid #E2ECE5', textAlign: 'center', fontFamily: 'monospace', fontSize: '11px', color: '#52796F' }}
           >
             <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10B981', marginRight: '6px' }} />
             Build #{buildInfo.buildNumber} • {buildInfo.releaseTag}
