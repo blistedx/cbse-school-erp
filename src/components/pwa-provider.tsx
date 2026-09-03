@@ -89,62 +89,94 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
                 });
               }
             });
-            // Auto-sync Web Push subscription if permission is already granted
-            if ('PushManager' in window && 'Notification' in window && Notification.permission === 'granted') {
-              fetch('/api/notifications/vapid-key')
-                .then(res => res.json())
-                .then(async (keyData) => {
-                  if (keyData?.publicKey) {
-                    const clean = keyData.publicKey.trim();
-                    const padding = '='.repeat((4 - (clean.length % 4)) % 4);
-                    const base64 = (clean + padding).replace(/-/g, '+').replace(/_/g, '/');
-                    const rawData = window.atob(base64);
-                    const outputArray = new Uint8Array(rawData.length);
-                    for (let i = 0; i < rawData.length; ++i) {
-                      outputArray[i] = rawData.charCodeAt(i);
-                    }
+            // Auto-sync Web Push subscription on every SW startup.
+            // We ALWAYS force-unsubscribe and resubscribe so the server gets a
+            // fresh, valid endpoint. Reusing stale endpoints is the #1 reason
+            // push notifications silently fail on mobile (Chrome rotates endpoints).
+            const syncPushSubscription = async () => {
+              if (!('PushManager' in window) || !('Notification' in window)) return;
+              if (Notification.permission !== 'granted') return;
+              try {
+                const res = await fetch('/api/notifications/vapid-key');
+                const keyData = await res.json();
+                if (!keyData?.publicKey) return;
 
-                    let sub = await reg.pushManager.getSubscription();
-                    if (!sub) {
-                      sub = await reg.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: outputArray
-                      });
-                    }
+                // Convert VAPID public key from URL-safe base64 → Uint8Array
+                const clean = keyData.publicKey.trim();
+                const padding = '='.repeat((4 - (clean.length % 4)) % 4);
+                const base64 = (clean + padding).replace(/-/g, '+').replace(/_/g, '/');
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+                for (let i = 0; i < rawData.length; ++i) {
+                  outputArray[i] = rawData.charCodeAt(i);
+                }
 
-                    if (sub) {
-                      const user = localStorage.getItem('current_user');
-                      let role = 'ALL';
-                      let userId = 'device';
-                      try {
-                        if (user) {
-                          const parsed = JSON.parse(user);
-                          // Use the actual login/account role, NOT the view-mode display role.
-                          // login_role / original_role persist the authenticated identity;
-                          // parsed.role changes when admin switches "View as Student/Teacher".
-                          role = parsed.login_role || parsed.original_role || parsed.role || 'ALL';
-                          userId = parsed.username || parsed.id || 'device';
-                        }
-                      } catch (e) {}
+                // Always unsubscribe first — prevents stale/410-expired endpoints
+                // from staying on the server while the client thinks it's subscribed.
+                const existingSub = await reg.pushManager.getSubscription();
+                if (existingSub) {
+                  try { await existingSub.unsubscribe(); } catch (_) {}
+                }
 
-                      fetch('/api/notifications/subscribe', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          endpoint: sub.endpoint,
-                          keys: {
-                            p256dh: sub.toJSON().keys?.p256dh,
-                            auth: sub.toJSON().keys?.auth
-                          },
-                          role,
-                          userId
-                        })
-                      }).catch(() => {});
-                    }
+                // Get a brand-new push subscription
+                let sub: PushSubscription | null = null;
+                try {
+                  sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: outputArray
+                  });
+                } catch (subErr: any) {
+                  // DOMException on slow mobile startup — retry once after 800ms
+                  console.warn('[PWA Push] Subscribe failed, retrying in 800ms:', subErr?.message);
+                  await new Promise(r => setTimeout(r, 800));
+                  try {
+                    sub = await reg.pushManager.subscribe({
+                      userVisibleOnly: true,
+                      applicationServerKey: outputArray
+                    });
+                  } catch (retryErr) {
+                    console.warn('[PWA Push] Subscribe retry also failed:', retryErr);
+                    return;
                   }
-                })
-                .catch(() => {});
-            }
+                }
+
+                if (!sub) return;
+
+                // Resolve the authenticated user's role — use login_role / original_role
+                // to avoid picking up a transient view-mode role (e.g. "View as Student").
+                const user = localStorage.getItem('current_user');
+                let role = 'ALL';
+                let userId = 'device';
+                try {
+                  if (user) {
+                    const parsed = JSON.parse(user);
+                    role = parsed.login_role || parsed.original_role || parsed.role || 'ALL';
+                    userId = parsed.username || parsed.id || 'device';
+                  }
+                } catch (_) {}
+
+                // POST fresh subscription to server (upsert by endpoint is idempotent)
+                await fetch('/api/notifications/subscribe', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    endpoint: sub.endpoint,
+                    keys: {
+                      p256dh: sub.toJSON().keys?.p256dh,
+                      auth: sub.toJSON().keys?.auth
+                    },
+                    role,
+                    userId
+                  })
+                }).catch(() => {});
+
+                console.log('[PWA Push] Subscription refreshed and synced to server ✓');
+              } catch (e) {
+                console.warn('[PWA Push] syncPushSubscription error:', e);
+              }
+            };
+
+            syncPushSubscription();
           })
           .catch((err) => {
             console.warn('[PWA] Service Worker registration failed:', err);

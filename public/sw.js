@@ -1,6 +1,6 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 (Build 2026.09.02.106) */
-const CACHE_NAME = 'giterp-core-v8-106';
-const API_CACHE_NAME = 'giterp-api-session-v8-106';
+const CACHE_NAME = 'giterp-core-v8-107';
+const API_CACHE_NAME = 'giterp-api-session-v8-107';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
@@ -175,12 +175,14 @@ self.addEventListener('message', (event) => {
 // WEB PUSH NOTIFICATION LISTENERS (PWA & BROWSERS)
 // ═════════════════════════════════════════════════════════════════════
 self.addEventListener('push', (event) => {
+  // Default payload — always show something even if the push data is missing/malformed
   let data = {
     title: 'School ERP Notification',
     body: 'You have a new update from School Administration.',
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
     urgent: false,
+    tag: 'school-alert',
     data: { url: '/app' }
   };
 
@@ -189,41 +191,40 @@ self.addEventListener('push', (event) => {
       const parsed = event.data.json();
       data = { ...data, ...parsed };
     } catch (e) {
-      data.body = event.data.text();
+      // Fallback: treat push payload as plain text body
+      try { data.body = event.data.text() || data.body; } catch (_) {}
     }
   }
 
   const notificationOptions = {
     body: data.body || 'New announcement received.',
     icon: data.icon || '/icons/icon-192.png',
-    // PNG badge for Android — SVG not supported on mobile
+    // PNG badge for Android notification tray — SVG not supported on mobile
     badge: '/icons/icon-192.png',
     vibrate: data.urgent ? [300, 100, 300, 100, 300, 100, 300] : [200, 100, 200],
     data: data.data || { url: '/app' },
     tag: data.tag || 'school-alert',
     renotify: true,
     requireInteraction: data.urgent === true,
-    silent: false,
-    actions: [
-      { action: 'open_app', title: '📱 Open ERP' },
-      { action: 'dismiss', title: 'Dismiss' }
-    ]
+    silent: false
+    // NOTE: 'actions' intentionally omitted — iOS Safari (WebKit) does not support
+    // notification actions and silently drops the notification on some versions.
+    // The notificationclick handler still handles open/dismiss via data.url.
   };
-
-  // Notify all open client tabs/windows in real time
-  const notifyClients = self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-    clientList.forEach((client) => {
-      client.postMessage({
-        type: 'NEW_BROADCAST',
-        payload: data
-      });
-    });
-  });
 
   event.waitUntil(
     Promise.all([
+      // Show the OS-level notification
       self.registration.showNotification(data.title || 'Giterp School ERP', notificationOptions),
-      notifyClients
+      // Forward payload to all open app tabs in real time (in-app toast)
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        clientList.forEach((client) => {
+          client.postMessage({
+            type: 'NEW_BROADCAST',
+            payload: data
+          });
+        });
+      })
     ])
   );
 });

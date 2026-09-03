@@ -79,12 +79,28 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
             outputArray[i] = rawData.charCodeAt(i);
           }
 
-          let sub = await reg.pushManager.getSubscription();
-          if (!sub) {
+          // Always unsubscribe first — stale endpoints cause silent 410 failures on the server
+          const existingSub = await reg.pushManager.getSubscription();
+          if (existingSub) {
+            try { await existingSub.unsubscribe(); } catch (_) {}
+          }
+
+          // Subscribe fresh, with one retry for slow mobile startup timing
+          let sub: PushSubscription | null = null;
+          try {
             sub = await reg.pushManager.subscribe({
               userVisibleOnly: true,
               applicationServerKey: outputArray
             });
+          } catch (subErr: any) {
+            console.warn('[PWA Push] Subscribe failed (requestPermission), retrying:', subErr?.message);
+            await new Promise(r => setTimeout(r, 800));
+            try {
+              sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: outputArray
+              });
+            } catch (_) {}
           }
 
           if (sub) {
