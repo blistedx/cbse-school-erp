@@ -1,6 +1,6 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.0 (Build 2026.09.03.112) */
-const CACHE_NAME = 'giterp-core-v8-112';
-const API_CACHE_NAME = 'giterp-api-session-v8-112';
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 (Build 2026.09.03.113) */
+const CACHE_NAME = 'giterp-core-v8-113';
+const API_CACHE_NAME = 'giterp-api-session-v8-113';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
@@ -8,58 +8,66 @@ const PRECACHE_ASSETS = [
   '/app',
   '/login',
   '/agency',
-  '/offline.html',
-  '/icons/icon.svg',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/apple-touch-icon.png',
-  '/logo.png',
-  '/manifest.json',
   '/manifest.webmanifest',
+  '/offline.html',
+  '/icon.png',
+  '/apple-icon.png',
+  '/giterp-logo.png',
+  '/giterp-192.png',
+  '/giterp-512.png',
+  '/sounds/bell-chime.mp3'
 ];
 
-// Install Event: Precache essential assets and immediately take over
+// Install: Cache critical core assets and force activation immediately
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[PWA SW] Precache warning:', err);
+        console.warn('[PWA SW] Pre-cache non-fatal warning:', err);
       });
     })
   );
 });
 
-// Activate Event: Clear outdated caches and claim clients immediately
+// Activate: Claim clients and clean up old obsolete caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME && name !== API_CACHE_NAME)
-          .map((name) => {
-            console.log('[PWA SW] Removing old cache:', name);
-            return caches.delete(name);
-          })
-      );
-    }).then(() => self.clients.claim()).then(() => {
-      // Notify all open tabs/windows to reload or use fresh cache
-      return self.clients.matchAll({ type: 'window' }).then((clientList) => {
-        clientList.forEach((client) => {
-          client.postMessage({ type: 'SW_UPDATED', version: CACHE_NAME });
-        });
-      });
-    })
+    Promise.all([
+      self.clients.claim(),
+      caches.keys().then((keys) => {
+        return Promise.all(
+          keys
+            .filter((key) => key !== CACHE_NAME && key !== API_CACHE_NAME)
+            .map((key) => {
+              console.log('[PWA SW] Purging old cache:', key);
+              return caches.delete(key);
+            })
+        );
+      })
+    ])
   );
 });
 
-// Fetch Event: Strictly Network-First for API/DB data
+// Fetch: Smart network-first for pages and APIs, fast cache-first for static assets
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
+  const request = event.request;
   const url = new URL(request.url);
 
   // Skip non-GET requests and browser extensions
   if (request.method !== 'GET' || !request.url.startsWith('http')) {
+    return;
+  }
+
+  // Next.js RSC (React Server Component) Flight Requests — Always pass directly to Network!
+  // Prevents Next.js client router from receiving cached HTML and crashing with "This page couldn't load"
+  if (
+    request.headers.get('RSC') === '1' ||
+    request.headers.has('Next-Router-State-Tree') ||
+    request.headers.has('Next-Router-Prefetch') ||
+    url.searchParams.has('_rsc')
+  ) {
+    event.respondWith(fetch(request));
     return;
   }
 

@@ -217,8 +217,8 @@ export default function LoginPage() {
           localStorage.setItem('erp_session_token', data.session_token);
         }
         setTimeout(() => {
-          router.push(`/app?school=${data.school?.school_code || effectiveSchoolCode || 'DPS2026'}`);
-        }, 600);
+          window.location.href = `/app?school=${encodeURIComponent(data.school?.school_code || effectiveSchoolCode || 'DPS2026')}`;
+        }, 300);
       } else {
         setError(data.error || 'Authentication failed. Please verify your school code and credentials.');
       }
