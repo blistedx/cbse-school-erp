@@ -55,6 +55,7 @@ import { FeeInvoice, Student, School, ClassRoom, Teacher } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
 import { openWhatsAppDirect, buildFeeReminderText, buildFeeReceiptText } from '@/lib/whatsapp';
 import { apiFetch } from '@/lib/api-client';
+import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 
 export interface DashboardFeesProps {
   selectedSchool?: School | null;
@@ -116,8 +117,8 @@ export function DashboardFees({
   onRefresh,
   showAdminToast
 }: DashboardFeesProps) {
-  // Navigation Tabs (Fees Report Engine, Quick Collect, Month-Wise Sheet, Fee Master, Class Slips, Ledger, Payroll)
-  const [feeTab, setFeeTab] = useState<'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'slips' | 'payroll'>((subTab as any) || 'reports');
+  // Navigation Tabs (Fees Report Engine, Quick Collect, Month-Wise Sheet, Fee Master, Ledger, Payroll)
+  const [feeTab, setFeeTab] = useState<'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'payroll'>((subTab as any) || 'reports');
   const [invoices, setInvoices] = useState<FeeInvoice[]>(initialInvoices || []);
 
   // Unique Chronologically Sorted Class Names
@@ -139,7 +140,17 @@ export function DashboardFees({
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'PARTIAL' | 'PENDING' | 'WAIVED' | 'OVERDUE'>('ALL');
   const [classFilter, setClassFilter] = useState('ALL');
 
-  // Modals
+  // Modals & Report Modal
+  const [activeFeeReportModal, setActiveFeeReportModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle: string;
+    filterSummary?: Array<{ label: string; value: string }>;
+    statsSummary?: Array<{ label: string; value: string | number }>;
+    columns: ReportColumn[];
+    data: any[];
+    onDownloadCSV?: () => void;
+  } | null>(null);
   const [selectedReceiptInvoice, setSelectedReceiptInvoice] = useState<FeeInvoice | null>(null);
   const [selectedPayslipTeacher, setSelectedPayslipTeacher] = useState<Teacher | null>(null);
   const [showIssueModal, setShowIssueModal] = useState(false);
@@ -1194,9 +1205,10 @@ export function DashboardFees({
   const notify = (msg: string) => {
     if (showAdminToast) {
       showAdminToast(msg);
+      return;
     }
     setFeeToastMsg(msg);
-    setTimeout(() => setFeeToastMsg(''), 4500);
+    setTimeout(() => setFeeToastMsg(''), 2000);
   };
 
   // Filtered Students for Single Invoice Issuance
@@ -1928,6 +1940,102 @@ export function DashboardFees({
     notify('Fee ledger CSV downloaded.');
   };
 
+  // Print Official CBSE Fee Ledger Report
+  const handlePrintLedgerReport = () => {
+    const totalDueSum = filteredInvoices.reduce((acc, curr) => {
+      const paid = curr.paid_amount ?? (curr.status === 'PAID' ? curr.amount : 0);
+      const conc = curr.concession_amount || 0;
+      return acc + Math.max(0, (curr.amount || 0) - (paid + conc));
+    }, 0);
+    const totalCollectedSum = filteredInvoices.reduce((acc, curr) => {
+      return acc + (curr.paid_amount ?? (curr.status === 'PAID' ? curr.amount : 0));
+    }, 0);
+    const totalBilledSum = filteredInvoices.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+
+    const stats = [
+      { label: 'Total Invoices', value: `${filteredInvoices.length} Bills` },
+      { label: 'Total Billed', value: `₹${totalBilledSum.toLocaleString()}` },
+      { label: 'Collected', value: `₹${totalCollectedSum.toLocaleString()}` },
+      { label: 'Outstanding Due', value: `₹${totalDueSum.toLocaleString()}` },
+    ];
+
+    const cols: ReportColumn[] = [
+      { header: 'INVOICE NO', key: 'invoice_no', width: '14%' },
+      { header: 'STUDENT NAME', key: 'student_name', width: '20%' },
+      { header: 'ADM NO', render: (inv) => inv.student_id || 'N/A', width: '10%' },
+      { header: 'CLASS & SEC', render: (inv) => inv.class_name || 'N/A', width: '12%' },
+      { header: 'DUE DATE', render: (inv) => inv.due_date || 'N/A', width: '10%' },
+      { header: 'BILL AMOUNT', render: (inv) => `₹${(inv.amount || 0).toLocaleString()}`, width: '11%', align: 'right' },
+      { header: 'PAID / WAIVED', render: (inv) => `₹${((inv.paid_amount ?? (inv.status === 'PAID' ? inv.amount : 0)) + (inv.concession_amount || 0)).toLocaleString()}`, width: '11%', align: 'right' },
+      { header: 'BALANCE', render: (inv) => {
+        const paid = inv.paid_amount ?? (inv.status === 'PAID' ? inv.amount : 0);
+        const conc = inv.concession_amount || 0;
+        const bal = Math.max(0, (inv.amount || 0) - (paid + conc));
+        return bal === 0 ? '₹0 (Settled)' : `₹${bal.toLocaleString()}`;
+      }, width: '12%', align: 'right' },
+      { header: 'STATUS', render: (inv) => inv.status, width: '8%', align: 'center' }
+    ];
+
+    setActiveFeeReportModal({
+      isOpen: true,
+      title: 'Institutional Invoices & Student Fee Collection Ledger',
+      subtitle: 'CBSE Statutory Accounts Register & Reconciliation Summary',
+      filterSummary: [
+        { label: 'Session', value: selectedSession || '2026-27' },
+        { label: 'Class Scope', value: classFilter || 'ALL' },
+        { label: 'Status Filter', value: statusFilter || 'ALL' },
+        { label: 'Records', value: `${filteredInvoices.length} Invoices` }
+      ],
+      statsSummary: stats,
+      columns: cols,
+      data: filteredInvoices,
+      onDownloadCSV: handleExportCSV
+    });
+  };
+
+  // Print Official CBSE Fees Report Engine Register
+  const handlePrintFeesEngineReport = () => {
+    const stats = [
+      { label: 'Scholars Evaluated', value: `${feesReportKpis.totalScholars} Scholars` },
+      { label: 'Total Billed Due', value: `₹${feesReportKpis.totalExpected.toLocaleString()}` },
+      { label: 'Submitted / Paid', value: `₹${feesReportKpis.totalCollected.toLocaleString()}` },
+      { label: 'Pending Dues', value: `₹${feesReportKpis.totalPending.toLocaleString()}` },
+      { label: 'Recovery Rate', value: `${feesReportKpis.collectionRate}%` },
+    ];
+
+    const cols: ReportColumn[] = [
+      { header: 'ROLL', render: (item) => item.rollNo || '—', width: '6%', align: 'center' },
+      { header: 'SCHOLAR NAME', render: (item) => item.student.full_name, width: '18%' },
+      { header: 'ADM NO', render: (item) => item.student.admission_no || item.student.id.slice(0, 8), width: '10%' },
+      { header: 'CLASS & SEC', render: (item) => `${item.className}-${item.section}`, width: '10%' },
+      { header: 'TUITION', render: (item) => `₹${item.netTuitionDue.toLocaleString()}`, width: '10%', align: 'right' },
+      { header: 'TRANSPORT', render: (item) => `₹${item.transportDue.toLocaleString()}`, width: '10%', align: 'right' },
+      { header: 'ANNUAL', render: (item) => `₹${item.annualDue.toLocaleString()}`, width: '9%', align: 'right' },
+      { header: 'EXAM', render: (item) => `₹${item.examDue.toLocaleString()}`, width: '9%', align: 'right' },
+      { header: 'TOTAL DUE', render: (item) => `₹${item.totalDue.toLocaleString()}`, width: '10%', align: 'right' },
+      { header: 'PAID', render: (item) => `₹${item.totalPaid.toLocaleString()}`, width: '10%', align: 'right' },
+      { header: 'PENDING', render: (item) => `₹${item.totalPending.toLocaleString()}`, width: '10%', align: 'right' },
+      { header: 'STATUS', render: (item) => item.status, width: '8%', align: 'center' },
+    ];
+
+    setActiveFeeReportModal({
+      isOpen: true,
+      title: `Fees Report Register: ${reportClass} - Section ${reportSection}`,
+      subtitle: `CBSE Institutional Dues Audit & Sibling Concession Ledger (${getPeriodMeta(reportPeriod).label})`,
+      filterSummary: [
+        { label: 'Session', value: selectedSession || '2026-27' },
+        { label: 'Class', value: reportClass },
+        { label: 'Section', value: reportSection },
+        { label: 'Fee Cycle', value: getPeriodMeta(reportPeriod).label },
+        { label: 'Scholars', value: `${filteredFeesReportList.length} Students` }
+      ],
+      statsSummary: stats,
+      columns: cols,
+      data: filteredFeesReportList,
+      onDownloadCSV: handleExportFeesReportCsv
+    });
+  };
+
   // Months for report
   const MONTHS = ['April 2026', 'May 2026', 'June 2026', 'July 2026', 'August 2026', 'September 2026', 'October 2026', 'November 2026', 'December 2026', 'January 2027', 'February 2027', 'March 2027'];
 
@@ -1964,8 +2072,8 @@ export function DashboardFees({
           </div>
         </div>
 
-        {/* 7 Primary Navigation Buttons (Responsive Multi-Row Grid) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs">
+        {/* 6 Primary Navigation Buttons (Responsive Multi-Row Grid) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs">
           
           {/* Tab 1: Comprehensive Fees Report Engine */}
           <button
@@ -1995,21 +2103,7 @@ export function DashboardFees({
             <span className="truncate">Collect Fees</span>
           </button>
 
-          {/* Tab 3: Class-Wise Fee Slips */}
-          <button
-            type="button"
-            onClick={() => setFeeTab('slips')}
-            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
-              feeTab === 'slips'
-                ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
-            }`}
-          >
-            <Receipt className="h-4 w-4 stroke-[1.75] shrink-0 text-emerald-600" />
-            <span className="truncate">Class Fee Slips</span>
-          </button>
-
-          {/* Tab 4: Fee Structure & Upload Engine */}
+          {/* Tab 3: Fee Structure & Upload Engine */}
           <button
             type="button"
             onClick={() => setFeeTab('structure')}
@@ -2085,8 +2179,15 @@ export function DashboardFees({
 
           <div className="flex items-center gap-2">
             <button
+              onClick={handlePrintLedgerReport}
+              className="px-3.5 py-1.5 bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all"
+              title="Print Official CBSE Accounts Ledger (Letterhead PDF)"
+            >
+              <Printer className="w-3.5 h-3.5 text-[#1C443A]" /> Print Ledger PDF
+            </button>
+            <button
               onClick={() => setShowIssueModal(true)}
-              className="px-3.5 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 border-none cursor-pointer shadow-2xs"
+              className="px-3.5 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 border-none cursor-pointer shadow-2xs transition-all"
             >
               <Plus className="w-3.5 h-3.5" /> Issue Fee Invoice
             </button>
@@ -2295,23 +2396,11 @@ export function DashboardFees({
 
                   <button
                     type="button"
-                    onClick={() => window.print()}
-                    className="px-3.5 py-2 bg-[#F8FAF9] hover:bg-slate-100 text-slate-700 border border-[#DCE8E0] rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
+                    onClick={handlePrintFeesEngineReport}
+                    className="px-3.5 py-2 bg-[#F8FAF9] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
                   >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Print Register</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSlipClass(reportClass !== 'ALL' ? reportClass : uniqueClasses[0] || 'Class 10');
-                      setFeeTab('slips');
-                    }}
-                    className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer border-none shadow-xs transition-all"
-                  >
-                    <Receipt className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Generate Class Fee Slips</span>
+                    <Printer className="w-3.5 h-3.5 text-[#1C443A]" />
+                    <span>Print Official CBSE PDF</span>
                   </button>
                 </div>
               </div>
@@ -2650,273 +2739,7 @@ export function DashboardFees({
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────
-          TAB: CLASS-WISE BATCH FEE SLIP GENERATOR
-          ───────────────────────────────────────────────────────────── */}
-      {feeTab === 'slips' && (
-        <div className="space-y-6 animate-fade-in">
-          {/* Header Control Card */}
-          <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA]">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-md bg-[#E6F4EA] text-[#0D652D] text-[11px] font-mono font-bold border border-[#CEEAD6]">
-                    CBSE Batch Printing
-                  </span>
-                  <span className="text-xs font-mono text-slate-500">Session {selectedSession || '2026-27'}</span>
-                </div>
-                <h2 className="font-display font-bold text-xl text-[#122A24] mt-1 tracking-tight flex items-center gap-2">
-                  <Receipt className="w-5 h-5 text-emerald-700" />
-                  Class-Wise Batch Fee Slip Generator
-                </h2>
-                <p className="text-xs text-[#2D5A4E] mt-0.5">
-                  Select class, section, and fee installment cycle to print authentic two-part CBSE Fee Receipts for all students in one click.
-                </p>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="px-5 py-2.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer border-none shadow-md transition-all"
-                >
-                  <Printer className="w-4 h-4 text-emerald-400" />
-                  <span>Print All Slips ({feesReportData.filter(i => (slipClass === 'ALL' || i.className === slipClass) && (slipSection === 'ALL' || i.section === slipSection)).length})</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Filter Scope Controls */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#F8FAF9] p-4 rounded-2xl border border-[#DCE8E0]">
-              <div>
-                <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Select Class:
-                </label>
-                <select
-                  value={slipClass}
-                  onChange={(e) => setSlipClass(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 cursor-pointer"
-                >
-                  {uniqueClasses.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Select Section:
-                </label>
-                <select
-                  value={slipSection}
-                  onChange={(e) => setSlipSection(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 cursor-pointer"
-                >
-                  <option value="ALL">All Sections</option>
-                  <option value="A">Section A</option>
-                  <option value="B">Section B</option>
-                  <option value="C">Section C</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-mono font-bold uppercase tracking-wider text-slate-600 mb-1">
-                  Billing Period / Fee Scheme:
-                </label>
-                <select
-                  value={slipPeriod}
-                  onChange={(e) => {
-                    setSlipPeriod(e.target.value);
-                    setReportPeriod(e.target.value);
-                  }}
-                  className="w-full px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 cursor-pointer"
-                >
-                  <option value="APRIL_ANNUAL">Cycle 1: April + Annual Fee</option>
-                  <option value="MAY_JUNE">Cycle 2: May + June</option>
-                  <option value="JULY">Cycle 3: July</option>
-                  <option value="AUGUST">Cycle 4: August</option>
-                  <option value="SEPT_FEB">Cycle 5: September + February</option>
-                  <option value="OCTOBER">Cycle 6: October</option>
-                  <option value="NOVEMBER">Cycle 7: November</option>
-                  <option value="DEC_MARCH">Cycle 8: December + March</option>
-                  <option value="JANUARY">Cycle 9: January (Final Settlement)</option>
-                  <option value="FULL_YEAR">Full Academic Year 2026–27</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Render All Student Fee Slips in Class */}
-          <div className="space-y-8">
-            {feesReportData
-              .filter(i => (slipClass === 'ALL' || i.className === slipClass) && (slipSection === 'ALL' || i.section === slipSection))
-              .map((item, idx) => (
-                <div key={item.student.id} className="bg-white rounded-3xl border border-[#DCE8E0] shadow-sm p-6 sm:p-8 space-y-4 print:border-none print:shadow-none print:p-0 print:m-0 print:break-after-page">
-                  
-                  {/* Two-Part Container */}
-                  <div className="border-2 border-[#122A24] rounded-2xl p-6 bg-white space-y-4">
-                    {/* Header */}
-                    <div className="text-center border-b-2 border-[#122A24] pb-3">
-                      <div className="font-display font-black text-xl text-[#122A24] tracking-tight uppercase">
-                        {selectedSchool?.school_name || 'Delhi Public International School'}
-                      </div>
-                      <div className="text-xs text-slate-600 font-medium mt-0.5">
-                        {selectedSchool?.address || 'Sector 12, Dwarka, New Delhi'} • Phone: {selectedSchool?.phone || '+91 11 2789 0000'}
-                      </div>
-                      <div className="text-[11px] font-mono font-bold text-[#1C443A] mt-1">
-                        CBSE Affiliation No: {selectedSchool?.affiliation_no || '2130042'} | School Code: {selectedSchool?.oasis_code || '84001'}
-                      </div>
-                      <div className="inline-block mt-2 px-3 py-0.5 bg-[#122A24] text-white text-[11px] font-bold uppercase rounded-md tracking-wider">
-                        Official CBSE Student Fee Slip • Session {selectedSession || '2026-27'}
-                      </div>
-                    </div>
-
-                    {/* Metadata Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono border-b border-slate-200 pb-3">
-                      <div>
-                        <span className="text-slate-500">Receipt No: </span>
-                        <strong className="text-[#122A24]">REC-2026-{1000 + idx}</strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-500">Date: </span>
-                        <strong className="text-[#122A24]">{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-500">Roll No: </span>
-                        <strong className="text-[#122A24]">{item.rollNo}</strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-500">Scholar No: </span>
-                        <strong className="text-[#122A24]">{item.student.admission_no || item.student.id}</strong>
-                      </div>
-
-                      <div>
-                        <span className="text-slate-500">Scholar Name: </span>
-                        <strong className="text-[#122A24] font-sans font-bold">{item.student.full_name}</strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-500">Father Name: </span>
-                        <strong className="text-[#122A24]">{item.fatherName}</strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-500">Class &amp; Sec: </span>
-                        <strong className="text-[#122A24]">{item.className} - {item.section}</strong>
-                      </div>
-                      <div>
-                        <span className="text-slate-500">Transport: </span>
-                        <strong className="text-[#122A24]">{item.transportOpted ? item.transportSlab : 'Self'}</strong>
-                      </div>
-                    </div>
-
-                    {/* Particulars Table */}
-                    <table className="w-full text-xs border-collapse font-mono">
-                      <thead>
-                        <tr className="border-b-2 border-[#122A24] bg-slate-50">
-                          <th className="py-2 px-2 text-left font-bold w-12">SN</th>
-                          <th className="py-2 px-2 text-left font-bold">FEE HEAD PARTICULARS</th>
-                          <th className="py-2 px-2 text-right font-bold w-32">DUE (₹)</th>
-                          <th className="py-2 px-2 text-right font-bold w-32 text-emerald-800">PAID (₹)</th>
-                          <th className="py-2 px-2 text-right font-bold w-32 text-rose-700">PENDING (₹)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        <tr>
-                          <td className="py-1.5 px-2">1</td>
-                          <td className="py-1.5 px-2">
-                            Tuition &amp; Composite Academic Fee
-                            {item.siblingInfo.tuitionDiscountPct > 0 && (
-                              <span className="text-emerald-700 font-bold ml-1">
-                                (Less: {item.siblingInfo.tuitionDiscountPct}% Sibling Concession - Child #{item.siblingInfo.childOrder})
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-1.5 px-2 text-right font-bold">₹{item.netTuitionDue.toLocaleString()}</td>
-                          <td className="py-1.5 px-2 text-right font-bold text-emerald-800">₹{item.tuitionPaid.toLocaleString()}</td>
-                          <td className="py-1.5 px-2 text-right font-bold text-rose-700">₹{item.tuitionPending.toLocaleString()}</td>
-                        </tr>
-
-                        <tr>
-                          <td className="py-1.5 px-2">2</td>
-                          <td className="py-1.5 px-2">
-                            Monthly School Transport Fee ({item.transportOpted ? item.transportSlab : 'Self'})
-                            {item.siblingInfo.freeTransport && (
-                              <span className="text-emerald-700 font-bold ml-1">(4th Child: 100% Free Transport)</span>
-                            )}
-                          </td>
-                          <td className="py-1.5 px-2 text-right font-bold">₹{item.transportDue.toLocaleString()}</td>
-                          <td className="py-1.5 px-2 text-right font-bold text-emerald-800">₹{item.transportPaid.toLocaleString()}</td>
-                          <td className="py-1.5 px-2 text-right font-bold text-rose-700">₹{item.transportPending.toLocaleString()}</td>
-                        </tr>
-
-                        <tr>
-                          <td className="py-1.5 px-2">3</td>
-                          <td className="py-1.5 px-2">Institutional Annual Fee &amp; Infrastructure Development</td>
-                          <td className="py-1.5 px-2 text-right font-bold">₹{item.annualDue.toLocaleString()}</td>
-                          <td className="py-1.5 px-2 text-right font-bold text-emerald-800">₹{item.annualPaid.toLocaleString()}</td>
-                          <td className="py-1.5 px-2 text-right font-bold text-rose-700">₹{item.annualPending.toLocaleString()}</td>
-                        </tr>
-
-                        <tr>
-                          <td className="py-1.5 px-2">4</td>
-                          <td className="py-1.5 px-2">CBSE Examination, Assessment &amp; Printing Charges</td>
-                          <td className="py-1.5 px-2 text-right font-bold">₹{item.examDue.toLocaleString()}</td>
-                          <td className="py-1.5 px-2 text-right font-bold text-emerald-800">₹{item.examPaid.toLocaleString()}</td>
-                          <td className="py-1.5 px-2 text-right font-bold text-rose-700">₹{item.examPending.toLocaleString()}</td>
-                        </tr>
-
-                        <tr className="border-t-2 border-[#122A24] bg-slate-50 font-bold">
-                          <td className="py-2 px-2" colSpan={2}>CONSOLIDATED TOTALS</td>
-                          <td className="py-2 px-2 text-right text-sm">₹{item.totalDue.toLocaleString()}</td>
-                          <td className="py-2 px-2 text-right text-sm text-emerald-800">₹{item.totalPaid.toLocaleString()}</td>
-                          <td className="py-2 px-2 text-right text-sm text-rose-700">₹{item.totalPending.toLocaleString()}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-
-                    {/* Words & Mode */}
-                    <div className="pt-2 text-xs font-mono space-y-1">
-                      <div>
-                        <span className="text-slate-500">Amount Received in Words: </span>
-                        <strong className="text-[#122A24] uppercase">{numberToWordsINR(item.totalPaid)}</strong>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                        <span>Payment Mode: <strong>CASH / UPI / CHEQUE</strong></span>
-                        <span>Installment Scheme: <strong>{getPeriodMeta(slipPeriod).label}</strong></span>
-                        <span>Fee Status: <strong className={item.status === 'PAID' ? 'text-emerald-700' : 'text-rose-700'}>{item.status}</strong></span>
-                      </div>
-                    </div>
-
-                    {/* Signatures */}
-                    <div className="flex items-end justify-between pt-8 border-t border-dashed border-slate-300 text-xs font-mono">
-                      <div className="text-center">
-                        <div className="w-32 border-b border-slate-400 mb-1"></div>
-                        <span className="text-slate-500">Cashier / Fee Clerk</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="px-3 py-1 bg-slate-100 border border-slate-300 text-[10px] font-bold uppercase rounded mb-1">
-                          INSTITUTIONAL SEAL
-                        </div>
-                        <span className="text-slate-500">DPS Authorized</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="w-32 border-b border-slate-400 mb-1"></div>
-                        <span className="text-slate-500">Principal Signature</span>
-                      </div>
-                    </div>
-
-                    {/* Two-Part Notice */}
-                    <div className="text-center text-[10px] font-mono text-slate-400 pt-2 border-t border-slate-200 flex items-center justify-between">
-                      <span>✂ Cut along line for Parent Copy</span>
-                      <span>[ Accounts Office &amp; Parent Duplicate Record ]</span>
-                    </div>
-
-                  </div>
-                </div>
-              ))}
-          </div>
-
-        </div>
-      )}
 
       {/* ─────────────────────────────────────────────────────────────
           TAB 1: QUICK FEE COLLECTION & RECEIPT STUDIO (REDESIGNED)
@@ -3383,8 +3206,15 @@ export function DashboardFees({
             </div>
             <div className="flex items-center gap-2">
               <button
+                onClick={handlePrintLedgerReport}
+                className="px-3.5 py-1.5 bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all"
+                title="Print Official CBSE Accounts Ledger (Letterhead PDF)"
+              >
+                <Printer className="w-3.5 h-3.5 text-[#1C443A]" /> Print Official Ledger PDF
+              </button>
+              <button
                 onClick={() => setShowIssueModal(true)}
-                className="px-3.5 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 border-none cursor-pointer"
+                className="px-3.5 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 border-none cursor-pointer shadow-2xs transition-all"
               >
                 <Plus className="w-3.5 h-3.5" /> Issue Invoice
               </button>
@@ -3422,7 +3252,7 @@ export function DashboardFees({
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold cursor-pointer border transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer border transition-all ${
                     statusFilter === st
                       ? 'bg-[#122A24] text-white border-[#122A24]'
                       : 'bg-[#F8FAF9] text-slate-600 border-[#DCE8E0] hover:bg-slate-100'
@@ -3436,9 +3266,9 @@ export function DashboardFees({
 
           {/* Table */}
           <div className="overflow-x-auto w-full rounded-2xl border border-[#DCE8E0]">
-            <table className="w-full text-left text-xs border-collapse min-w-[850px]">
+            <table className="w-full text-left text-xs border-collapse min-w-[850px] font-sans">
               <thead>
-                <tr className="border-b border-[#E8F0EA] text-[10.5px] font-mono text-slate-400 uppercase bg-[#F8FAF9]">
+                <tr className="border-b border-[#E8F0EA] text-[11px] font-semibold text-slate-500 uppercase tracking-wider bg-[#F8FAF9]">
                   <th className="py-3 px-3.5">INVOICE / RECEIPT</th>
                   <th className="py-3 px-3">STUDENT DETAILS</th>
                   <th className="py-3 px-3">CLASS</th>
@@ -3450,25 +3280,25 @@ export function DashboardFees({
                   <th className="py-3 px-3 text-right">ACTIONS</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E8F0EA] text-slate-700">
+              <tbody className="divide-y divide-[#E8F0EA] text-slate-700 font-medium">
                 {paginatedInvoices.map((inv) => {
                   const paid = inv.paid_amount ?? (inv.status === 'PAID' ? inv.amount : 0);
                   const conc = inv.concession_amount || 0;
                   const bal = Math.max(0, (inv.amount || 0) - (paid + conc));
                   return (
                     <tr key={inv.id} className="hover:bg-[#F9FCFA] transition-colors">
-                      <td className="py-3 px-3.5 font-mono font-bold text-[#122A24]">
+                      <td className="py-3 px-3.5 font-bold text-[#122A24]">
                         {inv.invoice_no}
-                        <div className="text-[10px] text-slate-400 font-sans font-normal">{inv.month || 'Tuition Fee'}</div>
+                        <div className="text-[10px] text-slate-400 font-normal">{inv.month || 'Tuition Fee'}</div>
                       </td>
                       <td className="py-3 px-3">
                         <div className="font-semibold text-slate-800">{inv.student_name}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">Adm: {inv.student_id || 'N/A'}</div>
+                        <div className="text-[10px] text-slate-400">Adm: {inv.student_id || 'N/A'}</div>
                       </td>
-                      <td className="py-3 px-3 font-mono text-[11px]">{inv.class_name}</td>
-                      <td className="py-3 px-3 font-mono text-[11px] text-slate-500">{inv.due_date || 'N/A'}</td>
-                      <td className="py-3 px-3 font-mono font-bold text-[#122A24]">₹{(inv.amount || 0).toLocaleString()}</td>
-                      <td className="py-3 px-3 font-mono">
+                      <td className="py-3 px-3 text-[11px] font-semibold text-[#122A24]">{inv.class_name}</td>
+                      <td className="py-3 px-3 text-[11px] text-slate-500">{inv.due_date || 'N/A'}</td>
+                      <td className="py-3 px-3 font-bold text-[#122A24]">₹{(inv.amount || 0).toLocaleString()}</td>
+                      <td className="py-3 px-3">
                         <div className="text-emerald-700 font-bold">
                           ₹{paid.toLocaleString()}
                         </div>
@@ -3478,7 +3308,7 @@ export function DashboardFees({
                           </div>
                         )}
                       </td>
-                      <td className="py-3 px-3 font-mono font-bold">
+                      <td className="py-3 px-3 font-bold">
                         {bal === 0 ? (
                           <span className="text-emerald-600 text-[11px] font-semibold">₹0 (Settled)</span>
                         ) : (
@@ -3486,7 +3316,7 @@ export function DashboardFees({
                         )}
                       </td>
                       <td className="py-3 px-3">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-semibold ${
                           inv.status === 'PAID'
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : inv.status === 'PARTIAL'
@@ -4657,23 +4487,30 @@ export function DashboardFees({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          MODAL 1: OFFICIAL CBSE PRINTABLE FEE RECEIPT
+          MODAL 1: OFFICIAL CBSE PRINTABLE FEE RECEIPT (2 COPIES ON SINGLE A4 SHEET)
           ───────────────────────────────────────────────────────────── */}
       {selectedReceiptInvoice && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative my-8">
+          <div className="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 relative my-6">
             {/* Modal Controls */}
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200 print:hidden">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 print:hidden">
               <div className="flex items-center gap-2">
                 <BadgeCheck className="w-5 h-5 text-emerald-600" />
-                <span className="font-display font-bold text-base text-[#122A24]">Official CBSE Fee Receipt</span>
+                <div>
+                  <span className="font-display font-bold text-sm sm:text-base text-[#122A24] block">
+                    Official CBSE Fee Receipt (2 Copies on Single A4 Sheet)
+                  </span>
+                  <span className="text-[11px] text-[#2D5A4E]">
+                    Automatic dual slip generation (School Accounts Copy + Student/Parent Copy)
+                  </span>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="px-4 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer border-none shadow-xs"
+                  className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer border-none shadow-xs transition-all"
                 >
-                  <Printer className="w-3.5 h-3.5" /> Print Slip
+                  <Printer className="w-3.5 h-3.5" /> Print 2-Copy A4 Slip
                 </button>
                 <button
                   onClick={() => setSelectedReceiptInvoice(null)}
@@ -4684,152 +4521,185 @@ export function DashboardFees({
               </div>
             </div>
 
-            {/* Printable Receipt Paper */}
-            <div className="p-6 border-2 border-[#122A24] rounded-2xl space-y-4 bg-white text-slate-800">
-              {/* Institutional Header */}
-              <div className="text-center border-b-2 border-[#122A24] pb-3">
-                <div className="font-display font-black text-xl text-[#122A24] tracking-tight uppercase">
-                  {selectedSchool?.school_name || 'Delhi Public School, R.K. Puram'}
-                </div>
-                <div className="text-xs text-slate-600 font-medium mt-0.5">
-                  {selectedSchool?.address || 'Sector 12, Dwarka, New Delhi'} • Phone: {selectedSchool?.phone || '+91 11 2789 0000'}
-                </div>
-                <div className="text-[11px] font-mono font-bold text-[#1C443A] mt-1">
-                  CBSE Affiliation No: {selectedSchool?.affiliation_no || '2130042'} | School Code: {selectedSchool?.oasis_code || '84001'}
-                </div>
-                <div className="inline-block mt-2 px-3 py-0.5 bg-[#122A24] text-white text-[11px] font-bold uppercase rounded-md tracking-wider">
-                  Official Student Fee Receipt
-                </div>
-              </div>
+            {/* Printable Dual Receipt Paper Container (Fits 1 Single A4 Page) */}
+            <div className="print-dual-receipt space-y-3 bg-white text-slate-800 font-sans">
+              
+              {/* ── COPY 1: SCHOOL & ACCOUNTS COPY ── */}
+              {(() => {
+                const inv = selectedReceiptInvoice;
+                const paid = inv.paid_amount ?? (inv.status === 'PAID' ? inv.amount : 0);
+                const conc = inv.concession_amount || 0;
+                const bal = Math.max(0, (inv.amount || 0) - (paid + conc));
+                const studentObj = students.find(s => s.id === inv.student_id || s.admission_no === inv.admission_no);
 
-              {/* Receipt Metadata Grid */}
-              <div className="grid grid-cols-2 gap-y-2 text-xs font-mono border-b border-slate-200 pb-3">
-                <div>
-                  <span className="text-slate-500">Receipt No: </span>
-                  <strong className="text-[#122A24]">{selectedReceiptInvoice.invoice_no}</strong>
-                </div>
-                <div className="text-right">
-                  <span className="text-slate-500">Date: </span>
-                  <strong className="text-[#122A24]">{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500">Student Name: </span>
-                  <strong className="text-[#122A24] font-sans font-bold">{selectedReceiptInvoice.student_name}</strong>
-                </div>
-                <div className="text-right">
-                  <span className="text-slate-500">Adm No: </span>
-                  <strong className="text-[#122A24]">{selectedReceiptInvoice.student_id || 'DPS-2026-99'}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500">Class &amp; Sec: </span>
-                  <strong className="text-[#122A24]">{selectedReceiptInvoice.class_name}</strong>
-                </div>
-                <div className="text-right">
-                  <span className="text-slate-500">Academic Session: </span>
-                  <strong className="text-[#122A24]">{selectedReceiptInvoice.academic_session || selectedSession}</strong>
-                </div>
-              </div>
-
-              {/* Fee Particulars Table */}
-              <table className="w-full text-xs border-collapse font-mono">
-                <thead>
-                  <tr className="border-b-2 border-[#122A24] bg-slate-50">
-                    <th className="py-2 px-2 text-left font-bold">SL</th>
-                    <th className="py-2 px-2 text-left font-bold">FEE PARTICULARS</th>
-                    <th className="py-2 px-2 text-right font-bold">AMOUNT (INR)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  <tr>
-                    <td className="py-1.5 px-2">1</td>
-                    <td className="py-1.5 px-2">Tuition &amp; Composite Academic Fee</td>
-                    <td className="py-1.5 px-2 text-right font-bold">₹{(selectedReceiptInvoice.tuition_fee || Math.round((selectedReceiptInvoice.amount || 0) * 0.75)).toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-1.5 px-2">2</td>
-                    <td className="py-1.5 px-2">Transport / Bus Facilitation Fee</td>
-                    <td className="py-1.5 px-2 text-right font-bold">₹{(selectedReceiptInvoice.transport_fee || Math.round((selectedReceiptInvoice.amount || 0) * 0.15)).toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-1.5 px-2">3</td>
-                    <td className="py-1.5 px-2">Science Lab &amp; Computer Facility Charges</td>
-                    <td className="py-1.5 px-2 text-right font-bold">₹{(selectedReceiptInvoice.exam_fee || Math.round((selectedReceiptInvoice.amount || 0) * 0.10)).toLocaleString()}</td>
-                  </tr>
-
-                  {/* Concession / Waiver Line Item */}
-                  {(selectedReceiptInvoice.concession_amount || 0) > 0 && (
-                    <tr className="bg-purple-50/70 text-purple-950 font-semibold border-t border-purple-200">
-                      <td className="py-1.5 px-2 text-purple-700">✦</td>
-                      <td className="py-1.5 px-2">
-                        <span className="font-bold">Fee Waiver / Concession Granted</span>
-                        <div className="text-[10px] text-purple-800 font-sans font-normal italic">
-                          Remark: {selectedReceiptInvoice.concession_reason || 'Principal Discretion'} {selectedReceiptInvoice.waived_by ? `• Authorized by: ${selectedReceiptInvoice.waived_by}` : ''}
+                const renderCopy = (copyTitle: string, badgeBg: string) => (
+                  <div className="print-receipt-half p-4 border border-[#122A24] rounded-2xl bg-white space-y-2.5">
+                    {/* Header */}
+                    <div className="flex items-start justify-between border-b border-[#122A24] pb-2">
+                      <div>
+                        <h3 className="font-display font-black text-sm sm:text-base text-[#122A24] uppercase tracking-tight">
+                          {selectedSchool?.school_name || 'Delhi Public International School'}
+                        </h3>
+                        <p className="text-[10px] text-slate-600 font-medium">
+                          {selectedSchool?.address || 'Sector 12, Dwarka, New Delhi'} • Tel: {selectedSchool?.phone || '+91 11 2789 0000'}
+                        </p>
+                        <p className="text-[9.5px] font-semibold text-emerald-800">
+                          CBSE Affiliation No: {selectedSchool?.affiliation_no || '2130042'} | School Code: {selectedSchool?.oasis_code || '84001'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${badgeBg}`}>
+                          {copyTitle}
+                        </span>
+                        <div className="text-[10px] text-slate-500 mt-1">
+                          Session: <strong className="text-[#122A24]">{inv.academic_session || selectedSession || '2026-27'}</strong>
                         </div>
-                      </td>
-                      <td className="py-1.5 px-2 text-right font-bold text-purple-900">
-                        -₹{(selectedReceiptInvoice.concession_amount || 0).toLocaleString()}
-                      </td>
-                    </tr>
-                  )}
+                      </div>
+                    </div>
 
-                  <tr className="border-t-2 border-[#122A24] bg-emerald-50/50">
-                    <td className="py-2 px-2 font-bold" colSpan={2}>
-                      {selectedReceiptInvoice.status === 'PARTIAL'
-                        ? 'AMOUNT PAID (PARTIAL INSTALLMENT)'
-                        : selectedReceiptInvoice.status === 'WAIVED'
-                        ? 'TOTAL SETTLED (100% CONCESSION WAIVER)'
-                        : 'TOTAL AMOUNT PAID'}
-                    </td>
-                    <td className="py-2 px-2 text-right font-bold text-sm text-emerald-900">
-                      ₹{(selectedReceiptInvoice.paid_amount ?? (selectedReceiptInvoice.status === 'PAID' ? selectedReceiptInvoice.amount : 0)).toLocaleString()}
-                    </td>
-                  </tr>
+                    {/* Scholar & Transaction Metadata Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-[#F8FAF9] p-2.5 rounded-xl border border-[#E8F0EA]">
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Receipt No:</span>
+                        <strong className="text-[#122A24] font-bold">{inv.invoice_no}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Date of Issue:</span>
+                        <strong className="text-[#122A24] font-bold">
+                          {inv.paid_date || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Scholar Name:</span>
+                        <strong className="text-[#122A24] font-bold">{inv.student_name}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Admission / SR No:</span>
+                        <strong className="text-[#122A24] font-bold">{inv.student_id || studentObj?.admission_no || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Class &amp; Section:</span>
+                        <strong className="text-[#122A24] font-bold">{inv.class_name}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Father / Guardian:</span>
+                        <strong className="text-[#122A24]">{studentObj?.father_name || studentObj?.guardian_name || 'N/A'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Fee Period / Scheme:</span>
+                        <strong className="text-emerald-900">{inv.month || 'Tuition Fee Installment'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Payment Mode:</span>
+                        <strong className="text-[#122A24]">{inv.payment_mode || 'CASH / UPI'}</strong>
+                      </div>
+                    </div>
 
-                  {/* Partial Remaining Balance Row */}
-                  {selectedReceiptInvoice.status === 'PARTIAL' && (
-                    <tr className="bg-rose-50/80 border-t border-rose-200">
-                      <td className="py-2 px-2 font-bold text-rose-900" colSpan={2}>
-                        OUTSTANDING BALANCE PAYABLE
-                      </td>
-                      <td className="py-2 px-2 text-right font-bold text-sm text-rose-800 font-mono">
-                        ₹{Math.max(0, (selectedReceiptInvoice.amount || 0) - ((selectedReceiptInvoice.paid_amount || 0) + (selectedReceiptInvoice.concession_amount || 0))).toLocaleString()}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    {/* Fee Heads Breakdown Table */}
+                    <table className="w-full text-[11px] border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 text-[#122A24] font-bold border-b border-slate-300">
+                          <th className="py-1 px-2 text-left w-8">SN</th>
+                          <th className="py-1 px-2 text-left">FEE PARTICULARS / HEADS</th>
+                          <th className="py-1 px-2 text-right w-24">DUE (₹)</th>
+                          <th className="py-1 px-2 text-right w-24 text-emerald-800">PAID (₹)</th>
+                          <th className="py-1 px-2 text-right w-24 text-rose-700">BALANCE (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        <tr>
+                          <td className="py-1 px-2">1</td>
+                          <td className="py-1 px-2">Tuition &amp; Composite Academic Fee</td>
+                          <td className="py-1 px-2 text-right font-semibold">₹{(inv.tuition_fee || Math.round((inv.amount || 0) * 0.70)).toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{(inv.tuition_fee || Math.round((paid || 0) * 0.70)).toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{Math.max(0, (inv.tuition_fee || Math.round((inv.amount || 0) * 0.70)) - (inv.tuition_fee || Math.round((paid || 0) * 0.70))).toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1 px-2">2</td>
+                          <td className="py-1 px-2">Transport / School Bus Facility Charges</td>
+                          <td className="py-1 px-2 text-right font-semibold">₹{(inv.transport_fee || Math.round((inv.amount || 0) * 0.15)).toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{(inv.transport_fee || Math.round((paid || 0) * 0.15)).toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{Math.max(0, (inv.transport_fee || Math.round((inv.amount || 0) * 0.15)) - (inv.transport_fee || Math.round((paid || 0) * 0.15))).toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1 px-2">3</td>
+                          <td className="py-1 px-2">Institutional Examination, Assessment &amp; Printing</td>
+                          <td className="py-1 px-2 text-right font-semibold">₹{(inv.exam_fee || Math.round((inv.amount || 0) * 0.15)).toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{(inv.exam_fee || Math.round((paid || 0) * 0.15)).toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{Math.max(0, (inv.exam_fee || Math.round((inv.amount || 0) * 0.15)) - (inv.exam_fee || Math.round((paid || 0) * 0.15))).toLocaleString()}</td>
+                        </tr>
 
-              {/* Amount in Words */}
-              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                <span className="text-slate-500 font-mono">Amount in Words: </span>
-                <strong className="text-[#122A24] italic">
-                  {numberToWordsINR(selectedReceiptInvoice.paid_amount ?? (selectedReceiptInvoice.status === 'PAID' ? selectedReceiptInvoice.amount : 0))}
-                </strong>
-              </div>
+                        {conc > 0 && (
+                          <tr className="bg-purple-50 text-purple-950 font-semibold">
+                            <td className="py-1 px-2 text-purple-700">✦</td>
+                            <td className="py-1 px-2">
+                              <span>Fee Waiver / Concession Applied ({inv.concession_reason || 'Management Waiver'})</span>
+                            </td>
+                            <td className="py-1 px-2 text-right text-purple-800">-₹{conc.toLocaleString()}</td>
+                            <td className="py-1 px-2 text-right text-purple-800">-₹{conc.toLocaleString()}</td>
+                            <td className="py-1 px-2 text-right text-purple-800">₹0</td>
+                          </tr>
+                        )}
 
-              {/* Payment Mode & Stamp Area */}
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200 text-xs">
-                <div>
-                  <div className="font-mono text-[11px] text-slate-500">Payment Mode:</div>
-                  <strong className="text-[#122A24]">{selectedReceiptInvoice.payment_mode || 'UPI / Online'}</strong>
-                  <div className="text-[10px] text-slate-500 mt-1 font-mono">
-                    Status: {selectedReceiptInvoice.status === 'PAID'
-                      ? 'COMPLETED (CBSE Cleared)'
-                      : selectedReceiptInvoice.status === 'PARTIAL'
-                      ? 'PARTIAL PAYMENT RECORDED (Installment Active)'
-                      : selectedReceiptInvoice.status === 'WAIVED'
-                      ? '100% FEE WAIVED (Admin Concession)'
-                      : 'PENDING'}
+                        <tr className="border-t border-[#122A24] bg-emerald-50/60 font-bold">
+                          <td className="py-1.5 px-2" colSpan={2}>CONSOLIDATED RECEIPT TOTAL</td>
+                          <td className="py-1.5 px-2 text-right">₹{(inv.amount || 0).toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right text-emerald-900 text-xs">₹{paid.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right text-rose-700 text-xs">₹{bal.toLocaleString()}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    {/* Amount in Words & Mode */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[10.5px] pt-1">
+                      <div>
+                        <span className="text-slate-500">Amount Received in Words: </span>
+                        <strong className="text-[#122A24] italic uppercase">{numberToWordsINR(paid)}</strong>
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        Status: <strong className={inv.status === 'PAID' ? 'text-emerald-700' : 'text-amber-700'}>{inv.status} ({bal === 0 ? 'Fully Cleared' : `₹${bal.toLocaleString()} Due`})</strong>
+                      </div>
+                    </div>
+
+                    {/* Signatures */}
+                    <div className="grid grid-cols-3 gap-2 pt-3 border-t border-dashed border-slate-300 text-[10px] text-center">
+                      <div>
+                        <div className="w-24 border-b border-slate-400 mx-auto mb-1"></div>
+                        <span className="text-slate-500">Cashier / Fee Clerk</span>
+                      </div>
+                      <div>
+                        <div className="px-2 py-0.5 bg-slate-100 border border-slate-300 rounded font-bold text-[9px] uppercase mx-auto inline-block mb-1">
+                          INSTITUTIONAL SEAL
+                        </div>
+                        <div className="text-slate-500 text-[9px]">DPS Accounts Wing</div>
+                      </div>
+                      <div>
+                        <div className="w-24 border-b border-slate-400 mx-auto mb-1"></div>
+                        <span className="text-slate-500">Parent / Depositor Sign</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                );
 
-                <div className="text-right space-y-6">
-                  <div className="font-mono text-[11px] text-slate-500">Authorized Accounts Signatory</div>
-                  <div className="border-t border-dashed border-slate-400 pt-1 text-[11px] font-bold text-[#122A24] inline-block">
-                    Accounts Officer / Cashier
-                  </div>
-                </div>
-              </div>
+                return (
+                  <>
+                    {/* Copy 1 */}
+                    {renderCopy('ACCOUNTS / SCHOOL DUPLICATE COPY', 'bg-[#122A24] text-white')}
+
+                    {/* Perforation Cut Line */}
+                    <div className="py-1 flex items-center justify-between text-[9.5px] text-slate-400 border-t border-b border-dashed border-slate-300 font-mono select-none">
+                      <span>✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ✂</span>
+                      <span className="bg-slate-100 px-2 py-0.5 rounded text-[8.5px] uppercase font-bold text-slate-600 shrink-0 border border-slate-200">
+                        Perforated Cut Line • 2 Copies on Single A4 Sheet
+                      </span>
+                    </div>
+
+                    {/* Copy 2 */}
+                    {renderCopy('PARENT / STUDENT ORIGINAL COPY', 'bg-emerald-800 text-white')}
+                  </>
+                );
+              })()}
+
             </div>
           </div>
         </div>
@@ -6201,6 +6071,23 @@ export function DashboardFees({
             ✕
           </button>
         </div>
+      )}
+
+      {/* Official CBSE Institutional Printable Report Modal for Fees Hub */}
+      {activeFeeReportModal && (
+        <InstitutionalReportModal
+          isOpen={activeFeeReportModal.isOpen}
+          onClose={() => setActiveFeeReportModal(null)}
+          school={selectedSchool || null}
+          session={selectedSession || '2026-27'}
+          reportTitle={activeFeeReportModal.title}
+          reportSubtitle={activeFeeReportModal.subtitle}
+          filterSummary={activeFeeReportModal.filterSummary}
+          statsSummary={activeFeeReportModal.statsSummary}
+          columns={activeFeeReportModal.columns}
+          data={activeFeeReportModal.data}
+          onDownloadCSV={activeFeeReportModal.onDownloadCSV}
+        />
       )}
 
     </div>

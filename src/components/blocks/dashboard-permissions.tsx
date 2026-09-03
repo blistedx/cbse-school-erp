@@ -239,7 +239,21 @@ export function DashboardPermissions({
         // Grant broader view & edit rights
         MODULE_DEFINITIONS.forEach(mod => {
           const isAcademic = ['students', 'classes', 'subjects', 'attendance', 'exams', 'homework', 'approvals', 'notices'].includes(mod.id);
-          if (role === 'TEACHER') {
+          if (role === 'ADMIN') {
+            updated[role][mod.id] = {
+              can_view: true,
+              can_edit: true,
+              can_add: true,
+              can_delete: ['students', 'fees', 'certificates', 'transport', 'library', 'visitors', 'homework', 'notices', 'broadcast'].includes(mod.id)
+            };
+          } else if (role === 'VICE_PRINCIPAL') {
+            updated[role][mod.id] = {
+              can_view: true,
+              can_edit: true,
+              can_add: true,
+              can_delete: ['classes', 'subjects', 'attendance', 'exams', 'homework', 'approvals', 'notices', 'broadcast'].includes(mod.id)
+            };
+          } else if (role === 'TEACHER') {
             updated[role][mod.id] = {
               can_view: true,
               can_edit: isAcademic,
@@ -357,6 +371,50 @@ export function DashboardPermissions({
 
   const currentRolePerms = permissions[selectedRole] || {};
 
+  // Role metadata definition for 5 designations
+  const ROLES_LIST = [
+    {
+      id: 'ADMIN' as ManagedRole,
+      title: 'Administrative Officer (Admin)',
+      badge: 'Office & Accounts',
+      icon: Sliders,
+      description: 'Admissions, fee collection, staff records, logistics & TC operations',
+      activeColor: 'bg-[#122A24] text-white border-[#122A24]'
+    },
+    {
+      id: 'VICE_PRINCIPAL' as ManagedRole,
+      title: 'Vice Principal',
+      badge: 'Academic Head',
+      icon: Award,
+      description: 'Academic coordination, syllabus, timetable, exams & discipline',
+      activeColor: 'bg-[#122A24] text-white border-[#122A24]'
+    },
+    {
+      id: 'TEACHER' as ManagedRole,
+      title: 'Faculty & Teachers',
+      badge: 'Teaching Staff',
+      icon: GraduationCap,
+      description: 'Classroom instructors, attendance, marks entry & daily homework',
+      activeColor: 'bg-[#122A24] text-white border-[#122A24]'
+    },
+    {
+      id: 'STUDENT' as ManagedRole,
+      title: 'Enrolled Students',
+      badge: 'Learner',
+      icon: Users,
+      description: 'Student portal for attendance, diary, marksheet & circulars',
+      activeColor: 'bg-[#122A24] text-white border-[#122A24]'
+    },
+    {
+      id: 'PARENT' as ManagedRole,
+      title: 'Parents & Guardians',
+      badge: 'Family',
+      icon: HeartHandshake,
+      description: 'Family accounts for fee receipts, leaves, bus tracking & report cards',
+      activeColor: 'bg-[#122A24] text-white border-[#122A24]'
+    }
+  ];
+
   // Compute live stats for current role
   const roleStats = useMemo(() => {
     let viewCount = 0;
@@ -387,34 +445,6 @@ export function DashboardPermissions({
     });
   }, [categoryFilter, searchQuery]);
 
-  // Role metadata definition
-  const ROLES_LIST = [
-    {
-      id: 'TEACHER' as ManagedRole,
-      title: 'Faculty & Teachers',
-      badge: 'Staff',
-      icon: GraduationCap,
-      description: 'Instructors, class mentors & academic staff',
-      activeColor: 'bg-[#122A24] text-white border-[#122A24]'
-    },
-    {
-      id: 'STUDENT' as ManagedRole,
-      title: 'Enrolled Students',
-      badge: 'Learner',
-      icon: Users,
-      description: 'Pupils accessing diary, attendance & exams',
-      activeColor: 'bg-[#122A24] text-white border-[#122A24]'
-    },
-    {
-      id: 'PARENT' as ManagedRole,
-      title: 'Parents & Guardians',
-      badge: 'Family',
-      icon: HeartHandshake,
-      description: 'Family accounts managing fees, leave & reports',
-      activeColor: 'bg-[#122A24] text-white border-[#122A24]'
-    }
-  ];
-
   return (
     <div className="space-y-6 text-[#122A24]">
       {/* ─────────────────────────────────────────────────────────────
@@ -438,12 +468,12 @@ export function DashboardPermissions({
               <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
                 Role Permissions &amp; Access Controls
               </h1>
-              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF] flex items-center gap-1">
-                <span>⚡</span> Admin Authority
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                Admin Authority
               </span>
             </div>
             <p className="text-xs sm:text-sm text-[#2D5A4E] max-w-3xl leading-relaxed">
-              Define granular privileges for what <strong>Teachers</strong>, <strong>Students</strong>, and <strong>Parents</strong> can <strong>View</strong> (See), <strong>Edit &amp; Modify</strong>, <strong>Add/Create</strong>, and <strong>Delete</strong> across all 15 institutional modules.
+              Define granular privileges for what <strong>Admin Officers</strong>, <strong>Vice Principals</strong>, <strong>Teachers</strong>, <strong>Students</strong>, and <strong>Parents</strong> can <strong>View</strong>, <strong>Edit</strong>, <strong>Add</strong>, and <strong>Delete</strong> across institutional modules.
             </p>
           </div>
 
@@ -484,9 +514,9 @@ export function DashboardPermissions({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          2. Segmented Role Selector Cards (Grid, No Horiz Overflow)
+          2. Segmented Role Selector Cards (5-Column Grid)
           ───────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {ROLES_LIST.map(roleItem => {
           const Icon = roleItem.icon;
           const isSelected = selectedRole === roleItem.id;

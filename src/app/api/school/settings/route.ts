@@ -5,7 +5,7 @@ import { requireRole, ADMIN_ROLES } from '@/lib/auth-guard';
 
 export async function POST(req: Request) {
   try {
-    const auth = requireRole(req, ADMIN_ROLES);
+    const auth = requireRole(req, ['PRINCIPAL', 'AGENCY_SUPERADMIN']);
     if (auth instanceof NextResponse) return auth;
     const body = await req.json();
     const {

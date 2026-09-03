@@ -49,6 +49,7 @@ import { sortClassesChronologically } from '@/lib/cbse-subjects';
 import { openWhatsAppDirect, buildMorningAbsentText } from '@/lib/whatsapp';
 import { sendLocalPushNotification } from '@/lib/push-notifications';
 import { apiFetch } from '@/lib/api-client';
+import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 
 interface DashboardAttendanceProps {
   selectedSchool: School | null;
@@ -79,6 +80,18 @@ export function DashboardAttendance({
   // 4 Primary Tabs (Daily Mark, Monthly Register, Summary Analytics, Holiday Studio)
   const [attendanceTab, setAttendanceTab] = useState<'mark_attendance' | 'monthly_sheet' | 'attendance_summary' | 'holiday_calendar'>('mark_attendance');
   
+  // Official Institutional Printable Report Modal State
+  const [activeAttendanceReportModal, setActiveAttendanceReportModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle: string;
+    filterSummary?: Array<{ label: string; value: string }>;
+    statsSummary?: Array<{ label: string; value: string | number }>;
+    columns: ReportColumn[];
+    data: any[];
+    onDownloadCSV?: () => void;
+  } | null>(null);
+
   // ── SAVE ATTENDANCE & PARENT NOTIFICATION CONFIRMATION STATE ──
   const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
   const [notifyParentsOption, setNotifyParentsOption] = useState<'YES' | 'NO'>('NO');
@@ -806,6 +819,114 @@ export function DashboardAttendance({
     document.body.removeChild(link);
   };
 
+  // Print Official CBSE Monthly Attendance Register Report
+  const handlePrintMonthlyReport = () => {
+    if (!currentSheetClass) {
+      showAlertBox("Please select a class to generate printable attendance report.", "No Class Selected", "warning");
+      return;
+    }
+
+    const monthName = new Date(sheetYear, sheetMonth - 1, 1).toLocaleString('default', { month: 'long' });
+    
+    // Prepare aggregated rows
+    const reportData = sheetStudents.map(stu => {
+      let pCount = 0;
+      let aCount = 0;
+      let lCount = 0;
+
+      daysArray.forEach(d => {
+        const dtStr = `${sheetYear}-${String(sheetMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const dow = new Date(sheetYear, sheetMonth - 1, d).getDay();
+        const isSun = dow === 0;
+        const isHol = getHolidayForDate(dtStr);
+        if (isSun || isHol || dtStr > todayDateStr) return;
+
+        const local = sheetEdits[stu.id]?.[dtStr];
+        const rec = attendance.find(a => {
+          const normA = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+          const normC = (currentSheetClass.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+          const normASec = (a.section || '').toLowerCase().trim();
+          const normCSec = (currentSheetClass.section || '').toLowerCase().trim();
+          return a.date === dtStr && normA === normC && (!normASec || !normCSec || normASec === normCSec);
+        });
+
+        let st = '-';
+        if (local) {
+          st = local === 'PRESENT' ? 'P' : local === 'ABSENT' ? 'A' : 'L';
+        } else if (rec && (rec as any).student_records) {
+          const matched = (rec as any).student_records.find((r: any) => r.student_id === stu.id || r.admission_no === stu.admission_no);
+          if (matched) st = matched.status === 'PRESENT' ? 'P' : matched.status === 'ABSENT' ? 'A' : 'L';
+        } else if (rec) {
+          st = 'P';
+        }
+
+        if (st === 'P') pCount++;
+        else if (st === 'A') aCount++;
+        else if (st === 'L') lCount++;
+      });
+
+      const workingDays = daysArray.filter(d => {
+        const dtStr = `${sheetYear}-${String(sheetMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const dow = new Date(sheetYear, sheetMonth - 1, d).getDay();
+        return dow !== 0 && !getHolidayForDate(dtStr) && dtStr <= todayDateStr;
+      }).length;
+
+      const pct = workingDays > 0 ? Math.round((pCount / workingDays) * 100) : 0;
+
+      return {
+        roll_no: stu.roll_no || '—',
+        admission_no: stu.admission_no,
+        full_name: stu.full_name,
+        class_name: `${currentSheetClass.class_name} (${currentSheetClass.section})`,
+        presentDays: pCount,
+        absentDays: aCount,
+        leaveDays: lCount,
+        totalWorkingDays: workingDays,
+        attendancePercent: pct,
+        isDefaulter: pct < 75
+      };
+    });
+
+    const totalScholars = reportData.length;
+    const defaultersCount = reportData.filter(r => r.isDefaulter).length;
+    const avgTurnout = totalScholars > 0 ? Math.round(reportData.reduce((acc, r) => acc + r.attendancePercent, 0) / totalScholars) : 0;
+
+    const stats = [
+      { label: 'Class Enrolled', value: `${totalScholars} Scholars` },
+      { label: 'Avg Monthly Turnout', value: `${avgTurnout}%` },
+      { label: 'CBSE Compliant (≥75%)', value: `${totalScholars - defaultersCount} Scholars` },
+      { label: 'Defaulters (<75%)', value: `${defaultersCount} Scholars` },
+    ];
+
+    const cols: ReportColumn[] = [
+      { header: 'ROLL', key: 'roll_no', width: '8%', align: 'center' },
+      { header: 'SCHOLAR NAME', key: 'full_name', width: '24%' },
+      { header: 'ADM NO', key: 'admission_no', width: '14%' },
+      { header: 'PRESENT', render: (r) => r.presentDays, width: '10%', align: 'center' },
+      { header: 'ABSENT', render: (r) => r.absentDays, width: '10%', align: 'center' },
+      { header: 'LEAVE', render: (r) => r.leaveDays, width: '8%', align: 'center' },
+      { header: 'TOTAL DAYS', render: (r) => r.totalWorkingDays, width: '10%', align: 'center' },
+      { header: 'TURNOUT %', render: (r) => `${r.attendancePercent}%`, width: '10%', align: 'center' },
+      { header: 'STATUS', render: (r) => r.isDefaulter ? 'DEFAULTER' : 'COMPLIANT', width: '10%', align: 'center' },
+    ];
+
+    setActiveAttendanceReportModal({
+      isOpen: true,
+      title: `Monthly Attendance Register: ${currentSheetClass.class_name} - Section ${currentSheetClass.section}`,
+      subtitle: `CBSE Statutory 31-Day Academic Roll Call & Compliance Audit (${monthName} ${sheetYear})`,
+      filterSummary: [
+        { label: 'Session', value: selectedSession || '2026-27' },
+        { label: 'Class', value: `${currentSheetClass.class_name} (${currentSheetClass.section})` },
+        { label: 'Month', value: `${monthName} ${sheetYear}` },
+        { label: 'Scholars', value: `${totalScholars} Students` }
+      ],
+      statsSummary: stats,
+      columns: cols,
+      data: reportData,
+      onDownloadCSV: handleExportMonthlyCSV
+    });
+  };
+
   // ─────────────────────────────────────────────────────────────────
   // TAB 3: ATTENDANCE SUMMARY & COMPARATIVE ANALYTICS
   // ─────────────────────────────────────────────────────────────────
@@ -1415,6 +1536,16 @@ export function DashboardAttendance({
                       ? `Save Monthly Register (${totalEditedCellsCount})`
                       : 'Monthly Ledger Saved'}
                   </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handlePrintMonthlyReport}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] text-xs font-bold shadow-2xs cursor-pointer flex items-center gap-1.5 transition-colors"
+                  title="Print Official CBSE 31-Day Attendance Register PDF"
+                >
+                  <Printer className="h-3.5 w-3.5 text-[#1C443A]" />
+                  <span>Print Official CBSE PDF</span>
                 </button>
 
                 <button
@@ -2460,6 +2591,23 @@ export function DashboardAttendance({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Official CBSE Institutional Printable Report Modal for Attendance Hub */}
+      {activeAttendanceReportModal && (
+        <InstitutionalReportModal
+          isOpen={activeAttendanceReportModal.isOpen}
+          onClose={() => setActiveAttendanceReportModal(null)}
+          school={selectedSchool || null}
+          session={selectedSession || '2026-27'}
+          reportTitle={activeAttendanceReportModal.title}
+          reportSubtitle={activeAttendanceReportModal.subtitle}
+          filterSummary={activeAttendanceReportModal.filterSummary}
+          statsSummary={activeAttendanceReportModal.statsSummary}
+          columns={activeAttendanceReportModal.columns}
+          data={activeAttendanceReportModal.data}
+          onDownloadCSV={activeAttendanceReportModal.onDownloadCSV}
+        />
       )}
     </div>
   );

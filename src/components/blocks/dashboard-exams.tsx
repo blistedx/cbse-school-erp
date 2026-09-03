@@ -102,9 +102,11 @@ export interface ScheduledExamItem {
   date: string;
   time?: string;
   school_id?: string;
+  academic_session?: string;
   max_marks: number;
   pass_marks: number;
   status: 'MARKS_FILLED' | 'PENDING' | string;
+  created_at?: string;
 }
 
 // CBSE Official 9-Point Grading Scale Formula
@@ -857,10 +859,11 @@ export function DashboardExams({
     } catch (e) {}
 
     // 3. Record Audit Trail
-    recordAudit(
-      'EXAM_POSTED',
-      `Admin posted ${postExamType === 'SCHOOL_EXAM' ? 'School Exam' : 'Class Test'} "${postExamTitle}" for ${postSelectedClassIds.length} classes (${newItems.length} slots)`
-    );
+    recordAudit({
+      action: 'EXAM_POSTED',
+      module: 'EXAMINATION',
+      summary: `Admin posted ${postExamType === 'SCHOOL_EXAM' ? 'School Exam' : 'Class Test'} "${postExamTitle}" for ${postSelectedClassIds.length} classes (${newItems.length} slots)`
+    });
 
     setIsPostingExam(false);
     showToast(`✅ Successfully scheduled "${postExamTitle}" across ${postSelectedClassIds.length} classes (${newItems.length} exam slots)!`);
@@ -927,7 +930,11 @@ export function DashboardExams({
       localStorage.setItem(`erp_scheduled_exams_${selectedSession}`, JSON.stringify(merged));
     } catch (e) {}
 
-    recordAudit('WHOLE_SCHOOL_EXAMS_GENERATED', `Scheduled ${wholeSchoolExamTitle} for ${targetClasses.length} classes (${generated.length} slots)`);
+    recordAudit({
+      action: 'WHOLE_SCHOOL_EXAMS_GENERATED',
+      module: 'EXAMINATION',
+      summary: `Scheduled ${wholeSchoolExamTitle} for ${targetClasses.length} classes (${generated.length} slots)`
+    });
     setShowWholeSchoolModal(false);
     showToast(`✅ Scheduled exams for ${targetClasses.length} Classes (${generated.length} total exam slots)!`);
   };
@@ -1551,7 +1558,7 @@ export function DashboardExams({
       action: 'BROADSHEET_EXPORTED',
       module: 'EXAMINATION',
       summary: `Exported Annual Consolidation Broadsheet for ${broadsheetCurrentClass?.class_name || 'Class'} - ${broadsheetCurrentClass?.section || 'A'} (${rankedBroadsheetStudents.length} scholars, ${activeSelectedAssessments.length} exams)`,
-      user: 'Administrator',
+      actor: { name: 'Administrator', role: 'ADMIN' },
       details: { class: broadsheetCurrentClass?.class_name, count: rankedBroadsheetStudents.length }
     });
   };

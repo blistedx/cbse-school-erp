@@ -4,16 +4,16 @@ import { MongoClient, Db } from 'mongodb';
 const uri = process.env.MONGODB_URI || '';
 
 const options = {
-  maxPoolSize: 10,
-  minPoolSize: 1,
-  serverSelectionTimeoutMS: 2000,
-  connectTimeoutMS: 2000,
-  socketTimeoutMS: 10000,
+  maxPoolSize: 2, // Low max pool size per lambda/worker to prevent exhausting M0 500-conn limit
+  minPoolSize: 0, // Do not hold idle connections open
+  maxIdleTimeMS: 5000, // Close idle connections after 5 seconds
+  serverSelectionTimeoutMS: 5000,
+  connectTimeoutMS: 5000,
+  socketTimeoutMS: 20000,
   tls: true,
   tlsAllowInvalidCertificates: true
 };
 
-let clientPromise: Promise<MongoClient> | null = null;
 let lastConnectionFailedAt = 0;
 const FAILURE_COOLDOWN_MS = 20000;
 
@@ -38,37 +38,22 @@ export async function getMongoClient(): Promise<MongoClient | null> {
   }
 
   try {
-    if (process.env.NODE_ENV === 'development') {
-      if (!global._mongoClientPromise) {
-        const client = new MongoClient(uri, options);
-        global._mongoClientPromise = client.connect().then(c => {
-          lastConnectionFailedAt = 0;
-          console.log('[MongoDB Atlas Cloud] Connected successfully to Database (edugit)');
-          return c;
-        }).catch(err => {
-          lastConnectionFailedAt = Date.now();
-          console.warn('[MongoDB Atlas Cloud] Notice: Cloud DB connection unavailable, using Local Store:', err.message);
-          global._mongoClientPromise = undefined;
-          return null as any;
-        });
-      }
-      return await global._mongoClientPromise;
-    } else {
-      if (!clientPromise) {
-        const client = new MongoClient(uri, options);
-        clientPromise = client.connect().then(c => {
-          lastConnectionFailedAt = 0;
-          console.log('[MongoDB Atlas Cloud] Connected successfully to Database (edugit)');
-          return c;
-        }).catch(err => {
-          lastConnectionFailedAt = Date.now();
-          console.warn('[MongoDB Atlas Cloud] Notice: Cloud DB connection unavailable, using Local Store:', err.message);
-          clientPromise = null;
-          return null as any;
-        });
-      }
-      return await clientPromise;
+    // Cache the promise globally in both development and serverless/production
+    // to ensure connection reuse across Next.js API routes and warm lambdas
+    if (!global._mongoClientPromise) {
+      const client = new MongoClient(uri, options);
+      global._mongoClientPromise = client.connect().then(c => {
+        lastConnectionFailedAt = 0;
+        console.log('[MongoDB Atlas Cloud] Connected successfully to Database (edugit)');
+        return c;
+      }).catch(err => {
+        lastConnectionFailedAt = Date.now();
+        console.warn('[MongoDB Atlas Cloud] Notice: Cloud DB connection unavailable, using Local Store:', err.message);
+        global._mongoClientPromise = undefined;
+        return null as any;
+      });
     }
+    return await global._mongoClientPromise;
   } catch (err: any) {
     lastConnectionFailedAt = Date.now();
     return null;

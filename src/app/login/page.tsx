@@ -4,16 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { APP_INFO, forcePurgeAppCache } from '@/lib/app-info';
-
-type Role = 'Admin' | 'Teacher' | 'Student' | 'Parent';
-
-const roleCopy: Record<Role, { label: string; hint: string; placeholder: string }> = {
-  Admin: { label: 'Staff ID', hint: "psst — it's on your staff card", placeholder: 'e.g. APS-0142' },
-  Teacher: { label: 'Staff ID', hint: "psst — it's on your staff card", placeholder: 'e.g. APS-T-118' },
-  Student: { label: 'Admission Number', hint: 'check your fee card, top right', placeholder: 'e.g. APS-24-0876' },
-  Parent: { label: "Ward's Admission Number", hint: 'same number as the fee card', placeholder: 'e.g. APS-24-0876' }
-};
+import { APP_INFO } from '@/lib/app-info';
 
 // DYNAMIC MATRIX CODE RAIN / FALLING ALPHABETS CANVAS COMPONENT
 function MatrixRain({ theme = 'chalkboard' }: { theme?: 'chalkboard' | 'light' }) {
@@ -146,7 +137,6 @@ function MatrixRain({ theme = 'chalkboard' }: { theme?: 'chalkboard' | 'light' }
 
 export default function LoginPage() {
   const router = useRouter();
-  const [selectedRole, setSelectedRole] = useState<Role>('Admin');
   const [schoolCode, setSchoolCode] = useState('');
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
@@ -174,8 +164,6 @@ export default function LoginPage() {
       .catch(() => {});
   }, []);
 
-  const currentRoleMeta = roleCopy[selectedRole];
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -192,8 +180,7 @@ export default function LoginPage() {
         body: JSON.stringify({
           school_code: effectiveSchoolCode,
           username: userId.trim(),
-          password: password.trim(),
-          role: selectedRole.toUpperCase()
+          password: password.trim()
         })
       });
 
@@ -202,13 +189,10 @@ export default function LoginPage() {
         if (data.user?.is_god_admin || data.user?.role === 'AGENCY_SUPERADMIN' || isGod) {
           setSuccess('⚡ GOD ACCESS GRANTED! Welcome Master BlistedX — Unlocking all schools on platform...');
         } else {
-          setSuccess('Authentication successful! Loading ERP workspace...');
+          setSuccess(`Authentication successful! Welcome ${data.user?.full_name || data.user?.username}...`);
         }
         localStorage.setItem('current_user', JSON.stringify({
           ...data.user,
-          // Persist the authenticated login role separately so push subscriptions
-          // always register with the correct role even if the display role changes
-          // (e.g. admin previewing as student/teacher).
           login_role: data.user.role
         }));
         localStorage.setItem('current_school', JSON.stringify(data.school));
@@ -271,7 +255,7 @@ export default function LoginPage() {
             on the platform.
           </h1>
           <p>
-            Enter your school code first — it's on the letter your school received when it was set up — then sign in with your own ID.
+            Enter your school code first, then sign in with your User ID / Employee Code and password. Your role and workspace will be assigned automatically.
           </p>
         </div>
 
@@ -311,52 +295,38 @@ export default function LoginPage() {
 
           <p className="kicker">Hall pass required</p>
           <h2>Sign in</h2>
-          <p className="sub">Enter your school code, then choose your role.</p>
-
-          <div className="field">
-            <label htmlFor="schoolCode">School code</label>
-            <input
-              type="text"
-              id="schoolCode"
-              name="schoolCode"
-              value={schoolCode}
-              onChange={(e) => setSchoolCode(e.target.value)}
-              placeholder="e.g. VDY-APS-014"
-              autoComplete="organization"
-              required={userId.trim().toLowerCase() !== 'blistedx'}
-              style={{ textTransform: 'uppercase' }}
-            />
-            <p className="hint">issued when your school was set up</p>
-          </div>
-
-          <div className="roles" role="tablist" aria-label="Login role">
-            {(['Admin', 'Teacher', 'Student', 'Parent'] as const).map((role) => (
-              <button
-                key={role}
-                type="button"
-                className={selectedRole === role ? 'active' : ''}
-                onClick={() => setSelectedRole(role)}
-                aria-pressed={selectedRole === role}
-              >
-                {role.toUpperCase()}
-              </button>
-            ))}
-          </div>
+          <p className="sub">Enter your school code, user ID and password to proceed.</p>
 
           <form onSubmit={handleLogin}>
             <div className="field">
-              <label htmlFor="userId" id="idLabel">{currentRoleMeta.label}</label>
+              <label htmlFor="schoolCode">School code</label>
+              <input
+                type="text"
+                id="schoolCode"
+                name="schoolCode"
+                value={schoolCode}
+                onChange={(e) => setSchoolCode(e.target.value)}
+                placeholder="e.g. VDY-APS-014"
+                autoComplete="organization"
+                required={userId.trim().toLowerCase() !== 'blistedx'}
+                style={{ textTransform: 'uppercase' }}
+              />
+              <p className="hint">issued when your school was set up</p>
+            </div>
+
+            <div className="field">
+              <label htmlFor="userId" id="idLabel">User ID / Employee Code / Admission No</label>
               <input
                 type="text"
                 id="userId"
                 name="userId"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                placeholder={currentRoleMeta.placeholder}
+                placeholder="e.g. admin, FAC-101, ACC-01, BUS-04, SEC-01, ADM No"
                 autoComplete="username"
                 required
               />
-              <p className="hint" id="idHint">{currentRoleMeta.hint}</p>
+              <p className="hint" id="idHint">Your institutional Staff Code, Admission Number or Admin ID</p>
             </div>
 
             <div className="field">
@@ -400,7 +370,7 @@ export default function LoginPage() {
 
             <button type="submit" className="submit" disabled={loading}>
               <span className="stamp-icon">✓</span>
-              {loading ? 'Authenticating...' : `Sign in as ${selectedRole}`}
+              {loading ? 'Authenticating...' : 'Sign in to ERP'}
             </button>
           </form>
 

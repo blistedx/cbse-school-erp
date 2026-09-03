@@ -848,3 +848,40 @@ a {
   transform-origin: center;
   animation: chartDotPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Official CBSE Single A4 Double-Copy Fee Receipt Print Engine
+   ───────────────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .print\:hidden {
+    display: none !important;
+  }
+  .print-dual-receipt {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    max-height: 275mm !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-inside: avoid !important;
+  }
+  .print-receipt-half {
+    padding: 5mm !important;
+    border: 1.5px solid #122A24 !important;
+    border-radius: 6px !important;
+    background: white !important;
+    page-break-inside: avoid !important;
+  }
+}

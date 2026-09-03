@@ -6,8 +6,11 @@ import { Database } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  // Load real registered schools dynamically
-  const schools = await Database.getSchools();
+  // Load registered schools with zero-delay fallback
+  const schools = await Promise.race([
+    Database.getSchools(),
+    new Promise<any[]>((resolve) => setTimeout(() => resolve([]), 800))
+  ]);
 
   return (
     <div className="min-h-screen bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased">

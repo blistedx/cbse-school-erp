@@ -82,6 +82,7 @@ import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, A
 import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
 import { apiFetch } from '@/lib/api-client';
 import { calculateRegistrationFees, DEFAULT_TRANSPORT_FEES } from '@/lib/fee-calculator';
+import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 
 const DashboardOverview = dynamic(
   () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
@@ -337,6 +338,16 @@ function ERPWorkspaceContent() {
   const [showModalPin, setShowModalPin] = useState(false);
 
   // Modals & Active Edit States
+  const [activeReportModal, setActiveReportModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    subtitle: string;
+    filterSummary?: Array<{ label: string; value: string }>;
+    statsSummary?: Array<{ label: string; value: string | number }>;
+    columns: ReportColumn[];
+    data: any[];
+    onDownloadCSV?: () => void;
+  } | null>(null);
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [studentModalTab, setStudentModalTab] = useState<'basic' | 'cbse_academic' | 'cbse_personal' | 'cbse_parents' | 'cbse_address'>('basic');
@@ -500,15 +511,38 @@ function ERPWorkspaceContent() {
     return DEFAULT_ROLE_PERMISSIONS;
   });
 
-  // Admin Role Preview Simulation
-  const [previewRole, setPreviewRole] = useState<string | null>(null);
+  // Logged In User Effective Role (Strictly decided by Login USERID & Session)
+  const effectiveRole = (currentUser?.role || 'PRINCIPAL').toUpperCase();
 
-  const effectiveRole = (previewRole || currentUser?.role || '').toUpperCase();
+  // Dynamically compute allowed tabs based on Principal configured role permissions
+  const isPrincipalMaster = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'PRINCIPAL'].includes(effectiveRole);
 
-  // Dynamically compute allowed tabs based on Admin configured role permissions
+  // Automatically open the role-specific workspace panel on login
+  useEffect(() => {
+    if (!currentUser) return;
+    const role = (currentUser.role || 'PRINCIPAL').toUpperCase();
+    if (role === 'DRIVER') {
+      setActiveTab('transport');
+    } else if (role === 'LIBRARIAN') {
+      setActiveTab('library');
+    } else if (role === 'SECURITY_GUARD' || role === 'SECURITY' || role === 'GUARD') {
+      setActiveTab('visitors');
+    } else if (role === 'ACCOUNTANT') {
+      setActiveTab('fees');
+    } else if (role === 'TEACHER') {
+      setActiveTab('attendance');
+    } else if (role === 'STUDENT' || role === 'PARENT') {
+      setActiveTab('profile');
+    } else {
+      setActiveTab('overview');
+    }
+  }, [currentUser?.id, currentUser?.role]);
+
   const allowedTabs = React.useMemo(() => {
-    if (!currentUser && !previewRole) return [];
-    if (['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole)) {
+    if (!currentUser) return [];
+
+    // Principal & God Superadmin have master access to all modules including School Settings and Permissions Studio
+    if (isPrincipalMaster) {
       return [
         'overview', 'students', 'siblings', 'teachers', 'classes', 'subjects',
         'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams',
@@ -516,8 +550,27 @@ function ERPWorkspaceContent() {
         'settings', 'permissions', 'profile'
       ];
     }
+
     if (effectiveRole === 'ACCOUNTANT') {
-      return ['overview', 'students', 'siblings', 'fees', 'reports', 'certificates', 'data_hub', 'notices', 'profile'];
+      return ['fees', 'students', 'siblings', 'reports', 'certificates', 'data_hub', 'notices', 'profile'];
+    }
+    if (effectiveRole === 'DRIVER') {
+      return ['transport', 'students', 'broadcast', 'notices', 'profile'];
+    }
+    if (effectiveRole === 'LIBRARIAN') {
+      return ['library', 'students', 'teachers', 'notices', 'profile'];
+    }
+    if (effectiveRole === 'SECURITY_GUARD' || effectiveRole === 'SECURITY' || effectiveRole === 'GUARD') {
+      return ['visitors', 'students', 'transport', 'notices', 'profile'];
+    }
+    if (effectiveRole === 'TEACHER') {
+      return ['overview', 'attendance', 'exams', 'homework', 'classes', 'subjects', 'students', 'approvals', 'library', 'notices', 'profile'];
+    }
+    if (effectiveRole === 'STUDENT') {
+      return ['profile', 'attendance', 'exams', 'homework', 'fees', 'library', 'certificates', 'notices'];
+    }
+    if (effectiveRole === 'PARENT') {
+      return ['profile', 'attendance', 'exams', 'homework', 'fees', 'siblings', 'transport', 'library', 'notices', 'broadcast'];
     }
 
     const roleConfig = rolePermissions[effectiveRole as ManagedRole];
@@ -525,23 +578,23 @@ function ERPWorkspaceContent() {
       return ['overview', 'profile'];
     }
 
-    const tabs: string[] = ['overview'];
+    const tabs: string[] = [];
     for (const [modId, perms] of Object.entries(roleConfig)) {
       if (perms?.can_view) {
         tabs.push(modId);
       }
     }
     if (!tabs.includes('profile')) tabs.push('profile');
-    return tabs;
-  }, [currentUser, previewRole, effectiveRole, rolePermissions]);
+    return tabs.length > 0 ? tabs : ['profile'];
+  }, [currentUser, effectiveRole, rolePermissions, isPrincipalMaster]);
 
   // Action level permissions for current active role
   const currentRoleModulePerms = React.useMemo(() => {
-    if (!currentUser && !previewRole) {
+    if (!currentUser) {
       return (moduleId: string) => ({ can_view: false, can_edit: false, can_add: false, can_delete: false });
     }
-    const isFullAdmin = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole);
-    if (isFullAdmin) {
+    // Principal and God mode have unconditional full create/edit/delete/view authority
+    if (isPrincipalMaster) {
       return (moduleId: string) => ({ can_view: true, can_edit: true, can_add: true, can_delete: true });
     }
     const roleConfig = rolePermissions[effectiveRole as ManagedRole];
@@ -554,7 +607,7 @@ function ERPWorkspaceContent() {
         can_delete: !!perms?.can_delete
       };
     };
-  }, [currentUser, previewRole, effectiveRole, rolePermissions]);
+  }, [currentUser, effectiveRole, rolePermissions, isPrincipalMaster]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showBroadcastInbox, setShowBroadcastInbox] = useState(false);
   const [unreadBroadcastCount, setUnreadBroadcastCount] = useState(0);
@@ -565,7 +618,7 @@ function ERPWorkspaceContent() {
       const data = await res.json();
       if (data.success && Array.isArray(data.broadcasts)) {
         const readIds = getReadBroadcastIds();
-        const role = (previewRole || currentUser?.role || 'ALL').toUpperCase();
+        const role = (currentUser?.role || 'ALL').toUpperCase();
         const isFullAdmin = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(role);
         const count = data.broadcasts.filter((b: any) => {
           if (readIds.has(b.id)) return false;
@@ -588,7 +641,7 @@ function ERPWorkspaceContent() {
         setUnreadBroadcastCount(count);
       }
     } catch (_) {}
-  }, [previewRole, currentUser]);
+  }, [currentUser]);
 
   useEffect(() => {
     checkUnreadBroadcasts();
@@ -602,10 +655,22 @@ function ERPWorkspaceContent() {
   }, [checkUnreadBroadcasts]);
 
   const [actionSuccessMsg, setActionSuccessMsg] = useState('');
-  const showToast = (msg: string) => {
-    setActionSuccessMsg(msg);
-    setTimeout(() => setActionSuccessMsg(''), 4500);
+  const toastTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const showAdminToast = (msg: string) => {
+    if (!msg) return;
+    const cleanMsg = msg
+      .replace(/Live MongoDB real-time sync active!/gi, 'Network restored: Live sync active')
+      .replace(/MongoDB Atlas/gi, 'Cloud Database')
+      .replace(/MongoDB/gi, 'Database');
+
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setActionSuccessMsg(cleanMsg);
+    toastTimeoutRef.current = setTimeout(() => {
+      setActionSuccessMsg('');
+    }, 2000);
   };
+  const showToast = showAdminToast;
   const [pinModal, setPinModal] = useState<{ type: 'student' | 'teacher'; id: string; name: string; currentPin: string } | null>(null);
   const [customPinInput, setCustomPinInput] = useState('123456');
 
@@ -693,7 +758,7 @@ function ERPWorkspaceContent() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOffline(false);
-      showAdminToast('Internet restored: Live MongoDB real-time sync active!');
+      showToast('Network connected: Live real-time sync active');
       if (selectedSchool) {
         loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession);
       }
@@ -1598,11 +1663,6 @@ function ERPWorkspaceContent() {
     }
     setStudentModalTab('basic');
     setShowStudentModal(true);
-  };
-
-  const showAdminToast = (msg: string) => {
-    setActionSuccessMsg(msg);
-    setTimeout(() => setActionSuccessMsg(''), 4000);
   };
 
   const handleDeleteStudent = async (id: string) => {
@@ -2563,7 +2623,6 @@ function ERPWorkspaceContent() {
       sessionStorage.clear();
     }
     setCurrentUser(null);
-    setPreviewRole(null);
     if (typeof window !== 'undefined') {
       window.location.replace('/login');
     } else {
@@ -2889,6 +2948,165 @@ function ERPWorkspaceContent() {
     document.body.removeChild(link);
   };
 
+  const handlePrintStudentsReport = () => {
+    setShowExportMenu(null);
+    const stats = [
+      { label: 'Total Enrolled', value: `${students.length} Scholars` },
+      { label: 'Matching Filter', value: `${filteredStudents.length} Scholars` },
+      { label: 'Active Scholars', value: `${filteredStudents.filter(s => s.status !== 'INACTIVE').length}` },
+      { label: 'Inactive / On Leave', value: `${filteredStudents.filter(s => s.status === 'INACTIVE').length}` },
+    ];
+    const cols: ReportColumn[] = [
+      { header: 'ADM NO', key: 'admission_no', width: '13%' },
+      { header: 'ROLL', render: (s) => s.roll_no || '—', width: '8%', align: 'center' },
+      { header: 'STUDENT NAME', key: 'full_name', width: '22%' },
+      { header: 'CLASS & SEC', render: (s) => `${s.class_name || 'N/A'} (${s.section || 'A'})`, width: '13%' },
+      { header: 'GENDER', render: (s) => s.gender || 'Female', width: '10%' },
+      { header: 'GUARDIAN CONTACT', render: (s) => s.guardian_phone || s.father_phone || s.emergency_contact_phone || 'N/A', width: '16%' },
+      { header: 'PEN / APAAR', render: (s) => (s as any).pen_no || s.apaar_id || 'PENDING', width: '10%' },
+      { header: 'STATUS', render: (s) => s.status || 'ACTIVE', width: '8%', align: 'right' },
+    ];
+    setActiveReportModal({
+      isOpen: true,
+      title: 'Student Master Enrollment & Demographic Register',
+      subtitle: 'CBSE Statutory Class-wise Scholar Registry & 360° Identity Dossier',
+      filterSummary: [
+        { label: 'Session', value: selectedSession || '2026-27' },
+        { label: 'Class', value: studentClassFilter || 'ALL' },
+        { label: 'Section', value: studentSectionFilter || 'ALL' },
+        { label: 'Records', value: `${filteredStudents.length} Scholars` }
+      ],
+      statsSummary: stats,
+      columns: cols,
+      data: filteredStudents,
+      onDownloadCSV: () => {
+        exportToCSV(
+          'CBSE_Students_List',
+          ['Admission No', 'Roll No', 'Name', 'Class', 'Section', 'Gender', 'Status', 'Date of Join', 'DOB', 'Guardian Phone'],
+          filteredStudents.map(s => [
+            s.admission_no,
+            s.roll_no || '',
+            s.full_name,
+            s.class_name,
+            s.section,
+            s.gender || 'Female',
+            s.status || 'ACTIVE',
+            s.admission_date || '',
+            s.dob || '',
+            s.guardian_phone || s.father_phone || ''
+          ])
+        );
+      }
+    });
+  };
+
+  const handlePrintTeachersReport = () => {
+    setShowExportMenu(null);
+    const stats = [
+      { label: 'Total Faculty', value: `${teachers.length} Members` },
+      { label: 'Active Staff', value: `${filteredTeachers.filter(t => t.status !== 'INACTIVE').length}` },
+      { label: 'Departments', value: `${Array.from(new Set(teachers.map(t => t.department).filter(Boolean))).length || 4} Depts` },
+    ];
+    const cols: ReportColumn[] = [
+      { header: 'STAFF CODE', render: (t) => t.staff_code || (t as any).employee_code || t.id, width: '14%' },
+      { header: 'FACULTY NAME', key: 'full_name', width: '22%' },
+      { header: 'DESIGNATION', render: (t) => t.designation || 'Teacher', width: '16%' },
+      { header: 'DEPARTMENT / SUBJ', render: (t) => t.department || (t as any).subject || 'General', width: '16%' },
+      { header: 'CLASSES TAUGHT', render: (t) => t.classes_taught || 'All Grades', width: '12%' },
+      { header: 'CONTACT PHONE', render: (t) => t.phone || 'N/A', width: '12%' },
+      { header: 'STATUS', render: (t) => t.status || 'ACTIVE', width: '8%', align: 'right' },
+    ];
+    setActiveReportModal({
+      isOpen: true,
+      title: 'Faculty & Statutory Staff Employment Ledger',
+      subtitle: 'CBSE OASIS Compliant Teacher Master Register & Allocation Ledger',
+      filterSummary: [
+        { label: 'Session', value: selectedSession || '2026-27' },
+        { label: 'Records', value: `${filteredTeachers.length} Staff Members` }
+      ],
+      statsSummary: stats,
+      columns: cols,
+      data: filteredTeachers,
+      onDownloadCSV: () => {
+        exportToCSV(
+          'CBSE_Teachers_List',
+          ['Staff Code', 'Name', 'Designation', 'Department', 'Class', 'Subject', 'Email', 'Phone', 'Date of Join', 'Status'],
+          filteredTeachers.map(t => [
+            t.staff_code,
+            t.full_name,
+            t.designation || '',
+            t.department || '',
+            t.classes_taught || '',
+            t.subject_specialization || '',
+            t.email,
+            t.phone,
+            t.date_of_joining || '',
+            t.status || 'ACTIVE'
+          ])
+        );
+      }
+    });
+  };
+
+  const handlePrintClassesReport = () => {
+    setShowExportMenu(null);
+    const stats = [
+      { label: 'Total Classrooms', value: `${classes.length} Rooms` },
+      { label: 'Total Scholars', value: `${students.length} Students` },
+      { label: 'Avg Class Size', value: `${Math.round(students.length / Math.max(1, classes.length))} Students` },
+    ];
+    const cols: ReportColumn[] = [
+      { header: 'CLASS CODE', render: (c, idx) => c.class_code || `CLS2026${(idx + 1).toString().padStart(2, '0')}`, width: '15%' },
+      { header: 'CLASS GRADE', key: 'class_name', width: '18%' },
+      { header: 'SECTION', key: 'section', width: '10%', align: 'center' },
+      { header: 'CLASS TEACHER', render: (c) => c.class_teacher || 'Assigned Faculty', width: '25%' },
+      {
+        header: 'STUDENTS',
+        render: (c) => {
+          const cnt = students.filter(s => s.class_name?.toLowerCase().includes(c.class_name.toLowerCase()) && s.section?.toLowerCase() === c.section.toLowerCase()).length;
+          return cnt > 0 ? cnt : (c.capacity || 30);
+        },
+        width: '12%',
+        align: 'center'
+      },
+      { header: 'SUBJECTS', render: (c) => c.no_of_subjects || '05 Subjects', width: '12%', align: 'center' },
+      { header: 'STATUS', render: (c) => c.status || 'ACTIVE', width: '8%', align: 'right' },
+    ];
+    setActiveReportModal({
+      isOpen: true,
+      title: 'Institutional Academic Classrooms & Section Register',
+      subtitle: 'CBSE Approved Class Division, Room Allocation, and Scholar Strength Ledger',
+      filterSummary: [
+        { label: 'Session', value: selectedSession || '2026-27' },
+        { label: 'Class Divisions', value: `${filteredClasses.length} Classrooms` }
+      ],
+      statsSummary: stats,
+      columns: cols,
+      data: filteredClasses,
+      onDownloadCSV: () => {
+        exportToCSV(
+          'CBSE_Classes_List',
+          ['ID', 'Class', 'Section', 'Class Teacher', 'No of Students', 'No of Subjects', 'Status'],
+          filteredClasses.map((c, idx) => {
+            const classStudentsCount = students.filter(s => 
+              s.class_name?.toLowerCase().includes(c.class_name.toLowerCase()) && 
+              s.section?.toLowerCase() === c.section.toLowerCase()
+            ).length;
+            return [
+              c.class_code || `CLS2026${(idx + 1).toString().padStart(2, '0')}`,
+              c.class_name,
+              c.section,
+              c.class_teacher || 'Assigned Faculty',
+              classStudentsCount > 0 ? classStudentsCount : (c.capacity || 30),
+              c.no_of_subjects || '05',
+              c.status || 'ACTIVE'
+            ];
+          })
+        );
+      }
+    });
+  };
+
   const schoolInitial = selectedSchool?.school_name?.trim()[0]?.toUpperCase() || 'E';
 
   // Fee calculation stats
@@ -2922,23 +3140,7 @@ function ERPWorkspaceContent() {
         </div>
       )}
 
-      {/* Role Preview Simulation Notice Banner */}
-      {previewRole && (
-        <div className="bg-amber-50 border-b border-amber-300 px-3.5 sm:px-6 py-2 text-xs font-mono text-amber-950 flex items-center justify-between shadow-2xs z-30 shrink-0 animate-fade-in">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-            <span>
-              <strong>ADMIN ROLE SIMULATION:</strong> Viewing live ERP as <strong>{previewRole}</strong>. Module visibility and editing permissions are actively restricted.
-            </span>
-          </div>
-          <button
-            onClick={() => setPreviewRole(null)}
-            className="px-3 py-1 rounded-lg bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-[11px] border-none cursor-pointer shadow-xs transition-colors shrink-0"
-          >
-            Exit Preview
-          </button>
-        </div>
-      )}
+
 
       {/* Top Header: Responsive with Mobile Drawer Toggle */}
       {/* Top Header Navigation Bar */}
@@ -3050,6 +3252,8 @@ function ERPWorkspaceContent() {
               ))}
             </select>
           </div>
+
+
 
           {/* Notification Bell Icon */}
           <div className="relative">
@@ -3233,7 +3437,7 @@ function ERPWorkspaceContent() {
               </div>
             )}
 
-            {/* Active Role Indicator Badge (Mobile Drawer - Read Only) */}
+            {/* Logged-In User Role Badge (Mobile Drawer) */}
             <div className="mb-3 px-3 py-2 bg-white/10 rounded-xl border border-white/15 flex items-center justify-between shadow-xs">
               <span className="text-[10px] font-mono text-emerald-200/80 font-bold uppercase tracking-wider">Active Role:</span>
               <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30">
@@ -3246,6 +3450,26 @@ function ERPWorkspaceContent() {
                   <>
                     <GraduationCap className="w-3 h-3 text-emerald-400" />
                     <span>TEACHER</span>
+                  </>
+                ) : effectiveRole === 'ACCOUNTANT' ? (
+                  <>
+                    <FileText className="w-3 h-3 text-amber-300" />
+                    <span>ACCOUNTANT</span>
+                  </>
+                ) : effectiveRole === 'DRIVER' ? (
+                  <>
+                    <Bus className="w-3 h-3 text-blue-300" />
+                    <span>DRIVER</span>
+                  </>
+                ) : effectiveRole === 'LIBRARIAN' ? (
+                  <>
+                    <BookOpen className="w-3 h-3 text-emerald-300" />
+                    <span>LIBRARIAN</span>
+                  </>
+                ) : effectiveRole === 'SECURITY_GUARD' || effectiveRole === 'SECURITY' || effectiveRole === 'GUARD' ? (
+                  <>
+                    <ShieldCheck className="w-3 h-3 text-amber-400" />
+                    <span>SECURITY</span>
                   </>
                 ) : effectiveRole === 'STUDENT' ? (
                   <>
@@ -3267,7 +3491,21 @@ function ERPWorkspaceContent() {
             </div>
 
             <div className="text-[10.5px] font-semibold text-emerald-200/70 uppercase tracking-wider px-3 mb-1.5 font-mono">
-              {effectiveRole === 'TEACHER' ? 'Faculty Workspace' : effectiveRole === 'STUDENT' ? 'Student SIS' : effectiveRole === 'PARENT' ? 'Parent Connect' : 'Academic Modules'}
+              {effectiveRole === 'TEACHER'
+                ? 'Faculty Workspace'
+                : effectiveRole === 'ACCOUNTANT'
+                ? 'Accounts & Billing Desk'
+                : effectiveRole === 'DRIVER'
+                ? 'Driver Transport Console'
+                : effectiveRole === 'LIBRARIAN'
+                ? 'Library Management Desk'
+                : effectiveRole === 'SECURITY_GUARD'
+                ? 'Gate Security Station'
+                : effectiveRole === 'STUDENT'
+                ? 'Student SIS'
+                : effectiveRole === 'PARENT'
+                ? 'Parent Connect'
+                : 'Academic Modules'}
             </div>
 
             {allowedTabs.includes('overview') && (
@@ -3695,7 +3933,7 @@ function ERPWorkspaceContent() {
             </div>
           )}
 
-          {/* Active Role Indicator Badge (Desktop Sidebar - Read Only) */}
+          {/* Logged-In User Active Role Badge (Desktop Sidebar) */}
           <div className="mb-2.5 px-3 py-2 bg-white/10 rounded-xl border border-white/15 flex items-center justify-between shadow-xs">
             <span className="text-[10px] font-mono text-emerald-200/80 font-bold uppercase tracking-wider">Active Role:</span>
             <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30">
@@ -3708,6 +3946,26 @@ function ERPWorkspaceContent() {
                 <>
                   <GraduationCap className="w-3 h-3 text-emerald-400" />
                   <span>TEACHER</span>
+                </>
+              ) : effectiveRole === 'ACCOUNTANT' ? (
+                <>
+                  <FileText className="w-3 h-3 text-amber-300" />
+                  <span>ACCOUNTANT</span>
+                </>
+              ) : effectiveRole === 'DRIVER' ? (
+                <>
+                  <Bus className="w-3 h-3 text-blue-300" />
+                  <span>DRIVER</span>
+                </>
+              ) : effectiveRole === 'LIBRARIAN' ? (
+                <>
+                  <BookOpen className="w-3 h-3 text-emerald-300" />
+                  <span>LIBRARIAN</span>
+                </>
+              ) : effectiveRole === 'SECURITY_GUARD' || effectiveRole === 'SECURITY' || effectiveRole === 'GUARD' ? (
+                <>
+                  <ShieldCheck className="w-3 h-3 text-amber-400" />
+                  <span>SECURITY</span>
                 </>
               ) : effectiveRole === 'STUDENT' ? (
                 <>
@@ -3729,7 +3987,21 @@ function ERPWorkspaceContent() {
           </div>
 
           <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider px-3 mb-1 font-mono">
-            {effectiveRole === 'TEACHER' ? 'Faculty Menu' : effectiveRole === 'STUDENT' ? 'Student SIS Menu' : effectiveRole === 'PARENT' ? 'Parent Menu' : 'Navigation'}
+            {effectiveRole === 'TEACHER'
+              ? 'Faculty Workspace'
+              : effectiveRole === 'ACCOUNTANT'
+              ? 'Accounts & Billing Desk'
+              : effectiveRole === 'DRIVER'
+              ? 'Driver Transport Console'
+              : effectiveRole === 'LIBRARIAN'
+              ? 'Library Management Desk'
+              : effectiveRole === 'SECURITY_GUARD'
+              ? 'Gate Security Station'
+              : effectiveRole === 'STUDENT'
+              ? 'Student Portal'
+              : effectiveRole === 'PARENT'
+              ? 'Parent Connect'
+              : 'Navigation'}
           </div>
 
           {allowedTabs.includes('overview') && (
@@ -4159,6 +4431,7 @@ function ERPWorkspaceContent() {
               attendance={attendance}
               exams={[]}
               selectedSchool={selectedSchool}
+              selectedSession={selectedSession}
               onDataImported={(type, count) => {
                 showAdminToast(`Imported ${count} ${type} records into live database!`);
               }}
@@ -4243,9 +4516,9 @@ function ERPWorkspaceContent() {
 
                     {/* Print - hidden on mobile */}
                     <button
-                      onClick={() => window.print()}
+                      onClick={handlePrintStudentsReport}
                       className="hidden sm:flex w-9 h-9 rounded-full bg-[#F4F8F5] border border-[#DCE8E0] hover:bg-[#EBF5EF] text-[#122A24] transition-colors shadow-2xs items-center justify-center cursor-pointer"
-                      title="Print Register"
+                      title="Print Official CBSE Register"
                     >
                       <Printer className="h-4 w-4" />
                     </button>
@@ -4262,7 +4535,7 @@ function ERPWorkspaceContent() {
                       </button>
 
                       {showExportMenu === 'students' && (
-                        <div className="absolute right-0 mt-1.5 w-40 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
+                        <div className="absolute right-0 mt-1.5 w-48 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
                           <button
                             onClick={() => {
                               setShowExportMenu(null);
@@ -4289,14 +4562,11 @@ function ERPWorkspaceContent() {
                             <span>Export CSV</span>
                           </button>
                           <button
-                            onClick={() => {
-                              setShowExportMenu(null);
-                              window.print();
-                            }}
+                            onClick={handlePrintStudentsReport}
                             className="w-full text-left px-3.5 py-2 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer text-xs font-medium text-[#122A24] flex items-center gap-2"
                           >
                             <Printer className="h-3.5 w-3.5 text-[#1C443A]" />
-                            <span>Print PDF</span>
+                            <span>Print Official CBSE PDF</span>
                           </button>
                         </div>
                       )}
@@ -4745,7 +5015,7 @@ function ERPWorkspaceContent() {
                                   <button
                                     onClick={() => setSummaryStudent(s)}
                                     className="text-[#122A24] hover:text-emerald-700 font-bold border-none bg-transparent p-0 cursor-pointer text-left block tracking-tight transition-colors"
-                                    title="Inspect 360Â° Dossier & Siblings"
+                                    title="Inspect 360° Dossier & Siblings"
                                   >
                                     {s.admission_no}
                                   </button>
@@ -4770,7 +5040,7 @@ function ERPWorkspaceContent() {
                                     <div>
                                       <div className="font-semibold text-[#122A24] hover:text-emerald-700 cursor-pointer transition-colors flex items-center gap-1.5" onClick={() => setSummaryStudent(s)}>
                                         <span>{s.full_name}</span>
-                                        <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-mono font-normal">360Â°</span>
+                                        <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-mono font-normal">360°</span>
                                       </div>
                                       {s.apaar_id && (
                                         <div className="text-[10px] text-slate-400 font-mono">PEN: {s.apaar_id}</div>
@@ -5113,7 +5383,7 @@ function ERPWorkspaceContent() {
                             <button
                               onClick={() => setSummaryStudent(s)}
                               className="p-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 cursor-pointer transition-colors"
-                              title="Inspect 360Â° Scholar Summary & Siblings"
+                              title="Inspect 360° Scholar Summary & Siblings"
                             >
                               <GraduationCap className="h-3.5 w-3.5" />
                             </button>
@@ -5308,9 +5578,9 @@ function ERPWorkspaceContent() {
 
                     {/* Print Button */}
                     <button
-                      onClick={() => window.print()}
+                      onClick={handlePrintTeachersReport}
                       className="w-9 h-9 rounded-full bg-[#F4F8F5] border border-[#DCE8E0] hover:bg-[#EBF5EF] text-[#122A24] transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
-                      title="Print Document"
+                      title="Print Official CBSE Staff Ledger"
                     >
                       <Printer className="h-4 w-4" />
                     </button>
@@ -5327,7 +5597,7 @@ function ERPWorkspaceContent() {
                       </button>
 
                       {showExportMenu === 'teachers' && (
-                        <div className="absolute right-0 mt-1.5 w-40 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
+                        <div className="absolute right-0 mt-1.5 w-48 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
                           <button
                             onClick={() => {
                               setShowExportMenu(null);
@@ -5354,14 +5624,11 @@ function ERPWorkspaceContent() {
                             <span>Export CSV</span>
                           </button>
                           <button
-                            onClick={() => {
-                              setShowExportMenu(null);
-                              window.print();
-                            }}
+                            onClick={handlePrintTeachersReport}
                             className="w-full text-left px-3.5 py-2 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer text-xs font-medium text-[#122A24] flex items-center gap-2"
                           >
                             <Printer className="h-3.5 w-3.5 text-[#1C443A]" />
-                            <span>Print PDF</span>
+                            <span>Print Official CBSE PDF</span>
                           </button>
                         </div>
                       )}
@@ -6186,9 +6453,9 @@ function ERPWorkspaceContent() {
 
                     {/* Print Button */}
                     <button
-                      onClick={() => window.print()}
+                      onClick={handlePrintClassesReport}
                       className="w-9 h-9 rounded-full bg-[#F4F8F5] border border-[#DCE8E0] hover:bg-[#EBF5EF] text-[#122A24] transition-colors shadow-2xs flex items-center justify-center cursor-pointer"
-                      title="Print Document"
+                      title="Print Official CBSE Classroom Register"
                     >
                       <Printer className="h-4 w-4" />
                     </button>
@@ -6205,7 +6472,7 @@ function ERPWorkspaceContent() {
                       </button>
 
                       {showExportMenu === 'classes' && (
-                        <div className="absolute right-0 mt-1.5 w-40 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
+                        <div className="absolute right-0 mt-1.5 w-48 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
                           <button
                             onClick={() => {
                               setShowExportMenu(null);
@@ -6235,14 +6502,11 @@ function ERPWorkspaceContent() {
                             <span>Export CSV</span>
                           </button>
                           <button
-                            onClick={() => {
-                              setShowExportMenu(null);
-                              window.print();
-                            }}
+                            onClick={handlePrintClassesReport}
                             className="w-full text-left px-3.5 py-2 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer text-xs font-medium text-[#122A24] flex items-center gap-2"
                           >
                             <Printer className="h-3.5 w-3.5 text-[#1C443A]" />
-                            <span>Print PDF</span>
+                            <span>Print Official CBSE PDF</span>
                           </button>
                         </div>
                       )}
@@ -7136,11 +7400,6 @@ function ERPWorkspaceContent() {
                   if (!data.success) throw new Error(data.error || 'Failed to save permissions');
                   showToast('Role permissions saved and enforced across campus!');
                 }}
-                onPreviewRole={(role) => {
-                  setPreviewRole(role);
-                  setActiveTab('overview');
-                  showToast(`Switched preview to ${role} view`);
-                }}
                 showToast={showToast}
               />
             </div>
@@ -7223,11 +7482,6 @@ function ERPWorkspaceContent() {
                     const data = await res.json();
                     if (!data.success) throw new Error(data.error || 'Failed to save permissions');
                     showToast('Role permissions saved and enforced across campus!');
-                  }}
-                  onPreviewRole={(role) => {
-                    setPreviewRole(role);
-                    setActiveTab('overview');
-                    showToast(`Switched preview to ${role} view`);
                   }}
                   showToast={showToast}
                 />
@@ -11348,7 +11602,7 @@ function ERPWorkspaceContent() {
         }}
       />
 
-      {/* STUDENT 360Â° SUMMARY & SIBLINGS DOSSIER MODAL */}
+      {/* STUDENT 360° SUMMARY & SIBLINGS DOSSIER MODAL */}
       <StudentSummaryModal
         isOpen={!!summaryStudent}
         onClose={() => setSummaryStudent(null)}
@@ -11361,19 +11615,24 @@ function ERPWorkspaceContent() {
         onCollectFee={(s) => handleQuickCollectFee(s)}
       />
 
-      {/* FLOATING ADMIN ACTION TOAST NOTIFICATION */}
+      {/* FLOATING ACTION NOTIFICATION (2 SECS DURATION) */}
       {actionSuccessMsg && (
-        <div className="fixed top-6 right-6 z-50 bg-[#122A24] text-white px-5 py-3 rounded-2xl shadow-2xl border border-emerald-500/40 flex items-center gap-3 animate-fade-in">
-          <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs border border-emerald-400/40">
-            ⚡
+        <div 
+          role="status"
+          aria-live="polite"
+          className="fixed top-6 right-6 z-50 bg-[#122A24] text-white px-4 py-3 rounded-2xl shadow-xl border border-emerald-500/50 flex items-center gap-3 animate-in slide-in-from-top-3 fade-in duration-200 select-none max-w-md"
+        >
+          <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           </div>
-          <div>
-            <div className="font-semibold text-xs text-white">Admin Power Action</div>
-            <div className="text-[11px] text-emerald-300 font-medium">{actionSuccessMsg}</div>
+          <div className="text-xs text-white font-medium flex-1 leading-snug">
+            {actionSuccessMsg}
           </div>
           <button
+            type="button"
             onClick={() => setActionSuccessMsg('')}
-            className="text-slate-400 hover:text-white border-none bg-transparent cursor-pointer ml-2 p-1"
+            className="text-slate-400 hover:text-white border-none bg-transparent cursor-pointer p-0.5 text-xs leading-none shrink-0"
+            aria-label="Dismiss notification"
           >
             ✕
           </button>
@@ -11537,6 +11796,23 @@ function ERPWorkspaceContent() {
         userRole={effectiveRole}
         userName={currentUser?.full_name || currentUser?.username}
       />
+
+      {/* Official CBSE Institutional Report Modal for Students, Faculty & Classes */}
+      {activeReportModal && (
+        <InstitutionalReportModal
+          isOpen={activeReportModal.isOpen}
+          onClose={() => setActiveReportModal(null)}
+          school={selectedSchool || null}
+          session={selectedSession || '2026-27'}
+          reportTitle={activeReportModal.title}
+          reportSubtitle={activeReportModal.subtitle}
+          filterSummary={activeReportModal.filterSummary}
+          statsSummary={activeReportModal.statsSummary}
+          columns={activeReportModal.columns}
+          data={activeReportModal.data}
+          onDownloadCSV={activeReportModal.onDownloadCSV}
+        />
+      )}
     </div>
   );
 }

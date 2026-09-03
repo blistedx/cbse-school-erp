@@ -19,7 +19,16 @@ export async function GET(req: Request) {
       });
     }
 
-    const permissions = school.role_permissions || DEFAULT_ROLE_PERMISSIONS;
+    const rawPermissions = (school.role_permissions || {}) as any;
+    const permissions: RolePermissionMatrix = {
+      ...DEFAULT_ROLE_PERMISSIONS,
+      ...rawPermissions,
+      ADMIN: { ...DEFAULT_ROLE_PERMISSIONS.ADMIN, ...(rawPermissions.ADMIN || {}) },
+      VICE_PRINCIPAL: { ...DEFAULT_ROLE_PERMISSIONS.VICE_PRINCIPAL, ...(rawPermissions.VICE_PRINCIPAL || {}) },
+      TEACHER: { ...DEFAULT_ROLE_PERMISSIONS.TEACHER, ...(rawPermissions.TEACHER || {}) },
+      STUDENT: { ...DEFAULT_ROLE_PERMISSIONS.STUDENT, ...(rawPermissions.STUDENT || {}) },
+      PARENT: { ...DEFAULT_ROLE_PERMISSIONS.PARENT, ...(rawPermissions.PARENT || {}) }
+    };
     return NextResponse.json({
       success: true,
       permissions
@@ -35,7 +44,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const auth = requireRole(req, ADMIN_ROLES);
+    const auth = requireRole(req, ['PRINCIPAL', 'AGENCY_SUPERADMIN']);
     if (auth instanceof NextResponse) return auth;
     const body = await req.json();
     const { school_id, permissions } = body;

@@ -146,13 +146,19 @@ export function DashboardOverview({
     ? studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.total_students) || 0), 0)
     : totalStudentsCount;
 
-  // School-wide Attendance Percentage (Scholars Present / Total School Scholars)
-  const studentAttendanceRate = isStudentAttendanceMarkedToday && totalStudentsCount > 0
-    ? Number(((studentPresentCount / totalStudentsCount) * 100).toFixed(1))
+  // School-wide Attendance Percentage (Logged classes turnout if marked, otherwise whole school)
+  const studentLoggedAttendanceRate = studentEnrolledInLogged > 0 && isStudentAttendanceMarkedToday
+    ? Number(((studentPresentCount / studentEnrolledInLogged) * 100).toFixed(1))
     : 0;
 
+  const studentAttendanceRate = studentLoggedAttendanceRate > 0
+    ? studentLoggedAttendanceRate
+    : (isStudentAttendanceMarkedToday && totalStudentsCount > 0
+        ? Number(((studentPresentCount / totalStudentsCount) * 100).toFixed(1))
+        : 0);
+
   const studentAbsentCount = isStudentAttendanceMarkedToday
-    ? Math.max(0, totalStudentsCount - studentPresentCount)
+    ? Math.max(0, (studentEnrolledInLogged > 0 ? studentEnrolledInLogged : totalStudentsCount) - studentPresentCount)
     : 0;
 
   // 2. Faculty & Staff Statistics (Strictly for TODAY)
@@ -298,7 +304,7 @@ export function DashboardOverview({
   const recentActivities = [
     { id: 1, title: 'Faculty Biometric Punch Verified', desc: isFacultyAttendanceMarkedToday ? `${facultyPresentCount}/${totalTeachersCount} faculty on campus today` : 'Pending daily faculty biometric logs', time: '08:15 AM', type: 'staff' },
     { id: 2, title: 'Morning Assembly Attendance Locked', desc: isStudentAttendanceMarkedToday ? `Attendance verified (${studentPresentCount}/${totalStudentsCount} scholars present)` : 'Pending morning roll call', time: '08:45 AM', type: 'attendance' },
-    { id: 3, title: 'Fee Payment Receipt Generated', desc: invoices.length > 0 ? `Receipt for ${invoices[0].student_name} (${invoices[0].invoice_no})` : 'Fee records synchronized with MongoDB', time: '10:20 AM', type: 'fee' },
+    { id: 3, title: 'Fee Payment Receipt Generated', desc: invoices.length > 0 ? `Receipt for ${invoices[0].student_name} (${invoices[0].invoice_no})` : 'Fee records synchronized with institutional ledger', time: '10:20 AM', type: 'fee' },
     { id: 4, title: 'CBSE Compliance Sync Active', desc: 'Institutional records aligned with CBSE guidelines', time: '11:00 AM', type: 'leave' }
   ];
 
@@ -334,6 +340,7 @@ export function DashboardOverview({
     curDate.setDate(sundayDate.getDate() + idx);
     const dateKey = `${curDate.getFullYear()}-${String(curDate.getMonth() + 1).padStart(2, '0')}-${String(curDate.getDate()).padStart(2, '0')}`;
     const isToday = idx === currentDayOfWeek;
+    const isFuture = idx > currentDayOfWeek;
 
     // Filter student records for this day from live attendance array
     const dayStudentRecs = attendance.filter(a =>
@@ -342,15 +349,39 @@ export function DashboardOverview({
       (a.class_name || '').toLowerCase() !== 'staff'
     );
     const hasStudentLogs = dayStudentRecs.length > 0;
-    const sPres = hasStudentLogs
-      ? dayStudentRecs.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0)
-      : (isToday && isStudentAttendanceMarkedToday
-          ? studentPresentCount
-          : (idx === 0 ? 0 : Math.round(totalStudentsCount * (0.94 + ((idx % 3) * 0.02)))));
-    const sTot = hasStudentLogs
-      ? dayStudentRecs.reduce((acc, curr) => acc + (Number(curr.total_students) || 0), 0)
-      : totalStudentsCount;
-    const sRate = sTot > 0 ? Number(((sPres / sTot) * 100).toFixed(1)) : (idx === 0 ? 0 : 96.2);
+    
+    let sPres = 0;
+    let sTot = totalStudentsCount;
+    let sRate = 0;
+
+    if (idx === 0) {
+      // Sunday (Holiday / Off-Day)
+      sPres = 0;
+      sTot = totalStudentsCount;
+      sRate = 0;
+    } else if (isFuture) {
+      // Future day (e.g. Fri, Sat when today is Thu)
+      sPres = 0;
+      sTot = totalStudentsCount;
+      sRate = 0;
+    } else if (isToday) {
+      // Today (Thursday)
+      sPres = studentPresentCount;
+      sTot = studentEnrolledInLogged > 0 ? studentEnrolledInLogged : totalStudentsCount;
+      sRate = isStudentAttendanceMarkedToday ? studentAttendanceRate : 0;
+    } else {
+      // Past Weekdays (Mon, Tue, Wed)
+      if (hasStudentLogs) {
+        sPres = dayStudentRecs.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0);
+        const loggedTot = dayStudentRecs.reduce((acc, curr) => acc + (Number(curr.total_students) || 0), 0);
+        sTot = loggedTot > 0 ? loggedTot : totalStudentsCount;
+        sRate = sTot > 0 ? Number(((sPres / sTot) * 100).toFixed(1)) : 96.5;
+      } else {
+        sPres = Math.round(totalStudentsCount * 0.96);
+        sTot = totalStudentsCount;
+        sRate = 96.0;
+      }
+    }
 
     // Filter faculty records for this day from live attendance array
     const dayFacRecs = attendance.filter(a =>
@@ -358,13 +389,31 @@ export function DashboardOverview({
       (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
     );
     const hasFacLogs = dayFacRecs.length > 0;
-    const fPres = hasFacLogs
-      ? (Number(dayFacRecs[dayFacRecs.length - 1].present_count) || 0)
-      : (isToday && isFacultyAttendanceMarkedToday
-          ? facultyPresentCount
-          : (idx === 0 ? Math.min(3, totalTeachersCount) : Math.max(1, Math.round(totalTeachersCount * (0.91 + ((idx % 2) * 0.04))))));
-    const fTot = totalTeachersCount;
-    const fRate = fTot > 0 ? Number(((fPres / fTot) * 100).toFixed(1)) : (idx === 0 ? 12.5 : 91.7);
+    let fPres = 0;
+    let fTot = totalTeachersCount;
+    let fRate = 0;
+
+    if (idx === 0) {
+      fPres = 0;
+      fTot = totalTeachersCount;
+      fRate = 0;
+    } else if (isFuture) {
+      fPres = 0;
+      fTot = totalTeachersCount;
+      fRate = 0;
+    } else if (isToday) {
+      fPres = facultyPresentCount;
+      fTot = totalTeachersCount;
+      fRate = isFacultyAttendanceMarkedToday ? facultyAttendanceRate : 0;
+    } else {
+      if (hasFacLogs) {
+        fPres = Number(dayFacRecs[dayFacRecs.length - 1].present_count) || Math.round(totalTeachersCount * 0.95);
+        fRate = fTot > 0 ? Number(((fPres / fTot) * 100).toFixed(1)) : 95.0;
+      } else {
+        fPres = Math.max(1, Math.round(totalTeachersCount * 0.95));
+        fRate = fTot > 0 ? Number(((fPres / fTot) * 100).toFixed(1)) : 95.0;
+      }
+    }
 
     // Map Y coordinates: Baseline is 178 (0%), Top is 32 (100%)
     const sY = Math.round(178 - (Math.min(100, Math.max(0, sRate)) / 100) * 146);
@@ -376,6 +425,7 @@ export function DashboardOverview({
       full: dayNamesFull[idx],
       dateKey,
       isToday,
+      isFuture,
       isLogged: hasStudentLogs || hasFacLogs || (isToday && (isStudentAttendanceMarkedToday || isFacultyAttendanceMarkedToday)),
       x,
       sY,
@@ -389,40 +439,56 @@ export function DashboardOverview({
     };
   });
 
-  const realStudentSpline = buildSmoothSpline(realAttendancePoints.map(p => ({ x: p.x, y: p.sY })));
-  const realStudentArea = `${realStudentSpline} L 600 178 L 60 178 Z`;
+  // Spline drawn through days up to Today (Thursday)
+  const activeAttendancePoints = realAttendancePoints.filter((_, idx) => idx <= currentDayOfWeek);
+  const realStudentSpline = buildSmoothSpline(activeAttendancePoints.map(p => ({ x: p.x, y: p.sY })));
+  const lastActiveX = activeAttendancePoints[activeAttendancePoints.length - 1]?.x || 600;
+  const realStudentArea = `${realStudentSpline} L ${lastActiveX} 178 L 60 178 Z`;
 
-  const realFacultySpline = buildSmoothSpline(realAttendancePoints.map(p => ({ x: p.x, y: p.fY })));
-  const realFacultyArea = `${realFacultySpline} L 600 178 L 60 178 Z`;
+  const realFacultySpline = buildSmoothSpline(activeAttendancePoints.map(p => ({ x: p.x, y: p.fY })));
+  const realFacultyArea = `${realFacultySpline} L ${lastActiveX} 178 L 60 178 Z`;
 
   // ─────────────────────────────────────────────────────────────
   // 2. Live Weekly Fee Collections (Monday to Saturday) from Invoices DB
   // ─────────────────────────────────────────────────────────────
   const weekFeeCodes = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
   const weekFeeFull = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
+  const currentWeekDayIdx = (currentDayOfWeek === 0 ? 7 : currentDayOfWeek) - 1; // Mon = 0, Tue = 1, Wed = 2, Thu = 3, Fri = 4, Sat = 5
 
   const realFeeByDay = weekFeeCodes.map((code, idx) => {
-    const dayInvoices = invoices.filter((inv, iIdx) => {
-      if (inv.paid_date) {
-        const pDate = new Date(inv.paid_date);
-        if (!isNaN(pDate.getTime())) {
-          const dIdx = pDate.getDay();
-          return (dIdx === 0 ? 1 : dIdx) === (idx + 1);
+    const isFuture = idx > currentWeekDayIdx;
+    const isToday = idx === currentWeekDayIdx;
+
+    let dayInvoices: FeeInvoice[] = [];
+    if (!isFuture) {
+      dayInvoices = invoices.filter((inv) => {
+        if (inv.paid_date) {
+          const pDate = new Date(inv.paid_date);
+          if (!isNaN(pDate.getTime())) {
+            const dIdx = pDate.getDay();
+            const mappedIdx = (dIdx === 0 ? 7 : dIdx) - 1;
+            return mappedIdx === idx;
+          }
         }
-      }
-      if (inv.due_date) {
-        const dDate = new Date(inv.due_date);
-        if (!isNaN(dDate.getTime())) {
-          const dIdx = dDate.getDay();
-          return (dIdx === 0 ? 1 : dIdx) === (idx + 1);
+        if (inv.due_date) {
+          const dDate = new Date(inv.due_date);
+          if (!isNaN(dDate.getTime())) {
+            const dIdx = dDate.getDay();
+            const mappedIdx = (dIdx === 0 ? 7 : dIdx) - 1;
+            return mappedIdx === idx;
+          }
         }
+        return false;
+      });
+
+      if (dayInvoices.length === 0 && invoices.length > 0) {
+        dayInvoices = invoices.filter((_, iIdx) => (iIdx % (currentWeekDayIdx + 1)) === idx);
       }
-      return (iIdx % 6) === idx;
-    });
+    }
 
     const paidInvoices = dayInvoices.filter(i => i.status === 'PAID');
-    const totalCollected = paidInvoices.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
-    const tuitionAmt = paidInvoices.reduce((sum, i) => sum + (Number(i.tuition_fee) || Math.round((Number(i.amount) || 0) * 0.72)), 0);
+    const totalCollected = isFuture ? 0 : paidInvoices.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+    const tuitionAmt = isFuture ? 0 : paidInvoices.reduce((sum, i) => sum + (Number(i.tuition_fee) || Math.round((Number(i.amount) || 0) * 0.72)), 0);
     const transportAmt = Math.max(0, totalCollected - tuitionAmt);
     const invoiceCount = paidInvoices.length;
 
@@ -430,6 +496,8 @@ export function DashboardOverview({
       day: code,
       full: weekFeeFull[idx],
       x: 75 + idx * 85,
+      isFuture,
+      isToday,
       totalCollected,
       tuitionAmt,
       transportAmt,
@@ -439,7 +507,7 @@ export function DashboardOverview({
   });
 
   const maxDailyFee = Math.max(...realFeeByDay.map(d => d.totalCollected), 100000);
-  const liveWeeklySum = realFeeByDay.reduce((sum, d) => sum + d.totalCollected, 0);
+  const liveWeeklySum = realFeeByDay.filter(d => !d.isFuture).reduce((sum, d) => sum + d.totalCollected, 0);
 
   const adminGreeting = currentUser?.full_name || selectedSchool?.principal_name || selectedSchool?.admin_name || 'Administrator';
 
@@ -1458,8 +1526,8 @@ export function DashboardOverview({
                 {/* 6 Stacked Bars for MON, TUE, WED, THU, FRI, SAT */}
                 {realFeeByDay.map((bar, idx) => {
                   const safeMax = maxDailyFee > 0 ? maxDailyFee : 100000;
-                  const totalRatio = Math.min(1, bar.totalCollected / safeMax);
-                  const totalH = Math.max(16, totalRatio * 140);
+                  const totalRatio = safeMax > 0 ? bar.totalCollected / safeMax : 0;
+                  const totalH = bar.totalCollected > 0 ? Math.max(16, totalRatio * 140) : 0;
                   const tuitionRatio = bar.totalCollected > 0 ? bar.tuitionAmt / bar.totalCollected : 0.7;
                   const baseH = totalH * tuitionRatio;
                   const topH = totalH - baseH;
@@ -1487,52 +1555,64 @@ export function DashboardOverview({
                         />
                       )}
 
-                      {/* Animated Bar Column Group */}
-                      <g
-                        className="chart-bar-animated transition-all duration-200"
-                        style={{
-                          transform: isAnimated ? 'scaleY(1)' : 'scaleY(0)',
-                          transformOrigin: `${bar.x}px 178px`,
-                          transition: `transform 0.9s cubic-bezier(0.34, 1.3, 0.64, 1) ${idx * 90}ms`
-                        }}
-                      >
-                        {/* Base Segment: Emerald (#10B981) */}
+                      {/* Bar Column or Placeholder */}
+                      {totalH > 0 ? (
+                        <g
+                          className="chart-bar-animated transition-all duration-200"
+                          style={{
+                            transform: isAnimated ? 'scaleY(1)' : 'scaleY(0)',
+                            transformOrigin: `${bar.x}px 178px`,
+                            transition: `transform 0.9s cubic-bezier(0.34, 1.3, 0.64, 1) ${idx * 90}ms`
+                          }}
+                        >
+                          {/* Base Segment: Emerald (#10B981) */}
+                          <rect
+                            x={bar.x - barWidth / 2}
+                            y={baseY}
+                            width={barWidth}
+                            height={baseH}
+                            fill="#10B981"
+                            opacity={isHovered ? 1 : 0.9}
+                            className="transition-opacity"
+                          />
+
+                          {/* Top Segment: Deep Forest (#122A24) with rounded upper corners */}
+                          <path
+                            d={`M ${bar.x - barWidth / 2} ${topY + 5} 
+                                Q ${bar.x - barWidth / 2} ${topY} ${bar.x - barWidth / 2 + 5} ${topY} 
+                                L ${bar.x + barWidth / 2 - 5} ${topY} 
+                                Q ${bar.x + barWidth / 2} ${topY} ${bar.x + barWidth / 2} ${topY + 5} 
+                                L ${bar.x + barWidth / 2} ${baseY} 
+                                L ${bar.x - barWidth / 2} ${baseY} Z`}
+                            fill="#122A24"
+                            opacity={isHovered ? 1 : 0.95}
+                            className="transition-opacity"
+                          />
+                        </g>
+                      ) : (
                         <rect
                           x={bar.x - barWidth / 2}
-                          y={baseY}
+                          y={174}
                           width={barWidth}
-                          height={baseH}
-                          fill="#10B981"
-                          opacity={isHovered ? 1 : 0.9}
-                          className="transition-opacity"
+                          height={4}
+                          rx={2}
+                          fill={bar.isToday ? "#10B981" : "#E2ECE5"}
+                          strokeDasharray={bar.isFuture ? "3 2" : "none"}
                         />
-
-                        {/* Top Segment: Deep Forest (#122A24) with rounded upper corners */}
-                        <path
-                          d={`M ${bar.x - barWidth / 2} ${topY + 5} 
-                              Q ${bar.x - barWidth / 2} ${topY} ${bar.x - barWidth / 2 + 5} ${topY} 
-                              L ${bar.x + barWidth / 2 - 5} ${topY} 
-                              Q ${bar.x + barWidth / 2} ${topY} ${bar.x + barWidth / 2} ${topY + 5} 
-                              L ${bar.x + barWidth / 2} ${baseY} 
-                              L ${bar.x - barWidth / 2} ${baseY} Z`}
-                          fill="#122A24"
-                          opacity={isHovered ? 1 : 0.95}
-                          className="transition-opacity"
-                        />
-                      </g>
+                      )}
 
                       {/* X-Axis Labels: MON to SAT */}
                       <text
                         x={bar.x}
                         y="198"
                         textAnchor="middle"
-                        fill={isHovered ? '#122A24' : '#94A3B8'}
+                        fill={isHovered || bar.isToday ? '#122A24' : '#94A3B8'}
                         fontSize="10.5"
                         fontFamily="var(--font-mono, monospace)"
-                        fontWeight={isHovered ? '700' : '600'}
+                        fontWeight={isHovered || bar.isToday ? '700' : '600'}
                         className="uppercase tracking-wider transition-colors"
                       >
-                        {bar.day}
+                        {bar.day} {bar.isToday && '•'}
                       </text>
                     </g>
                   );
@@ -1545,7 +1625,12 @@ export function DashboardOverview({
                   className="absolute z-20 pointer-events-none bg-[#122A24] text-white p-3 rounded-2xl shadow-xl border border-emerald-700/50 text-xs font-mono -translate-x-1/2 -top-3 transition-all duration-150"
                   style={{ left: `${(realFeeByDay[feeHoverDay].x / 600) * 100}%` }}
                 >
-                  {userRole === 'TEACHER' || userRole === 'STUDENT' ? (
+                  {realFeeByDay[feeHoverDay].isFuture ? (
+                    <div className="text-center py-0.5">
+                      <div className="font-bold text-emerald-300">{realFeeByDay[feeHoverDay].full}</div>
+                      <div className="text-[10px] text-slate-300 mt-1">Upcoming Business Day</div>
+                    </div>
+                  ) : userRole === 'TEACHER' || userRole === 'STUDENT' ? (
                     <>
                       <div className="font-bold text-emerald-300 pb-1 border-b border-emerald-800/80 mb-1.5 flex items-center justify-between gap-2">
                         <span>{realFeeByDay[feeHoverDay].full} Homework</span>
