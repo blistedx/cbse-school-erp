@@ -12,6 +12,7 @@ import {
   Users,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Clock,
   Search,
   Filter,
@@ -47,6 +48,7 @@ import { School, Student, ClassRoom, Teacher, AttendanceRecord, Holiday } from '
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
 import { openWhatsAppDirect, buildMorningAbsentText } from '@/lib/whatsapp';
 import { sendLocalPushNotification } from '@/lib/push-notifications';
+import { apiFetch } from '@/lib/api-client';
 
 interface DashboardAttendanceProps {
   selectedSchool: School | null;
@@ -76,6 +78,34 @@ export function DashboardAttendance({
   const isTeacher = userRole === 'TEACHER' || currentUser?.role === 'TEACHER';
   // 4 Primary Tabs (Daily Mark, Monthly Register, Summary Analytics, Holiday Studio)
   const [attendanceTab, setAttendanceTab] = useState<'mark_attendance' | 'monthly_sheet' | 'attendance_summary' | 'holiday_calendar'>('mark_attendance');
+  
+  // ── SAVE ATTENDANCE & PARENT NOTIFICATION CONFIRMATION STATE ──
+  const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
+  const [notifyParentsOption, setNotifyParentsOption] = useState<'YES' | 'NO'>('NO');
+
+  // ── IN-APP SLEEK ALERT / NOTIFICATION DIALOG BOX (NO NATIVE BROWSER ALERT) ──
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'error' | 'warning' | 'info' | 'success';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info'
+  });
+
+  const showAlertBox = (message: string, title = 'Attendance Notification', type: 'error' | 'warning' | 'info' | 'success' = 'error') => {
+    setAlertModal({
+      isOpen: true,
+      title,
+      message,
+      type
+    });
+    // Also trigger admin toast for consistent UX
+    showAdminToast(message);
+  };
   
   // Sorted Classes
   const sortedClasses = useMemo(() => sortClassesChronologically(classes), [classes]);
@@ -183,11 +213,11 @@ export function DashboardAttendance({
     e.preventDefault();
     if (!selectedSchool) return;
     if (!newHolidayTitle.trim()) {
-      alert('Please enter a holiday title or festival name.');
+      showAlertBox('Please enter a holiday title or festival name.', 'Missing Holiday Title', 'warning');
       return;
     }
     if (!newHolidayStartDate) {
-      alert('Please select a valid start date.');
+      showAlertBox('Please select a valid start date for the holiday.', 'Missing Start Date', 'warning');
       return;
     }
 
@@ -199,7 +229,7 @@ export function DashboardAttendance({
 
     try {
       setDeclaringHoliday(true);
-      const res = await fetch('/api/holidays', {
+      const res = await apiFetch('/api/holidays', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -225,11 +255,11 @@ export function DashboardAttendance({
         loadHolidays();
         onRefresh();
       } else {
-        alert(data.error || 'Failed to declare holiday.');
+        showAlertBox(data.error || 'Failed to declare holiday.', 'Holiday Declaration Error', 'error');
       }
     } catch (err: any) {
       console.error(err);
-      alert('Error declaring holiday.');
+      showAlertBox('Error declaring holiday: ' + (err?.message || 'Server connection error'), 'Holiday Declaration Error', 'error');
     } finally {
       setDeclaringHoliday(false);
     }
@@ -238,18 +268,18 @@ export function DashboardAttendance({
   const handleDeleteHoliday = async (id: string, title: string) => {
     if (!confirm(`Are you sure you want to remove the declared holiday "${title}"?`)) return;
     try {
-      const res = await fetch(`/api/holidays?id=${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/holidays?id=${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         showAdminToast(`Holiday "${title}" removed.`);
         loadHolidays();
         onRefresh();
       } else {
-        alert(data.error || 'Failed to delete holiday.');
+        showAlertBox(data.error || 'Failed to delete holiday.', 'Holiday Removal Error', 'error');
       }
     } catch (err: any) {
       console.error(err);
-      alert('Error deleting holiday.');
+      showAlertBox('Error deleting holiday: ' + (err?.message || 'Server connection error'), 'Holiday Removal Error', 'error');
     }
   };
 
@@ -367,7 +397,31 @@ export function DashboardAttendance({
     setStudentStatuses(nextMap);
   };
 
-  const handleSaveAttendance = async () => {
+  const handleSaveAttendance = () => {
+    if (!selectedSchool) return;
+
+    if (attendanceType === 'STUDENT') {
+      if (!selectedClass) return;
+
+      if (isTeacher && isSubjectTeacherOnly) {
+        showAlertBox('Access Denied: Subject teachers cannot record classroom attendance. Only designated Class Teachers can record roll call.', 'Permission Restricted', 'warning');
+        return;
+      }
+
+      if (isTeacher && !assignedClasses.some(c => c.id === selectedClass.id)) {
+        showAlertBox(`Access Denied: You are not authorized to mark attendance for ${selectedClass.class_name}-${selectedClass.section}. Only its designated Class Teacher can mark attendance.`, 'Permission Restricted', 'warning');
+        return;
+      }
+
+      // Prompt confirmation: Asks user whether to dispatch push notification strictly to parents
+      setShowSaveConfirmModal(true);
+    } else {
+      // Faculty attendance
+      executeSaveAttendance(false);
+    }
+  };
+
+  const executeSaveAttendance = async (sendPushToParents: boolean) => {
     if (!selectedSchool) return;
     setSavingAttendance(true);
 
@@ -387,18 +441,6 @@ export function DashboardAttendance({
           status: studentStatuses[s.id] || 'PRESENT'
         }));
 
-        if (isTeacher && isSubjectTeacherOnly) {
-          alert('Access Denied: Subject teachers cannot record classroom attendance. Only designated Class Teachers can record roll call.');
-          setSavingAttendance(false);
-          return;
-        }
-
-        if (isTeacher && !assignedClasses.some(c => c.id === selectedClass.id)) {
-          alert(`Access Denied: You are not authorized to mark attendance for ${selectedClass.class_name}-${selectedClass.section}. Only its designated Class Teacher can mark attendance.`);
-          setSavingAttendance(false);
-          return;
-        }
-
         const payload = {
           school_id: targetSchoolId,
           academic_session: selectedSession,
@@ -412,7 +454,7 @@ export function DashboardAttendance({
           student_records: studentRecords
         };
 
-        const res = await fetch('/api/attendance', {
+        const res = await apiFetch('/api/attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -420,18 +462,32 @@ export function DashboardAttendance({
 
         const data = await res.json();
         if (data.success) {
-          showAdminToast(`Attendance for ${selectedClass.class_name}-${selectedClass.section} saved! (${present}/${total} Present)`);
-          
-          // Trigger PWA Push Notification with Audio Chime
-          sendLocalPushNotification(`Roll Call Saved: ${selectedClass.class_name}-${selectedClass.section}`, {
-            body: `${present}/${total} present, ${absent} absent. Attendance recorded in database.`,
-            urgent: absent > 0
-          });
+          if (sendPushToParents) {
+            // Dispatches notification STRICTLY to parents only
+            try {
+              await apiFetch('/api/notifications/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  title: `Attendance Update: ${selectedClass.class_name}-${selectedClass.section}`,
+                  body: `Daily attendance logged for ${attendanceDate}: ${present}/${total} present, ${absent} absent.`,
+                  url: '/mobile?tab=attendance',
+                  audience: 'PARENTS', // <-- STRICTLY PARENTS ONLY
+                  urgent: absent > 0,
+                  senderName: isTeacher ? (currentUser?.full_name ? `${currentUser.full_name} (Class Teacher)` : 'Class Teacher') : 'Principal Office',
+                  senderRole: isTeacher ? 'TEACHER' : 'PRINCIPAL'
+                })
+              });
+            } catch (_) {}
+            showAdminToast(`Attendance saved! Push alert dispatched strictly to PARENTS.`);
+          } else {
+            showAdminToast(`Attendance for ${selectedClass.class_name}-${selectedClass.section} saved! (No notification sent)`);
+          }
 
           loadedContextKeyRef.current = '';
           onRefresh();
         } else {
-          alert(data.error || 'Failed to save attendance.');
+          showAlertBox(data.error || 'Failed to save attendance.', 'Attendance Save Error', 'error');
         }
       } else {
         // Save Faculty Attendance
@@ -461,7 +517,7 @@ export function DashboardAttendance({
           teacher_records: teacherRecords
         };
 
-        const res = await fetch('/api/attendance', {
+        const res = await apiFetch('/api/attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -473,12 +529,12 @@ export function DashboardAttendance({
           loadedContextKeyRef.current = '';
           onRefresh();
         } else {
-          alert(data.error || 'Failed to save faculty attendance.');
+          showAlertBox(data.error || 'Failed to save faculty attendance.', 'Attendance Save Error', 'error');
         }
       }
     } catch (e: any) {
       console.error(e);
-      alert('Error saving attendance.');
+      showAlertBox('Error saving attendance: ' + (e?.message || 'Server connection error'), 'Attendance Save Error', 'error');
     } finally {
       setSavingAttendance(false);
     }
@@ -509,9 +565,39 @@ export function DashboardAttendance({
   // ─────────────────────────────────────────────────────────────────
   // TAB 2: MONTHLY ATTENDANCE SHEET STATE & MATRIX BUILDER
   // ─────────────────────────────────────────────────────────────────
-  const [sheetClassId, setSheetClassId] = useState<string>(() => selectableClasses[0]?.id || '');
-  const [sheetYear, setSheetYear] = useState<number>(2026);
-  const [sheetMonth, setSheetMonth] = useState<number>(8); // August (1-12)
+  // Dynamically initialize based on current date / attendanceDate (defaults to current month: e.g. September = 9)
+  const [sheetClassId, setSheetClassId] = useState<string>(() => selectedClassId || selectableClasses[0]?.id || '');
+  const [sheetYear, setSheetYear] = useState<number>(() => {
+    const d = new Date(attendanceDate);
+    return isNaN(d.getTime()) ? 2026 : d.getFullYear();
+  });
+  const [sheetMonth, setSheetMonth] = useState<number>(() => {
+    const d = new Date(attendanceDate);
+    return isNaN(d.getTime()) ? (new Date().getMonth() + 1) : (d.getMonth() + 1);
+  });
+
+  // Track interactive cell edits made directly in monthly register
+  const [sheetEdits, setSheetEdits] = useState<Record<string, Record<string, 'PRESENT' | 'ABSENT' | 'LEAVE'>>>({});
+  const [isSavingMonthlySheet, setIsSavingMonthlySheet] = useState(false);
+  const [hasUnsavedSheetChanges, setHasUnsavedSheetChanges] = useState(false);
+
+  // Sync sheet class with selected class when selectedClassId changes
+  useEffect(() => {
+    if (selectedClassId && (!sheetClassId || selectableClasses.some(c => c.id === selectedClassId))) {
+      setSheetClassId(selectedClassId);
+    }
+  }, [selectedClassId, selectableClasses]);
+
+  // Sync sheet year/month with attendanceDate
+  useEffect(() => {
+    if (attendanceDate) {
+      const d = new Date(attendanceDate);
+      if (!isNaN(d.getTime())) {
+        setSheetYear(d.getFullYear());
+        setSheetMonth(d.getMonth() + 1);
+      }
+    }
+  }, [attendanceDate]);
 
   useEffect(() => {
     if (selectableClasses.length > 0 && (!sheetClassId || !selectableClasses.some(c => c.id === sheetClassId))) {
@@ -542,6 +628,122 @@ export function DashboardAttendance({
     return Array.from({ length: daysInSelectedMonth }, (_, i) => i + 1);
   }, [daysInSelectedMonth]);
 
+  const totalEditedCellsCount = useMemo(() => {
+    let count = 0;
+    Object.values(sheetEdits).forEach(dateMap => {
+      count += Object.keys(dateMap).length;
+    });
+    return count;
+  }, [sheetEdits]);
+
+  // Direct cell toggle in monthly register: P -> A -> L -> P
+  const handleToggleCell = (studentId: string, dateStr: string, currentSt: string) => {
+    const hol = getHolidayForDate(dateStr);
+    const dObj = new Date(dateStr);
+    if (dObj.getDay() === 0 || hol) return;
+
+    const nextStatusMap: Record<string, 'PRESENT' | 'ABSENT' | 'LEAVE'> = {
+      '—': 'PRESENT',
+      'P': 'ABSENT',
+      'A': 'LEAVE',
+      'L': 'PRESENT'
+    };
+    const nextStatus = nextStatusMap[currentSt] || 'PRESENT';
+
+    setSheetEdits(prev => ({
+      ...prev,
+      [studentId]: {
+        ...(prev[studentId] || {}),
+        [dateStr]: nextStatus
+      }
+    }));
+    setHasUnsavedSheetChanges(true);
+  };
+
+  // Save all modified dates in the monthly sheet to database
+  const handleSaveMonthlySheet = async () => {
+    if (!currentSheetClass || !selectedSchool) return;
+    setIsSavingMonthlySheet(true);
+
+    try {
+      const targetSchoolId = selectedSchool.school_code || selectedSchool.id || 'DPS2026';
+
+      // Find all distinct dates edited in sheetEdits
+      const editedDates = new Set<string>();
+      Object.values(sheetEdits).forEach(dateMap => {
+        Object.keys(dateMap).forEach(d => editedDates.add(d));
+      });
+
+      if (editedDates.size === 0) {
+        showAdminToast('No unsaved changes detected in the monthly register.');
+        setIsSavingMonthlySheet(false);
+        return;
+      }
+
+      for (const dateStr of Array.from(editedDates)) {
+        const existingRec = attendance.find(a => {
+          const normA = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+          const normC = (currentSheetClass.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+          const normASec = (a.section || '').toLowerCase().trim();
+          const normCSec = (currentSheetClass.section || '').toLowerCase().trim();
+          return a.date === dateStr && normA === normC && (!normASec || !normCSec || normASec === normCSec);
+        });
+
+        const studentRecords = sheetStudents.map(stu => {
+          const local = sheetEdits[stu.id]?.[dateStr];
+          let status: 'PRESENT' | 'ABSENT' | 'LEAVE' = 'PRESENT';
+          if (local) {
+            status = local;
+          } else if (existingRec && (existingRec as any).student_records) {
+            const matched = (existingRec as any).student_records.find((r: any) => r.student_id === stu.id || r.admission_no === stu.admission_no);
+            if (matched) status = matched.status || 'PRESENT';
+          }
+          return {
+            student_id: stu.id,
+            admission_no: stu.admission_no,
+            full_name: stu.full_name,
+            roll_no: stu.roll_no,
+            status
+          };
+        });
+
+        const presentCount = studentRecords.filter(r => r.status === 'PRESENT').length;
+        const absentCount = studentRecords.filter(r => r.status === 'ABSENT').length;
+        const leaveCount = studentRecords.filter(r => r.status === 'LEAVE').length;
+
+        const payload = {
+          school_id: targetSchoolId,
+          academic_session: selectedSession,
+          date: dateStr,
+          class_name: currentSheetClass.class_name,
+          section: currentSheetClass.section,
+          total_students: sheetStudents.length,
+          present_count: presentCount,
+          absent_count: absentCount,
+          leave_count: leaveCount,
+          marked_by: isTeacher ? (currentUser?.full_name ? `${currentUser.full_name} (Class Teacher)` : 'Class Teacher') : 'Admin / Class Incharge',
+          student_records: studentRecords
+        };
+
+        await apiFetch('/api/attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      setSheetEdits({});
+      setHasUnsavedSheetChanges(false);
+      showAdminToast(`Monthly attendance register updated and saved for ${editedDates.size} date(s)!`);
+      onRefresh();
+    } catch (err: any) {
+      console.error(err);
+      showAlertBox('Error saving monthly attendance: ' + (err?.message || 'Server error'), 'Save Failed', 'error');
+    } finally {
+      setIsSavingMonthlySheet(false);
+    }
+  };
+
   // Export Monthly Sheet to CSV (Including declared holidays)
   const handleExportMonthlyCSV = () => {
     if (!currentSheetClass) return;
@@ -561,15 +763,20 @@ export function DashboardAttendance({
           return '-';
         }
 
-        // Check real attendance from database
-        const rec = attendance.find(a => 
-          a.date === dateStr && 
-          (a.class_name || '').toLowerCase() === (currentSheetClass.class_name || '').toLowerCase() &&
-          (a.section || '').toUpperCase() === (currentSheetClass.section || '').toUpperCase()
-        );
+        // Check real attendance from database or local edits
+        const local = sheetEdits[stu.id]?.[dateStr];
+        const rec = attendance.find(a => {
+          const normA = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+          const normC = (currentSheetClass.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+          const normASec = (a.section || '').toLowerCase().trim();
+          const normCSec = (currentSheetClass.section || '').toLowerCase().trim();
+          return a.date === dateStr && normA === normC && (!normASec || !normCSec || normASec === normCSec);
+        });
         let st = '-';
-        if (rec && (rec as any).student_records) {
-          const matched = (rec as any).student_records.find((r: any) => r.student_id === stu.id);
+        if (local) {
+          st = local === 'PRESENT' ? 'P' : local === 'ABSENT' ? 'A' : 'L';
+        } else if (rec && (rec as any).student_records) {
+          const matched = (rec as any).student_records.find((r: any) => r.student_id === stu.id || r.admission_no === stu.admission_no);
           if (matched) st = matched.status === 'PRESENT' ? 'P' : matched.status === 'ABSENT' ? 'A' : 'L';
         } else if (rec) {
           st = 'P';
@@ -1175,6 +1382,41 @@ export function DashboardAttendance({
               </div>
 
               <div className="flex items-center gap-2">
+                {hasUnsavedSheetChanges && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSheetEdits({});
+                      setHasUnsavedSheetChanges(false);
+                      showAdminToast('Discarded unsaved monthly sheet edits.');
+                    }}
+                    className="px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-600 text-xs font-semibold cursor-pointer transition-colors"
+                  >
+                    Discard Edits
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleSaveMonthlySheet}
+                  disabled={!hasUnsavedSheetChanges || isSavingMonthlySheet}
+                  className={`px-4 py-1.5 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all border-none ${
+                    hasUnsavedSheetChanges
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer ring-2 ring-emerald-400/50 shadow-md animate-pulse'
+                      : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  }`}
+                  title={hasUnsavedSheetChanges ? 'Click to commit all monthly changes to database' : 'No unsaved edits'}
+                >
+                  <Save className={`h-3.5 w-3.5 ${hasUnsavedSheetChanges ? 'text-white' : 'text-slate-400'}`} />
+                  <span>
+                    {isSavingMonthlySheet
+                      ? 'Saving Ledger...'
+                      : hasUnsavedSheetChanges
+                      ? `Save Monthly Register (${totalEditedCellsCount})`
+                      : 'Monthly Ledger Saved'}
+                  </span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleExportMonthlyCSV}
@@ -1184,6 +1426,19 @@ export function DashboardAttendance({
                   <span>Export CSV</span>
                 </button>
               </div>
+            </div>
+
+            {/* Quick helper tip */}
+            <div className="flex items-center justify-between px-3.5 py-2.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl text-[11px] text-emerald-950 font-medium">
+              <span className="flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span><strong>Interactive Monthly Sheet:</strong> Click any working day cell to toggle attendance status (<strong>P ➔ A ➔ L</strong>), then click <strong>"Save Monthly Register"</strong> above to commit changes.</span>
+              </span>
+              {hasUnsavedSheetChanges && (
+                <span className="font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md font-mono text-[10px]">
+                  ● {totalEditedCellsCount} unsaved change(s)
+                </span>
+              )}
             </div>
 
             {/* Matrix Legend */}
@@ -1291,14 +1546,20 @@ export function DashboardAttendance({
                               );
                             }
 
-                            const rec = attendance.find(a => 
-                              a.date === dateStr && 
-                              (a.class_name || '').toLowerCase() === (currentSheetClass?.class_name || '').toLowerCase() &&
-                              (a.section || '').toUpperCase() === (currentSheetClass?.section || '').toUpperCase()
-                            );
+                            const rec = attendance.find(a => {
+                              const normA = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+                              const normC = (currentSheetClass?.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+                              const normASec = (a.section || '').toLowerCase().trim();
+                              const normCSec = (currentSheetClass?.section || '').toLowerCase().trim();
+                              return a.date === dateStr && normA === normC && (!normASec || !normCSec || normASec === normCSec);
+                            });
+
+                            const local = sheetEdits[stu.id]?.[dateStr];
                             let st = '—';
-                            if (rec && (rec as any).student_records) {
-                              const matched = (rec as any).student_records.find((r: any) => r.student_id === stu.id);
+                            if (local) {
+                              st = local === 'PRESENT' ? 'P' : local === 'ABSENT' ? 'A' : 'L';
+                            } else if (rec && (rec as any).student_records) {
+                              const matched = (rec as any).student_records.find((r: any) => r.student_id === stu.id || r.admission_no === stu.admission_no);
                               if (matched) st = matched.status === 'PRESENT' ? 'P' : matched.status === 'ABSENT' ? 'A' : 'L';
                             } else if (rec) {
                               st = 'P';
@@ -1307,18 +1568,32 @@ export function DashboardAttendance({
                             if (st === 'P') presentDays++;
                             else if (st === 'A') absentDays++;
 
+                            const isInteractive = !isSunday && !hol;
+
                             return (
                               <td
                                 key={d}
-                                className={`py-2 px-1 text-center font-bold text-[10px] border-r border-[#E8F0EA] ${
+                                onClick={() => isInteractive && handleToggleCell(stu.id, dateStr, st)}
+                                className={`py-2 px-1 text-center font-bold text-[10px] border-r border-[#E8F0EA] transition-all select-none ${
+                                  isInteractive ? 'cursor-pointer hover:scale-110' : ''
+                                } ${
+                                  local ? 'ring-2 ring-inset ring-blue-500 font-extrabold bg-blue-50/50' : ''
+                                } ${
                                   st === 'P'
-                                    ? 'text-emerald-700 bg-emerald-50/20'
+                                    ? 'text-emerald-700 bg-emerald-50/20 hover:bg-emerald-100'
                                     : st === 'A'
-                                    ? 'text-rose-700 bg-rose-50 font-extrabold'
+                                    ? 'text-rose-700 bg-rose-50 hover:bg-rose-100 font-extrabold'
                                     : st === 'L'
-                                    ? 'text-amber-700 bg-amber-50'
-                                    : 'text-slate-300 bg-slate-50/30'
+                                    ? 'text-amber-700 bg-amber-50 hover:bg-amber-100'
+                                    : 'text-slate-300 bg-slate-50/30 hover:bg-slate-100'
                                 }`}
+                                title={
+                                  isSunday
+                                    ? 'Sunday'
+                                    : hol
+                                    ? `${hol.title}: ${hol.reason}`
+                                    : `Day ${d}: ${st === 'P' ? 'Present' : st === 'A' ? 'Absent' : st === 'L' ? 'Leave' : 'Unmarked'} (Click to toggle)`
+                                }
                               >
                                 {st}
                               </td>
@@ -2006,6 +2281,181 @@ export function DashboardAttendance({
                 className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 border-none bg-transparent cursor-pointer"
               >
                 Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SAVE ATTENDANCE & PARENT PUSH NOTIFICATION CONFIRMATION MODAL ── */}
+      {showSaveConfirmModal && selectedClass && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-fade-up">
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold border border-emerald-200">
+                  <Save className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base text-[#122A24]">
+                    Confirm Roll Call Save
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {selectedClass.class_name} - {selectedClass.section} • {attendanceDate}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSaveConfirmModal(false)}
+                className="text-slate-400 hover:text-slate-700 p-1 border-none bg-transparent cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Summary Pills */}
+            <div className="grid grid-cols-3 gap-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 text-center">
+              <div>
+                <div className="text-[10px] uppercase font-bold text-slate-500">Total</div>
+                <div className="text-sm font-bold text-slate-800">{classStudents.length}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold text-emerald-600">Present</div>
+                <div className="text-sm font-bold text-emerald-700">
+                  {classStudents.filter(s => (studentStatuses[s.id] || 'PRESENT') === 'PRESENT' || studentStatuses[s.id] === 'LATE').length}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase font-bold text-rose-600">Absent</div>
+                <div className="text-sm font-bold text-rose-700">
+                  {classStudents.filter(s => studentStatuses[s.id] === 'ABSENT').length}
+                </div>
+              </div>
+            </div>
+
+            {/* Prompt Question: Send Push Notification to Parents? */}
+            <div className="space-y-2.5">
+              <label className="block text-xs font-bold text-[#122A24]">
+                Dispatch Push Notification to Parents?
+              </label>
+
+              <div className="space-y-2">
+                <div
+                  onClick={() => setNotifyParentsOption('YES')}
+                  className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    notifyParentsOption === 'YES'
+                      ? 'border-emerald-500 bg-emerald-50/60 shadow-xs'
+                      : 'border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="notifyParents"
+                    checked={notifyParentsOption === 'YES'}
+                    onChange={() => setNotifyParentsOption('YES')}
+                    className="mt-1 w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 font-display font-bold text-xs text-emerald-950">
+                      <Megaphone className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Yes, Dispatch Push Notification (Parents Only)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                      Roll call summary notification will be delivered <strong>strictly to parents</strong> of this class. Teachers, administrators, and staff will not receive this alert.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setNotifyParentsOption('NO')}
+                  className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                    notifyParentsOption === 'NO'
+                      ? 'border-[#122A24] bg-slate-100/90 shadow-xs'
+                      : 'border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="notifyParents"
+                    checked={notifyParentsOption === 'NO'}
+                    onChange={() => setNotifyParentsOption('NO')}
+                    className="mt-1 w-4 h-4 text-[#122A24] focus:ring-[#122A24] cursor-pointer"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-display font-bold text-xs text-[#122A24]">
+                      No, Save Attendance Only (No Notification)
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                      Attendance records will be saved securely to the database without sending mobile push notifications.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowSaveConfirmModal(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={savingAttendance}
+                onClick={() => {
+                  setShowSaveConfirmModal(false);
+                  executeSaveAttendance(notifyParentsOption === 'YES');
+                }}
+                className="px-5 py-2.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5 transition-all border-none"
+              >
+                <Save className="w-4 h-4 text-emerald-400" />
+                <span>{savingAttendance ? 'Saving...' : 'Confirm & Save Attendance'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── IN-APP SLEEK ALERT / NOTIFICATION DIALOG BOX (NO NATIVE BROWSER POPUPS) ── */}
+      {alertModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-4 animate-fade-up">
+            <div className="flex items-start gap-3.5">
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                alertModal.type === 'error'
+                  ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                  : alertModal.type === 'warning'
+                  ? 'bg-amber-50 text-amber-600 border border-amber-200'
+                  : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+              }`}>
+                {alertModal.type === 'error' ? (
+                  <AlertCircle className="w-6 h-6" />
+                ) : alertModal.type === 'warning' ? (
+                  <AlertTriangle className="w-6 h-6" />
+                ) : (
+                  <Info className="w-6 h-6" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-display font-bold text-base text-[#122A24]">{alertModal.title}</h3>
+                <p className="text-xs text-slate-600 mt-1.5 leading-relaxed whitespace-pre-line font-medium">
+                  {alertModal.message}
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+                className="px-5 py-2.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white font-display font-bold text-xs cursor-pointer border-none shadow-xs transition-all"
+              >
+                Okay, Understood
               </button>
             </div>
           </div>

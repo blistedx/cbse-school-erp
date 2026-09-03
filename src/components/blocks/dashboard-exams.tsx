@@ -53,6 +53,7 @@ import {
 import { School, Student, Teacher, ClassRoom, AttendanceRecord } from '@/lib/types';
 import { getDefaultCbseSubjectsForClass, sortClassesChronologically, SubjectItem } from '@/lib/cbse-subjects';
 import { recordAudit } from '@/lib/client-audit';
+import { apiFetch } from '@/lib/api-client';
 
 export interface DashboardExamsProps {
   students: Student[];
@@ -839,7 +840,7 @@ export function DashboardExams({
 
     // 1. Post to Serverless API
     try {
-      await fetch('/api/exams', {
+      await apiFetch('/api/exams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ exams: newItems })
@@ -913,7 +914,7 @@ export function DashboardExams({
     });
 
     try {
-      await fetch('/api/exams', {
+      await apiFetch('/api/exams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ exams: generated })
@@ -938,7 +939,7 @@ export function DashboardExams({
     setScheduledExamsList(updated);
     try {
       localStorage.setItem(`erp_scheduled_exams_${selectedSession}`, JSON.stringify(updated));
-      await fetch('/api/exams', {
+      await apiFetch('/api/exams', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: exam.id, status: newStatus })
@@ -1587,7 +1588,7 @@ export function DashboardExams({
         // Sync PATCH to server in background
         matchingExams.forEach(async (m) => {
           try {
-            await fetch('/api/exams', {
+            await apiFetch('/api/exams', {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ id: m.id, status: 'MARKS_FILLED' })

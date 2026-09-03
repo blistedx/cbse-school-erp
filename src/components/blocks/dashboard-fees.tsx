@@ -54,6 +54,7 @@ import {
 import { FeeInvoice, Student, School, ClassRoom, Teacher } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
 import { openWhatsAppDirect, buildFeeReminderText, buildFeeReceiptText } from '@/lib/whatsapp';
+import { apiFetch } from '@/lib/api-client';
 
 export interface DashboardFeesProps {
   selectedSchool?: School | null;
@@ -187,10 +188,10 @@ export function DashboardFees({
   const [singleFilterClass, setSingleFilterClass] = useState('ALL');
   const [singleFilterSection, setSingleFilterSection] = useState('ALL');
   const [singleSearchQuery, setSingleSearchQuery] = useState('');
-  const [singleTuition, setSingleTuition] = useState('14500');
-  const [singleTransport, setSingleTransport] = useState('3500');
-  const [singleLabExam, setSingleLabExam] = useState('2000');
-  const [singleAnnual, setSingleAnnual] = useState('4000');
+  const [singleTuition, setSingleTuition] = useState('1800');
+  const [singleTransport, setSingleTransport] = useState('0');
+  const [singleLabExam, setSingleLabExam] = useState('1500');
+  const [singleAnnual, setSingleAnnual] = useState('5000');
   const [singleConcession, setSingleConcession] = useState('0');
   const [singleDueDate, setSingleDueDate] = useState(() => {
     const d = new Date();
@@ -199,6 +200,15 @@ export function DashboardFees({
   });
   const [singleMonth, setSingleMonth] = useState('April 2026');
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
+
+  // Multiple Months & Complete Admin Collection Options for Single Invoice Modal
+  const [singleSelectedMonths, setSingleSelectedMonths] = useState<string[]>(['April 2026']);
+  const [singleCollectionOption, setSingleCollectionOption] = useState<'BILL_ONLY' | 'PAY_FULL' | 'PAY_PARTIAL' | 'WAIVE_OFF'>('BILL_ONLY');
+  const [singlePartialAmount, setSinglePartialAmount] = useState('');
+  const [singlePaymentMode, setSinglePaymentMode] = useState('UPI');
+  const [singlePaymentRef, setSinglePaymentRef] = useState('');
+  const [singleConcessionCategory, setSingleConcessionCategory] = useState('Principal Discretion');
+  const [singleConcessionRemark, setSingleConcessionRemark] = useState('');
 
 
 
@@ -1180,12 +1190,13 @@ export function DashboardFees({
     setInvoices(initialInvoices || []);
   }, [initialInvoices]);
 
+  const [feeToastMsg, setFeeToastMsg] = useState('');
   const notify = (msg: string) => {
     if (showAdminToast) {
       showAdminToast(msg);
-    } else {
-      alert(msg);
     }
+    setFeeToastMsg(msg);
+    setTimeout(() => setFeeToastMsg(''), 4500);
   };
 
   // Filtered Students for Single Invoice Issuance
@@ -1225,6 +1236,42 @@ export function DashboardFees({
       setSingleStudentId('');
     }
   }, [filteredIssueStudents, singleStudentId]);
+
+  // Auto-calculate fee heads in Single Issue/Collect Modal based on Student, Class, Transport & Selected Months
+  React.useEffect(() => {
+    if (!selectedSingleStudent) return;
+    const numMonths = Math.max(1, singleSelectedMonths.length);
+    let monthlyRate = 1800;
+    let annualRate = 5000;
+    let labExamRate = 1500;
+
+    const cls = (selectedSingleStudent.class_name || '').toLowerCase();
+    if (cls.includes('pg') || cls.includes('nursery') || cls.includes('lkg') || cls.includes('ukg') || cls.includes('playgroup')) {
+      monthlyRate = 1500;
+      annualRate = 4500;
+      labExamRate = 1000;
+    } else if (cls.includes('11') || cls.includes('12') || cls.includes('xi') || cls.includes('xii')) {
+      monthlyRate = 3500;
+      annualRate = 6500;
+      labExamRate = 2500;
+    } else if (cls.includes('9') || cls.includes('10') || cls.includes('ix') || cls.includes('x')) {
+      monthlyRate = 2800;
+      annualRate = 6000;
+      labExamRate = 2000;
+    } else if (cls.includes('6') || cls.includes('7') || cls.includes('8')) {
+      monthlyRate = 2200;
+      annualRate = 5500;
+      labExamRate = 1800;
+    }
+
+    const hasTransport = selectedSingleStudent.transport_opted === 'YES' || Boolean(selectedSingleStudent.bus_route_no);
+    const monthlyTransport = hasTransport ? 1200 : 0;
+
+    setSingleTuition((monthlyRate * numMonths).toString());
+    setSingleTransport((monthlyTransport * numMonths).toString());
+    setSingleLabExam(labExamRate.toString());
+    setSingleAnnual(annualRate.toString());
+  }, [selectedSingleStudent, singleSelectedMonths]);
 
   // Batch matching students
   const batchMatchingStudents = useMemo(() => {
@@ -1434,7 +1481,7 @@ export function DashboardFees({
         }
 
         const receiptNo = `REC-${selectedSession.replace('-', '')}-${Math.floor(10000 + Math.random() * 90000)}`;
-        const res = await fetch('/api/fees', {
+        const res = await apiFetch('/api/fees', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1473,7 +1520,7 @@ export function DashboardFees({
 
         const newTotalConcession = existingConcession + waiverAmount;
 
-        const res = await fetch('/api/fees', {
+        const res = await apiFetch('/api/fees', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1562,7 +1609,7 @@ export function DashboardFees({
         }]
       };
 
-      const res = await fetch('/api/fees', {
+      const res = await apiFetch('/api/fees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1598,10 +1645,10 @@ export function DashboardFees({
     }
   };
 
-  // Create Single Invoice
+  // Create Single Invoice or Direct Fee Collection / Waiver (Admin Privileges)
   const handleCreateSingleInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
-    const student = students.find(s => s.id === singleStudentId);
+    const student = selectedSingleStudent || students.find(s => s.id === singleStudentId);
     if (!student) {
       notify('Please select a student');
       return;
@@ -1611,36 +1658,92 @@ export function DashboardFees({
     const tr = parseFloat(singleTransport) || 0;
     const le = parseFloat(singleLabExam) || 0;
     const ann = parseFloat(singleAnnual) || 0;
-    const disc = parseFloat(singleConcession) || 0;
-    const total = Math.max(0, t + tr + le + ann - disc);
+    const baseTotal = t + tr + le + ann;
 
-    if (total <= 0) {
-      notify('Total invoice amount must be greater than 0');
+    let disc = parseFloat(singleConcession) || 0;
+    if (singleCollectionOption === 'WAIVE_OFF') {
+      disc = baseTotal;
+    }
+
+    const netAmount = Math.max(0, baseTotal - disc);
+
+    if (baseTotal <= 0) {
+      notify('Total fee components must be greater than 0');
       return;
+    }
+
+    // Multi-month title
+    const numMonths = Math.max(1, singleSelectedMonths.length);
+    const monthTitle = singleSelectedMonths.length === 1
+      ? singleSelectedMonths[0]
+      : `${singleSelectedMonths[0]} – ${singleSelectedMonths[singleSelectedMonths.length - 1]} (${numMonths} Months)`;
+
+    let amountPaidNow = 0;
+    let computedStatus: 'PAID' | 'PENDING' | 'PARTIAL' | 'WAIVED' = 'PENDING';
+
+    if (singleCollectionOption === 'WAIVE_OFF' || (disc >= baseTotal && baseTotal > 0)) {
+      computedStatus = 'WAIVED';
+      amountPaidNow = 0;
+    } else if (singleCollectionOption === 'PAY_FULL') {
+      computedStatus = 'PAID';
+      amountPaidNow = netAmount;
+    } else if (singleCollectionOption === 'PAY_PARTIAL') {
+      const pAmt = parseFloat(singlePartialAmount) || 0;
+      if (pAmt <= 0 || pAmt > netAmount) {
+        notify(`Please enter a valid partial amount between ₹1 and ₹${netAmount.toLocaleString()}`);
+        return;
+      }
+      amountPaidNow = pAmt;
+      computedStatus = pAmt >= netAmount ? 'PAID' : 'PARTIAL';
+    } else {
+      // BILL_ONLY
+      computedStatus = 'PENDING';
+      amountPaidNow = 0;
     }
 
     setIsCreatingInvoice(true);
     const invoiceNo = `INV-${selectedSession.replace('-', '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const receiptNo = `REC-${selectedSession.replace('-', '')}-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    const concessionReasonText = singleConcessionRemark.trim()
+      ? `${singleConcessionCategory}: ${singleConcessionRemark.trim()}`
+      : (disc > 0 ? singleConcessionCategory : undefined);
 
     try {
       const payload: Partial<FeeInvoice> = {
         school_id: selectedSchool?.id || 'DPS2026',
         student_id: student.id,
         student_name: student.full_name,
+        admission_no: student.admission_no || student.id,
         class_name: `${student.class_name} - ${student.section || 'A'}`,
         academic_session: selectedSession,
-        invoice_no: invoiceNo,
-        month: singleMonth,
-        amount: total,
-        paid_amount: 0,
-        status: 'PENDING',
+        invoice_no: computedStatus === 'PAID' || computedStatus === 'PARTIAL' ? receiptNo : invoiceNo,
+        month: monthTitle,
+        amount: baseTotal,
+        paid_amount: amountPaidNow,
+        concession_amount: disc,
+        concession_reason: concessionReasonText,
+        waived_by: disc > 0 ? 'School Administrator' : undefined,
+        waived_date: disc > 0 ? new Date().toISOString().split('T')[0] : undefined,
+        status: computedStatus,
+        payment_mode: computedStatus !== 'PENDING' ? singlePaymentMode : 'Pending',
         due_date: singleDueDate,
         tuition_fee: t,
         transport_fee: tr,
-        exam_fee: le
+        exam_fee: le,
+        annual_fee: ann,
+        paid_date: amountPaidNow > 0 ? new Date().toISOString().split('T')[0] : undefined,
+        payment_history: amountPaidNow > 0 ? [{
+          id: `pay-${Date.now()}`,
+          amount: amountPaidNow,
+          payment_mode: singlePaymentMode,
+          paid_at: new Date().toISOString(),
+          receipt_no: receiptNo,
+          remark: singleCollectionOption === 'PAY_PARTIAL' ? `Partial installment for ${monthTitle}` : (singleConcessionRemark || 'Full payment')
+        }] : []
       };
 
-      const res = await fetch('/api/fees', {
+      const res = await apiFetch('/api/fees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1648,15 +1751,32 @@ export function DashboardFees({
       const data = await res.json();
 
       if (data.success) {
-        setInvoices(prev => [data.invoice || (payload as FeeInvoice), ...prev]);
+        const savedInvoice: FeeInvoice = data.invoice || {
+          ...payload,
+          id: `inv-${Date.now()}`,
+          created_at: new Date().toISOString()
+        } as FeeInvoice;
+
+        setInvoices(prev => [savedInvoice, ...prev]);
         setShowIssueModal(false);
-        notify(`Invoice #${invoiceNo} issued for ${student.full_name}`);
+
+        if (computedStatus === 'PAID' || computedStatus === 'PARTIAL' || computedStatus === 'WAIVED') {
+          setSelectedReceiptInvoice(savedInvoice);
+          notify(`Fee transaction recorded for ${student.full_name}! Official Slip generated.`);
+        } else {
+          notify(`Invoice #${invoiceNo} successfully issued for ${student.full_name}`);
+        }
+
         if (onRefresh) onRefresh();
+        setSingleConcession('0');
+        setSingleConcessionRemark('');
+        setSinglePartialAmount('');
+        setSingleCollectionOption('BILL_ONLY');
       } else {
         notify(`Error: ${data.error}`);
       }
     } catch (err: any) {
-      notify(`Failed to issue invoice: ${err.message}`);
+      notify(`Failed to process fee transaction: ${err.message}`);
     } finally {
       setIsCreatingInvoice(false);
     }
@@ -1709,7 +1829,7 @@ export function DashboardFees({
           exam_fee: le
         };
 
-        const res = await fetch('/api/fees', {
+        const res = await apiFetch('/api/fees', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -1734,7 +1854,7 @@ export function DashboardFees({
     if (!window.confirm(`Mark invoice #${inv.invoice_no} (${inv.student_name} - ₹${inv.amount.toLocaleString()}) as PAID?`)) return;
 
     try {
-      const res = await fetch('/api/fees', {
+      const res = await apiFetch('/api/fees', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2000,7 +2120,7 @@ export function DashboardFees({
                   Choose Class &amp; Fee Installment Scope
                 </h2>
                 <p className="text-xs sm:text-sm text-[#2D5A4E] max-w-xl mx-auto">
-                  Pehle class, section aur installment scheme select karein, fir exact dues, submitted amount aur pending balance report open hogi.
+                  Select the class, section, and fee installment scheme to view exact dues, collected amounts, and pending balance reports.
                 </p>
               </div>
 
@@ -5212,11 +5332,17 @@ export function DashboardFees({
           ───────────────────────────────────────────────────────────── */}
       {showIssueModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-slate-200 relative my-8 space-y-5">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl border border-slate-200 relative my-8 space-y-5">
+            {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">
               <div>
-                <h3 className="font-display font-bold text-base text-[#122A24]">Issue Institutional Fee Invoice</h3>
-                <p className="text-xs text-[#2D5A4E]">Generate single student bill or bulk-issue class-wide invoices</p>
+                <h3 className="font-display font-bold text-base text-[#122A24] flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-emerald-700" />
+                  Student Fee Billing, Collection &amp; Waiver Studio
+                </h3>
+                <p className="text-xs text-[#2D5A4E]">
+                  Issue bills, record immediate payments (full / partial), or grant authorized concessions &amp; waivers
+                </p>
               </div>
               <button
                 onClick={() => setShowIssueModal(false)}
@@ -5226,107 +5352,83 @@ export function DashboardFees({
               </button>
             </div>
 
-            {/* Mode Switcher */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-[#F8FAF9] rounded-2xl border border-[#DCE8E0]">
-              <button
-                onClick={() => setIssueMode('SINGLE')}
-                className={`py-2 rounded-xl text-xs font-bold cursor-pointer border-none transition-all ${
-                  issueMode === 'SINGLE' ? 'bg-[#122A24] text-white shadow-xs' : 'bg-transparent text-slate-600'
-                }`}
-              >
-                Individual Student
-              </button>
-              <button
-                onClick={() => setIssueMode('BATCH')}
-                className={`py-2 rounded-xl text-xs font-bold cursor-pointer border-none transition-all ${
-                  issueMode === 'BATCH' ? 'bg-[#122A24] text-white shadow-xs' : 'bg-transparent text-slate-600'
-                }`}
-              >
-                ⚡ Bulk Class Invoicing
-              </button>
-            </div>
+            <form onSubmit={handleCreateSingleInvoice} className="space-y-4">
+              
+              {/* 1. Class, Section & Search Filter Bar */}
+              <div className="p-3.5 bg-[#F4F8F5] rounded-2xl border border-[#DCE8E0] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[#122A24] uppercase tracking-wider flex items-center gap-1.5">
+                    <Filter className="w-3.5 h-3.5 text-emerald-700" /> Step 1: Select Student Scholar
+                  </span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-white border border-[#C5E2CF] text-[#1C443A]">
+                    {filteredIssueStudents.length} Students
+                  </span>
+                </div>
 
-            {/* Single Student Form */}
-            {issueMode === 'SINGLE' ? (
-              <form onSubmit={handleCreateSingleInvoice} className="space-y-4">
-                
-                {/* Class, Section & Search Filter Bar */}
-                <div className="p-3.5 bg-[#F4F8F5] rounded-2xl border border-[#DCE8E0] space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-[#122A24] uppercase tracking-wider flex items-center gap-1.5">
-                      <Filter className="w-3.5 h-3.5 text-emerald-700" /> Filter &amp; Search Student
-                    </span>
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-white border border-[#C5E2CF] text-[#1C443A]">
-                      {filteredIssueStudents.length} Students
-                    </span>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                  {/* Class Filter */}
+                  <div className="sm:col-span-4">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Class</label>
+                    <select
+                      value={singleFilterClass}
+                      onChange={(e) => setSingleFilterClass(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-[#C5E2CF] rounded-xl text-xs font-medium text-[#122A24] cursor-pointer"
+                    >
+                      <option value="ALL">All Classes</option>
+                      {uniqueClasses.map(clsName => (
+                        <option key={clsName} value={clsName}>{clsName}</option>
+                      ))}
+                    </select>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-                    {/* Class Filter */}
-                    <div className="sm:col-span-4">
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Class</label>
-                      <select
-                        value={singleFilterClass}
-                        onChange={(e) => setSingleFilterClass(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-white border border-[#C5E2CF] rounded-xl text-xs font-medium text-[#122A24] cursor-pointer"
-                      >
-                        <option value="ALL">All Classes</option>
-                        {uniqueClasses.map(clsName => (
-                          <option key={clsName} value={clsName}>{clsName}</option>
-                        ))}
-                      </select>
-                    </div>
+                  {/* Section Filter */}
+                  <div className="sm:col-span-3">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Section</label>
+                    <select
+                      value={singleFilterSection}
+                      onChange={(e) => setSingleFilterSection(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-[#C5E2CF] rounded-xl text-xs font-medium text-[#122A24] cursor-pointer"
+                    >
+                      <option value="ALL">All Sections</option>
+                      <option value="A">Section A</option>
+                      <option value="B">Section B</option>
+                      <option value="C">Section C</option>
+                      <option value="D">Section D</option>
+                    </select>
+                  </div>
 
-                    {/* Section Filter */}
-                    <div className="sm:col-span-3">
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Section</label>
-                      <select
-                        value={singleFilterSection}
-                        onChange={(e) => setSingleFilterSection(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-white border border-[#C5E2CF] rounded-xl text-xs font-medium text-[#122A24] cursor-pointer"
-                      >
-                        <option value="ALL">All Sections</option>
-                        <option value="A">Section A</option>
-                        <option value="B">Section B</option>
-                        <option value="C">Section C</option>
-                        <option value="D">Section D</option>
-                      </select>
-                    </div>
-
-                    {/* Live Search Bar */}
-                    <div className="sm:col-span-5 relative">
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Search Student</label>
-                      <div className="relative">
-                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-                        <input
-                          type="text"
-                          placeholder="Name, adm no, roll, phone..."
-                          value={singleSearchQuery}
-                          onChange={(e) => setSingleSearchQuery(e.target.value)}
-                          className="w-full pl-7 pr-6 py-1.5 bg-white border border-[#C5E2CF] rounded-xl text-xs text-[#122A24] placeholder-slate-400 focus:outline-none focus:border-emerald-600"
-                        />
-                        {singleSearchQuery && (
-                          <button
-                            type="button"
-                            onClick={() => setSingleSearchQuery('')}
-                            className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer p-0"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
+                  {/* Live Search Bar */}
+                  <div className="sm:col-span-5 relative">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Search Student</label>
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                      <input
+                        type="text"
+                        placeholder="Name, adm no, roll, phone..."
+                        value={singleSearchQuery}
+                        onChange={(e) => setSingleSearchQuery(e.target.value)}
+                        className="w-full pl-7 pr-6 py-1.5 bg-white border border-[#C5E2CF] rounded-xl text-xs text-[#122A24] placeholder-slate-400 focus:outline-none focus:border-emerald-600"
+                      />
+                      {singleSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSingleSearchQuery('')}
+                          className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer p-0"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* Choose Student Dropdown */}
-                <div>
-                  <label className="block text-xs font-bold text-[#122A24] mb-1">Select Student *</label>
+                <div className="pt-1">
                   {filteredIssueStudents.length > 0 ? (
                     <select
                       value={singleStudentId}
                       onChange={(e) => setSingleStudentId(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#F8FAF9] border border-[#C5E2CF] rounded-xl text-xs font-bold text-[#122A24] cursor-pointer focus:outline-none focus:bg-white"
+                      className="w-full px-3 py-2 bg-white border border-[#C5E2CF] rounded-xl text-xs font-bold text-[#122A24] cursor-pointer focus:outline-none"
                       required
                     >
                       {filteredIssueStudents.map(s => (
@@ -5336,8 +5438,8 @@ export function DashboardFees({
                       ))}
                     </select>
                   ) : (
-                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center justify-between">
-                      <span>No students found matching class/section filters or search.</span>
+                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center justify-between">
+                      <span>No students found matching filters.</span>
                       <button
                         type="button"
                         onClick={() => {
@@ -5352,302 +5454,502 @@ export function DashboardFees({
                     </div>
                   )}
                 </div>
+              </div>
 
-                {/* Selected Student Information Card */}
-                {selectedSingleStudent && (
-                  <div className="p-3.5 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-between text-xs animate-fade-in">
-                    <div>
-                      <div className="font-bold text-[#122A24] flex items-center gap-1.5">
-                        <User className="w-4 h-4 text-emerald-700" />
-                        <span>{selectedSingleStudent.full_name}</span>
-                      </div>
-                      <div className="text-[11px] text-emerald-800 font-mono mt-0.5">
-                        Adm No: {selectedSingleStudent.admission_no || selectedSingleStudent.id} • Class: {selectedSingleStudent.class_name} {selectedSingleStudent.section || 'A'}
-                        {selectedSingleStudent.guardian_name ? ` • Guardian: ${selectedSingleStudent.guardian_name}` : ''}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] font-mono text-slate-500 uppercase block">Fee Status</span>
-                      <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-[10px] uppercase ${
-                        selectedSingleStudent.fee_status === 'PAID'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : selectedSingleStudent.fee_status === 'OVERDUE'
-                          ? 'bg-rose-100 text-rose-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}>
-                        {selectedSingleStudent.fee_status || 'PENDING'}
+              {/* Selected Student Information Banner */}
+              {selectedSingleStudent && (
+                <div className="p-3.5 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-between text-xs animate-fade-in">
+                  <div>
+                    <div className="font-bold text-[#122A24] flex items-center gap-1.5">
+                      <User className="w-4 h-4 text-emerald-700" />
+                      <span>{selectedSingleStudent.full_name}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white text-emerald-900 font-mono font-bold border border-emerald-300">
+                        Adm: {selectedSingleStudent.admission_no || selectedSingleStudent.id}
                       </span>
+                    </div>
+                    <div className="text-[11px] text-emerald-800 font-mono mt-0.5">
+                      Class: {selectedSingleStudent.class_name} {selectedSingleStudent.section || 'A'}
+                      {selectedSingleStudent.guardian_name ? ` • Guardian: ${selectedSingleStudent.guardian_name}` : ''}
+                      {selectedSingleStudent.transport_opted === 'YES' || selectedSingleStudent.bus_route_no ? (
+                        <span className="text-emerald-700 font-semibold ml-1.5">🚌 Bus Opted</span>
+                      ) : (
+                        <span className="text-slate-500 ml-1.5">🚶 Self Transport</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-mono text-slate-500 uppercase block">Ledger Status</span>
+                    <span className={`px-2 py-0.5 rounded-md font-mono font-bold text-[10px] uppercase ${
+                      selectedSingleStudent.fee_status === 'PAID'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : selectedSingleStudent.fee_status === 'PARTIAL'
+                        ? 'bg-amber-100 text-amber-800'
+                        : selectedSingleStudent.fee_status === 'WAIVED'
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-rose-100 text-rose-800'
+                    }`}>
+                      {selectedSingleStudent.fee_status || 'PENDING'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. MULTIPLE MONTHS SELECTION */}
+              <div className="p-3.5 bg-[#F8FAF9] rounded-2xl border border-[#DCE8E0] space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-emerald-700" />
+                    <span className="text-[11px] font-bold text-[#122A24] uppercase tracking-wider">
+                      Step 2: Select Fee Billing Period (Multiple Months)
+                    </span>
+                  </div>
+                  <span className="text-[10.5px] font-mono font-bold text-emerald-900 bg-emerald-100/70 px-2 py-0.5 rounded-md self-start sm:self-auto">
+                    {singleSelectedMonths.length} Month{singleSelectedMonths.length !== 1 ? 's' : ''} Selected
+                  </span>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-bold uppercase text-slate-400 mr-1">Presets:</span>
+                  {[
+                    { label: 'Apr (1M)', months: ['April 2026'] },
+                    { label: 'Apr-Jun (3M: Q1)', months: ['April 2026', 'May 2026', 'June 2026'] },
+                    { label: 'Apr-Jul (4M)', months: ['April 2026', 'May 2026', 'June 2026', 'July 2026'] },
+                    { label: 'Apr-Sep (6M: H1)', months: ['April 2026', 'May 2026', 'June 2026', 'July 2026', 'August 2026', 'September 2026'] },
+                    { label: 'Full Session (12M)', months: [...MONTHS] }
+                  ].map(preset => {
+                    const isActive = preset.months.length === singleSelectedMonths.length && preset.months.every(m => singleSelectedMonths.includes(m));
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setSingleSelectedMonths([...preset.months])}
+                        className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold cursor-pointer transition-all border ${
+                          isActive
+                            ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Individual 12 Months Grid */}
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5 pt-1">
+                  {MONTHS.map(m => {
+                    const isSelected = singleSelectedMonths.includes(m);
+                    const shortName = m.replace(/\s*2026|\s*2027/g, '');
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            if (singleSelectedMonths.length > 1) {
+                              setSingleSelectedMonths(prev => prev.filter(item => item !== m));
+                            }
+                          } else {
+                            setSingleSelectedMonths(prev => [...prev, m]);
+                          }
+                        }}
+                        className={`py-1.5 px-2 rounded-xl text-[11px] font-mono font-bold flex items-center justify-between transition-all cursor-pointer border ${
+                          isSelected
+                            ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300'
+                        }`}
+                      >
+                        <span>{shortName}</span>
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between text-[10.5px] font-mono text-slate-500 pt-1">
+                  <span>Due Date for Bill:</span>
+                  <input
+                    type="date"
+                    value={singleDueDate}
+                    onChange={(e) => setSingleDueDate(e.target.value)}
+                    className="px-2 py-0.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-mono font-bold text-[#122A24]"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* 3. Fee Particulars Breakdown */}
+              <div className="space-y-2.5 p-3.5 bg-white rounded-2xl border border-[#DCE8E0]">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#122A24] uppercase tracking-wider flex items-center gap-1.5">
+                    <Coins className="w-3.5 h-3.5 text-emerald-700" />
+                    Step 3: Fee Components Breakdown ({singleSelectedMonths.length} Months)
+                  </label>
+                  <span className="text-[10.5px] text-slate-400 font-mono">Rates are auto-adjusted</span>
+                </div>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div>
+                    <span className="block text-[10.5px] font-bold text-slate-600 mb-0.5">
+                      Tuition Fee ({singleSelectedMonths.length}M)
+                    </span>
+                    <input
+                      type="number"
+                      value={singleTuition}
+                      onChange={(e) => setSingleTuition(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold text-[#122A24]"
+                    />
+                  </div>
+                  <div>
+                    <span className="block text-[10.5px] font-bold text-slate-600 mb-0.5">
+                      Transport Fee ({singleSelectedMonths.length}M)
+                    </span>
+                    <input
+                      type="number"
+                      value={singleTransport}
+                      onChange={(e) => setSingleTransport(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold text-[#122A24]"
+                    />
+                  </div>
+                  <div>
+                    <span className="block text-[10.5px] font-bold text-slate-600 mb-0.5">Lab / Exam Fee</span>
+                    <input
+                      type="number"
+                      value={singleLabExam}
+                      onChange={(e) => setSingleLabExam(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold text-[#122A24]"
+                    />
+                  </div>
+                  <div>
+                    <span className="block text-[10.5px] font-bold text-slate-600 mb-0.5">Annual / Dev Fee</span>
+                    <input
+                      type="number"
+                      value={singleAnnual}
+                      onChange={(e) => setSingleAnnual(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold text-[#122A24]"
+                    />
+                  </div>
+                </div>
+
+                {/* Subtotal preview */}
+                {(() => {
+                  const baseTotal = (parseFloat(singleTuition) || 0) +
+                    (parseFloat(singleTransport) || 0) +
+                    (parseFloat(singleLabExam) || 0) +
+                    (parseFloat(singleAnnual) || 0);
+                  return (
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-mono">
+                      <span className="text-slate-500">Gross Total Before Concession:</span>
+                      <strong className="text-slate-800">₹{baseTotal.toLocaleString()}</strong>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* 4. CONCESSION & WAIVER OPTIONS (ADMIN FULL ACCESS) */}
+              <div className="p-3.5 bg-purple-50/50 rounded-2xl border border-purple-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-700" />
+                    Step 4: Fee Concession &amp; Waiver Privileges (Admin)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const baseTotal = (parseFloat(singleTuition) || 0) +
+                        (parseFloat(singleTransport) || 0) +
+                        (parseFloat(singleLabExam) || 0) +
+                        (parseFloat(singleAnnual) || 0);
+                      setSingleConcession(baseTotal.toString());
+                      setSingleCollectionOption('WAIVE_OFF');
+                      if (!singleConcessionRemark) {
+                        setSingleConcessionRemark('100% full fee waiver granted by Principal/Management');
+                      }
+                    }}
+                    className="px-2 py-0.5 rounded-md bg-purple-200/80 hover:bg-purple-300 text-purple-900 font-bold text-[10.5px] cursor-pointer border border-purple-300"
+                  >
+                    ✦ Set 100% Full Waiver
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                  <div className="sm:col-span-4">
+                    <label className="block text-[10.5px] font-bold text-purple-900 mb-0.5">
+                      Concession Amount (₹)
+                    </label>
+                    <input
+                      type="number"
+                      value={singleConcession}
+                      onChange={(e) => setSingleConcession(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-purple-300 rounded-xl text-xs font-mono font-bold text-purple-950 focus:outline-none focus:border-purple-600"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-4">
+                    <label className="block text-[10.5px] font-bold text-purple-900 mb-0.5">
+                      Concession Category
+                    </label>
+                    <select
+                      value={singleConcessionCategory}
+                      onChange={(e) => setSingleConcessionCategory(e.target.value)}
+                      className="w-full px-2 py-1.5 bg-white border border-purple-300 rounded-xl text-xs font-semibold text-purple-950 cursor-pointer"
+                    >
+                      <option value="Principal Discretion">Principal Discretionary Concession</option>
+                      <option value="Trustee / Management Waiver">Trustee / Management Waiver</option>
+                      <option value="Merit Scholarship">Merit Scholarship</option>
+                      <option value="Sibling Concession">Sibling Concession</option>
+                      <option value="Staff Ward Benefit">Staff Ward Benefit</option>
+                      <option value="EWS Scheme">Economically Weaker Section (EWS)</option>
+                      <option value="Sports / ECA Excellence">Sports / Extra-Curricular</option>
+                      <option value="Financial Hardship Relief">Financial Hardship Relief</option>
+                      <option value="Special Concession">Special Concession</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-4">
+                    <label className="block text-[10.5px] font-bold text-purple-900 mb-0.5">
+                      Official Approval Remark / Note
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Approved via letter #DPS/09"
+                      value={singleConcessionRemark}
+                      onChange={(e) => setSingleConcessionRemark(e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-white border border-purple-300 rounded-xl text-xs text-purple-950 placeholder-purple-300"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 5. COLLECTION & SETTLEMENT ACTION OPTIONS */}
+              <div className="p-3.5 bg-[#F4F8F5] rounded-2xl border border-[#DCE8E0] space-y-3">
+                <span className="text-[11px] font-bold text-[#122A24] uppercase tracking-wider flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-emerald-700" />
+                  Step 5: Fee Collection &amp; Payment Settlement Action
+                </span>
+
+                {/* 4-Card Selector */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSingleCollectionOption('BILL_ONLY')}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      singleCollectionOption === 'BILL_ONLY'
+                        ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="block text-[11px] font-bold">📄 Bill Only</span>
+                    <span className={`text-[10px] block mt-0.5 ${singleCollectionOption === 'BILL_ONLY' ? 'text-slate-300' : 'text-slate-400'}`}>
+                      Generate unpaid bill (Pending)
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSingleCollectionOption('PAY_FULL')}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      singleCollectionOption === 'PAY_FULL'
+                        ? 'bg-[#005A36] text-white border-[#005A36] shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="block text-[11px] font-bold">💳 Full Payment</span>
+                    <span className={`text-[10px] block mt-0.5 ${singleCollectionOption === 'PAY_FULL' ? 'text-emerald-200' : 'text-slate-400'}`}>
+                      Collect full amount now &amp; issue receipt
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSingleCollectionOption('PAY_PARTIAL');
+                      const baseTotal = (parseFloat(singleTuition) || 0) +
+                        (parseFloat(singleTransport) || 0) +
+                        (parseFloat(singleLabExam) || 0) +
+                        (parseFloat(singleAnnual) || 0);
+                      const net = Math.max(0, baseTotal - (parseFloat(singleConcession) || 0));
+                      if (!singlePartialAmount) {
+                        setSinglePartialAmount(Math.round(net / 2).toString());
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      singleCollectionOption === 'PAY_PARTIAL'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="block text-[11px] font-bold">🪙 Partial Installment</span>
+                    <span className={`text-[10px] block mt-0.5 ${singleCollectionOption === 'PAY_PARTIAL' ? 'text-amber-200' : 'text-slate-400'}`}>
+                      Pay partial now, keep balance due
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSingleCollectionOption('WAIVE_OFF');
+                      const baseTotal = (parseFloat(singleTuition) || 0) +
+                        (parseFloat(singleTransport) || 0) +
+                        (parseFloat(singleLabExam) || 0) +
+                        (parseFloat(singleAnnual) || 0);
+                      setSingleConcession(baseTotal.toString());
+                      if (!singleConcessionRemark) {
+                        setSingleConcessionRemark('100% full fee waiver granted');
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      singleCollectionOption === 'WAIVE_OFF'
+                        ? 'bg-purple-700 text-white border-purple-700 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="block text-[11px] font-bold">🎁 100% Waive Off</span>
+                    <span className={`text-[10px] block mt-0.5 ${singleCollectionOption === 'WAIVE_OFF' ? 'text-purple-200' : 'text-slate-400'}`}>
+                      Waive entire fee with remark
+                    </span>
+                  </button>
+                </div>
+
+                {/* Conditional Inputs for Payment Mode / Partial Amount */}
+                {(singleCollectionOption === 'PAY_FULL' || singleCollectionOption === 'PAY_PARTIAL') && (
+                  <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-2.5 animate-fade-in">
+                    {singleCollectionOption === 'PAY_PARTIAL' && (
+                      <div>
+                        <label className="block text-[10.5px] font-bold text-amber-900 mb-0.5">
+                          Partial Amount Paying Now (₹) *
+                        </label>
+                        <input
+                          type="number"
+                          value={singlePartialAmount}
+                          onChange={(e) => setSinglePartialAmount(e.target.value)}
+                          className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-xl text-xs font-mono font-bold text-amber-950 focus:outline-none"
+                          placeholder="e.g. 2500"
+                          required
+                        />
+                      </div>
+                    )}
+
+                    <div className={singleCollectionOption === 'PAY_FULL' ? 'sm:col-span-1' : ''}>
+                      <label className="block text-[10.5px] font-bold text-slate-700 mb-0.5">
+                        Payment Method *
+                      </label>
+                      <select
+                        value={singlePaymentMode}
+                        onChange={(e) => setSinglePaymentMode(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] cursor-pointer"
+                      >
+                        <option value="CASH">Cash</option>
+                        <option value="UPI">UPI / QR</option>
+                        <option value="NET_BANKING">Net Banking</option>
+                        <option value="CHEQUE">Bank Cheque</option>
+                        <option value="CARD">POS Card</option>
+                      </select>
+                    </div>
+
+                    <div className={singleCollectionOption === 'PAY_FULL' ? 'sm:col-span-2' : ''}>
+                      <label className="block text-[10.5px] font-semibold text-slate-700 mb-0.5">
+                        Ref / UTR / Cheque No.
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. UTR-9820194819"
+                        value={singlePaymentRef}
+                        onChange={(e) => setSinglePaymentRef(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs font-mono text-[#122A24]"
+                      />
                     </div>
                   </div>
                 )}
+              </div>
 
-                {/* Billing Month & Due Date */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#122A24] mb-1">Billing Month / Period</label>
-                    <select
-                      value={singleMonth}
-                      onChange={(e) => setSingleMonth(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24] cursor-pointer"
-                    >
-                      {MONTHS.map(m => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                      <option value="Quarter 1 (Apr - Jun)">Quarter 1 (Apr - Jun)</option>
-                      <option value="Quarter 2 (Jul - Sep)">Quarter 2 (Jul - Sep)</option>
-                      <option value="Quarter 3 (Oct - Dec)">Quarter 3 (Oct - Dec)</option>
-                      <option value="Quarter 4 (Jan - Mar)">Quarter 4 (Jan - Mar)</option>
-                      <option value="Annual Session 2026-27">Annual Session 2026-27</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-[#122A24] mb-1">Due Date *</label>
-                    <input
-                      type="date"
-                      value={singleDueDate}
-                      onChange={(e) => setSingleDueDate(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-medium text-[#122A24]"
-                      required
-                    />
-                  </div>
-                </div>
+              {/* Total Summary Banner */}
+              {(() => {
+                const baseTotal = (parseFloat(singleTuition) || 0) +
+                  (parseFloat(singleTransport) || 0) +
+                  (parseFloat(singleLabExam) || 0) +
+                  (parseFloat(singleAnnual) || 0);
+                const concession = singleCollectionOption === 'WAIVE_OFF' ? baseTotal : (parseFloat(singleConcession) || 0);
+                const netAmount = Math.max(0, baseTotal - concession);
+                const payingNow = singleCollectionOption === 'PAY_FULL'
+                  ? netAmount
+                  : singleCollectionOption === 'PAY_PARTIAL'
+                  ? (parseFloat(singlePartialAmount) || 0)
+                  : 0;
+                const remainingBal = Math.max(0, netAmount - payingNow);
 
-                {/* Fee Particulars Breakdown */}
-                <div className="space-y-2.5 pt-1 border-t border-[#E8F0EA]">
-                  <label className="block text-xs font-bold text-[#122A24]">Institutional Fee Components (₹)</label>
-                  
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    <div>
-                      <span className="block text-[11px] text-slate-600 mb-0.5">Tuition Fee</span>
-                      <input
-                        type="number"
-                        value={singleTuition}
-                        onChange={(e) => setSingleTuition(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold text-[#122A24]"
-                      />
-                    </div>
-                    <div>
-                      <span className="block text-[11px] text-slate-600 mb-0.5">Transport Fee</span>
-                      <input
-                        type="number"
-                        value={singleTransport}
-                        onChange={(e) => setSingleTransport(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold text-[#122A24]"
-                      />
-                    </div>
-                    <div>
-                      <span className="block text-[11px] text-slate-600 mb-0.5">Lab / Exam Fee</span>
-                      <input
-                        type="number"
-                        value={singleLabExam}
-                        onChange={(e) => setSingleLabExam(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold text-[#122A24]"
-                      />
-                    </div>
-                    <div>
-                      <span className="block text-[11px] text-slate-600 mb-0.5">Annual / Dev Fee</span>
-                      <input
-                        type="number"
-                        value={singleAnnual}
-                        onChange={(e) => setSingleAnnual(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold text-[#122A24]"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <span className="block text-[11px] text-slate-600 mb-0.5">Scholarship / Concession (-)</span>
-                      <input
-                        type="number"
-                        value={singleConcession}
-                        onChange={(e) => setSingleConcession(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold text-rose-700"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Total Calculated Banner */}
-                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs font-mono">
-                  <div>
-                    <span className="font-bold text-emerald-900 block">Total Net Invoice Amount:</span>
-                    <span className="text-[10px] text-emerald-700 font-sans italic">
-                      {numberToWordsINR(
-                        Math.max(
-                          0,
-                          (parseFloat(singleTuition) || 0) +
-                          (parseFloat(singleTransport) || 0) +
-                          (parseFloat(singleLabExam) || 0) +
-                          (parseFloat(singleAnnual) || 0) -
-                          (parseFloat(singleConcession) || 0)
-                        )
-                      )}
-                    </span>
-                  </div>
-                  <span className="font-black text-base text-emerald-800">
-                    ₹{Math.max(
-                      0,
-                      (parseFloat(singleTuition) || 0) +
-                      (parseFloat(singleTransport) || 0) +
-                      (parseFloat(singleLabExam) || 0) +
-                      (parseFloat(singleAnnual) || 0) -
-                      (parseFloat(singleConcession) || 0)
-                    ).toLocaleString()}
-                  </span>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isCreatingInvoice || !singleStudentId}
-                  className="w-full py-3 rounded-xl bg-[#122A24] hover:bg-[#1C443A] disabled:opacity-50 text-white font-display font-bold text-xs tracking-wide shadow-xs cursor-pointer border-none transition-all flex items-center justify-center gap-2"
-                >
-                  <Receipt className="w-4 h-4" />
-                  <span>{isCreatingInvoice ? 'Issuing Institutional Invoice...' : 'Generate & Issue Institutional Invoice →'}</span>
-                </button>
-              </form>
-            ) : (
-              /* Batch Class Form */
-              <form onSubmit={handleCreateBatchInvoices} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-[#122A24] mb-1">Target Class *</label>
-                    <select
-                      value={batchClass}
-                      onChange={(e) => setBatchClass(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24] cursor-pointer"
-                    >
-                      {uniqueClasses.map(clsName => (
-                        <option key={clsName} value={clsName}>{clsName}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-[#122A24] mb-1">Section</label>
-                    <select
-                      value={batchSection}
-                      onChange={(e) => setBatchSection(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24] cursor-pointer"
-                    >
-                      <option value="ALL">All Sections (A, B, C...)</option>
-                      <option value="A">Section A</option>
-                      <option value="B">Section B</option>
-                      <option value="C">Section C</option>
-                      <option value="D">Section D</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Batch Students Preview Banner */}
-                <div className="p-3.5 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] space-y-2 text-xs">
-                  <div className="flex items-center justify-between font-bold text-[#122A24]">
-                    <div className="flex items-center gap-1.5">
-                      <Users className="w-4 h-4 text-emerald-700" />
-                      <span>{batchMatchingStudents.length} Active Students in {batchClass} {batchSection !== 'ALL' ? `(Sec ${batchSection})` : ''}</span>
-                    </div>
-                    <span className="font-mono text-emerald-800 text-[11px]">
-                      Session {selectedSession}
-                    </span>
-                  </div>
-
-                  {batchMatchingStudents.length > 0 ? (
-                    <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto pt-1">
-                      {batchMatchingStudents.slice(0, 12).map(s => (
-                        <span key={s.id} className="px-2 py-0.5 bg-white border border-[#C5E2CF] rounded-md text-[10px] font-mono text-[#122A24]">
-                          {s.full_name} ({s.admission_no || s.section || 'A'})
+                return (
+                  <div className="p-4 rounded-2xl bg-[#122A24] text-white border border-[#1C443A] space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-300 block">
+                          FINAL FINANCIAL SETTLEMENT SUMMARY
                         </span>
-                      ))}
-                      {batchMatchingStudents.length > 12 && (
-                        <span className="px-2 py-0.5 bg-emerald-100 rounded-md text-[10px] font-mono font-bold text-emerald-900">
-                          +{batchMatchingStudents.length - 12} more
+                        <div className="text-xs font-mono text-slate-300 mt-0.5">
+                          Base: ₹{baseTotal.toLocaleString()}
+                          {concession > 0 && (
+                            <span className="text-purple-300 ml-1.5">• Concession: -₹{concession.toLocaleString()}</span>
+                          )}
+                          <span className="text-emerald-300 ml-1.5">• Net Fee: ₹{netAmount.toLocaleString()}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] font-mono text-slate-400 uppercase block">
+                          {singleCollectionOption === 'PAY_FULL'
+                            ? 'COLLECTING NOW (FULL)'
+                            : singleCollectionOption === 'PAY_PARTIAL'
+                            ? 'COLLECTING NOW (PARTIAL)'
+                            : singleCollectionOption === 'WAIVE_OFF'
+                            ? 'STATUS: 100% WAIVED'
+                            : 'BILL AMOUNT (PENDING)'}
                         </span>
-                      )}
+                        <span className="font-display font-black text-2xl text-[#00E599]">
+                          ₹{(singleCollectionOption === 'PAY_PARTIAL' ? payingNow : netAmount).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="text-[11px] text-amber-800">
-                      No active students found in this class &amp; section combination.
-                    </div>
-                  )}
-                </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#122A24] mb-1">Billing Month</label>
-                    <select
-                      value={batchMonth}
-                      onChange={(e) => setBatchMonth(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24] cursor-pointer"
-                    >
-                      {MONTHS.map(m => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
+                    {singleCollectionOption === 'PAY_PARTIAL' && (
+                      <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs font-mono">
+                        <span className="text-rose-300">Remaining Balance Due:</span>
+                        <span className="font-bold text-rose-300">₹{remainingBal.toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-[#122A24] mb-1">Due Date</label>
-                    <input
-                      type="date"
-                      value={batchDueDate}
-                      onChange={(e) => setBatchDueDate(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-medium"
-                      required
-                    />
-                  </div>
-                </div>
+                );
+              })()}
 
-                <div className="grid grid-cols-3 gap-2.5">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-[#122A24] mb-1">Tuition Fee (₹)</label>
-                    <input
-                      type="number"
-                      value={batchTuition}
-                      onChange={(e) => setBatchTuition(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-[#122A24] mb-1">Transport Fee (₹)</label>
-                    <input
-                      type="number"
-                      value={batchTransport}
-                      onChange={(e) => setBatchTransport(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-[#122A24] mb-1">Lab / Activity (₹)</label>
-                    <input
-                      type="number"
-                      value={batchLabExam}
-                      onChange={(e) => setBatchLabExam(e.target.value)}
-                      className="w-full px-2.5 py-1.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold"
-                    />
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs font-mono">
-                  <div>
-                    <span className="font-bold text-emerald-900 block">Total Batch Estimate:</span>
-                    <span className="text-[10px] text-emerald-700 font-sans">
-                      ₹{((parseFloat(batchTuition) || 0) + (parseFloat(batchTransport) || 0) + (parseFloat(batchLabExam) || 0)).toLocaleString()} × {batchMatchingStudents.length} Students
-                    </span>
-                  </div>
-                  <span className="font-black text-sm text-emerald-800">
-                    ₹{(
-                      ((parseFloat(batchTuition) || 0) + (parseFloat(batchTransport) || 0) + (parseFloat(batchLabExam) || 0)) *
-                      batchMatchingStudents.length
-                    ).toLocaleString()}
-                  </span>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isCreatingBatch || batchMatchingStudents.length === 0}
-                  className="w-full py-3 rounded-xl bg-[#122A24] hover:bg-[#1C443A] disabled:opacity-50 text-white font-display font-bold text-xs tracking-wide shadow-xs cursor-pointer border-none transition-all flex items-center justify-center gap-2"
-                >
-                  <Coins className="w-4 h-4" />
-                  <span>{isCreatingBatch ? 'Processing Bulk Invoices...' : `Issue Invoices for All ${batchMatchingStudents.length} Students in ${batchClass} →`}</span>
-                </button>
-              </form>
-            )}
+              {/* Submit Action Button */}
+              <button
+                type="submit"
+                disabled={isCreatingInvoice || !singleStudentId}
+                className="w-full py-3.5 rounded-2xl bg-[#005A36] hover:bg-[#00472B] disabled:opacity-50 text-white font-display font-bold text-sm tracking-wide shadow-md cursor-pointer border-none transition-all flex items-center justify-center gap-2"
+              >
+                {singleCollectionOption === 'PAY_FULL' ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-300" />
+                    <span>{isCreatingInvoice ? 'Processing Payment & Slip...' : 'Collect Full Fee & Issue Official CBSE Receipt →'}</span>
+                  </>
+                ) : singleCollectionOption === 'PAY_PARTIAL' ? (
+                  <>
+                    <Coins className="w-4 h-4 text-amber-300" />
+                    <span>{isCreatingInvoice ? 'Recording Partial Payment...' : `Record Partial Payment (₹${(parseFloat(singlePartialAmount) || 0).toLocaleString()}) & Issue Receipt →`}</span>
+                  </>
+                ) : singleCollectionOption === 'WAIVE_OFF' ? (
+                  <>
+                    <Sparkles className="w-4 h-4 text-purple-300" />
+                    <span>{isCreatingInvoice ? 'Granting Waiver...' : 'Authorize 100% Fee Waiver & Update Student Ledger →'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Receipt className="w-4 h-4" />
+                    <span>{isCreatingInvoice ? 'Issuing Fee Invoice...' : 'Generate & Issue Institutional Fee Invoice →'}</span>
+                  </>
+                )}
+              </button>
+            </form>
           </div>
         </div>
       )}
@@ -5881,6 +6183,23 @@ export function DashboardFees({
             </div>
 
           </div>
+        </div>
+      )}
+
+      {/* Sleek Floating Admin Notification Box (No browser alert) */}
+      {feeToastMsg && (
+        <div className="fixed top-6 right-6 z-50 bg-[#122A24] text-white px-5 py-3 rounded-2xl shadow-2xl border border-emerald-500/40 flex items-center gap-3 animate-fade-in">
+          <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
+            ✦
+          </div>
+          <div className="text-xs text-white font-medium">{feeToastMsg}</div>
+          <button
+            type="button"
+            onClick={() => setFeeToastMsg('')}
+            className="text-slate-400 hover:text-white border-none bg-transparent cursor-pointer ml-2 p-1"
+          >
+            ✕
+          </button>
         </div>
       )}
 

@@ -65,13 +65,23 @@ export async function POST(req: Request) {
       auth.user.role
     );
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Login successful!',
       user: auth.user,
       school: auth.school,
       session_token: sessionToken
     });
+
+    // Set cookie for browser fetch auto-attachment
+    response.cookies.set('erp_session_token', sessionToken, {
+      path: '/',
+      maxAge: 43200,
+      sameSite: 'lax',
+      httpOnly: false
+    });
+
+    return response;
   } catch (err: any) {
     console.error('[AUTH_LOGIN_ERROR]', err);
     return NextResponse.json({ success: false, error: `Login error: ${err?.message || 'Unknown server error'}` }, { status: 500 });

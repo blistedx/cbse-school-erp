@@ -36,6 +36,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { ManagedRole, ModulePermission, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS } from '@/lib/types';
+import { apiFetch } from '@/lib/api-client';
 
 interface DashboardPermissionsProps {
   initialPermissions?: RolePermissionMatrix;
@@ -322,7 +323,7 @@ export function DashboardPermissions({
       if (onSavePermissions) {
         await onSavePermissions(permissions);
       } else {
-        const res = await fetch('/api/school/permissions', {
+        const res = await apiFetch('/api/school/permissions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

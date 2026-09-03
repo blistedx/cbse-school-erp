@@ -228,9 +228,9 @@ export async function sendWebPushNotification({
     const allowedRoles = AUDIENCE_ROLE_MAP[upperAudience] || [];
     if (allowedRoles.length > 0) {
       targetSubs = subscriptions.filter(sub => {
-        const subRole = (sub.role || 'ALL').toUpperCase();
-        // 'ALL' role subscriptions always receive every broadcast
-        return subRole === 'ALL' || allowedRoles.includes(subRole);
+        const subRole = (sub.role || '').toUpperCase();
+        // Strict role matching: notifications targeted to specific groups (e.g. PARENTS) ONLY go to those roles
+        return allowedRoles.includes(subRole);
       });
     }
   }

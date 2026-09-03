@@ -722,6 +722,30 @@ function ERPWorkspaceContent() {
         if (storedUser) {
           const parsed = JSON.parse(storedUser);
           setCurrentUser(parsed);
+
+          // Ensure valid session token exists for all authenticated API requests
+          const currentToken = localStorage.getItem('erp_session_token');
+          if (currentToken) {
+            document.cookie = `erp_session_token=${encodeURIComponent(currentToken)}; Path=/; SameSite=Lax; Max-Age=43200`;
+          } else {
+            // Auto-request fresh session token for active user
+            fetch('/api/auth/session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: parsed.id,
+                schoolId: parsed.school_id || (new URLSearchParams(window.location.search).get('school')) || 'DPS2026',
+                role: parsed.role || 'PRINCIPAL',
+                username: parsed.username
+              })
+            }).then(r => r.json()).then(d => {
+              if (d.success && d.session_token) {
+                localStorage.setItem('erp_session_token', d.session_token);
+                document.cookie = `erp_session_token=${encodeURIComponent(d.session_token)}; Path=/; SameSite=Lax; Max-Age=43200`;
+              }
+            }).catch(() => {});
+          }
+
           if (['TEACHER', 'STUDENT', 'PARENT'].includes(parsed.role?.toUpperCase())) {
             setProfileForm({
               full_name: parsed.full_name || '',
@@ -8122,33 +8146,34 @@ function ERPWorkspaceContent() {
         </main>
       </div>
 
-      {/* MODAL: COMPREHENSIVE CBSE STUDENT ENROLLMENT & EDIT (SINGLE-PAGE SECTION-WISE FORM) */}
+      {/* MODAL: COMPREHENSIVE CBSE STUDENT ENROLLMENT & EDIT (FULL DESKTOP VIEWPORT WITHOUT OVERLAPPING SIDEBAR) */}
       {showStudentModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl border border-[#DCE8E0] max-w-3xl w-full shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+        <div className="fixed inset-0 lg:left-64 z-40 bg-black/60 backdrop-blur-xs flex items-center justify-center p-0 md:p-2 lg:p-3 animate-fade-in">
+          <div className="bg-white rounded-none lg:rounded-2xl border-0 lg:border border-[#DCE8E0] w-full h-full lg:h-[98vh] shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
-            <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/70">
+            <div className="p-4 sm:p-5 md:px-8 border-b border-slate-200 flex justify-between items-start bg-slate-50/80 shrink-0">
               <div>
                 <span className="font-mono text-[10px] text-[var(--red-pen)] font-bold uppercase tracking-wider">
                   CBSE OASIS &amp; SARAS Compliance Form
                 </span>
-                <h2 className="font-display font-semibold text-xl text-[var(--ink-navy)] mt-0.5">
+                <h2 className="font-display font-semibold text-xl sm:text-2xl text-[var(--ink-navy)] mt-0.5">
                   {editingStudentId ? 'Edit Student & CBSE OASIS Record' : 'Student Admission Form'}
                 </h2>
-                <p className="text-[11px] text-slate-600 mt-0.5">
+                <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5">
                   Basic details (Section 1) are required for quick save. You can fill the remaining CBSE sections now or update anytime later.
                 </p>
               </div>
               <button
                 onClick={() => setShowStudentModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg border-none bg-transparent cursor-pointer"
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl border-none bg-transparent cursor-pointer transition-colors"
+                title="Close Form"
               >
-                <X className="h-5 w-5" />
+                <X className="h-6 w-6" />
               </button>
             </div>
 
-            {/* Scrollable Form Body with Unified Sections */}
-            <form onSubmit={handleSaveStudent} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
+            {/* Scrollable Form Body with Unified Sections (Spans across full page on desktop) */}
+            <form onSubmit={handleSaveStudent} className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 space-y-6 text-xs">
               {/* SECTION 1: BASIC ENROLLMENT (REQUIRED) */}
               <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-200/80 space-y-3.5">
                 <div className="flex items-center justify-between">
@@ -8952,33 +8977,34 @@ function ERPWorkspaceContent() {
         </div>
       )}
 
-      {/* MODAL: COMPREHENSIVE CBSE TEACHER & EMPLOYEE REGISTRATION (SINGLE-PAGE SECTION-WISE FORM) */}
+      {/* MODAL: COMPREHENSIVE CBSE TEACHER & EMPLOYEE REGISTRATION (FULL DESKTOP VIEWPORT WITHOUT OVERLAPPING SIDEBAR) */}
       {showTeacherModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl border border-[#DCE8E0] max-w-3xl w-full shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+        <div className="fixed inset-0 lg:left-64 z-40 bg-black/60 backdrop-blur-xs flex items-center justify-center p-0 md:p-2 lg:p-3 animate-fade-in">
+          <div className="bg-white rounded-none lg:rounded-2xl border-0 lg:border border-[#DCE8E0] w-full h-full lg:h-[98vh] shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
-            <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/70">
+            <div className="p-4 sm:p-5 md:px-8 border-b border-slate-200 flex justify-between items-start bg-slate-50/80 shrink-0">
               <div>
                 <span className="font-mono text-[10px] text-[var(--red-pen)] font-bold uppercase tracking-wider">
                   CBSE Affiliation Bye-Laws &amp; OASIS Standards
                 </span>
-                <h2 className="font-display font-semibold text-xl text-[var(--ink-navy)] mt-0.5">
+                <h2 className="font-display font-semibold text-xl sm:text-2xl text-[var(--ink-navy)] mt-0.5">
                   {editingTeacherId ? 'Edit Faculty & CBSE Staff Record' : 'Faculty & Staff Registration Form'}
                 </h2>
-                <p className="text-[11px] text-slate-600 mt-0.5">
+                <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5">
                   Basic staff info (Section 1) is required for quick save. Complete qualifications and statutory details now or anytime later.
                 </p>
               </div>
               <button
                 onClick={() => setShowTeacherModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg border-none bg-transparent cursor-pointer"
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl border-none bg-transparent cursor-pointer transition-colors"
+                title="Close Form"
               >
-                <X className="h-5 w-5" />
+                <X className="h-6 w-6" />
               </button>
             </div>
 
-            {/* Scrollable Form Body with Unified Sections */}
-            <form onSubmit={handleSaveTeacher} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
+            {/* Scrollable Form Body with Unified Sections (Spans across full page on desktop) */}
+            <form onSubmit={handleSaveTeacher} className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 space-y-6 text-xs">
               {/* SECTION 1: BASIC STAFF INFO (REQUIRED) */}
               <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-200/80 space-y-3.5">
                 <div className="flex items-center justify-between">

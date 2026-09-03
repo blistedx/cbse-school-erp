@@ -14207,6 +14207,44 @@
       "photo": "",
       "avatar": "",
       "created_at": "2026-08-31T11:27:31.903Z"
+    },
+    {
+      "id": "TCH-1788419414745",
+      "school_id": "DPS2026",
+      "academic_session": "2026-27",
+      "staff_code": "STF01",
+      "full_name": "Monu",
+      "department": "School Administration, Accounts & Operations",
+      "designation": "Administrative Officer / Accounts Head",
+      "qualification": "",
+      "phone": "8948227452",
+      "email": "admin@dps.com",
+      "status": "ACTIVE",
+      "passcode": "123456",
+      "teacher_type": "ADMINISTRATIVE",
+      "subject_specialization": "Admin",
+      "classes_taught": "Non-Teaching / Administrative Office",
+      "ctet_qualified": "NO",
+      "ctet_roll_no": "",
+      "professional_degree": "MBA / M.Com / B.Com / CA Inter (Administrative / Accounts)",
+      "experience_years": 5,
+      "date_of_joining": "2026-09-03",
+      "employment_type": "PERMANENT",
+      "dob": "",
+      "gender": "Female",
+      "blood_group": "B+",
+      "aadhaar_no": "",
+      "pan_no": "",
+      "father_or_spouse_name": "",
+      "epf_uan_no": "",
+      "bank_name": "State Bank of India",
+      "bank_account_no": "",
+      "bank_ifsc": "",
+      "basic_pay": 45000,
+      "address": "",
+      "city": "",
+      "pincode": "",
+      "emergency_contact_phone": ""
     }
   ],
   "classes": [
@@ -24438,6 +24476,813 @@
       "marked_by": "Admin",
       "teacher_records": [],
       "created_at": "2026-09-02T08:15:37.978Z"
+    },
+    {
+      "school_id": "DPS2026",
+      "academic_session": "2026-27",
+      "date": "2026-09-03",
+      "class_name": "Playgroup",
+      "section": "A",
+      "total_students": 29,
+      "present_count": 27,
+      "absent_count": 2,
+      "marked_by": "Admin / Principal",
+      "student_records": [
+        {
+          "student_id": "STU-1788408097875",
+          "admission_no": "ADM-0556",
+          "full_name": "TEST1",
+          "roll_no": "",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0001",
+          "admission_no": "DPS-2026-0001",
+          "full_name": "Kabir Reddy",
+          "roll_no": "1",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0002",
+          "admission_no": "DPS-2026-0002",
+          "full_name": "Krishna Mukherjee",
+          "roll_no": "2",
+          "status": "ABSENT"
+        },
+        {
+          "student_id": "STU-DPS-0003",
+          "admission_no": "DPS-2026-0003",
+          "full_name": "Aayush Shinde",
+          "roll_no": "3",
+          "status": "ABSENT"
+        },
+        {
+          "student_id": "STU-DPS-0004",
+          "admission_no": "DPS-2026-0004",
+          "full_name": "Vihaan Gowda",
+          "roll_no": "4",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0005",
+          "admission_no": "DPS-2026-0005",
+          "full_name": "Tanmay Khanna",
+          "roll_no": "5",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0006",
+          "admission_no": "DPS-2026-0006",
+          "full_name": "Harshit Tripathi",
+          "roll_no": "6",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0007",
+          "admission_no": "DPS-2026-0007",
+          "full_name": "Shivam Nair",
+          "roll_no": "7",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0008",
+          "admission_no": "DPS-2026-0008",
+          "full_name": "Keshav Chatterjee",
+          "roll_no": "8",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0009",
+          "admission_no": "DPS-2026-0009",
+          "full_name": "Gautam Deshmukh",
+          "roll_no": "9",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0010",
+          "admission_no": "DPS-2026-0010",
+          "full_name": "Daksh Pillai",
+          "roll_no": "10",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0011",
+          "admission_no": "DPS-2026-0011",
+          "full_name": "Piyush Malhotra",
+          "roll_no": "11",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0012",
+          "admission_no": "DPS-2026-0012",
+          "full_name": "Vedant Saxena",
+          "roll_no": "12",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0013",
+          "admission_no": "DPS-2026-0013",
+          "full_name": "Vivaan Kumar",
+          "roll_no": "13",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0014",
+          "admission_no": "DPS-2026-0014",
+          "full_name": "Reyansh Agarwal",
+          "roll_no": "14",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0015",
+          "admission_no": "DPS-2026-0015",
+          "full_name": "Dhruv Joshi",
+          "roll_no": "15",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0016",
+          "admission_no": "DPS-2026-0016",
+          "full_name": "Utkarsh Hegde",
+          "roll_no": "16",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0017",
+          "admission_no": "DPS-2026-0017",
+          "full_name": "Yash Rajput",
+          "roll_no": "17",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0018",
+          "admission_no": "DPS-2026-0018",
+          "full_name": "Manav Bhatia",
+          "roll_no": "18",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0019",
+          "admission_no": "DPS-2026-0019",
+          "full_name": "Varun Gupta",
+          "roll_no": "19",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0020",
+          "admission_no": "DPS-2026-0020",
+          "full_name": "Tushar Mishra",
+          "roll_no": "20",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0021",
+          "admission_no": "DPS-2026-0021",
+          "full_name": "Madhav Sengupta",
+          "roll_no": "21",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0022",
+          "admission_no": "DPS-2026-0022",
+          "full_name": "Chirag Bhat",
+          "roll_no": "22",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0023",
+          "admission_no": "DPS-2026-0023",
+          "full_name": "Mayank Chauhan",
+          "roll_no": "23",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0024",
+          "admission_no": "DPS-2026-0024",
+          "full_name": "Shlok Shah",
+          "roll_no": "24",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0025",
+          "admission_no": "DPS-2026-0025",
+          "full_name": "Aarav Sharma",
+          "roll_no": "25",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0026",
+          "admission_no": "DPS-2026-0026",
+          "full_name": "Kabir Reddy",
+          "roll_no": "26",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0027",
+          "admission_no": "DPS-2026-0027",
+          "full_name": "Krishna Mukherjee",
+          "roll_no": "27",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0028",
+          "admission_no": "DPS-2026-0028",
+          "full_name": "Aayush Shinde",
+          "roll_no": "28",
+          "status": "PRESENT"
+        }
+      ],
+      "id": "ATT-1788418598548",
+      "leave_count": 0,
+      "teacher_records": [],
+      "created_at": "2026-09-03T06:56:38.548Z"
+    },
+    {
+      "school_id": "DPS2026",
+      "academic_session": "2026-27",
+      "date": "2026-09-03",
+      "class_name": "Nursery",
+      "section": "A",
+      "total_students": 28,
+      "present_count": 26,
+      "absent_count": 2,
+      "marked_by": "Admin / Principal",
+      "student_records": [
+        {
+          "student_id": "STU-DPS-0029",
+          "admission_no": "DPS-2026-0029",
+          "full_name": "Chirag Kumar",
+          "roll_no": "1",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0030",
+          "admission_no": "DPS-2026-0030",
+          "full_name": "Mayank Agarwal",
+          "roll_no": "2",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0031",
+          "admission_no": "DPS-2026-0031",
+          "full_name": "Shlok Joshi",
+          "roll_no": "3",
+          "status": "ABSENT"
+        },
+        {
+          "student_id": "STU-DPS-0032",
+          "admission_no": "DPS-2026-0032",
+          "full_name": "Aarav Hegde",
+          "roll_no": "4",
+          "status": "ABSENT"
+        },
+        {
+          "student_id": "STU-DPS-0033",
+          "admission_no": "DPS-2026-0033",
+          "full_name": "Kabir Rajput",
+          "roll_no": "5",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0034",
+          "admission_no": "DPS-2026-0034",
+          "full_name": "Krishna Bhatia",
+          "roll_no": "6",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0035",
+          "admission_no": "DPS-2026-0035",
+          "full_name": "Aayush Gupta",
+          "roll_no": "7",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0036",
+          "admission_no": "DPS-2026-0036",
+          "full_name": "Vihaan Mishra",
+          "roll_no": "8",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0037",
+          "admission_no": "DPS-2026-0037",
+          "full_name": "Tanmay Sengupta",
+          "roll_no": "9",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0038",
+          "admission_no": "DPS-2026-0038",
+          "full_name": "Harshit Bhat",
+          "roll_no": "10",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0039",
+          "admission_no": "DPS-2026-0039",
+          "full_name": "Shivam Chauhan",
+          "roll_no": "11",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0040",
+          "admission_no": "DPS-2026-0040",
+          "full_name": "Keshav Shah",
+          "roll_no": "12",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0041",
+          "admission_no": "DPS-2026-0041",
+          "full_name": "Gautam Sharma",
+          "roll_no": "13",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0042",
+          "admission_no": "DPS-2026-0042",
+          "full_name": "Daksh Reddy",
+          "roll_no": "14",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0043",
+          "admission_no": "DPS-2026-0043",
+          "full_name": "Piyush Mukherjee",
+          "roll_no": "15",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0044",
+          "admission_no": "DPS-2026-0044",
+          "full_name": "Vedant Shinde",
+          "roll_no": "16",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0045",
+          "admission_no": "DPS-2026-0045",
+          "full_name": "Vivaan Gowda",
+          "roll_no": "17",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0046",
+          "admission_no": "DPS-2026-0046",
+          "full_name": "Reyansh Khanna",
+          "roll_no": "18",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0047",
+          "admission_no": "DPS-2026-0047",
+          "full_name": "Dhruv Tripathi",
+          "roll_no": "19",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0048",
+          "admission_no": "DPS-2026-0048",
+          "full_name": "Utkarsh Nair",
+          "roll_no": "20",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0049",
+          "admission_no": "DPS-2026-0049",
+          "full_name": "Yash Chatterjee",
+          "roll_no": "21",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0050",
+          "admission_no": "DPS-2026-0050",
+          "full_name": "Manav Deshmukh",
+          "roll_no": "22",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0051",
+          "admission_no": "DPS-2026-0051",
+          "full_name": "Varun Pillai",
+          "roll_no": "23",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0052",
+          "admission_no": "DPS-2026-0052",
+          "full_name": "Tushar Malhotra",
+          "roll_no": "24",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0053",
+          "admission_no": "DPS-2026-0053",
+          "full_name": "Madhav Saxena",
+          "roll_no": "25",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0054",
+          "admission_no": "DPS-2026-0054",
+          "full_name": "Chirag Kumar",
+          "roll_no": "26",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0055",
+          "admission_no": "DPS-2026-0055",
+          "full_name": "Mayank Agarwal",
+          "roll_no": "27",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0056",
+          "admission_no": "DPS-2026-0056",
+          "full_name": "Shlok Joshi",
+          "roll_no": "28",
+          "status": "PRESENT"
+        }
+      ],
+      "id": "ATT-1788418615253",
+      "leave_count": 0,
+      "teacher_records": [],
+      "created_at": "2026-09-03T06:56:58.837Z"
+    },
+    {
+      "school_id": "DPS2026",
+      "academic_session": "2026-27",
+      "date": "2026-09-03",
+      "class_name": "Faculty",
+      "section": "Staff",
+      "total_students": 24,
+      "present_count": 22,
+      "absent_count": 2,
+      "leave_count": 0,
+      "marked_by": "Principal Directorate",
+      "teacher_records": [
+        {
+          "teacher_id": "TCH-DPS-002",
+          "staff_code": "EMP-202602",
+          "full_name": "Mrs. Sunita Deshpande",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-003",
+          "staff_code": "EMP-202603",
+          "full_name": "Dr. Meenakshi Sundaram",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-004",
+          "staff_code": "EMP-202604",
+          "full_name": "Mr. Rajeshwar Chauhan",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-005",
+          "staff_code": "EMP-202605",
+          "full_name": "Mrs. Shalini Saxena",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-006",
+          "staff_code": "EMP-202606",
+          "full_name": "Mr. Vikramaditya Rathore",
+          "status": "ABSENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-007",
+          "staff_code": "EMP-202607",
+          "full_name": "Mrs. Preeti Kulkarni",
+          "status": "ABSENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-008",
+          "staff_code": "EMP-202608",
+          "full_name": "Mr. Alok Nath Mishra",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-009",
+          "staff_code": "EMP-202609",
+          "full_name": "Mrs. Divya Chandrasekhar",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-010",
+          "staff_code": "EMP-202610",
+          "full_name": "Mr. Hemant Bhattacharya",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-011",
+          "staff_code": "EMP-202611",
+          "full_name": "Mrs. Vandana Agnihotri",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-012",
+          "staff_code": "EMP-202612",
+          "full_name": "Mr. Suresh Gopinath",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-013",
+          "staff_code": "EMP-202613",
+          "full_name": "Mrs. Neerja Kaushik",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-014",
+          "staff_code": "EMP-202614",
+          "full_name": "Mrs. Ritu Singhal",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-015",
+          "staff_code": "EMP-202615",
+          "full_name": "Mrs. Anupama Mukherjee",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-016",
+          "staff_code": "EMP-202616",
+          "full_name": "Mrs. Geetika Malhotra",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-017",
+          "staff_code": "EMP-202617",
+          "full_name": "Mrs. Poonam Joshi",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-018",
+          "staff_code": "EMP-202618",
+          "full_name": "Mrs. Shweta Bhandari",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-019",
+          "staff_code": "EMP-202619",
+          "full_name": "Mrs. Rashmi Narang",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-020",
+          "staff_code": "EMP-202620",
+          "full_name": "Mrs. Suman Lata",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-021",
+          "staff_code": "EMP-202621",
+          "full_name": "Mrs. Barkha Chawla",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-022",
+          "staff_code": "EMP-202622",
+          "full_name": "Mr. Gurpreet Singh Sandhu",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-023",
+          "staff_code": "EMP-202623",
+          "full_name": "Mrs. Manasi Roy",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-024",
+          "staff_code": "EMP-202624",
+          "full_name": "Pandit Debojyoti Sanyal",
+          "status": "PRESENT"
+        },
+        {
+          "teacher_id": "TCH-DPS-001",
+          "staff_code": "EMP01",
+          "full_name": "Dr. Aniruddh Shastri",
+          "status": "PRESENT"
+        }
+      ],
+      "id": "ATT-1788418747140",
+      "student_records": [],
+      "created_at": "2026-09-03T07:07:23.493Z"
+    },
+    {
+      "school_id": "DPS2026",
+      "academic_session": "2026-27",
+      "date": "2026-09-03",
+      "class_name": "Class 2",
+      "section": "A",
+      "total_students": 28,
+      "present_count": 27,
+      "absent_count": 1,
+      "marked_by": "Admin / Principal",
+      "student_records": [
+        {
+          "student_id": "STU-DPS-0141",
+          "admission_no": "DPS-2026-0141",
+          "full_name": "Harshit Malhotra",
+          "roll_no": "1",
+          "status": "ABSENT"
+        },
+        {
+          "student_id": "STU-DPS-0142",
+          "admission_no": "DPS-2026-0142",
+          "full_name": "Shivam Saxena",
+          "roll_no": "2",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0143",
+          "admission_no": "DPS-2026-0143",
+          "full_name": "Keshav Kumar",
+          "roll_no": "3",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0144",
+          "admission_no": "DPS-2026-0144",
+          "full_name": "Gautam Agarwal",
+          "roll_no": "4",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0145",
+          "admission_no": "DPS-2026-0145",
+          "full_name": "Daksh Joshi",
+          "roll_no": "5",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0146",
+          "admission_no": "DPS-2026-0146",
+          "full_name": "Piyush Hegde",
+          "roll_no": "6",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0147",
+          "admission_no": "DPS-2026-0147",
+          "full_name": "Vedant Rajput",
+          "roll_no": "7",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0148",
+          "admission_no": "DPS-2026-0148",
+          "full_name": "Vivaan Bhatia",
+          "roll_no": "8",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0149",
+          "admission_no": "DPS-2026-0149",
+          "full_name": "Reyansh Gupta",
+          "roll_no": "9",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0150",
+          "admission_no": "DPS-2026-0150",
+          "full_name": "Dhruv Mishra",
+          "roll_no": "10",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0151",
+          "admission_no": "DPS-2026-0151",
+          "full_name": "Utkarsh Sengupta",
+          "roll_no": "11",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0152",
+          "admission_no": "DPS-2026-0152",
+          "full_name": "Yash Bhat",
+          "roll_no": "12",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0153",
+          "admission_no": "DPS-2026-0153",
+          "full_name": "Manav Chauhan",
+          "roll_no": "13",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0154",
+          "admission_no": "DPS-2026-0154",
+          "full_name": "Varun Shah",
+          "roll_no": "14",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0155",
+          "admission_no": "DPS-2026-0155",
+          "full_name": "Tushar Sharma",
+          "roll_no": "15",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0156",
+          "admission_no": "DPS-2026-0156",
+          "full_name": "Madhav Reddy",
+          "roll_no": "16",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0157",
+          "admission_no": "DPS-2026-0157",
+          "full_name": "Chirag Mukherjee",
+          "roll_no": "17",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0158",
+          "admission_no": "DPS-2026-0158",
+          "full_name": "Mayank Shinde",
+          "roll_no": "18",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0159",
+          "admission_no": "DPS-2026-0159",
+          "full_name": "Shlok Gowda",
+          "roll_no": "19",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0160",
+          "admission_no": "DPS-2026-0160",
+          "full_name": "Aarav Khanna",
+          "roll_no": "20",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0161",
+          "admission_no": "DPS-2026-0161",
+          "full_name": "Kabir Tripathi",
+          "roll_no": "21",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0162",
+          "admission_no": "DPS-2026-0162",
+          "full_name": "Krishna Nair",
+          "roll_no": "22",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0163",
+          "admission_no": "DPS-2026-0163",
+          "full_name": "Aayush Chatterjee",
+          "roll_no": "23",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0164",
+          "admission_no": "DPS-2026-0164",
+          "full_name": "Vihaan Deshmukh",
+          "roll_no": "24",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0165",
+          "admission_no": "DPS-2026-0165",
+          "full_name": "Tanmay Pillai",
+          "roll_no": "25",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0166",
+          "admission_no": "DPS-2026-0166",
+          "full_name": "Harshit Malhotra",
+          "roll_no": "26",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0167",
+          "admission_no": "DPS-2026-0167",
+          "full_name": "Shivam Saxena",
+          "roll_no": "27",
+          "status": "PRESENT"
+        },
+        {
+          "student_id": "STU-DPS-0168",
+          "admission_no": "DPS-2026-0168",
+          "full_name": "Keshav Kumar",
+          "roll_no": "28",
+          "status": "PRESENT"
+        }
+      ],
+      "id": "ATT-1788420120608",
+      "leave_count": 0,
+      "teacher_records": [],
+      "created_at": "2026-09-03T07:22:00.608Z"
     }
   ],
   "fee_invoices": [

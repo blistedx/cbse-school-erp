@@ -83,14 +83,24 @@ export function verifySessionToken(token: string): TokenPayload | null {
 
 /**
  * Extract the session token from a request.
- * Accepts: Authorization: Bearer <token>  OR  x-session-token: <token>
+ * Accepts: Authorization: Bearer <token>  OR  x-session-token: <token>  OR  Cookie: erp_session_token=<token>
  */
 export function extractToken(req: Request): string | null {
   const authHeader = req.headers.get('authorization') || '';
   if (authHeader.startsWith('Bearer ')) {
     return authHeader.slice(7).trim() || null;
   }
-  return req.headers.get('x-session-token')?.trim() || null;
+  const xToken = req.headers.get('x-session-token')?.trim();
+  if (xToken) return xToken;
+
+  // Extract from cookies (works automatically for browser fetch)
+  const cookieHeader = req.headers.get('cookie') || '';
+  const match = cookieHeader.match(/(?:^|;\s*)erp_session_token=([^;]+)/);
+  if (match) {
+    return decodeURIComponent(match[1]).trim() || null;
+  }
+
+  return null;
 }
 
 /**
