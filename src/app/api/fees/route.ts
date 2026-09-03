@@ -38,12 +38,30 @@ export async function PATCH(req: Request) {
     const auth = requireRole(req, ADMIN_ROLES);
     if (auth instanceof NextResponse) return auth;
     const body = await req.json();
-    const { invoice_id, status, payment_mode } = body;
-    if (!invoice_id || !status) {
-      return NextResponse.json({ success: false, error: 'invoice_id and status are required' }, { status: 400 });
+    const invoice_id = body.invoice_id || body.id;
+    if (!invoice_id) {
+      return NextResponse.json({ success: false, error: 'invoice_id is required' }, { status: 400 });
     }
-    const updated = await Database.updateFeeInvoiceStatus(invoice_id, status, payment_mode);
-    return NextResponse.json({ success: true, invoice: updated });
+
+    const adminUser = (auth as any)?.user?.full_name || (auth as any)?.user?.username || 'School Administrator';
+
+    const updated = await Database.updateFeeInvoice(invoice_id, {
+      status: body.status,
+      payment_mode: body.payment_mode,
+      paid_amount: body.paid_amount,
+      additional_payment: body.additional_payment,
+      concession_amount: body.concession_amount,
+      concession_reason: body.concession_reason,
+      waived_by: body.waived_by || adminUser,
+      remark: body.remark,
+      receipt_no: body.receipt_no
+    });
+
+    if (!updated) {
+      return NextResponse.json({ success: false, error: 'Invoice not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: 'Fee invoice updated successfully!', invoice: updated });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

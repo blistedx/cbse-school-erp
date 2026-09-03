@@ -287,6 +287,16 @@ export interface AttendanceRecord {
   created_at?: string;
 }
 
+export interface FeePaymentRecord {
+  id: string;
+  amount: number;
+  payment_mode: string;
+  paid_at: string;
+  receipt_no?: string;
+  remark?: string;
+  collected_by?: string;
+}
+
 export interface FeeInvoice {
   id: string;
   school_id: string;
@@ -305,11 +315,15 @@ export interface FeeInvoice {
   annual_fee?: number;
   exam_fee?: number;
   concession_amount?: number;
+  concession_reason?: string;
+  waived_by?: string;
+  waived_date?: string;
   sibling_discount?: number;
   due_date: string;
-  status: 'PAID' | 'PENDING' | 'OVERDUE';
+  status: 'PAID' | 'PENDING' | 'OVERDUE' | 'PARTIAL' | 'WAIVED';
   payment_mode?: string;
   paid_date?: string;
+  payment_history?: FeePaymentRecord[];
 }
 
 export interface Holiday {

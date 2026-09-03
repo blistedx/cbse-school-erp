@@ -1679,6 +1679,20 @@ export const Database = {
     await ensureIndexes();
     const id = data.id || `INV-${Date.now()}`;
     const academic_session = data.academic_session || '2026-27';
+    const amount = Number(data.amount) || 15000;
+    const paidAmount = Number(data.paid_amount) !== undefined && !isNaN(Number(data.paid_amount))
+      ? Number(data.paid_amount)
+      : (data.status === 'PAID' ? amount : 0);
+    const concessionAmount = Number(data.concession_amount) || 0;
+
+    let computedStatus: 'PAID' | 'PENDING' | 'OVERDUE' | 'PARTIAL' | 'WAIVED' = data.status || 'PENDING';
+    if (!data.status) {
+      if (concessionAmount >= amount) computedStatus = 'WAIVED';
+      else if (paidAmount + concessionAmount >= amount) computedStatus = 'PAID';
+      else if (paidAmount > 0) computedStatus = 'PARTIAL';
+      else computedStatus = 'PENDING';
+    }
+
     const invoice: FeeInvoice = {
       id,
       school_id: data.school_id || '',
@@ -1689,17 +1703,28 @@ export const Database = {
       admission_no: data.admission_no || '',
       class_name: data.class_name || 'Class 10 - A',
       month: data.month || 'April 2026',
-      amount: Number(data.amount) || 15000,
-      paid_amount: Number(data.paid_amount) || (data.status === 'PAID' ? (Number(data.amount) || 15000) : 0),
+      amount,
+      paid_amount: paidAmount,
       tuition_fee: Number(data.tuition_fee) ?? (Number(data.amount) || 0),
       transport_fee: Number(data.transport_fee) || 0,
       admission_fee: Number(data.admission_fee) || 0,
       annual_fee: Number(data.annual_fee) || 0,
       exam_fee: Number(data.exam_fee) || 0,
+      concession_amount: concessionAmount,
+      concession_reason: data.concession_reason || undefined,
+      waived_by: data.waived_by || undefined,
+      waived_date: data.waived_date || (concessionAmount > 0 ? new Date().toISOString().split('T')[0] : undefined),
       due_date: data.due_date || new Date().toISOString().split('T')[0],
-      status: data.status || 'PENDING',
+      status: computedStatus,
       payment_mode: data.payment_mode || 'Cash/UPI',
-      paid_date: data.status === 'PAID' ? (data.paid_date || new Date().toISOString().split('T')[0]) : undefined
+      paid_date: (computedStatus === 'PAID' || computedStatus === 'PARTIAL') ? (data.paid_date || new Date().toISOString().split('T')[0]) : undefined,
+      payment_history: data.payment_history || (paidAmount > 0 ? [{
+        id: `pay-${Date.now()}`,
+        amount: paidAmount,
+        payment_mode: data.payment_mode || 'Cash/UPI',
+        paid_at: new Date().toISOString(),
+        remark: data.concession_reason || 'Initial payment'
+      }] : [])
     };
 
     try {
@@ -1714,31 +1739,84 @@ export const Database = {
     return invoice;
   },
 
-  async updateFeeInvoiceStatus(invoiceId: string, status: 'PAID' | 'PENDING' | 'OVERDUE', payment_mode?: string): Promise<FeeInvoice | null> {
+  async updateFeeInvoice(
+    invoiceId: string,
+    updates: {
+      status?: 'PAID' | 'PENDING' | 'OVERDUE' | 'PARTIAL' | 'WAIVED';
+      payment_mode?: string;
+      paid_amount?: number;
+      additional_payment?: number;
+      concession_amount?: number;
+      concession_reason?: string;
+      waived_by?: string;
+      remark?: string;
+      receipt_no?: string;
+    }
+  ): Promise<FeeInvoice | null> {
     await ensureIndexes();
-    const paidDate = status === 'PAID' ? new Date().toISOString().split('T')[0] : null;
+    const idx = memoryStore.fee_invoices.findIndex(i => i.id === invoiceId);
+    if (idx < 0) return null;
+
+    const inv = memoryStore.fee_invoices[idx];
+
+    // Handle Additional Partial Payment
+    if (typeof updates.additional_payment === 'number' && updates.additional_payment > 0) {
+      inv.paid_amount = (inv.paid_amount || 0) + updates.additional_payment;
+      if (!inv.payment_history) inv.payment_history = [];
+      inv.payment_history.push({
+        id: `pay-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        amount: updates.additional_payment,
+        payment_mode: updates.payment_mode || inv.payment_mode || 'UPI',
+        paid_at: new Date().toISOString(),
+        receipt_no: updates.receipt_no || `REC-${Date.now().toString().slice(-5)}`,
+        remark: updates.remark || 'Partial fee payment'
+      });
+      inv.paid_date = new Date().toISOString().split('T')[0];
+      if (updates.payment_mode) inv.payment_mode = updates.payment_mode;
+    } else if (typeof updates.paid_amount === 'number') {
+      inv.paid_amount = updates.paid_amount;
+      if (updates.paid_amount > 0) inv.paid_date = new Date().toISOString().split('T')[0];
+      if (updates.payment_mode) inv.payment_mode = updates.payment_mode;
+    }
+
+    // Handle Concession / Waiver
+    if (typeof updates.concession_amount === 'number') {
+      inv.concession_amount = updates.concession_amount;
+      inv.concession_reason = updates.concession_reason || inv.concession_reason || 'Principal Concession';
+      inv.waived_by = updates.waived_by || 'School Administrator';
+      inv.waived_date = new Date().toISOString().split('T')[0];
+    }
+
+    // Determine Final Status
+    const totalSettled = (inv.paid_amount || 0) + (inv.concession_amount || 0);
+    if (updates.status) {
+      inv.status = updates.status;
+    } else if ((inv.concession_amount || 0) >= inv.amount) {
+      inv.status = 'WAIVED';
+    } else if (totalSettled >= inv.amount) {
+      inv.status = 'PAID';
+    } else if ((inv.paid_amount || 0) > 0) {
+      inv.status = 'PARTIAL';
+    } else {
+      inv.status = 'PENDING';
+    }
 
     try {
       const db = await getDatabase();
       if (db) {
-        const setPayload: any = { status, paid_date: paidDate };
-        if (payment_mode) setPayload.payment_mode = payment_mode;
         await db.collection('fee_invoices').updateOne(
           { id: invoiceId },
-          { $set: setPayload }
+          { $set: { ...inv } }
         );
       }
     } catch (e) {}
 
-    const idx = memoryStore.fee_invoices.findIndex(i => i.id === invoiceId);
-    if (idx >= 0) {
-      memoryStore.fee_invoices[idx].status = status;
-      memoryStore.fee_invoices[idx].paid_date = paidDate || undefined;
-      if (payment_mode) memoryStore.fee_invoices[idx].payment_mode = payment_mode;
-      saveLocalStore();
-      return memoryStore.fee_invoices[idx];
-    }
-    return null;
+    saveLocalStore();
+    return inv;
+  },
+
+  async updateFeeInvoiceStatus(invoiceId: string, status: 'PAID' | 'PENDING' | 'OVERDUE' | 'PARTIAL' | 'WAIVED', payment_mode?: string): Promise<FeeInvoice | null> {
+    return this.updateFeeInvoice(invoiceId, { status, payment_mode });
   },
 
   async deleteFeeInvoice(invoiceId: string): Promise<boolean> {

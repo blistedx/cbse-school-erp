@@ -135,7 +135,7 @@ export function DashboardFees({
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'PENDING' | 'OVERDUE'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'PARTIAL' | 'PENDING' | 'WAIVED' | 'OVERDUE'>('ALL');
   const [classFilter, setClassFilter] = useState('ALL');
 
   // Modals
@@ -143,6 +143,24 @@ export function DashboardFees({
   const [selectedPayslipTeacher, setSelectedPayslipTeacher] = useState<Teacher | null>(null);
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [issueMode, setIssueMode] = useState<'SINGLE' | 'BATCH'>('SINGLE');
+
+  // Admin Action Modal (Partial Payment & Concession / Fee Waiver)
+  const [activeActionInvoice, setActiveActionInvoice] = useState<FeeInvoice | null>(null);
+  const [actionModalTab, setActionModalTab] = useState<'COLLECT' | 'WAIVE'>('COLLECT');
+  const [actionPaymentType, setActionPaymentType] = useState<'FULL' | 'PARTIAL'>('FULL');
+  const [actionPayAmount, setActionPayAmount] = useState('');
+  const [actionPaymentMode, setActionPaymentMode] = useState('UPI');
+  const [actionPaymentRef, setActionPaymentRef] = useState('');
+  const [actionPaymentRemark, setActionPaymentRemark] = useState('');
+  const [actionWaiverType, setActionWaiverType] = useState<'FULL' | 'PARTIAL'>('FULL');
+  const [actionWaiverAmount, setActionWaiverAmount] = useState('');
+  const [actionConcessionReason, setActionConcessionReason] = useState('Principal Discretion');
+  const [actionCustomRemark, setActionCustomRemark] = useState('');
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
+
+  // Quick Collect Partial Support
+  const [collectPaymentType, setCollectPaymentType] = useState<'FULL' | 'PARTIAL'>('FULL');
+  const [collectPartialAmount, setCollectPartialAmount] = useState('');
 
   // Quick Collect Form State (Redesigned Studio)
   const [collectFilterClass, setCollectFilterClass] = useState('ALL');
@@ -1369,6 +1387,121 @@ export function DashboardFees({
     return Math.max(1, Math.ceil(filteredInvoices.length / overviewPageSize));
   }, [filteredInvoices.length, overviewPageSize]);
 
+  // Open Admin Action Modal for Partial Payment or Concession / Waiver
+  const openActionModal = (inv: FeeInvoice, initialTab: 'COLLECT' | 'WAIVE' = 'COLLECT') => {
+    setActiveActionInvoice(inv);
+    setActionModalTab(initialTab);
+    const paid = inv.paid_amount || 0;
+    const conc = inv.concession_amount || 0;
+    const balance = Math.max(0, inv.amount - (paid + conc));
+    setActionPayAmount(balance > 0 ? balance.toString() : '0');
+    setActionPaymentType('FULL');
+    setActionPaymentMode(inv.payment_mode || 'UPI');
+    setActionPaymentRemark('');
+    setActionPaymentRef('');
+    setActionWaiverType('FULL');
+    setActionWaiverAmount(balance > 0 ? balance.toString() : '0');
+    setActionConcessionReason(inv.concession_reason || 'Principal Discretion');
+    setActionCustomRemark('');
+  };
+
+  // Process Partial Payment or Concession / Waiver
+  const handleProcessAction = async () => {
+    if (!activeActionInvoice) return;
+    setIsProcessingAction(true);
+
+    const inv = activeActionInvoice;
+    const alreadyPaid = inv.paid_amount || 0;
+    const existingConcession = inv.concession_amount || 0;
+    const remainingBalance = Math.max(0, inv.amount - (alreadyPaid + existingConcession));
+
+    try {
+      if (actionModalTab === 'COLLECT') {
+        const payAmount = actionPaymentType === 'FULL'
+          ? remainingBalance
+          : (parseFloat(actionPayAmount) || 0);
+
+        if (payAmount <= 0) {
+          notify('Please enter a valid payment amount greater than ₹0');
+          setIsProcessingAction(false);
+          return;
+        }
+
+        if (payAmount > remainingBalance) {
+          notify(`Payment amount cannot exceed the remaining balance of ₹${remainingBalance.toLocaleString()}`);
+          setIsProcessingAction(false);
+          return;
+        }
+
+        const receiptNo = `REC-${selectedSession.replace('-', '')}-${Math.floor(10000 + Math.random() * 90000)}`;
+        const res = await fetch('/api/fees', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invoice_id: inv.id,
+            additional_payment: payAmount,
+            payment_mode: actionPaymentMode,
+            remark: actionPaymentRemark || (actionPaymentType === 'PARTIAL' ? 'Partial installment payment' : 'Full balance clearance'),
+            receipt_no: receiptNo
+          })
+        });
+        const data = await res.json();
+        if (data.success && data.invoice) {
+          setInvoices(prev => prev.map(item => item.id === inv.id ? data.invoice : item));
+          notify(`Payment of ₹${payAmount.toLocaleString()} recorded successfully! Receipt #${receiptNo}`);
+          setSelectedReceiptInvoice(data.invoice);
+          setActiveActionInvoice(null);
+          if (onRefresh) onRefresh();
+        } else {
+          notify(`Failed to record payment: ${data.error || 'Server error'}`);
+        }
+      } else {
+        // Waive / Concession Mode
+        const waiverAmount = actionWaiverType === 'FULL'
+          ? remainingBalance
+          : (parseFloat(actionWaiverAmount) || 0);
+
+        if (waiverAmount <= 0) {
+          notify('Please enter a valid waiver/concession amount greater than ₹0');
+          setIsProcessingAction(false);
+          return;
+        }
+
+        const finalReason = actionCustomRemark.trim()
+          ? `${actionConcessionReason}: ${actionCustomRemark.trim()}`
+          : actionConcessionReason;
+
+        const newTotalConcession = existingConcession + waiverAmount;
+
+        const res = await fetch('/api/fees', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invoice_id: inv.id,
+            concession_amount: newTotalConcession,
+            concession_reason: finalReason,
+            waived_by: 'School Administrator',
+            remark: `Concession of ₹${waiverAmount} granted: ${finalReason}`
+          })
+        });
+        const data = await res.json();
+        if (data.success && data.invoice) {
+          setInvoices(prev => prev.map(item => item.id === inv.id ? data.invoice : item));
+          notify(`Fee Waiver / Concession of ₹${waiverAmount.toLocaleString()} granted successfully!`);
+          setSelectedReceiptInvoice(data.invoice);
+          setActiveActionInvoice(null);
+          if (onRefresh) onRefresh();
+        } else {
+          notify(`Failed to apply concession: ${data.error || 'Server error'}`);
+        }
+      }
+    } catch (err: any) {
+      notify(`Action failed: ${err.message}`);
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
   // Quick Collect Handler
   const handleQuickCollect = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1376,11 +1509,25 @@ export function DashboardFees({
       notify('Please choose a valid student for fee collection.');
       return;
     }
-    const netAmount = netFinalCollectionAmount;
-    if (netAmount <= 0) {
+    const baseAmount = parseFloat(collectBaseAmount) || 0;
+    const discount = parseFloat(collectDiscount) || 0;
+    const netAmount = Math.max(0, baseAmount - discount);
+
+    if (baseAmount <= 0) {
       notify('Please enter a valid fee amount.');
       return;
     }
+
+    const isPartial = collectPaymentType === 'PARTIAL';
+    const partialAmt = parseFloat(collectPartialAmount) || 0;
+    if (isPartial && (partialAmt <= 0 || partialAmt > netAmount)) {
+      notify(`Please enter a valid partial amount between ₹1 and ₹${netAmount.toLocaleString()}`);
+      return;
+    }
+
+    const amountPaidNow = isPartial ? partialAmt : netAmount;
+    const computedStatus: 'PAID' | 'PARTIAL' | 'WAIVED' =
+      netAmount === 0 ? 'WAIVED' : (isPartial && amountPaidNow < netAmount ? 'PARTIAL' : 'PAID');
 
     setIsProcessingCollect(true);
     const receiptNo = `REC-${selectedSession.replace('-', '')}-${Math.floor(10000 + Math.random() * 90000)}`;
@@ -1394,14 +1541,25 @@ export function DashboardFees({
         academic_session: selectedSession,
         invoice_no: receiptNo,
         month: collectReceiptTitle,
-        amount: netAmount,
-        paid_amount: netAmount,
-        status: 'PAID',
+        amount: baseAmount,
+        paid_amount: amountPaidNow,
+        concession_amount: discount,
+        concession_reason: collectDiscountReason || (discount > 0 ? 'Principal / Admin Concession' : undefined),
+        waived_by: discount > 0 ? 'School Administrator' : undefined,
+        status: computedStatus,
         payment_mode: collectPaymentMode,
         due_date: new Date().toISOString().split('T')[0],
-        tuition_fee: Math.round(netAmount * 0.65),
-        transport_fee: Math.round(netAmount * 0.15),
-        exam_fee: Math.round(netAmount * 0.20)
+        tuition_fee: Math.round(baseAmount * 0.65),
+        transport_fee: Math.round(baseAmount * 0.15),
+        exam_fee: Math.round(baseAmount * 0.20),
+        payment_history: [{
+          id: `pay-${Date.now()}`,
+          amount: amountPaidNow,
+          payment_mode: collectPaymentMode,
+          paid_at: new Date().toISOString(),
+          receipt_no: receiptNo,
+          remark: isPartial ? `Partial payment for ${collectReceiptTitle}` : (collectDiscountReason || 'Fee payment')
+        }]
       };
 
       const res = await fetch('/api/fees', {
@@ -1420,13 +1578,15 @@ export function DashboardFees({
 
         setInvoices(prev => [savedInvoice, ...prev]);
         setSelectedReceiptInvoice(savedInvoice);
-        setCollectSuccess(`Payment of ₹${netAmount.toLocaleString()} recorded successfully for ${selectedCollectStudent.full_name}! Receipt #${receiptNo} generated.`);
+        setCollectSuccess(`Payment of ₹${amountPaidNow.toLocaleString()} recorded successfully for ${selectedCollectStudent.full_name}! Receipt #${receiptNo} generated.`);
         notify(`Fee Payment Recorded: Receipt #${receiptNo}`);
 
         if (onRefresh) onRefresh();
         setCollectDiscount('0');
         setCollectDiscountReason('');
         setCollectRefNumber('');
+        setCollectPaymentType('FULL');
+        setCollectPartialAmount('');
       } else {
         notify(`Payment record failed: ${data.error || 'Server error'}`);
       }
@@ -3010,15 +3170,78 @@ export function DashboardFees({
               </div>
             </div>
 
+            {/* Payment Collection Type: Full vs Partial */}
+            <div className="p-4 rounded-2xl bg-[#F8FAF9] border border-[#DCE8E0] space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <Coins className="w-3.5 h-3.5 text-emerald-700" />
+                  Payment Settlement Option:
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCollectPaymentType('FULL')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      collectPaymentType === 'FULL'
+                        ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Full Payment (₹{netFinalCollectionAmount.toLocaleString()})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCollectPaymentType('PARTIAL');
+                      if (!collectPartialAmount) {
+                        setCollectPartialAmount(Math.round(netFinalCollectionAmount / 2).toString());
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                      collectPaymentType === 'PARTIAL'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Partial Installment Payment
+                  </button>
+                </div>
+              </div>
+
+              {collectPaymentType === 'PARTIAL' && (
+                <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-fade-in">
+                  <div>
+                    <label className="block text-[11px] font-bold text-amber-900 mb-1">
+                      Partial Amount Paying Now (₹) <span className="text-rose-600">*</span>:
+                    </label>
+                    <input
+                      type="number"
+                      value={collectPartialAmount}
+                      onChange={(e) => setCollectPartialAmount(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-white border border-amber-300 rounded-xl text-xs font-mono font-bold text-amber-950 focus:outline-none focus:border-amber-500"
+                      placeholder="e.g. 2500"
+                      required
+                    />
+                  </div>
+                  <div className="flex flex-col justify-end text-xs font-mono text-slate-600 pb-1">
+                    <span>Remaining Balance: <strong className="text-rose-700">₹{(Math.max(0, netFinalCollectionAmount - (parseFloat(collectPartialAmount) || 0))).toLocaleString()}</strong></span>
+                    <span className="text-[10.5px] text-slate-400">Status will be saved as <strong>PARTIAL</strong></span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isProcessingCollect || !selectedCollectStudent || netFinalCollectionAmount <= 0}
+              disabled={isProcessingCollect || !selectedCollectStudent || (collectPaymentType === 'FULL' ? netFinalCollectionAmount <= 0 : (parseFloat(collectPartialAmount) || 0) <= 0)}
               className="w-full py-4 rounded-2xl bg-[#005A36] hover:bg-[#00472B] disabled:opacity-50 text-white font-display font-bold text-sm tracking-wide shadow-md transition-all cursor-pointer border-none flex items-center justify-center"
             >
               <span>
                 {isProcessingCollect
                   ? 'Recording Payment & Generating Receipt...'
+                  : collectPaymentType === 'PARTIAL'
+                  ? `Record Partial Payment (₹${(parseFloat(collectPartialAmount) || 0).toLocaleString()}) & Issue Receipt →`
                   : `Collect Fee & Issue Official Receipt → (₹${netFinalCollectionAmount.toLocaleString()})`}
               </span>
             </button>
@@ -3075,7 +3298,7 @@ export function DashboardFees({
               </select>
 
               {/* Status Filter */}
-              {(['ALL', 'PAID', 'PENDING', 'OVERDUE'] as const).map((st) => (
+              {(['ALL', 'PAID', 'PARTIAL', 'PENDING', 'WAIVED', 'OVERDUE'] as const).map((st) => (
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
@@ -3093,7 +3316,7 @@ export function DashboardFees({
 
           {/* Table */}
           <div className="overflow-x-auto w-full rounded-2xl border border-[#DCE8E0]">
-            <table className="w-full text-left text-xs border-collapse min-w-[750px]">
+            <table className="w-full text-left text-xs border-collapse min-w-[850px]">
               <thead>
                 <tr className="border-b border-[#E8F0EA] text-[10.5px] font-mono text-slate-400 uppercase bg-[#F8FAF9]">
                   <th className="py-3 px-3.5">INVOICE / RECEIPT</th>
@@ -3101,70 +3324,104 @@ export function DashboardFees({
                   <th className="py-3 px-3">CLASS</th>
                   <th className="py-3 px-3">DUE DATE</th>
                   <th className="py-3 px-3">AMOUNT</th>
-                  <th className="py-3 px-3">PAID</th>
+                  <th className="py-3 px-3">PAID / WAIVED</th>
+                  <th className="py-3 px-3">BALANCE</th>
                   <th className="py-3 px-3">STATUS</th>
                   <th className="py-3 px-3 text-right">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E8F0EA] text-slate-700">
-                {paginatedInvoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-[#F9FCFA] transition-colors">
-                    <td className="py-3 px-3.5 font-mono font-bold text-[#122A24]">
-                      {inv.invoice_no}
-                      <div className="text-[10px] text-slate-400 font-sans font-normal">{inv.month || 'Tuition Fee'}</div>
-                    </td>
-                    <td className="py-3 px-3">
-                      <div className="font-semibold text-slate-800">{inv.student_name}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">Adm: {inv.student_id || 'N/A'}</div>
-                    </td>
-                    <td className="py-3 px-3 font-mono text-[11px]">{inv.class_name}</td>
-                    <td className="py-3 px-3 font-mono text-[11px] text-slate-500">{inv.due_date || 'N/A'}</td>
-                    <td className="py-3 px-3 font-mono font-bold text-[#122A24]">₹{(inv.amount || 0).toLocaleString()}</td>
-                    <td className="py-3 px-3 font-mono text-emerald-700 font-bold">
-                      ₹{(inv.paid_amount ?? (inv.status === 'PAID' ? inv.amount : 0)).toLocaleString()}
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                        inv.status === 'PAID'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : inv.status === 'PENDING'
-                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                          : 'bg-rose-50 text-rose-700 border border-rose-200'
-                      }`}>
-                        {inv.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => setSelectedReceiptInvoice(inv)}
-                          className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10.5px] border border-emerald-200 cursor-pointer flex items-center gap-1"
-                          title="Print Official CBSE Receipt"
-                        >
-                          <Printer className="w-3 h-3" /> Slip
-                        </button>
-
-                        {inv.status !== 'PAID' && (
-                          <button
-                            onClick={() => handleMarkAsPaid(inv)}
-                            className="px-2.5 py-1 rounded-lg bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-[10.5px] border-none cursor-pointer flex items-center gap-1"
-                            title="Mark as Paid"
-                          >
-                            <Check className="w-3 h-3" /> Pay
-                          </button>
+                {paginatedInvoices.map((inv) => {
+                  const paid = inv.paid_amount ?? (inv.status === 'PAID' ? inv.amount : 0);
+                  const conc = inv.concession_amount || 0;
+                  const bal = Math.max(0, (inv.amount || 0) - (paid + conc));
+                  return (
+                    <tr key={inv.id} className="hover:bg-[#F9FCFA] transition-colors">
+                      <td className="py-3 px-3.5 font-mono font-bold text-[#122A24]">
+                        {inv.invoice_no}
+                        <div className="text-[10px] text-slate-400 font-sans font-normal">{inv.month || 'Tuition Fee'}</div>
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="font-semibold text-slate-800">{inv.student_name}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">Adm: {inv.student_id || 'N/A'}</div>
+                      </td>
+                      <td className="py-3 px-3 font-mono text-[11px]">{inv.class_name}</td>
+                      <td className="py-3 px-3 font-mono text-[11px] text-slate-500">{inv.due_date || 'N/A'}</td>
+                      <td className="py-3 px-3 font-mono font-bold text-[#122A24]">₹{(inv.amount || 0).toLocaleString()}</td>
+                      <td className="py-3 px-3 font-mono">
+                        <div className="text-emerald-700 font-bold">
+                          ₹{paid.toLocaleString()}
+                        </div>
+                        {conc > 0 && (
+                          <div className="text-[10px] text-purple-700 font-semibold" title={inv.concession_reason || 'Concession Applied'}>
+                            Waived: ₹{conc.toLocaleString()}
+                          </div>
                         )}
+                      </td>
+                      <td className="py-3 px-3 font-mono font-bold">
+                        {bal === 0 ? (
+                          <span className="text-emerald-600 text-[11px] font-semibold">₹0 (Settled)</span>
+                        ) : (
+                          <span className="text-rose-600 text-[11px]">₹{bal.toLocaleString()}</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                          inv.status === 'PAID'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : inv.status === 'PARTIAL'
+                            ? 'bg-amber-50 text-amber-800 border border-amber-300'
+                            : inv.status === 'WAIVED'
+                            ? 'bg-purple-50 text-purple-800 border border-purple-200'
+                            : inv.status === 'PENDING'
+                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                            : 'bg-slate-100 text-slate-700 border border-slate-300'
+                        }`}>
+                          {inv.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setSelectedReceiptInvoice(inv)}
+                            className="px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10.5px] border border-emerald-200 cursor-pointer flex items-center gap-1"
+                            title="Print Official CBSE Receipt"
+                          >
+                            <Printer className="w-3 h-3" /> Slip
+                          </button>
 
-                        <button
-                          onClick={() => handleDeleteInvoice(inv)}
-                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border-none cursor-pointer"
-                          title="Delete / Void"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {inv.status !== 'PAID' && inv.status !== 'WAIVED' && (
+                            <>
+                              <button
+                                onClick={() => openActionModal(inv, 'COLLECT')}
+                                className="px-2.5 py-1 rounded-lg bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-[10.5px] border-none cursor-pointer flex items-center gap-1 shadow-2xs"
+                                title="Collect Full or Partial Fee (Monthwise)"
+                              >
+                                <CreditCard className="w-3 h-3 text-emerald-400" /> Pay
+                              </button>
+
+                              <button
+                                onClick={() => openActionModal(inv, 'WAIVE')}
+                                className="px-2 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 font-bold text-[10.5px] cursor-pointer flex items-center gap-1"
+                                title="Waive Off Fee with Remark / Concession (Admin Access)"
+                              >
+                                <Sparkles className="w-3 h-3 text-purple-600" /> Waive
+                              </button>
+                            </>
+                          )}
+
+                          <button
+                            onClick={() => handleDeleteInvoice(inv)}
+                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border-none cursor-pointer"
+                            title="Delete / Void"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {filteredInvoices.length === 0 && (
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-xs text-slate-400 font-mono">
@@ -3706,14 +3963,32 @@ export function DashboardFees({
                             </button>
 
                             {item.remainingDue > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleQuickCollectFromMonthly(s, item.remainingDue)}
-                                className="px-2.5 py-1 rounded-lg bg-[#122A24] hover:bg-[#1C443A] text-white text-[11px] font-bold border-none cursor-pointer flex items-center gap-1 shadow-2xs"
-                                title="Collect Fee at Counter"
-                              >
-                                <CreditCard className="w-3 h-3" /> Collect
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickCollectFromMonthly(s, item.remainingDue)}
+                                  className="px-2.5 py-1 rounded-lg bg-[#122A24] hover:bg-[#1C443A] text-white text-[11px] font-bold border-none cursor-pointer flex items-center gap-1 shadow-2xs"
+                                  title="Collect Full or Partial Fee"
+                                >
+                                  <CreditCard className="w-3 h-3 text-emerald-400" /> Collect
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const studentInvoice = invoices.find(i => (i.student_id === s.id || i.admission_no === s.admission_no) && i.status !== 'PAID' && i.status !== 'WAIVED');
+                                    if (studentInvoice) {
+                                      openActionModal(studentInvoice, 'WAIVE');
+                                    } else {
+                                      handleQuickCollectFromMonthly(s, item.remainingDue);
+                                    }
+                                  }}
+                                  className="px-2 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 text-[11px] font-bold cursor-pointer flex items-center gap-1"
+                                  title="Waive Off Monthly Fee with Remark / Concession"
+                                >
+                                  <Sparkles className="w-3 h-3 text-purple-600" /> Waive
+                                </button>
+                              </>
                             )}
                           </div>
                         </td>
@@ -4360,12 +4635,47 @@ export function DashboardFees({
                     <td className="py-1.5 px-2">Science Lab &amp; Computer Facility Charges</td>
                     <td className="py-1.5 px-2 text-right font-bold">₹{(selectedReceiptInvoice.exam_fee || Math.round((selectedReceiptInvoice.amount || 0) * 0.10)).toLocaleString()}</td>
                   </tr>
+
+                  {/* Concession / Waiver Line Item */}
+                  {(selectedReceiptInvoice.concession_amount || 0) > 0 && (
+                    <tr className="bg-purple-50/70 text-purple-950 font-semibold border-t border-purple-200">
+                      <td className="py-1.5 px-2 text-purple-700">✦</td>
+                      <td className="py-1.5 px-2">
+                        <span className="font-bold">Fee Waiver / Concession Granted</span>
+                        <div className="text-[10px] text-purple-800 font-sans font-normal italic">
+                          Remark: {selectedReceiptInvoice.concession_reason || 'Principal Discretion'} {selectedReceiptInvoice.waived_by ? `• Authorized by: ${selectedReceiptInvoice.waived_by}` : ''}
+                        </div>
+                      </td>
+                      <td className="py-1.5 px-2 text-right font-bold text-purple-900">
+                        -₹{(selectedReceiptInvoice.concession_amount || 0).toLocaleString()}
+                      </td>
+                    </tr>
+                  )}
+
                   <tr className="border-t-2 border-[#122A24] bg-emerald-50/50">
-                    <td className="py-2 px-2 font-bold" colSpan={2}>TOTAL AMOUNT PAID</td>
+                    <td className="py-2 px-2 font-bold" colSpan={2}>
+                      {selectedReceiptInvoice.status === 'PARTIAL'
+                        ? 'AMOUNT PAID (PARTIAL INSTALLMENT)'
+                        : selectedReceiptInvoice.status === 'WAIVED'
+                        ? 'TOTAL SETTLED (100% CONCESSION WAIVER)'
+                        : 'TOTAL AMOUNT PAID'}
+                    </td>
                     <td className="py-2 px-2 text-right font-bold text-sm text-emerald-900">
                       ₹{(selectedReceiptInvoice.paid_amount ?? (selectedReceiptInvoice.status === 'PAID' ? selectedReceiptInvoice.amount : 0)).toLocaleString()}
                     </td>
                   </tr>
+
+                  {/* Partial Remaining Balance Row */}
+                  {selectedReceiptInvoice.status === 'PARTIAL' && (
+                    <tr className="bg-rose-50/80 border-t border-rose-200">
+                      <td className="py-2 px-2 font-bold text-rose-900" colSpan={2}>
+                        OUTSTANDING BALANCE PAYABLE
+                      </td>
+                      <td className="py-2 px-2 text-right font-bold text-sm text-rose-800 font-mono">
+                        ₹{Math.max(0, (selectedReceiptInvoice.amount || 0) - ((selectedReceiptInvoice.paid_amount || 0) + (selectedReceiptInvoice.concession_amount || 0))).toLocaleString()}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
 
@@ -4382,7 +4692,15 @@ export function DashboardFees({
                 <div>
                   <div className="font-mono text-[11px] text-slate-500">Payment Mode:</div>
                   <strong className="text-[#122A24]">{selectedReceiptInvoice.payment_mode || 'UPI / Online'}</strong>
-                  <div className="text-[10px] text-slate-400 mt-1 font-mono">Status: COMPLETED (CBSE Cleared)</div>
+                  <div className="text-[10px] text-slate-500 mt-1 font-mono">
+                    Status: {selectedReceiptInvoice.status === 'PAID'
+                      ? 'COMPLETED (CBSE Cleared)'
+                      : selectedReceiptInvoice.status === 'PARTIAL'
+                      ? 'PARTIAL PAYMENT RECORDED (Installment Active)'
+                      : selectedReceiptInvoice.status === 'WAIVED'
+                      ? '100% FEE WAIVED (Admin Concession)'
+                      : 'PENDING'}
+                  </div>
                 </div>
 
                 <div className="text-right space-y-6">
@@ -4393,6 +4711,313 @@ export function DashboardFees({
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          MODAL: ADMIN FEE ACTION (PARTIAL PAYMENT & CONCESSION / WAIVER)
+          ───────────────────────────────────────────────────────────── */}
+      {activeActionInvoice && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 relative my-8 space-y-5">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center justify-center font-bold">
+                  {actionModalTab === 'COLLECT' ? <CreditCard className="w-5 h-5" /> : <Sparkles className="w-5 h-5 text-purple-700" />}
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base text-[#122A24]">
+                    {actionModalTab === 'COLLECT' ? 'Collect Fee (Partial / Full)' : 'Waive Off Fee / Concession'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    Invoice #{activeActionInvoice.invoice_no} • {activeActionInvoice.student_name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveActionInvoice(null)}
+                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 border-none cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Mode Selector Tabs */}
+            <div className="grid grid-cols-2 p-1 bg-[#F4F8F5] rounded-2xl border border-[#DCE8E0] text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setActionModalTab('COLLECT')}
+                className={`py-2 rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                  actionModalTab === 'COLLECT'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Collect Payment</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActionModalTab('WAIVE')}
+                className={`py-2 rounded-xl border-none cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                  actionModalTab === 'WAIVE'
+                    ? 'bg-purple-700 text-white shadow-xs'
+                    : 'bg-transparent text-slate-600 hover:text-purple-900'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Waive Off / Concession</span>
+              </button>
+            </div>
+
+            {/* Financial Overview Card */}
+            {(() => {
+              const totalAmount = activeActionInvoice.amount || 0;
+              const alreadyPaid = activeActionInvoice.paid_amount || 0;
+              const alreadyWaived = activeActionInvoice.concession_amount || 0;
+              const currentBalance = Math.max(0, totalAmount - (alreadyPaid + alreadyWaived));
+
+              return (
+                <div className="p-4 rounded-2xl bg-[#122A24] text-white border border-[#1C443A] space-y-3">
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="text-slate-300">Total Billed:</span>
+                    <span className="font-bold text-white">₹{totalAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="text-emerald-300">Already Paid:</span>
+                    <span className="font-bold text-emerald-300">₹{alreadyPaid.toLocaleString()}</span>
+                  </div>
+                  {alreadyWaived > 0 && (
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-purple-300">Concession Applied:</span>
+                      <span className="font-bold text-purple-300">-₹{alreadyWaived.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-200">OUTSTANDING BALANCE:</span>
+                    <span className="font-display font-black text-xl text-[#00E599]">₹{currentBalance.toLocaleString()}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Tab 1 Form: COLLECT PAYMENT */}
+            {actionModalTab === 'COLLECT' && (
+              <div className="space-y-4 text-xs">
+                {/* Payment Option: Full vs Partial */}
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700 block">Payment Option:</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionPaymentType('FULL');
+                        const balance = Math.max(0, (activeActionInvoice.amount || 0) - ((activeActionInvoice.paid_amount || 0) + (activeActionInvoice.concession_amount || 0)));
+                        setActionPayAmount(balance.toString());
+                      }}
+                      className={`p-2.5 rounded-xl border text-center font-bold cursor-pointer transition-all ${
+                        actionPaymentType === 'FULL'
+                          ? 'bg-emerald-50 border-emerald-400 text-emerald-950 shadow-2xs'
+                          : 'bg-[#F8FAF9] border-[#DCE8E0] text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      Clear Full Balance
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionPaymentType('PARTIAL');
+                        const balance = Math.max(0, (activeActionInvoice.amount || 0) - ((activeActionInvoice.paid_amount || 0) + (activeActionInvoice.concession_amount || 0)));
+                        setActionPayAmount(Math.round(balance / 2).toString());
+                      }}
+                      className={`p-2.5 rounded-xl border text-center font-bold cursor-pointer transition-all ${
+                        actionPaymentType === 'PARTIAL'
+                          ? 'bg-amber-50 border-amber-400 text-amber-950 shadow-2xs'
+                          : 'bg-[#F8FAF9] border-[#DCE8E0] text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      Partial Installment
+                    </button>
+                  </div>
+                </div>
+
+                {/* Amount to Pay Now */}
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700 block">Amount Receiving Now (₹):</label>
+                  <input
+                    type="number"
+                    value={actionPayAmount}
+                    onChange={(e) => setActionPayAmount(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-[#DCE8E0] rounded-xl font-mono font-bold text-sm text-[#122A24] focus:outline-none focus:border-emerald-600"
+                    placeholder="Enter amount"
+                  />
+                </div>
+
+                {/* Payment Mode */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="font-bold text-slate-700 block">Payment Mode:</label>
+                    <select
+                      value={actionPaymentMode}
+                      onChange={(e) => setActionPaymentMode(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24]"
+                    >
+                      <option value="CASH">Cash</option>
+                      <option value="UPI">UPI / QR Code</option>
+                      <option value="NET_BANKING">Net Banking</option>
+                      <option value="CHEQUE">Bank Cheque</option>
+                      <option value="CARD">POS Card</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-semibold text-slate-700 block">Ref / Cheque No:</label>
+                    <input
+                      type="text"
+                      value={actionPaymentRef}
+                      onChange={(e) => setActionPaymentRef(e.target.value)}
+                      placeholder="e.g. UTR-829104"
+                      className="w-full px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Payment Remark */}
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700 block">Receipt / Payment Remark:</label>
+                  <input
+                    type="text"
+                    value={actionPaymentRemark}
+                    onChange={(e) => setActionPaymentRemark(e.target.value)}
+                    placeholder="e.g. Month of April partial payment"
+                    className="w-full px-3.5 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs"
+                  />
+                </div>
+
+                {/* Submit Payment Button */}
+                <button
+                  type="button"
+                  disabled={isProcessingAction || (parseFloat(actionPayAmount) || 0) <= 0}
+                  onClick={handleProcessAction}
+                  className="w-full py-3 bg-[#005A36] hover:bg-[#00472B] disabled:opacity-50 text-white font-display font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 mt-2"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>
+                    {isProcessingAction
+                      ? 'Recording Payment...'
+                      : `Record Payment of ₹${(parseFloat(actionPayAmount) || 0).toLocaleString()} & Generate Receipt`}
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {/* Tab 2 Form: WAIVE OFF / CONCESSION */}
+            {actionModalTab === 'WAIVE' && (
+              <div className="space-y-4 text-xs">
+                {/* Waiver Type Option */}
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700 block">Waiver Option (Admin Privilege):</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionWaiverType('FULL');
+                        const balance = Math.max(0, (activeActionInvoice.amount || 0) - ((activeActionInvoice.paid_amount || 0) + (activeActionInvoice.concession_amount || 0)));
+                        setActionWaiverAmount(balance.toString());
+                      }}
+                      className={`p-2.5 rounded-xl border text-center font-bold cursor-pointer transition-all ${
+                        actionWaiverType === 'FULL'
+                          ? 'bg-purple-50 border-purple-400 text-purple-950 shadow-2xs'
+                          : 'bg-[#F8FAF9] border-[#DCE8E0] text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      100% Full Fee Waiver
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActionWaiverType('PARTIAL');
+                        const balance = Math.max(0, (activeActionInvoice.amount || 0) - ((activeActionInvoice.paid_amount || 0) + (activeActionInvoice.concession_amount || 0)));
+                        setActionWaiverAmount(Math.round(balance / 2).toString());
+                      }}
+                      className={`p-2.5 rounded-xl border text-center font-bold cursor-pointer transition-all ${
+                        actionWaiverType === 'PARTIAL'
+                          ? 'bg-purple-50 border-purple-400 text-purple-950 shadow-2xs'
+                          : 'bg-[#F8FAF9] border-[#DCE8E0] text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      Custom Concession Amount
+                    </button>
+                  </div>
+                </div>
+
+                {/* Amount to Waive */}
+                <div className="space-y-1">
+                  <label className="font-bold text-purple-900 block">Fee Waiver / Concession Amount (₹):</label>
+                  <input
+                    type="number"
+                    value={actionWaiverAmount}
+                    onChange={(e) => setActionWaiverAmount(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-purple-50/50 border border-purple-300 rounded-xl font-mono font-bold text-sm text-purple-950 focus:outline-none focus:border-purple-600"
+                    placeholder="Enter concession amount"
+                  />
+                </div>
+
+                {/* Concession Reason Dropdown */}
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-700 block">Concession Category / Authority <span className="text-rose-600">*</span>:</label>
+                  <select
+                    value={actionConcessionReason}
+                    onChange={(e) => setActionConcessionReason(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24]"
+                  >
+                    <option value="Principal Discretion">Principal Discretionary Concession</option>
+                    <option value="Trustee / Management Waiver">Trustee / Management Special Waiver</option>
+                    <option value="Merit Scholarship">Merit Scholarship / Academic Excellence</option>
+                    <option value="Sibling Concession">Sibling Concession (Second/Third Child)</option>
+                    <option value="Staff Ward Benefit">Staff Ward Institutional Concession</option>
+                    <option value="EWS Scheme">Economically Weaker Section (EWS) Concession</option>
+                    <option value="Sports / ECA Excellence">Sports / Extra-Curricular Excellence</option>
+                    <option value="Financial Hardship Relief">Financial Hardship / Medical Relief</option>
+                    <option value="Special Waiver">Other / Special Waiver</option>
+                  </select>
+                </div>
+
+                {/* Mandatory Official Remark */}
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700 block">
+                    Official Remark / Approval Note <span className="text-rose-600">*</span>:
+                  </label>
+                  <input
+                    type="text"
+                    value={actionCustomRemark}
+                    onChange={(e) => setActionCustomRemark(e.target.value)}
+                    placeholder="e.g. Approved by Principal via letter #DPS/2026/09"
+                    className="w-full px-3.5 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs focus:outline-none focus:border-purple-600"
+                    required
+                  />
+                  <span className="text-[10.5px] text-slate-400 font-mono">This remark will be permanently logged on the student's dues ledger.</span>
+                </div>
+
+                {/* Submit Concession Button */}
+                <button
+                  type="button"
+                  disabled={isProcessingAction || (parseFloat(actionWaiverAmount) || 0) <= 0}
+                  onClick={handleProcessAction}
+                  className="w-full py-3 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-display font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 mt-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>
+                    {isProcessingAction
+                      ? 'Applying Concession...'
+                      : `Grant Concession of ₹${(parseFloat(actionWaiverAmount) || 0).toLocaleString()} & Update Dues`}
+                  </span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

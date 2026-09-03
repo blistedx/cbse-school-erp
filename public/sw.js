@@ -1,6 +1,6 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.0 (Build 2026.09.03.114) */
-const CACHE_NAME = 'giterp-core-v8-114';
-const API_CACHE_NAME = 'giterp-api-session-v8-114';
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 (Build 2026.09.03.115) */
+const CACHE_NAME = 'giterp-core-v8-115';
+const API_CACHE_NAME = 'giterp-api-session-v8-115';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
