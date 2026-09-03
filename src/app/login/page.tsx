@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { APP_INFO } from '@/lib/app-info';
+import { APP_INFO, forcePurgeAppCache } from '@/lib/app-info';
 
 type Role = 'Admin' | 'Teacher' | 'Student' | 'Parent';
 
@@ -154,6 +154,25 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [buildInfo, setBuildInfo] = useState({
+    buildNumber: APP_INFO.buildNumber,
+    releaseTag: APP_INFO.releaseTag
+  });
+
+  useEffect(() => {
+    // Dynamically fetch live server build info to bypass any local service-worker or browser cache
+    fetch(`/api/app-info?t=${Date.now()}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.buildNumber) {
+          setBuildInfo({
+            buildNumber: data.buildNumber,
+            releaseTag: data.releaseTag || APP_INFO.releaseTag
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const currentRoleMeta = roleCopy[selectedRole];
 
@@ -390,9 +409,13 @@ export default function LoginPage() {
             New school? Request a demo →
           </Link>
 
-          <div style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid #E2ECE5', textAlign: 'center', fontFamily: 'monospace', fontSize: '11px', color: '#52796F' }}>
+          <div
+            onClick={() => forcePurgeAppCache()}
+            title="Tap to refresh and clear any cached assets"
+            style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid #E2ECE5', textAlign: 'center', fontFamily: 'monospace', fontSize: '11px', color: '#52796F', cursor: 'pointer' }}
+          >
             <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10B981', marginRight: '6px' }} />
-            Build #{APP_INFO.buildNumber} • {APP_INFO.releaseTag}
+            Build #{buildInfo.buildNumber} • {buildInfo.releaseTag}
           </div>
         </div>
       </div>
