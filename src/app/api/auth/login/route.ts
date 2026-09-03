@@ -72,7 +72,8 @@ export async function POST(req: Request) {
       school: auth.school,
       session_token: sessionToken
     });
-  } catch {
-    return NextResponse.json({ success: false, error: 'Login failed. Please try again.' }, { status: 500 });
+  } catch (err: any) {
+    console.error('[AUTH_LOGIN_ERROR]', err);
+    return NextResponse.json({ success: false, error: `Login error: ${err?.message || 'Unknown server error'}` }, { status: 500 });
   }
 }

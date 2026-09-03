@@ -1171,13 +1171,14 @@ function ERPWorkspaceContent() {
           } catch (e) {}
         }
         
-        // Security Gate: If user is not authenticated, redirect to login
+        // Security Gate: If user is not authenticated, redirect to login with school context
         if (!activeUserObj) {
           setCurrentUser(null);
+          const redirectUrl = `/login?school=${encodeURIComponent(targetSchool.school_code || schoolParam || 'DPS2026')}`;
           if (typeof window !== 'undefined') {
-            window.location.replace('/login');
+            window.location.replace(redirectUrl);
           } else {
-            router.replace('/login');
+            router.replace(redirectUrl);
           }
           return;
         }
