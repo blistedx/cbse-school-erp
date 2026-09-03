@@ -30,12 +30,12 @@ A high-performance, installable Progressive Web App (PWA) and multi-tenant CBSE 
 ---
 
 ## 🔑 Environment Variables Required
-- **`MONGODB_URI`**: `mongodb+srv://blistedx_db_user:b7TGgj57Xu8jX3C1@aierp.3kejnhw.mongodb.net/edugit?retryWrites=true&w=majority&appName=AIERP`
-- **`ADMIN_NOTIFICATION_EMAIL`**: `blistedx@gmail.com`
+- **`MONGODB_URI`**: `mongodb+srv://<username>:<password>@cluster.mongodb.net/edugit?retryWrites=true&w=majority`
+- **`ADMIN_NOTIFICATION_EMAIL`**: `admin@your-school.edu`
 - **`SMTP_HOST`**: `smtp.gmail.com`
 - **`SMTP_PORT`**: `465`
-- **`SMTP_USER`**: `blistedx@gmail.com`
-- **`SMTP_PASS`**: `nwnfrdibwtqnfvjd`
+- **`SMTP_USER`**: `your-notification-email@gmail.com`
+- **`SMTP_PASS`**: `your_smtp_app_password`
 
 ---
 

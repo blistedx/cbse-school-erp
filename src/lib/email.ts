@@ -20,8 +20,8 @@ function getTransporter() {
 
   const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
   const smtpPort = Number(process.env.SMTP_PORT) || 465;
-  const smtpUser = process.env.SMTP_USER || 'blistedx@gmail.com';
-  const smtpPass = process.env.SMTP_PASS || 'nwnfrdibwtqnfvjd';
+  const smtpUser = process.env.SMTP_USER || '';
+  const smtpPass = process.env.SMTP_PASS || '';
 
   const isGmail = (smtpHost && smtpHost.includes('gmail')) || (smtpUser && smtpUser.includes('gmail'));
 

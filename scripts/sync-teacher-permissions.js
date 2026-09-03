@@ -9,7 +9,7 @@ if (fs.existsSync('.env.local')) {
   });
 }
 
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb+srv://blistedx_db_user:b7TGgj57Xu8jX3C1@aierp.3kejnhw.mongodb.net/edugit?retryWrites=true&w=majority&appName=AIERP';
+const MONGO_URI = process.env.MONGODB_URI || '';
 
 const SAFE_TEACHER_PERMISSIONS = {
   classes: { can_view: true, can_edit: true, can_add: false, can_delete: false },

@@ -3,7 +3,7 @@ const fs = require('fs');
 const { MongoClient } = require('mongodb');
 
 async function cleanAttendanceDuplicates() {
-  const uri = 'mongodb+srv://blistedx_db_user:b7TGgj57Xu8jX3C1@aierp.3kejnhw.mongodb.net/edugit?retryWrites=true&w=majority&appName=AIERP';
+  const uri = '';
   const client = new MongoClient(uri);
   await client.connect();
   const db = client.db('edugit');

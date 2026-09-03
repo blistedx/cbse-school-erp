@@ -7,7 +7,7 @@ require('dotenv').config();
 
 const rawCockroach = process.env.COCKROACH_DB_URL || process.env.DATABASE_URL || '';
 const COCKROACH_URI = rawCockroach.replace('?sslmode=verify-full', '').replace('&sslmode=verify-full', '');
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb+srv://blistedx_db_user:b7TGgj57Xu8jX3C1@aierp.3kejnhw.mongodb.net/edugit?retryWrites=true&w=majority&appName=AIERP';
+const MONGO_URI = process.env.MONGODB_URI || '';
 
 // DPS School Emblem SVG Logo (Base64)
 const dpsLogoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">

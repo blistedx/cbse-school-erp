@@ -2,7 +2,7 @@
 const fs = require('fs');
 const { MongoClient } = require('mongodb');
 
-const uri = 'mongodb+srv://blistedx_db_user:b7TGgj57Xu8jX3C1@aierp.3kejnhw.mongodb.net/edugit?retryWrites=true&w=majority&appName=AIERP';
+const uri = '';
 
 async function updateNoticesRefNo() {
   const client = new MongoClient(uri);

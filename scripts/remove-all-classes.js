@@ -7,7 +7,7 @@ require('dotenv').config();
 
 const rawCockroach = process.env.COCKROACH_DB_URL || process.env.DATABASE_URL || '';
 const COCKROACH_URI = rawCockroach.replace('?sslmode=verify-full', '').replace('&sslmode=verify-full', '');
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb+srv://blistedx_db_user:b7TGgj57Xu8jX3C1@aierp.3kejnhw.mongodb.net/edugit?retryWrites=true&w=majority&appName=AIERP';
+const MONGO_URI = process.env.MONGODB_URI || '';
 
 async function removeAllClasses() {
   console.log('======================================================');

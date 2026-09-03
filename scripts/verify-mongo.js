@@ -2,7 +2,7 @@
 const { MongoClient } = require('mongodb');
 const fs = require('fs');
 
-const uri = 'mongodb+srv://blistedx_db_user:b7TGgj57Xu8jX3C1@aierp.3kejnhw.mongodb.net/edugit?retryWrites=true&w=majority&appName=AIERP';
+const uri = '';
 
 async function verifyAndSync() {
   console.log('Connecting to MongoDB Atlas Cluster (edugit)...');

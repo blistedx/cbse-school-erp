@@ -3,7 +3,7 @@ const { MongoClient } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://blistedx_db_user:b7TGgj57Xu8jX3C1@aierp.3kejnhw.mongodb.net/edugit?retryWrites=true&w=majority&appName=AIERP";
+const MONGODB_URI = process.env.MONGODB_URI || "";
 
 const FIRST_NAMES_MALE = [
   "Aarav", "Rudra", "Vivaan", "Advik", "Kabir", "Ananya", "Devansh", "Reyansh", "Atharva", "Krishna",

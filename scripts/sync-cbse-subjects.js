@@ -179,7 +179,7 @@ async function syncAllClassesCbse() {
   fs.writeFileSync(file, JSON.stringify(store, null, 2), 'utf8');
   console.log(`✅ Normalized ${store.classes.length} classes in data/erp_store.json`);
 
-  const uri = 'mongodb+srv://blistedx_db_user:b7TGgj57Xu8jX3C1@aierp.3kejnhw.mongodb.net/edugit?retryWrites=true&w=majority&appName=AIERP';
+  const uri = '';
   const client = new MongoClient(uri);
   await client.connect();
   const db = client.db('edugit');
