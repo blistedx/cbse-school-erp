@@ -1023,7 +1023,7 @@ export function DashboardAttendance({
       {/* ─────────────────────────────────────────────────────────────
           1. HEADER & DEDICATED RESPONSIVE TABS BAR
           ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#DCE8E0] shadow-xs p-3 sm:p-7 space-y-4 sm:space-y-5 relative overflow-hidden">
         {/* Background Watermark Behind Header Text */}
         <div 
           aria-hidden="true" 
@@ -1268,40 +1268,40 @@ export function DashboardAttendance({
                 />
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => handleMarkAll('PRESENT')}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1 shrink-0"
                 >
                   <Check className="h-3.5 w-3.5" />
-                  <span>Mark All Present</span>
+                  <span><span className="hidden sm:inline">Mark </span>All Present</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleMarkAll('ABSENT')}
-                  className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1 shrink-0"
                 >
                   <X className="h-3.5 w-3.5" />
-                  <span>Mark All Absent</span>
+                  <span><span className="hidden sm:inline">Mark </span>All Absent</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleMarkAll('HOLIDAY')}
-                  className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1 shrink-0"
                 >
                   <Palmtree className="h-3.5 w-3.5 text-blue-700" />
-                  <span>Mark All Holiday</span>
+                  <span><span className="hidden sm:inline">Mark </span>All Holiday</span>
                 </button>
                 {attendanceType === 'STUDENT' && classStudents.filter(s => studentStatuses[s.id] === 'ABSENT').length > 0 && (
                   <button
                     type="button"
                     onClick={() => setShowAbsentAlertModal(true)}
-                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5 transition-all border-none"
+                    className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5 transition-all border-none shrink-0"
                     title="Send WhatsApp Absent Alert to Parents"
                   >
                     <MessageCircle className="h-3.5 w-3.5 text-white" />
-                    <span>WhatsApp Absent Alerts ({classStudents.filter(s => studentStatuses[s.id] === 'ABSENT').length})</span>
+                    <span>WhatsApp Alerts ({classStudents.filter(s => studentStatuses[s.id] === 'ABSENT').length})</span>
                   </button>
                 )}
 
@@ -1309,7 +1309,7 @@ export function DashboardAttendance({
                   type="button"
                   onClick={handleSaveAttendance}
                   disabled={savingAttendance}
-                  className="px-4 py-1.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50 transition-all border-none"
+                  className="hidden sm:flex px-4 py-1.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold shadow-xs cursor-pointer items-center gap-1.5 disabled:opacity-50 transition-all border-none"
                 >
                   <Save className="h-3.5 w-3.5 text-emerald-400" />
                   <span>{savingAttendance ? 'Saving Ledger...' : 'Save & Sync Ledger'}</span>
@@ -1318,40 +1318,40 @@ export function DashboardAttendance({
             </div>
 
             {/* MOBILE ROSTER VIEW: Touch-optimized cards with P A H buttons right next to student name */}
-            <div className="block lg:hidden space-y-2.5 pb-36">
+            <div className="block lg:hidden space-y-2 pb-40">
               {filteredRosterList.map((item: any, idx: number) => {
                 const currentStatus = studentStatuses[item.id] || 'PRESENT';
                 return (
                   <div
                     key={item.id}
-                    className={`p-3 rounded-2xl border transition-all bg-white flex items-center justify-between gap-2 shadow-2xs ${
+                    className={`px-3 py-2.5 rounded-xl border transition-all bg-white flex items-center justify-between gap-2 shadow-2xs ${
                       currentStatus === 'PRESENT'
-                        ? 'border-emerald-300/80 bg-emerald-50/15'
+                        ? 'border-emerald-200/90 bg-emerald-50/20 border-l-[3.5px] border-l-emerald-600'
                         : currentStatus === 'ABSENT'
-                        ? 'border-rose-300/80 bg-rose-50/25'
-                        : 'border-blue-300/80 bg-blue-50/25'
+                        ? 'border-rose-200/90 bg-rose-50/25 border-l-[3.5px] border-l-rose-600'
+                        : 'border-blue-200/90 bg-blue-50/25 border-l-[3.5px] border-l-blue-600'
                     }`}
                   >
-                    {/* Left: Student / Faculty Details */}
-                    <div className="min-w-0 flex-1 flex items-center gap-2.5">
-                      <span className="w-7 h-7 rounded-lg bg-[#F0F4F2] text-[#122A24] font-mono font-bold text-xs flex items-center justify-center shrink-0 border border-[#DCE8E0]">
+                    {/* Left: Roll No + Student / Faculty Details */}
+                    <div className="min-w-0 flex-1 flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-md bg-[#F0F4F2] text-[#122A24] font-mono font-bold text-[11px] flex items-center justify-center shrink-0 border border-[#DCE8E0]">
                         {item.roll_no || idx + 1}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="font-bold text-sm text-[#122A24] truncate leading-tight">
+                        <div className="font-bold text-[13px] text-[#122A24] truncate leading-tight">
                           {item.full_name}
                         </div>
-                        <div className="text-[11px] font-mono text-slate-500 truncate mt-0.5 flex items-center gap-1.5">
-                          <span className="font-semibold text-slate-700">{item.admission_no || item.staff_code || `ID-${idx + 1}`}</span>
+                        <div className="text-[10.5px] font-mono text-slate-500 truncate mt-0.5 flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-700 shrink-0">{item.admission_no || item.staff_code || `ID-${idx + 1}`}</span>
                           {attendanceType === 'STUDENT' && item.guardian_phone && (
                             <>
-                              <span>•</span>
-                              <span className="text-slate-500">{item.guardian_phone}</span>
+                              <span className="text-slate-300 shrink-0">•</span>
+                              <span className="text-slate-500 truncate">{item.guardian_phone}</span>
                             </>
                           )}
                           {attendanceType === 'FACULTY' && (item.designation || item.department) && (
                             <>
-                              <span>•</span>
+                              <span className="text-slate-300 shrink-0">•</span>
                               <span className="text-slate-500 truncate">{item.designation || item.department}</span>
                             </>
                           )}
@@ -1359,17 +1359,17 @@ export function DashboardAttendance({
                       </div>
                     </div>
 
-                    {/* Right: P A H Buttons right in front of student name */}
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Right: Touch P A H Buttons */}
+                    <div className="flex items-center gap-1 shrink-0">
                       {/* P - Present */}
                       <button
                         type="button"
                         onClick={() => handleStatusChange(item.id, 'PRESENT')}
                         aria-label={`Mark ${item.full_name} Present`}
-                        className={`w-10 h-10 rounded-xl font-mono font-black text-sm cursor-pointer transition-all border flex items-center justify-center active:scale-90 ${
+                        className={`w-8 h-8 rounded-lg font-mono font-bold text-xs cursor-pointer transition-all border flex items-center justify-center active:scale-90 ${
                           currentStatus === 'PRESENT'
-                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-400 scale-105'
-                            : 'bg-emerald-50/80 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-400/50 font-black'
+                            : 'bg-white text-emerald-800 border-emerald-200/80 hover:bg-emerald-50'
                         }`}
                         title="Present (P)"
                       >
@@ -1381,10 +1381,10 @@ export function DashboardAttendance({
                         type="button"
                         onClick={() => handleStatusChange(item.id, 'ABSENT')}
                         aria-label={`Mark ${item.full_name} Absent`}
-                        className={`w-10 h-10 rounded-xl font-mono font-black text-sm cursor-pointer transition-all border flex items-center justify-center active:scale-90 ${
+                        className={`w-8 h-8 rounded-lg font-mono font-bold text-xs cursor-pointer transition-all border flex items-center justify-center active:scale-90 ${
                           currentStatus === 'ABSENT'
-                            ? 'bg-rose-600 text-white border-rose-600 shadow-md ring-2 ring-rose-400 scale-105'
-                            : 'bg-rose-50/80 text-rose-800 border-rose-200 hover:bg-rose-100'
+                            ? 'bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-400/50 font-black'
+                            : 'bg-white text-rose-800 border-rose-200/80 hover:bg-rose-50'
                         }`}
                         title="Absent (A)"
                       >
@@ -1396,10 +1396,10 @@ export function DashboardAttendance({
                         type="button"
                         onClick={() => handleStatusChange(item.id, 'HOLIDAY')}
                         aria-label={`Mark ${item.full_name} Holiday/Leave`}
-                        className={`w-10 h-10 rounded-xl font-mono font-black text-sm cursor-pointer transition-all border flex items-center justify-center active:scale-90 ${
+                        className={`w-8 h-8 rounded-lg font-mono font-bold text-xs cursor-pointer transition-all border flex items-center justify-center active:scale-90 ${
                           currentStatus === 'HOLIDAY' || currentStatus === 'LEAVE'
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-400 scale-105'
-                            : 'bg-blue-50/80 text-blue-800 border-blue-200 hover:bg-blue-100'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-400/50 font-black'
+                            : 'bg-white text-blue-800 border-blue-200/80 hover:bg-blue-50'
                         }`}
                         title="Holiday / Leave (H)"
                       >
@@ -1418,22 +1418,31 @@ export function DashboardAttendance({
             </div>
 
             {/* Mobile Docked Quick-Save Bar (Seamlessly stacked right on top of bottom navigation dock) */}
-            <div className="lg:hidden fixed bottom-[calc(3.4rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 px-3.5 py-2 bg-white/95 backdrop-blur-md border-t border-[#DCE8E0] shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex items-center justify-between gap-2">
-              <div className="text-xs font-mono font-bold text-[#122A24] flex items-center gap-1.5">
-                <span className="px-2 py-0.5 rounded-md bg-emerald-100/80 text-emerald-800 text-[11px] font-bold">{presentCount} P</span>
-                <span className="px-2 py-0.5 rounded-md bg-rose-100/80 text-rose-800 text-[11px] font-bold">{absentCount} A</span>
+            <div className="lg:hidden fixed bottom-[calc(3.4rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 px-3.5 py-2.5 bg-white border-t border-[#DCE8E0] shadow-[0_-4px_20px_rgba(0,0,0,0.08)] flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 font-mono text-xs">
+                <span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>{presentCount} P</span>
+                </span>
+                <span className="px-2 py-1 rounded-lg bg-rose-50 text-rose-800 border border-rose-200/80 font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                  <span>{absentCount} A</span>
+                </span>
                 {holidayCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-md bg-blue-100/80 text-blue-800 text-[11px] font-bold">{holidayCount} H</span>
+                  <span className="px-2 py-1 rounded-lg bg-blue-50 text-blue-800 border border-blue-200/80 font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                    <span>{holidayCount} H</span>
+                  </span>
                 )}
               </div>
               <button
                 type="button"
                 onClick={handleSaveAttendance}
                 disabled={savingAttendance}
-                className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer border-none flex items-center gap-1.5 disabled:opacity-50 transition-all"
+                className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer border-none flex items-center gap-1.5 disabled:opacity-50 transition-all shrink-0"
               >
                 <Save className="h-3.5 w-3.5 text-emerald-400" />
-                <span>{savingAttendance ? 'Saving...' : 'Save & Sync Ledger'}</span>
+                <span>{savingAttendance ? 'Saving...' : 'Save & Sync'}</span>
               </button>
             </div>
 
