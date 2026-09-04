@@ -81,10 +81,20 @@ export function getStandardAnnualFeeRate(className: string): number {
  * Standard transport fee rate
  */
 export function getStandardTransportRate(student: Student): number {
-  if (student.transport_opted !== 'YES') return 0;
-  const seed = ((Number(student.roll_no) || student.full_name?.charCodeAt(0) || 1) % 4);
-  const rates = [800, 900, 1100, 1300];
-  return rates[seed] || 900;
+  if ((student.transport_opted || '').toUpperCase() !== 'YES') return 0;
+  if (student.transport_slab_id) {
+    const slabRates: Record<string, number> = {
+      '1': 800,
+      '2': 900,
+      '3': 1100,
+      '4': 1300,
+      '5': 1800
+    };
+    if (slabRates[String(student.transport_slab_id)]) {
+      return slabRates[String(student.transport_slab_id)];
+    }
+  }
+  return 800;
 }
 
 /**
@@ -124,97 +134,68 @@ export function getStudentMonthlyFeeSchedule(
   const isFullyPaidStudent = student.fee_status === 'PAID';
   const admDigits = (student.admission_no || '').replace(/[^0-9]/g, '').slice(-4) || '0128';
 
+  // Compute total actual money collected / deposited for this student across all invoices
+  let totalStudentPaid = 0;
+  studentInvoices.forEach(inv => {
+    const invAmount = Number(inv.amount) || 0;
+    if (inv.status === 'PAID') {
+      totalStudentPaid += (typeof inv.paid_amount === 'number' ? inv.paid_amount : invAmount);
+    } else if (typeof inv.paid_amount === 'number' && inv.paid_amount > 0) {
+      totalStudentPaid += inv.paid_amount;
+    }
+  });
+
+  // Chronological allocation of payments across the 12 months
+  let unallocatedPaid = totalStudentPaid;
+
   const monthlyItems: MonthlyFeeItem[] = CBSE_ACADEMIC_MONTHS.map((mConfig) => {
-    // Check if there is an exact matching invoice for this month
+    // Check if there is an exact matching single-month invoice
     const matchedInvoice = studentInvoices.find(inv => {
       const invMonth = (inv.month || '').toLowerCase();
       const targetMonthName = mConfig.name.toLowerCase();
       const targetShort = mConfig.short.toLowerCase();
-      return invMonth.includes(targetShort) || invMonth.includes(targetMonthName);
+      return invMonth === targetShort || invMonth === targetMonthName || invMonth.includes(targetShort);
     });
 
-    let tuitionFee = baseTuition;
-    let annualFee = mConfig.hasAnnual ? annualFeeDefault : 0;
-    let transportFee = transportRate;
-    let examFee = mConfig.hasExam ? 1000 : 0;
-    let activityFee = mConfig.index === 1 ? 500 : 0;
-    let concession = 0;
+    const tuitionFee = baseTuition;
+    const annualFee = mConfig.hasAnnual ? annualFeeDefault : 0;
+    const transportFee = transportRate; // Uniform monthly transport fee for every month
+    const examFee = mConfig.hasExam ? 1000 : 0;
+    const totalBilled = tuitionFee + annualFee + transportFee + examFee;
+
     let paidAmount = 0;
-    let status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'UPCOMING' = 'UPCOMING';
-    let paymentMode: string | undefined = undefined;
-    let paidDate: string | undefined = undefined;
-    let invoiceNo = `DPS-INV-${admDigits}-${mConfig.short.toUpperCase()}`;
-
-    if (matchedInvoice) {
-      invoiceNo = matchedInvoice.invoice_no || invoiceNo;
-      // If invoice explicitly specifies heads, respect them
-      if (typeof matchedInvoice.tuition_fee === 'number' && matchedInvoice.tuition_fee > 0) {
-        tuitionFee = matchedInvoice.tuition_fee;
-      }
-      if (typeof matchedInvoice.annual_fee === 'number') {
-        annualFee = matchedInvoice.annual_fee;
-      }
-      if (typeof matchedInvoice.transport_fee === 'number') {
-        transportFee = matchedInvoice.transport_fee;
-      }
-      if (typeof matchedInvoice.exam_fee === 'number') {
-        examFee = matchedInvoice.exam_fee;
-      }
-      if (typeof matchedInvoice.concession_amount === 'number') {
-        concession = matchedInvoice.concession_amount;
-      }
-
-      const invAmount = Number(matchedInvoice.amount) || 0;
-      const invPaid = typeof matchedInvoice.paid_amount === 'number' 
-        ? matchedInvoice.paid_amount 
-        : (matchedInvoice.status === 'PAID' ? invAmount : 0);
-
-      paidAmount = invPaid;
-      paymentMode = matchedInvoice.payment_mode || 'UPI / NetBanking';
-      paidDate = matchedInvoice.paid_date || '2026-04-10';
-
-      if (matchedInvoice.status === 'PAID' || paidAmount >= invAmount) {
-        status = 'PAID';
-      } else if (paidAmount > 0 && paidAmount < invAmount) {
-        status = 'PARTIAL';
-      } else {
-        status = 'PENDING';
-      }
+    if (isFullyPaidStudent) {
+      paidAmount = totalBilled;
+    } else if (unallocatedPaid >= totalBilled) {
+      paidAmount = totalBilled;
+      unallocatedPaid -= totalBilled;
+    } else if (unallocatedPaid > 0) {
+      paidAmount = unallocatedPaid;
+      unallocatedPaid = 0;
     } else {
-      // Automatic resolution for months without a standalone invoice
-      // If student is marked PAID, or if months are in the past (April - August), mark as paid
-      const isPastMonth = mConfig.index <= 5; // April to August 2026
-      const isCurrentMonth = mConfig.index === 6; // September 2026
-
-      const computedBilled = tuitionFee + annualFee + transportFee + examFee + activityFee - concession;
-
-      if (isFullyPaidStudent || isPastMonth) {
-        status = 'PAID';
-        paidAmount = computedBilled;
-        paidDate = `2026-0${mConfig.index + 3}-08`.replace('013', '10');
-        paymentMode = mConfig.index % 2 === 0 ? 'HDFC Payment Gateway' : 'UPI / NetBanking';
-      } else if (isCurrentMonth) {
-        if (isFullyPaidStudent) {
-          status = 'PAID';
-          paidAmount = computedBilled;
-          paidDate = '2026-09-02';
-          paymentMode = 'UPI Verified';
-        } else {
-          status = 'PENDING';
-          paidAmount = 0;
-        }
-      } else {
-        // Future upcoming months (October 2026 - March 2027)
-        status = 'UPCOMING';
-        paidAmount = 0;
-      }
+      paidAmount = 0;
     }
 
-    const totalBilled = tuitionFee + annualFee + transportFee + examFee + activityFee - concession;
     const balanceDue = Math.max(0, totalBilled - paidAmount);
+    const isPastOrCurrent = mConfig.index <= 6; // April to September 2026
+
+    let status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'UPCOMING';
+    if (balanceDue === 0) {
+      status = 'PAID';
+    } else if (paidAmount > 0) {
+      status = 'PARTIAL';
+    } else if (isPastOrCurrent) {
+      status = 'PENDING';
+    } else {
+      status = 'UPCOMING';
+    }
+
+    const invoiceNo = matchedInvoice?.invoice_no ||
+      (matchedInvoice as any)?.receipt_no ||
+      `DPS-INV-${admDigits}-${mConfig.short.toUpperCase()}`;
 
     return {
-      id: matchedInvoice?.id || `INV-${studentAdmNo || 'DPS'}-${mConfig.short}`,
+      id: `MTH-${studentAdmNo || 'DPS'}-${mConfig.short}-${mConfig.index}`,
       month: mConfig.name,
       monthShort: mConfig.short,
       monthIndex: mConfig.index,
@@ -222,24 +203,24 @@ export function getStudentMonthlyFeeSchedule(
       cycleName: mConfig.cycleName,
       invoiceNo,
       dueDate: matchedInvoice?.due_date || mConfig.defaultDueDate,
-      paidDate,
-      paymentMode,
+      paidDate: paidAmount > 0 ? (matchedInvoice?.paid_date || `2026-0${Math.min(mConfig.index + 3, 12)}-10`) : undefined,
+      paymentMode: matchedInvoice?.payment_mode || (paidAmount > 0 ? 'UPI / NetBanking' : undefined),
       tuitionFee,
       annualFee,
       transportFee,
       examFee,
-      activityFee,
-      concessionAmount: concession,
+      activityFee: 0,
+      concessionAmount: 0,
       totalBilled,
       paidAmount,
       balanceDue,
-      status: balanceDue === 0 ? 'PAID' : (paidAmount > 0 ? 'PARTIAL' : (mConfig.index <= 6 ? 'PENDING' : 'UPCOMING'))
+      status
     };
   });
 
   const totalAnnualBilled = monthlyItems.reduce((acc, item) => acc + item.totalBilled, 0);
-  const totalPaidToDate = monthlyItems.reduce((acc, item) => acc + item.paidAmount, 0);
-  const currentBalanceDue = monthlyItems.reduce((acc, item) => acc + item.balanceDue, 0);
+  const totalPaidToDate = isFullyPaidStudent ? totalAnnualBilled : monthlyItems.reduce((acc, item) => acc + item.paidAmount, 0);
+  const currentBalanceDue = Math.max(0, totalAnnualBilled - totalPaidToDate);
 
   return {
     studentId: student.id,

@@ -4,9 +4,9 @@ import { MongoClient, Db } from 'mongodb';
 const uri = process.env.MONGODB_URI || '';
 
 const options = {
-  maxPoolSize: 2, // Low max pool size per lambda/worker to prevent exhausting M0 500-conn limit
-  minPoolSize: 0, // Do not hold idle connections open
-  maxIdleTimeMS: 5000, // Close idle connections after 5 seconds
+  maxPoolSize: 10,
+  minPoolSize: 0,
+  maxIdleTimeMS: 5000,
   serverSelectionTimeoutMS: 5000,
   connectTimeoutMS: 5000,
   socketTimeoutMS: 20000,

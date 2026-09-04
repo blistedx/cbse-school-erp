@@ -181,9 +181,11 @@ export function DashboardOverview({
     : 0;
 
   const facultyOnLeave = isFacultyAttendanceMarkedToday
-    ? (latestFacRec?.leave_count !== undefined 
-        ? Number(latestFacRec.leave_count) + (Number(latestFacRec.absent_count) || 0)
-        : (latestFacRec?.absent_count !== undefined ? Number(latestFacRec.absent_count) : Math.max(0, totalTeachersCount - facultyPresentCount)))
+    ? (latestFacRec?.holiday_count !== undefined
+        ? Number(latestFacRec.holiday_count) + (Number(latestFacRec.absent_count) || 0)
+        : (latestFacRec?.leave_count !== undefined 
+            ? Number(latestFacRec.leave_count) + (Number(latestFacRec.absent_count) || 0)
+            : (latestFacRec?.absent_count !== undefined ? Number(latestFacRec.absent_count) : Math.max(0, totalTeachersCount - facultyPresentCount))))
     : 0;
 
   // 3. Fee & Revenue Statistics (Pure Live Live Data)

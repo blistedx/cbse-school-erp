@@ -732,6 +732,7 @@ a {
   transform-origin: top center;
   background: linear-gradient(180deg, rgba(18, 42, 36, 0.11) 0%, rgba(18, 42, 36, 0.05) 50%, rgba(18, 42, 36, 0) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.6));
 }

@@ -371,14 +371,22 @@ export function DashboardPermissions({
 
   const currentRolePerms = permissions[selectedRole] || {};
 
-  // Role metadata definition for 5 designations
+  // Role metadata definition for institutional roles
   const ROLES_LIST = [
     {
       id: 'ADMIN' as ManagedRole,
       title: 'Administrative Officer (Admin)',
-      badge: 'Office & Accounts',
+      badge: 'Office & Operations',
       icon: Sliders,
-      description: 'Admissions, fee collection, staff records, logistics & TC operations',
+      description: 'Admissions, student records, certificates, school configuration & staff operations',
+      activeColor: 'bg-[#122A24] text-white border-[#122A24]'
+    },
+    {
+      id: 'ACCOUNTANT' as ManagedRole,
+      title: 'Accounts Head / Accountant',
+      badge: 'Finance & Fees',
+      icon: Coins,
+      description: 'Fee collection counter, concessions, fee receipts, dues tracking & financial ledgers',
       activeColor: 'bg-[#122A24] text-white border-[#122A24]'
     },
     {
@@ -395,6 +403,30 @@ export function DashboardPermissions({
       badge: 'Teaching Staff',
       icon: GraduationCap,
       description: 'Classroom instructors, attendance, marks entry & daily homework',
+      activeColor: 'bg-[#122A24] text-white border-[#122A24]'
+    },
+    {
+      id: 'DRIVER' as ManagedRole,
+      title: 'Transport / Bus Driver',
+      badge: 'Fleet Operator',
+      icon: Bus,
+      description: 'Bus fleet tracking, route waypoints, student passenger lists & vehicle logs',
+      activeColor: 'bg-[#122A24] text-white border-[#122A24]'
+    },
+    {
+      id: 'LIBRARIAN' as ManagedRole,
+      title: 'Librarian / Media Incharge',
+      badge: 'Library & Media',
+      icon: BookOpen,
+      description: 'Library book issues, cataloging, return overdue tracking & digital resources',
+      activeColor: 'bg-[#122A24] text-white border-[#122A24]'
+    },
+    {
+      id: 'SECURITY_GUARD' as ManagedRole,
+      title: 'Gate Security Guard',
+      badge: 'Campus Safety',
+      icon: ShieldCheck,
+      description: 'Campus gate security, visitor check-in, student pickup verification & security alert',
       activeColor: 'bg-[#122A24] text-white border-[#122A24]'
     },
     {

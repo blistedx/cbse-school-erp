@@ -146,6 +146,7 @@ export interface Teacher {
   full_name: string;
   department: string;
   designation: string;
+  role?: ManagedRole | string; // ERP Access & System Role: 'TEACHER' | 'ADMIN' | 'ACCOUNTANT' | 'DRIVER' | 'LIBRARIAN' | 'SECURITY_GUARD' | 'VICE_PRINCIPAL'
   qualification?: string;
   phone: string;
   email: string;
@@ -270,19 +271,20 @@ export interface AttendanceRecord {
   present_count: number;
   absent_count: number;
   leave_count?: number;
+  holiday_count?: number;
   marked_by?: string;
   student_records?: Array<{
     student_id: string;
     admission_no?: string;
     full_name: string;
     roll_no?: string;
-    status: 'PRESENT' | 'ABSENT' | 'LEAVE' | 'LATE';
+    status: 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE';
   }>;
   teacher_records?: Array<{
     teacher_id: string;
     staff_code?: string;
     full_name: string;
-    status: 'PRESENT' | 'ABSENT' | 'LEAVE' | 'LATE';
+    status: 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE';
   }>;
   created_at?: string;
 }
@@ -602,6 +604,126 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     audit_logs: { can_view: false, can_edit: false, can_add: false, can_delete: false },
   }
 };
+
+export interface StaffRoleDefinition {
+  id: ManagedRole;
+  label: string;
+  shortLabel: string;
+  badge: string;
+  description: string;
+  category: 'Teaching' | 'Administration' | 'Finance' | 'Logistics' | 'Operations' | 'Leadership';
+  badgeClass: string;
+  activeRingClass: string;
+  iconName: 'GraduationCap' | 'ShieldCheck' | 'CreditCard' | 'Bus' | 'BookOpen' | 'Lock' | 'Award' | 'Crown';
+}
+
+export const STAFF_ROLES: StaffRoleDefinition[] = [
+  {
+    id: 'TEACHER',
+    label: 'Teacher / Academic Faculty',
+    shortLabel: 'Teacher',
+    badge: 'Faculty',
+    description: 'Classrooms, roll-call attendance, marks entry, digital diary & homework',
+    category: 'Teaching',
+    badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    activeRingClass: 'ring-emerald-500 border-emerald-500 bg-emerald-50/40',
+    iconName: 'GraduationCap'
+  },
+  {
+    id: 'ADMIN',
+    label: 'Administrative Officer (Admin)',
+    shortLabel: 'Admin',
+    badge: 'Admin Ops',
+    description: 'Student SIS, admissions, certificates, school configuration & staff records',
+    category: 'Administration',
+    badgeClass: 'bg-purple-50 text-purple-800 border-purple-200',
+    activeRingClass: 'ring-purple-500 border-purple-500 bg-purple-50/40',
+    iconName: 'ShieldCheck'
+  },
+  {
+    id: 'ACCOUNTANT',
+    label: 'Accountant / Finance Head',
+    shortLabel: 'Accountant',
+    badge: 'Finance',
+    description: 'Fee collection, offline receipts, fee concessions, dues & financial ledgers',
+    category: 'Finance',
+    badgeClass: 'bg-blue-50 text-blue-800 border-blue-200',
+    activeRingClass: 'ring-blue-500 border-blue-500 bg-blue-50/40',
+    iconName: 'CreditCard'
+  },
+  {
+    id: 'DRIVER',
+    label: 'Transport / Bus Driver',
+    shortLabel: 'Driver',
+    badge: 'Fleet',
+    description: 'Bus fleet tracking, route waypoints, student passenger lists & vehicle logs',
+    category: 'Logistics',
+    badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+    activeRingClass: 'ring-amber-500 border-amber-500 bg-amber-50/40',
+    iconName: 'Bus'
+  },
+  {
+    id: 'LIBRARIAN',
+    label: 'Librarian / Media Incharge',
+    shortLabel: 'Librarian',
+    badge: 'Library',
+    description: 'Library catalog, student book issues, return overdue tracking & digital resources',
+    category: 'Operations',
+    badgeClass: 'bg-cyan-50 text-cyan-800 border-cyan-200',
+    activeRingClass: 'ring-cyan-500 border-cyan-500 bg-cyan-50/40',
+    iconName: 'BookOpen'
+  },
+  {
+    id: 'SECURITY_GUARD',
+    label: 'Security Guard / Gate Incharge',
+    shortLabel: 'Security',
+    badge: 'Security',
+    description: 'Campus visitor check-in, student gate pass verification & security logs',
+    category: 'Operations',
+    badgeClass: 'bg-slate-100 text-slate-800 border-slate-300',
+    activeRingClass: 'ring-slate-500 border-slate-500 bg-slate-100/60',
+    iconName: 'Lock'
+  },
+  {
+    id: 'VICE_PRINCIPAL',
+    label: 'Vice Principal / Academic Head',
+    shortLabel: 'Vice Principal',
+    badge: 'Academic Head',
+    description: 'Curriculum delivery, timetable scheduling, exams broadsheet & teacher oversight',
+    category: 'Leadership',
+    badgeClass: 'bg-rose-50 text-rose-800 border-rose-200',
+    activeRingClass: 'ring-rose-500 border-rose-500 bg-rose-50/40',
+    iconName: 'Award'
+  }
+];
+
+export function resolveTeacherRole(t?: Partial<Teacher> | null): ManagedRole {
+  if (!t) return 'TEACHER';
+  if (t.role) {
+    const r = (t.role || '').toUpperCase();
+    if (r === 'ADMIN' || r === 'VICE_PRINCIPAL' || r === 'TEACHER' || r === 'ACCOUNTANT' || r === 'DRIVER' || r === 'LIBRARIAN' || r === 'SECURITY_GUARD' || r === 'PRINCIPAL') {
+      return (r === 'PRINCIPAL' ? 'VICE_PRINCIPAL' : r) as ManagedRole;
+    }
+  }
+  const desig = (t.designation || '').toLowerCase();
+  const dept = (t.department || '').toLowerCase();
+  const code = (t.staff_code || t.employee_code || '').toUpperCase();
+
+  if (desig.includes('vice principal') || dept.includes('vice principal')) return 'VICE_PRINCIPAL';
+  if (desig.includes('principal') || dept.includes('leadership')) return 'VICE_PRINCIPAL';
+  if (desig.includes('driver') || dept.includes('transport') || code.startsWith('DRV') || code.startsWith('BUS')) return 'DRIVER';
+  if (desig.includes('librar') || dept.includes('library') || code.startsWith('LIB')) return 'LIBRARIAN';
+  if (desig.includes('guard') || desig.includes('security') || dept.includes('security') || code.startsWith('SEC')) return 'SECURITY_GUARD';
+  if (desig.includes('administrative officer') || desig.includes('admin officer') || (desig.includes('admin') && !desig.includes('account')) || dept.includes('administration') || code.startsWith('ADM')) {
+    return 'ADMIN';
+  }
+  if (desig.includes('account') || dept.includes('account') || desig.includes('finance') || dept.includes('finance') || code.startsWith('ACC')) {
+    return 'ACCOUNTANT';
+  }
+  if (t.teacher_type === 'ADMINISTRATIVE' || desig.includes('admin') || desig.includes('officer') || dept.includes('operation')) return 'ADMIN';
+  return 'TEACHER';
+}
+
 
 export interface ScheduledExamItem {
   id: string;

@@ -318,7 +318,7 @@ export function DashboardDataHub({
       ]);
       fileName = `${selectedSchool?.school_code || 'DPS2026'}_Staff_Directory.csv`;
     } else if (type === 'attendance') {
-      headers = ['Date', 'Class', 'Section', 'Total Students', 'Present', 'Absent', 'Leave', 'Marked By'];
+      headers = ['Date', 'Class', 'Section', 'Total Students', 'Present', 'Absent', 'Holiday', 'Marked By'];
       rows = attendance.map(a => [
         `"${a.date}"`,
         `"${a.class_name || ''}"`,
@@ -326,7 +326,7 @@ export function DashboardDataHub({
         (a.total_students || 0).toString(),
         (a.present_count || 0).toString(),
         (a.absent_count || 0).toString(),
-        (a.leave_count || 0).toString(),
+        (a.holiday_count !== undefined ? a.holiday_count : (a.leave_count || 0)).toString(),
         `"${a.marked_by || 'Class Teacher'}"`
       ]);
       fileName = `${selectedSchool?.school_code || 'DPS2026'}_Attendance_Ledger.csv`;
@@ -664,7 +664,8 @@ export function DashboardDataHub({
             total_students: Number(r.total_students) || 35,
             present_count: Number(r.present_count) || 30,
             absent_count: Number(r.absent_count) || 5,
-            leave_count: Number(r.leave_count) || 0,
+            leave_count: Number(r.holiday_count !== undefined ? r.holiday_count : (r.holiday || r.leave_count || r.leave)) || 0,
+            holiday_count: Number(r.holiday_count !== undefined ? r.holiday_count : (r.holiday || r.leave_count || r.leave)) || 0,
             marked_by: r.marked_by || 'Admin'
           };
 

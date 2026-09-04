@@ -372,6 +372,37 @@ export default function LoginPage() {
               <span className="stamp-icon">✓</span>
               {loading ? 'Authenticating...' : 'Sign in to ERP'}
             </button>
+
+            {/* 1-Click Instant Access Presets */}
+            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px dashed #DCE8E0' }}>
+              <p style={{ fontSize: '10.5px', fontFamily: 'monospace', fontWeight: 'bold', color: '#1C443A', textTransform: 'uppercase', marginBottom: '8px', textAlign: 'center' }}>
+                ⚡ Quick 1-Click Access
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSchoolCode('DPS2026');
+                    setUserId('admin');
+                    setPassword('123456');
+                  }}
+                  style={{ padding: '8px', borderRadius: '10px', border: '1px solid #A7F3D0', backgroundColor: '#ECFDF5', color: '#065F46', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer', textAlign: 'center' }}
+                >
+                  👑 Principal / Admin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSchoolCode('DPS2026');
+                    setUserId('EMP-202602');
+                    setPassword('123456');
+                  }}
+                  style={{ padding: '8px', borderRadius: '10px', border: '1px solid #BFDBFE', backgroundColor: '#EFF6FF', color: '#1E40AF', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer', textAlign: 'center' }}
+                >
+                  👩‍🏫 Faculty / Teacher
+                </button>
+              </div>
+            </div>
           </form>
 
           <Link className="back" href="/">← Back to Giterp</Link>

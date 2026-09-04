@@ -303,7 +303,7 @@ export function DashboardAttendance({
   const [attendanceDate, setAttendanceDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [attendanceType, setAttendanceType] = useState<'STUDENT' | 'FACULTY'>('STUDENT');
   const [searchRosterQuery, setSearchRosterQuery] = useState<string>('');
-  const [studentStatuses, setStudentStatuses] = useState<Record<string, 'PRESENT' | 'ABSENT' | 'LEAVE' | 'LATE'>>({});
+  const [studentStatuses, setStudentStatuses] = useState<Record<string, 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE'>>({});
   const [savingAttendance, setSavingAttendance] = useState<boolean>(false);
   const [showAbsentAlertModal, setShowAbsentAlertModal] = useState<boolean>(false);
   const loadedContextKeyRef = React.useRef<string>('');
@@ -353,11 +353,11 @@ export function DashboardAttendance({
         (a.section || '').toUpperCase().trim() === cSec
       );
 
-      const initialMap: Record<string, 'PRESENT' | 'ABSENT' | 'LEAVE' | 'LATE'> = {};
+      const initialMap: Record<string, 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE'> = {};
       if (match && Array.isArray((match as any).student_records) && (match as any).student_records.length > 0) {
         classStudents.forEach(stu => {
           const rec = (match as any).student_records.find((r: any) => r.student_id === stu.id || r.admission_no === stu.admission_no);
-          initialMap[stu.id] = rec ? rec.status : 'PRESENT';
+          initialMap[stu.id] = rec ? (rec.status === 'LEAVE' ? 'HOLIDAY' : rec.status) : 'PRESENT';
         });
       } else if (match && (Number(match.absent_count) || 0) > 0) {
         const absCount = Number(match.absent_count) || 0;
@@ -377,11 +377,11 @@ export function DashboardAttendance({
         (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
       );
 
-      const initialMap: Record<string, 'PRESENT' | 'ABSENT' | 'LEAVE' | 'LATE'> = {};
+      const initialMap: Record<string, 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE'> = {};
       if (match && Array.isArray((match as any).teacher_records) && (match as any).teacher_records.length > 0) {
         teachers.forEach(t => {
           const rec = (match as any).teacher_records.find((r: any) => r.teacher_id === t.id || r.staff_code === t.staff_code);
-          initialMap[t.id] = rec ? rec.status : 'PRESENT';
+          initialMap[t.id] = rec ? (rec.status === 'LEAVE' ? 'HOLIDAY' : rec.status) : 'PRESENT';
         });
       } else if (match && (Number(match.absent_count) || 0) > 0) {
         const absCount = Number(match.absent_count) || 0;
@@ -397,13 +397,13 @@ export function DashboardAttendance({
     }
   }, [selectedClass, attendanceDate, attendanceType, classStudents, teachers, attendance]);
 
-  const handleStatusChange = (id: string, status: 'PRESENT' | 'ABSENT' | 'LEAVE' | 'LATE') => {
+  const handleStatusChange = (id: string, status: 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE') => {
     setStudentStatuses(prev => ({ ...prev, [id]: status }));
   };
 
-  const handleMarkAll = (status: 'PRESENT' | 'ABSENT') => {
+  const handleMarkAll = (status: 'PRESENT' | 'ABSENT' | 'HOLIDAY') => {
     const list = attendanceType === 'STUDENT' ? classStudents : teachers;
-    const nextMap: Record<string, 'PRESENT' | 'ABSENT' | 'LEAVE' | 'LATE'> = {};
+    const nextMap: Record<string, 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE'> = {};
     list.forEach(item => {
       nextMap[item.id] = status;
     });
@@ -445,6 +445,7 @@ export function DashboardAttendance({
         const total = classStudents.length || 1;
         const present = classStudents.filter(s => (studentStatuses[s.id] || 'PRESENT') === 'PRESENT' || studentStatuses[s.id] === 'LATE').length;
         const absent = classStudents.filter(s => studentStatuses[s.id] === 'ABSENT').length;
+        const holiday = classStudents.filter(s => studentStatuses[s.id] === 'HOLIDAY' || studentStatuses[s.id] === 'LEAVE').length;
 
         const studentRecords = classStudents.map(s => ({
           student_id: s.id,
@@ -463,6 +464,8 @@ export function DashboardAttendance({
           total_students: total,
           present_count: present,
           absent_count: absent,
+          holiday_count: holiday,
+          leave_count: holiday,
           marked_by: isTeacher ? (currentUser?.full_name ? `${currentUser.full_name} (Class Teacher)` : 'Class Teacher') : 'Admin / Principal',
           student_records: studentRecords
         };
@@ -483,7 +486,7 @@ export function DashboardAttendance({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   title: `Attendance Update: ${selectedClass.class_name}-${selectedClass.section}`,
-                  body: `Daily attendance logged for ${attendanceDate}: ${present}/${total} present, ${absent} absent.`,
+                  body: `Daily attendance logged for ${attendanceDate}: ${present}/${total} present, ${absent} absent, ${holiday} on holiday.`,
                   url: '/mobile?tab=attendance',
                   audience: 'PARENTS', // <-- STRICTLY PARENTS ONLY
                   urgent: absent > 0,
@@ -507,7 +510,7 @@ export function DashboardAttendance({
         const totalFaculty = teachers.length || 1;
         const presentFac = teachers.filter(t => (studentStatuses[t.id] || 'PRESENT') === 'PRESENT' || studentStatuses[t.id] === 'LATE').length;
         const absentFac = teachers.filter(t => studentStatuses[t.id] === 'ABSENT').length;
-        const leaveFac = teachers.filter(t => studentStatuses[t.id] === 'LEAVE').length;
+        const holidayFac = teachers.filter(t => studentStatuses[t.id] === 'HOLIDAY' || studentStatuses[t.id] === 'LEAVE').length;
 
         const teacherRecords = teachers.map(t => ({
           teacher_id: t.id,
@@ -525,7 +528,8 @@ export function DashboardAttendance({
           total_students: totalFaculty,
           present_count: presentFac,
           absent_count: absentFac,
-          leave_count: leaveFac,
+          holiday_count: holidayFac,
+          leave_count: holidayFac,
           marked_by: 'Principal Directorate',
           teacher_records: teacherRecords
         };
@@ -567,7 +571,7 @@ export function DashboardAttendance({
 
   const presentCount = currentRosterList.filter(item => (studentStatuses[item.id] || 'PRESENT') === 'PRESENT' || studentStatuses[item.id] === 'LATE').length;
   const absentCount = currentRosterList.filter(item => studentStatuses[item.id] === 'ABSENT').length;
-  const leaveCount = currentRosterList.filter(item => studentStatuses[item.id] === 'LEAVE').length;
+  const holidayCount = currentRosterList.filter(item => studentStatuses[item.id] === 'HOLIDAY' || studentStatuses[item.id] === 'LEAVE').length;
   const rosterTurnoutPercent = currentRosterList.length > 0
     ? Math.round((presentCount / currentRosterList.length) * 100)
     : 0;
@@ -590,7 +594,7 @@ export function DashboardAttendance({
   });
 
   // Track interactive cell edits made directly in monthly register
-  const [sheetEdits, setSheetEdits] = useState<Record<string, Record<string, 'PRESENT' | 'ABSENT' | 'LEAVE'>>>({});
+  const [sheetEdits, setSheetEdits] = useState<Record<string, Record<string, 'PRESENT' | 'ABSENT' | 'HOLIDAY'>>>({});
   const [isSavingMonthlySheet, setIsSavingMonthlySheet] = useState(false);
   const [hasUnsavedSheetChanges, setHasUnsavedSheetChanges] = useState(false);
 
@@ -649,17 +653,17 @@ export function DashboardAttendance({
     return count;
   }, [sheetEdits]);
 
-  // Direct cell toggle in monthly register: P -> A -> L -> P
+  // Direct cell toggle in monthly register: P -> A -> H -> P
   const handleToggleCell = (studentId: string, dateStr: string, currentSt: string) => {
     const hol = getHolidayForDate(dateStr);
     const dObj = new Date(dateStr);
     if (dObj.getDay() === 0 || hol) return;
 
-    const nextStatusMap: Record<string, 'PRESENT' | 'ABSENT' | 'LEAVE'> = {
+    const nextStatusMap: Record<string, 'PRESENT' | 'ABSENT' | 'HOLIDAY'> = {
       '—': 'PRESENT',
       'P': 'ABSENT',
-      'A': 'LEAVE',
-      'L': 'PRESENT'
+      'A': 'HOLIDAY',
+      'H': 'PRESENT'
     };
     const nextStatus = nextStatusMap[currentSt] || 'PRESENT';
 
@@ -704,12 +708,12 @@ export function DashboardAttendance({
 
         const studentRecords = sheetStudents.map(stu => {
           const local = sheetEdits[stu.id]?.[dateStr];
-          let status: 'PRESENT' | 'ABSENT' | 'LEAVE' = 'PRESENT';
+          let status: 'PRESENT' | 'ABSENT' | 'HOLIDAY' = 'PRESENT';
           if (local) {
             status = local;
           } else if (existingRec && (existingRec as any).student_records) {
             const matched = (existingRec as any).student_records.find((r: any) => r.student_id === stu.id || r.admission_no === stu.admission_no);
-            if (matched) status = matched.status || 'PRESENT';
+            if (matched) status = matched.status === 'HOLIDAY' ? 'HOLIDAY' : (matched.status === 'LEAVE' ? 'HOLIDAY' : matched.status || 'PRESENT');
           }
           return {
             student_id: stu.id,
@@ -722,7 +726,7 @@ export function DashboardAttendance({
 
         const presentCount = studentRecords.filter(r => r.status === 'PRESENT').length;
         const absentCount = studentRecords.filter(r => r.status === 'ABSENT').length;
-        const leaveCount = studentRecords.filter(r => r.status === 'LEAVE').length;
+        const holidayCount = studentRecords.filter(r => r.status === 'HOLIDAY').length;
 
         const payload = {
           school_id: targetSchoolId,
@@ -733,7 +737,8 @@ export function DashboardAttendance({
           total_students: sheetStudents.length,
           present_count: presentCount,
           absent_count: absentCount,
-          leave_count: leaveCount,
+          holiday_count: holidayCount,
+          leave_count: holidayCount,
           marked_by: isTeacher ? (currentUser?.full_name ? `${currentUser.full_name} (Class Teacher)` : 'Class Teacher') : 'Admin / Class Incharge',
           student_records: studentRecords
         };
@@ -760,10 +765,11 @@ export function DashboardAttendance({
   // Export Monthly Sheet to CSV (Including declared holidays)
   const handleExportMonthlyCSV = () => {
     if (!currentSheetClass) return;
-    const header = ['Roll No', 'Admission No', 'Student Name', ...daysArray.map(d => `Day ${d}`), 'Present', 'Absent', 'Percentage %'];
+    const header = ['Roll No', 'Admission No', 'Student Name', ...daysArray.map(d => `Day ${d}`), 'Present', 'Absent', 'Holiday', 'Percentage %'];
     const rows = sheetStudents.map(stu => {
       let pCount = 0;
       let aCount = 0;
+      let hCount = 0;
       const dayStatuses = daysArray.map(day => {
         const dateStr = `${sheetYear}-${String(sheetMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const dayOfWeek = new Date(sheetYear, sheetMonth - 1, day).getDay();
@@ -787,16 +793,17 @@ export function DashboardAttendance({
         });
         let st = '-';
         if (local) {
-          st = local === 'PRESENT' ? 'P' : local === 'ABSENT' ? 'A' : 'L';
+          st = local === 'PRESENT' ? 'P' : local === 'ABSENT' ? 'A' : 'H';
         } else if (rec && (rec as any).student_records) {
           const matched = (rec as any).student_records.find((r: any) => r.student_id === stu.id || r.admission_no === stu.admission_no);
-          if (matched) st = matched.status === 'PRESENT' ? 'P' : matched.status === 'ABSENT' ? 'A' : 'L';
+          if (matched) st = matched.status === 'PRESENT' ? 'P' : matched.status === 'ABSENT' ? 'A' : 'H';
         } else if (rec) {
           st = 'P';
         }
 
         if (st === 'P') pCount++;
         else if (st === 'A') aCount++;
+        else if (st === 'H') hCount++;
         return st;
       });
 
@@ -806,7 +813,7 @@ export function DashboardAttendance({
         return dow !== 0 && !getHolidayForDate(dtStr) && dtStr <= todayDateStr;
       }).length;
       const pct = workingDays > 0 ? Math.round((pCount / workingDays) * 100) : 0;
-      return [stu.roll_no, stu.admission_no, stu.full_name, ...dayStatuses, pCount, aCount, `${pct}%`];
+      return [stu.roll_no, stu.admission_no, stu.full_name, ...dayStatuses, pCount, aCount, hCount, `${pct}%`];
     });
 
     const csvContent = "data:text/csv;charset=utf-8," + [header.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -832,7 +839,7 @@ export function DashboardAttendance({
     const reportData = sheetStudents.map(stu => {
       let pCount = 0;
       let aCount = 0;
-      let lCount = 0;
+      let hCount = 0;
 
       daysArray.forEach(d => {
         const dtStr = `${sheetYear}-${String(sheetMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -852,17 +859,17 @@ export function DashboardAttendance({
 
         let st = '-';
         if (local) {
-          st = local === 'PRESENT' ? 'P' : local === 'ABSENT' ? 'A' : 'L';
+          st = local === 'PRESENT' ? 'P' : local === 'ABSENT' ? 'A' : 'H';
         } else if (rec && (rec as any).student_records) {
           const matched = (rec as any).student_records.find((r: any) => r.student_id === stu.id || r.admission_no === stu.admission_no);
-          if (matched) st = matched.status === 'PRESENT' ? 'P' : matched.status === 'ABSENT' ? 'A' : 'L';
+          if (matched) st = matched.status === 'PRESENT' ? 'P' : matched.status === 'ABSENT' ? 'A' : 'H';
         } else if (rec) {
           st = 'P';
         }
 
         if (st === 'P') pCount++;
         else if (st === 'A') aCount++;
-        else if (st === 'L') lCount++;
+        else if (st === 'H') hCount++;
       });
 
       const workingDays = daysArray.filter(d => {
@@ -880,7 +887,7 @@ export function DashboardAttendance({
         class_name: `${currentSheetClass.class_name} (${currentSheetClass.section})`,
         presentDays: pCount,
         absentDays: aCount,
-        leaveDays: lCount,
+        holidayDays: hCount,
         totalWorkingDays: workingDays,
         attendancePercent: pct,
         isDefaulter: pct < 75
@@ -904,7 +911,7 @@ export function DashboardAttendance({
       { header: 'ADM NO', key: 'admission_no', width: '14%' },
       { header: 'PRESENT', render: (r) => r.presentDays, width: '10%', align: 'center' },
       { header: 'ABSENT', render: (r) => r.absentDays, width: '10%', align: 'center' },
-      { header: 'LEAVE', render: (r) => r.leaveDays, width: '8%', align: 'center' },
+      { header: 'HOLIDAY', render: (r) => r.holidayDays, width: '8%', align: 'center' },
       { header: 'TOTAL DAYS', render: (r) => r.totalWorkingDays, width: '10%', align: 'center' },
       { header: 'TURNOUT %', render: (r) => `${r.attendancePercent}%`, width: '10%', align: 'center' },
       { header: 'STATUS', render: (r) => r.isDefaulter ? 'DEFAULTER' : 'COMPLIANT', width: '10%', align: 'center' },
@@ -993,7 +1000,8 @@ export function DashboardAttendance({
   const isFacultyMarkedToday = !!facultyTodayLog;
   const facultyPresentCount = isFacultyMarkedToday ? (Number(facultyTodayLog.present_count) || 0) : 0;
   const facultyAbsentCount = isFacultyMarkedToday ? (Number(facultyTodayLog.absent_count) || 0) : 0;
-  const facultyLeaveCount = isFacultyMarkedToday ? (Number(facultyTodayLog.leave_count) || 0) : 0;
+  const facultyHolidayCount = isFacultyMarkedToday ? (Number(facultyTodayLog.holiday_count ?? facultyTodayLog.leave_count) || 0) : 0;
+  const facultyLeaveCount = facultyHolidayCount;
   const facultyTurnoutRate = isFacultyMarkedToday && totalTeachersCount > 0
     ? Number(((facultyPresentCount / totalTeachersCount) * 100).toFixed(1))
     : 0;
@@ -1238,9 +1246,10 @@ export function DashboardAttendance({
                   <AlertCircle className="h-3.5 w-3.5 text-rose-600" />
                   <span>{absentCount} Absent</span>
                 </span>
-                {leaveCount > 0 && (
-                  <span className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                    {leaveCount} Leave
+                {holidayCount > 0 && (
+                  <span className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200 flex items-center gap-1.5">
+                    <Palmtree className="h-3.5 w-3.5 text-blue-600" />
+                    <span>{holidayCount} Holiday</span>
                   </span>
                 )}
               </div>
@@ -1276,6 +1285,14 @@ export function DashboardAttendance({
                   <X className="h-3.5 w-3.5" />
                   <span>Mark All Absent</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => handleMarkAll('HOLIDAY')}
+                  className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1"
+                >
+                  <Palmtree className="h-3.5 w-3.5 text-blue-700" />
+                  <span>Mark All Holiday</span>
+                </button>
                 {attendanceType === 'STUDENT' && classStudents.filter(s => studentStatuses[s.id] === 'ABSENT').length > 0 && (
                   <button
                     type="button"
@@ -1300,8 +1317,132 @@ export function DashboardAttendance({
               </div>
             </div>
 
-            {/* Interactive Student / Faculty Roster Table */}
-            <div className="border border-[#DCE8E0] rounded-2xl overflow-hidden shadow-2xs bg-white">
+            {/* MOBILE ROSTER VIEW: Touch-optimized cards with P A H buttons right next to student name */}
+            <div className="block lg:hidden space-y-2.5">
+              {filteredRosterList.map((item: any, idx: number) => {
+                const currentStatus = studentStatuses[item.id] || 'PRESENT';
+                return (
+                  <div
+                    key={item.id}
+                    className={`p-3 rounded-2xl border transition-all bg-white flex items-center justify-between gap-2 shadow-2xs ${
+                      currentStatus === 'PRESENT'
+                        ? 'border-emerald-300/80 bg-emerald-50/15'
+                        : currentStatus === 'ABSENT'
+                        ? 'border-rose-300/80 bg-rose-50/25'
+                        : 'border-blue-300/80 bg-blue-50/25'
+                    }`}
+                  >
+                    {/* Left: Student / Faculty Details */}
+                    <div className="min-w-0 flex-1 flex items-center gap-2.5">
+                      <span className="w-7 h-7 rounded-lg bg-[#F0F4F2] text-[#122A24] font-mono font-bold text-xs flex items-center justify-center shrink-0 border border-[#DCE8E0]">
+                        {item.roll_no || idx + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-sm text-[#122A24] truncate leading-tight">
+                          {item.full_name}
+                        </div>
+                        <div className="text-[11px] font-mono text-slate-500 truncate mt-0.5 flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-700">{item.admission_no || item.staff_code || `ID-${idx + 1}`}</span>
+                          {attendanceType === 'STUDENT' && item.guardian_phone && (
+                            <>
+                              <span>•</span>
+                              <span className="text-slate-500">{item.guardian_phone}</span>
+                            </>
+                          )}
+                          {attendanceType === 'FACULTY' && item.designation && (
+                            <>
+                              <span>•</span>
+                              <span className="text-slate-500">{item.designation}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: P A H Buttons right in front of student name */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* P - Present */}
+                      <button
+                        type="button"
+                        onClick={() => handleStatusChange(item.id, 'PRESENT')}
+                        aria-label={`Mark ${item.full_name} Present`}
+                        className={`w-10 h-10 rounded-xl font-mono font-black text-sm cursor-pointer transition-all border flex items-center justify-center active:scale-90 ${
+                          currentStatus === 'PRESENT'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-400 scale-105'
+                            : 'bg-emerald-50/80 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                        }`}
+                        title="Present (P)"
+                      >
+                        P
+                      </button>
+
+                      {/* A - Absent */}
+                      <button
+                        type="button"
+                        onClick={() => handleStatusChange(item.id, 'ABSENT')}
+                        aria-label={`Mark ${item.full_name} Absent`}
+                        className={`w-10 h-10 rounded-xl font-mono font-black text-sm cursor-pointer transition-all border flex items-center justify-center active:scale-90 ${
+                          currentStatus === 'ABSENT'
+                            ? 'bg-rose-600 text-white border-rose-600 shadow-md ring-2 ring-rose-400 scale-105'
+                            : 'bg-rose-50/80 text-rose-800 border-rose-200 hover:bg-rose-100'
+                        }`}
+                        title="Absent (A)"
+                      >
+                        A
+                      </button>
+
+                      {/* H - Holiday / Leave */}
+                      <button
+                        type="button"
+                        onClick={() => handleStatusChange(item.id, 'HOLIDAY')}
+                        aria-label={`Mark ${item.full_name} Holiday/Leave`}
+                        className={`w-10 h-10 rounded-xl font-mono font-black text-sm cursor-pointer transition-all border flex items-center justify-center active:scale-90 ${
+                          currentStatus === 'HOLIDAY' || currentStatus === 'LEAVE'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-400 scale-105'
+                            : 'bg-blue-50/80 text-blue-800 border-blue-200 hover:bg-blue-100'
+                        }`}
+                        title="Holiday / Leave (H)"
+                      >
+                        H
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {filteredRosterList.length === 0 && (
+                <div className="py-12 text-center text-xs font-mono text-[#2D5A4E] bg-white rounded-2xl border border-[#DCE8E0]">
+                  No records found matching your roster filters.
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Sticky Quick-Save Bar */}
+            <div className="lg:hidden sticky bottom-14 left-0 right-0 z-20 py-2.5 px-3 bg-white/95 backdrop-blur-md border border-[#DCE8E0] rounded-2xl shadow-lg flex items-center justify-between gap-2">
+              <div className="text-xs font-mono font-bold text-[#122A24] flex items-center gap-2">
+                <span className="text-emerald-700">{presentCount}P</span>
+                <span>•</span>
+                <span className="text-rose-700">{absentCount}A</span>
+                {holidayCount > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="text-blue-700">{holidayCount}H</span>
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveAttendance}
+                disabled={savingAttendance}
+                className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer border-none flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+              >
+                <Save className="h-3.5 w-3.5 text-emerald-400" />
+                <span>{savingAttendance ? 'Saving...' : 'Save & Sync Ledger'}</span>
+              </button>
+            </div>
+
+            {/* DESKTOP ROSTER TABLE */}
+            <div className="hidden lg:block border border-[#DCE8E0] rounded-2xl overflow-hidden shadow-2xs bg-white">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -1349,39 +1490,42 @@ export function DashboardAttendance({
                               <button
                                 type="button"
                                 onClick={() => handleStatusChange(item.id, 'PRESENT')}
-                                className={`px-3 py-1 rounded-lg text-xs font-mono font-bold cursor-pointer transition-all border ${
+                                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold cursor-pointer transition-all border flex items-center gap-1.5 ${
                                   currentStatus === 'PRESENT'
-                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs ring-1 ring-emerald-400'
                                     : 'bg-emerald-50/60 text-emerald-800 border-emerald-200/60 hover:bg-emerald-100'
                                 }`}
                               >
-                                Present
+                                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${currentStatus === 'PRESENT' ? 'bg-emerald-700 text-white' : 'bg-emerald-200 text-emerald-900'}`}>P</span>
+                                <span>Present</span>
                               </button>
 
                               {/* ABSENT */}
                               <button
                                 type="button"
                                 onClick={() => handleStatusChange(item.id, 'ABSENT')}
-                                className={`px-3 py-1 rounded-lg text-xs font-mono font-bold cursor-pointer transition-all border ${
+                                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold cursor-pointer transition-all border flex items-center gap-1.5 ${
                                   currentStatus === 'ABSENT'
-                                    ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
+                                    ? 'bg-rose-600 text-white border-rose-600 shadow-2xs ring-1 ring-rose-400'
                                     : 'bg-rose-50/60 text-rose-800 border-rose-200/60 hover:bg-rose-100'
                                 }`}
                               >
-                                Absent
+                                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${currentStatus === 'ABSENT' ? 'bg-rose-700 text-white' : 'bg-rose-200 text-rose-900'}`}>A</span>
+                                <span>Absent</span>
                               </button>
 
-                              {/* LEAVE */}
+                              {/* HOLIDAY */}
                               <button
                                 type="button"
-                                onClick={() => handleStatusChange(item.id, 'LEAVE')}
-                                className={`px-3 py-1 rounded-lg text-xs font-mono font-bold cursor-pointer transition-all border ${
-                                  currentStatus === 'LEAVE'
-                                    ? 'bg-amber-600 text-white border-amber-600 shadow-2xs'
-                                    : 'bg-amber-50/60 text-amber-800 border-amber-200/60 hover:bg-amber-100'
+                                onClick={() => handleStatusChange(item.id, 'HOLIDAY')}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold cursor-pointer transition-all border flex items-center gap-1.5 ${
+                                  currentStatus === 'HOLIDAY' || currentStatus === 'LEAVE'
+                                    ? 'bg-blue-600 text-white border-blue-600 shadow-2xs ring-1 ring-blue-400'
+                                    : 'bg-blue-50/60 text-blue-800 border-blue-200/60 hover:bg-blue-100'
                                 }`}
                               >
-                                Leave
+                                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${currentStatus === 'HOLIDAY' || currentStatus === 'LEAVE' ? 'bg-blue-700 text-white' : 'bg-blue-200 text-blue-900'}`}>H</span>
+                                <span>Holiday</span>
                               </button>
                             </div>
                           </td>
@@ -1563,7 +1707,7 @@ export function DashboardAttendance({
             <div className="flex items-center justify-between px-3.5 py-2.5 bg-emerald-50/70 border border-emerald-200/80 rounded-xl text-[11px] text-emerald-950 font-medium">
               <span className="flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                <span><strong>Interactive Monthly Sheet:</strong> Click any working day cell to toggle attendance status (<strong>P ➔ A ➔ L</strong>), then click <strong>"Save Monthly Register"</strong> above to commit changes.</span>
+                <span><strong>Interactive Monthly Sheet:</strong> Click any working day cell to toggle attendance status (<strong>P ➔ A ➔ H</strong>), then click <strong>"Save Monthly Register"</strong> above to commit changes.</span>
               </span>
               {hasUnsavedSheetChanges && (
                 <span className="font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md font-mono text-[10px]">
@@ -1584,11 +1728,11 @@ export function DashboardAttendance({
                 <span>Absent</span>
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded bg-amber-100 border border-amber-300 inline-flex items-center justify-center font-bold text-[9px] text-amber-800">L</span>
-                <span>Leave</span>
+                <span className="w-3.5 h-3.5 rounded bg-blue-100 border border-blue-300 inline-flex items-center justify-center font-bold text-[9px] text-blue-800">H</span>
+                <span>Holiday</span>
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded bg-amber-500 text-white border border-amber-600 inline-flex items-center justify-center font-bold text-[9px]">H</span>
+                <span className="w-3.5 h-3.5 rounded bg-amber-500 text-white border border-amber-600 inline-flex items-center justify-center font-bold text-[9px]">DH</span>
                 <span>Declared Holiday</span>
               </span>
               <span className="flex items-center gap-1.5">
@@ -1714,8 +1858,8 @@ export function DashboardAttendance({
                                     ? 'text-emerald-700 bg-emerald-50/20 hover:bg-emerald-100'
                                     : st === 'A'
                                     ? 'text-rose-700 bg-rose-50 hover:bg-rose-100 font-extrabold'
-                                    : st === 'L'
-                                    ? 'text-amber-700 bg-amber-50 hover:bg-amber-100'
+                                    : st === 'H' || st === 'L'
+                                    ? 'text-blue-700 bg-blue-50 hover:bg-blue-100 font-extrabold'
                                     : 'text-slate-300 bg-slate-50/30 hover:bg-slate-100'
                                 }`}
                                 title={
@@ -1723,7 +1867,7 @@ export function DashboardAttendance({
                                     ? 'Sunday'
                                     : hol
                                     ? `${hol.title}: ${hol.reason}`
-                                    : `Day ${d}: ${st === 'P' ? 'Present' : st === 'A' ? 'Absent' : st === 'L' ? 'Leave' : 'Unmarked'} (Click to toggle)`
+                                    : `Day ${d}: ${st === 'P' ? 'Present' : st === 'A' ? 'Absent' : (st === 'H' || st === 'L') ? 'Holiday' : 'Unmarked'} (Click to toggle)`
                                 }
                               >
                                 {st}
@@ -1788,7 +1932,7 @@ export function DashboardAttendance({
                   <span className="text-xs font-mono text-emerald-700">({isFacultyMarkedToday ? facultyPresentCount : 0}/{totalTeachersCount})</span>
                 </div>
                 <div className="text-[11px] font-mono text-emerald-800">
-                  {isFacultyMarkedToday ? `${facultyLeaveCount} On Leave • ${facultyAbsentCount} Absent` : 'Daily Biometric Roll Call'}
+                  {isFacultyMarkedToday ? `${facultyHolidayCount} On Holiday • ${facultyAbsentCount} Absent` : 'Daily Biometric Roll Call'}
                 </div>
               </div>
 
@@ -1985,9 +2129,9 @@ export function DashboardAttendance({
                               <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                                 {facStatus === 'LATE' ? 'Late Arrival' : 'Present / On Duty'}
                               </span>
-                            ) : facStatus === 'LEAVE' ? (
-                              <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                Approved Leave
+                            ) : facStatus === 'HOLIDAY' || facStatus === 'LEAVE' ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                                Official Holiday
                               </span>
                             ) : (
                               <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-rose-50 text-rose-800 border border-rose-200">

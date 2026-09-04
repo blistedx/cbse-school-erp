@@ -14214,8 +14214,8 @@
       "academic_session": "2026-27",
       "staff_code": "STF01",
       "full_name": "Monu",
-      "department": "School Administration, Accounts & Operations",
-      "designation": "Administrative Officer / Accounts Head",
+      "department": "School Administration & Office Operations",
+      "designation": "Administrative Officer (School Administration & Operations)",
       "qualification": "",
       "phone": "8948227452",
       "email": "admin@dps.com",
@@ -14226,7 +14226,7 @@
       "classes_taught": "Non-Teaching / Administrative Office",
       "ctet_qualified": "NO",
       "ctet_roll_no": "",
-      "professional_degree": "MBA / M.Com / B.Com / CA Inter (Administrative / Accounts)",
+      "professional_degree": "MBA / Post Graduate in Management (School Administration)",
       "experience_years": 5,
       "date_of_joining": "2026-09-03",
       "employment_type": "PERMANENT",
@@ -14244,7 +14244,8 @@
       "address": "",
       "city": "",
       "pincode": "",
-      "emergency_contact_phone": ""
+      "emergency_contact_phone": "",
+      "role": "ADMIN"
     },
     {
       "id": "TCH-FAC-101",
@@ -28137,6 +28138,1511 @@
       "leave_count": 0,
       "teacher_records": [],
       "created_at": "2026-09-03T14:02:42.270Z"
+    },
+    {
+      "school_id": "DPS2026",
+      "academic_session": "2026-27",
+      "date": "2026-09-04",
+      "class_name": "Playgroup",
+      "section": "A",
+      "total_students": 29,
+      "present_count": 0,
+      "absent_count": 0,
+      "holiday_count": 29,
+      "leave_count": 29,
+      "marked_by": "Admin / Principal",
+      "student_records": [
+        {
+          "student_id": "STU-1788408097875",
+          "admission_no": "ADM-0556",
+          "full_name": "TEST1",
+          "roll_no": "",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0001",
+          "admission_no": "DPS-2026-0001",
+          "full_name": "Kabir Reddy",
+          "roll_no": "1",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0002",
+          "admission_no": "DPS-2026-0002",
+          "full_name": "Krishna Mukherjee",
+          "roll_no": "2",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0003",
+          "admission_no": "DPS-2026-0003",
+          "full_name": "Aayush Shinde",
+          "roll_no": "3",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0004",
+          "admission_no": "DPS-2026-0004",
+          "full_name": "Vihaan Gowda",
+          "roll_no": "4",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0005",
+          "admission_no": "DPS-2026-0005",
+          "full_name": "Tanmay Khanna",
+          "roll_no": "5",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0006",
+          "admission_no": "DPS-2026-0006",
+          "full_name": "Harshit Tripathi",
+          "roll_no": "6",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0007",
+          "admission_no": "DPS-2026-0007",
+          "full_name": "Shivam Nair",
+          "roll_no": "7",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0008",
+          "admission_no": "DPS-2026-0008",
+          "full_name": "Keshav Chatterjee",
+          "roll_no": "8",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0009",
+          "admission_no": "DPS-2026-0009",
+          "full_name": "Gautam Deshmukh",
+          "roll_no": "9",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0010",
+          "admission_no": "DPS-2026-0010",
+          "full_name": "Daksh Pillai",
+          "roll_no": "10",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0011",
+          "admission_no": "DPS-2026-0011",
+          "full_name": "Piyush Malhotra",
+          "roll_no": "11",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0012",
+          "admission_no": "DPS-2026-0012",
+          "full_name": "Vedant Saxena",
+          "roll_no": "12",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0013",
+          "admission_no": "DPS-2026-0013",
+          "full_name": "Vivaan Kumar",
+          "roll_no": "13",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0014",
+          "admission_no": "DPS-2026-0014",
+          "full_name": "Reyansh Agarwal",
+          "roll_no": "14",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0015",
+          "admission_no": "DPS-2026-0015",
+          "full_name": "Dhruv Joshi",
+          "roll_no": "15",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0016",
+          "admission_no": "DPS-2026-0016",
+          "full_name": "Utkarsh Hegde",
+          "roll_no": "16",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0017",
+          "admission_no": "DPS-2026-0017",
+          "full_name": "Yash Rajput",
+          "roll_no": "17",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0018",
+          "admission_no": "DPS-2026-0018",
+          "full_name": "Manav Bhatia",
+          "roll_no": "18",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0019",
+          "admission_no": "DPS-2026-0019",
+          "full_name": "Varun Gupta",
+          "roll_no": "19",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0020",
+          "admission_no": "DPS-2026-0020",
+          "full_name": "Tushar Mishra",
+          "roll_no": "20",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0021",
+          "admission_no": "DPS-2026-0021",
+          "full_name": "Madhav Sengupta",
+          "roll_no": "21",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0022",
+          "admission_no": "DPS-2026-0022",
+          "full_name": "Chirag Bhat",
+          "roll_no": "22",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0023",
+          "admission_no": "DPS-2026-0023",
+          "full_name": "Mayank Chauhan",
+          "roll_no": "23",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0024",
+          "admission_no": "DPS-2026-0024",
+          "full_name": "Shlok Shah",
+          "roll_no": "24",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0025",
+          "admission_no": "DPS-2026-0025",
+          "full_name": "Aarav Sharma",
+          "roll_no": "25",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0026",
+          "admission_no": "DPS-2026-0026",
+          "full_name": "Kabir Reddy",
+          "roll_no": "26",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0027",
+          "admission_no": "DPS-2026-0027",
+          "full_name": "Krishna Mukherjee",
+          "roll_no": "27",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0028",
+          "admission_no": "DPS-2026-0028",
+          "full_name": "Aayush Shinde",
+          "roll_no": "28",
+          "status": "HOLIDAY"
+        }
+      ],
+      "id": "ATT-1788511086925",
+      "teacher_records": [],
+      "created_at": "2026-09-04T08:38:06.925Z"
+    },
+    {
+      "school_id": "DPS2026",
+      "academic_session": "2026-27",
+      "date": "2026-09-04",
+      "class_name": "Nursery",
+      "section": "A",
+      "total_students": 28,
+      "present_count": 0,
+      "absent_count": 0,
+      "holiday_count": 28,
+      "leave_count": 28,
+      "marked_by": "Admin / Principal",
+      "student_records": [
+        {
+          "student_id": "STU-DPS-0029",
+          "admission_no": "DPS-2026-0029",
+          "full_name": "Chirag Kumar",
+          "roll_no": "1",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0030",
+          "admission_no": "DPS-2026-0030",
+          "full_name": "Mayank Agarwal",
+          "roll_no": "2",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0031",
+          "admission_no": "DPS-2026-0031",
+          "full_name": "Shlok Joshi",
+          "roll_no": "3",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0032",
+          "admission_no": "DPS-2026-0032",
+          "full_name": "Aarav Hegde",
+          "roll_no": "4",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0033",
+          "admission_no": "DPS-2026-0033",
+          "full_name": "Kabir Rajput",
+          "roll_no": "5",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0034",
+          "admission_no": "DPS-2026-0034",
+          "full_name": "Krishna Bhatia",
+          "roll_no": "6",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0035",
+          "admission_no": "DPS-2026-0035",
+          "full_name": "Aayush Gupta",
+          "roll_no": "7",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0036",
+          "admission_no": "DPS-2026-0036",
+          "full_name": "Vihaan Mishra",
+          "roll_no": "8",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0037",
+          "admission_no": "DPS-2026-0037",
+          "full_name": "Tanmay Sengupta",
+          "roll_no": "9",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0038",
+          "admission_no": "DPS-2026-0038",
+          "full_name": "Harshit Bhat",
+          "roll_no": "10",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0039",
+          "admission_no": "DPS-2026-0039",
+          "full_name": "Shivam Chauhan",
+          "roll_no": "11",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0040",
+          "admission_no": "DPS-2026-0040",
+          "full_name": "Keshav Shah",
+          "roll_no": "12",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0041",
+          "admission_no": "DPS-2026-0041",
+          "full_name": "Gautam Sharma",
+          "roll_no": "13",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0042",
+          "admission_no": "DPS-2026-0042",
+          "full_name": "Daksh Reddy",
+          "roll_no": "14",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0043",
+          "admission_no": "DPS-2026-0043",
+          "full_name": "Piyush Mukherjee",
+          "roll_no": "15",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0044",
+          "admission_no": "DPS-2026-0044",
+          "full_name": "Vedant Shinde",
+          "roll_no": "16",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0045",
+          "admission_no": "DPS-2026-0045",
+          "full_name": "Vivaan Gowda",
+          "roll_no": "17",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0046",
+          "admission_no": "DPS-2026-0046",
+          "full_name": "Reyansh Khanna",
+          "roll_no": "18",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0047",
+          "admission_no": "DPS-2026-0047",
+          "full_name": "Dhruv Tripathi",
+          "roll_no": "19",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0048",
+          "admission_no": "DPS-2026-0048",
+          "full_name": "Utkarsh Nair",
+          "roll_no": "20",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0049",
+          "admission_no": "DPS-2026-0049",
+          "full_name": "Yash Chatterjee",
+          "roll_no": "21",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0050",
+          "admission_no": "DPS-2026-0050",
+          "full_name": "Manav Deshmukh",
+          "roll_no": "22",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0051",
+          "admission_no": "DPS-2026-0051",
+          "full_name": "Varun Pillai",
+          "roll_no": "23",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0052",
+          "admission_no": "DPS-2026-0052",
+          "full_name": "Tushar Malhotra",
+          "roll_no": "24",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0053",
+          "admission_no": "DPS-2026-0053",
+          "full_name": "Madhav Saxena",
+          "roll_no": "25",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0054",
+          "admission_no": "DPS-2026-0054",
+          "full_name": "Chirag Kumar",
+          "roll_no": "26",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0055",
+          "admission_no": "DPS-2026-0055",
+          "full_name": "Mayank Agarwal",
+          "roll_no": "27",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0056",
+          "admission_no": "DPS-2026-0056",
+          "full_name": "Shlok Joshi",
+          "roll_no": "28",
+          "status": "HOLIDAY"
+        }
+      ],
+      "id": "ATT-1788511098914",
+      "teacher_records": [],
+      "created_at": "2026-09-04T08:38:18.914Z"
+    },
+    {
+      "school_id": "DPS2026",
+      "academic_session": "2026-27",
+      "date": "2026-09-04",
+      "class_name": "LKG",
+      "section": "A",
+      "total_students": 28,
+      "present_count": 0,
+      "absent_count": 0,
+      "holiday_count": 28,
+      "leave_count": 28,
+      "marked_by": "Admin / Principal",
+      "student_records": [
+        {
+          "student_id": "STU-DPS-0057",
+          "admission_no": "DPS-2026-0057",
+          "full_name": "Manav Sharma",
+          "roll_no": "1",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0058",
+          "admission_no": "DPS-2026-0058",
+          "full_name": "Varun Reddy",
+          "roll_no": "2",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0059",
+          "admission_no": "DPS-2026-0059",
+          "full_name": "Tushar Mukherjee",
+          "roll_no": "3",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0060",
+          "admission_no": "DPS-2026-0060",
+          "full_name": "Madhav Shinde",
+          "roll_no": "4",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0061",
+          "admission_no": "DPS-2026-0061",
+          "full_name": "Chirag Gowda",
+          "roll_no": "5",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0062",
+          "admission_no": "DPS-2026-0062",
+          "full_name": "Mayank Khanna",
+          "roll_no": "6",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0063",
+          "admission_no": "DPS-2026-0063",
+          "full_name": "Shlok Tripathi",
+          "roll_no": "7",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0064",
+          "admission_no": "DPS-2026-0064",
+          "full_name": "Aarav Nair",
+          "roll_no": "8",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0065",
+          "admission_no": "DPS-2026-0065",
+          "full_name": "Kabir Chatterjee",
+          "roll_no": "9",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0066",
+          "admission_no": "DPS-2026-0066",
+          "full_name": "Krishna Deshmukh",
+          "roll_no": "10",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0067",
+          "admission_no": "DPS-2026-0067",
+          "full_name": "Aayush Pillai",
+          "roll_no": "11",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0068",
+          "admission_no": "DPS-2026-0068",
+          "full_name": "Vihaan Malhotra",
+          "roll_no": "12",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0069",
+          "admission_no": "DPS-2026-0069",
+          "full_name": "Tanmay Saxena",
+          "roll_no": "13",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0070",
+          "admission_no": "DPS-2026-0070",
+          "full_name": "Harshit Kumar",
+          "roll_no": "14",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0071",
+          "admission_no": "DPS-2026-0071",
+          "full_name": "Shivam Agarwal",
+          "roll_no": "15",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0072",
+          "admission_no": "DPS-2026-0072",
+          "full_name": "Keshav Joshi",
+          "roll_no": "16",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0073",
+          "admission_no": "DPS-2026-0073",
+          "full_name": "Gautam Hegde",
+          "roll_no": "17",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0074",
+          "admission_no": "DPS-2026-0074",
+          "full_name": "Daksh Rajput",
+          "roll_no": "18",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0075",
+          "admission_no": "DPS-2026-0075",
+          "full_name": "Piyush Bhatia",
+          "roll_no": "19",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0076",
+          "admission_no": "DPS-2026-0076",
+          "full_name": "Vedant Gupta",
+          "roll_no": "20",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0077",
+          "admission_no": "DPS-2026-0077",
+          "full_name": "Vivaan Mishra",
+          "roll_no": "21",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0078",
+          "admission_no": "DPS-2026-0078",
+          "full_name": "Reyansh Sengupta",
+          "roll_no": "22",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0079",
+          "admission_no": "DPS-2026-0079",
+          "full_name": "Dhruv Bhat",
+          "roll_no": "23",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0080",
+          "admission_no": "DPS-2026-0080",
+          "full_name": "Utkarsh Chauhan",
+          "roll_no": "24",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0081",
+          "admission_no": "DPS-2026-0081",
+          "full_name": "Yash Shah",
+          "roll_no": "25",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0082",
+          "admission_no": "DPS-2026-0082",
+          "full_name": "Manav Sharma",
+          "roll_no": "26",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0083",
+          "admission_no": "DPS-2026-0083",
+          "full_name": "Varun Reddy",
+          "roll_no": "27",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0084",
+          "admission_no": "DPS-2026-0084",
+          "full_name": "Tushar Mukherjee",
+          "roll_no": "28",
+          "status": "HOLIDAY"
+        }
+      ],
+      "id": "ATT-1788511107202",
+      "teacher_records": [],
+      "created_at": "2026-09-04T08:38:27.202Z"
+    },
+    {
+      "school_id": "DPS2026",
+      "academic_session": "2026-27",
+      "date": "2026-09-04",
+      "class_name": "UKG",
+      "section": "A",
+      "total_students": 28,
+      "present_count": 0,
+      "absent_count": 0,
+      "holiday_count": 28,
+      "leave_count": 28,
+      "marked_by": "Admin / Principal",
+      "student_records": [
+        {
+          "student_id": "STU-DPS-0085",
+          "admission_no": "DPS-2026-0085",
+          "full_name": "Reyansh Saxena",
+          "roll_no": "1",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0086",
+          "admission_no": "DPS-2026-0086",
+          "full_name": "Dhruv Kumar",
+          "roll_no": "2",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0087",
+          "admission_no": "DPS-2026-0087",
+          "full_name": "Utkarsh Agarwal",
+          "roll_no": "3",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0088",
+          "admission_no": "DPS-2026-0088",
+          "full_name": "Yash Joshi",
+          "roll_no": "4",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0089",
+          "admission_no": "DPS-2026-0089",
+          "full_name": "Manav Hegde",
+          "roll_no": "5",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0090",
+          "admission_no": "DPS-2026-0090",
+          "full_name": "Varun Rajput",
+          "roll_no": "6",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0091",
+          "admission_no": "DPS-2026-0091",
+          "full_name": "Tushar Bhatia",
+          "roll_no": "7",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0092",
+          "admission_no": "DPS-2026-0092",
+          "full_name": "Madhav Gupta",
+          "roll_no": "8",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0093",
+          "admission_no": "DPS-2026-0093",
+          "full_name": "Chirag Mishra",
+          "roll_no": "9",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0094",
+          "admission_no": "DPS-2026-0094",
+          "full_name": "Mayank Sengupta",
+          "roll_no": "10",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0095",
+          "admission_no": "DPS-2026-0095",
+          "full_name": "Shlok Bhat",
+          "roll_no": "11",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0096",
+          "admission_no": "DPS-2026-0096",
+          "full_name": "Aarav Chauhan",
+          "roll_no": "12",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0097",
+          "admission_no": "DPS-2026-0097",
+          "full_name": "Kabir Shah",
+          "roll_no": "13",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0098",
+          "admission_no": "DPS-2026-0098",
+          "full_name": "Krishna Sharma",
+          "roll_no": "14",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0099",
+          "admission_no": "DPS-2026-0099",
+          "full_name": "Aayush Reddy",
+          "roll_no": "15",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0100",
+          "admission_no": "DPS-2026-0100",
+          "full_name": "Vihaan Mukherjee",
+          "roll_no": "16",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0101",
+          "admission_no": "DPS-2026-0101",
+          "full_name": "Tanmay Shinde",
+          "roll_no": "17",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0102",
+          "admission_no": "DPS-2026-0102",
+          "full_name": "Harshit Gowda",
+          "roll_no": "18",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0103",
+          "admission_no": "DPS-2026-0103",
+          "full_name": "Shivam Khanna",
+          "roll_no": "19",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0104",
+          "admission_no": "DPS-2026-0104",
+          "full_name": "Keshav Tripathi",
+          "roll_no": "20",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0105",
+          "admission_no": "DPS-2026-0105",
+          "full_name": "Gautam Nair",
+          "roll_no": "21",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0106",
+          "admission_no": "DPS-2026-0106",
+          "full_name": "Daksh Chatterjee",
+          "roll_no": "22",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0107",
+          "admission_no": "DPS-2026-0107",
+          "full_name": "Piyush Deshmukh",
+          "roll_no": "23",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0108",
+          "admission_no": "DPS-2026-0108",
+          "full_name": "Vedant Pillai",
+          "roll_no": "24",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0109",
+          "admission_no": "DPS-2026-0109",
+          "full_name": "Vivaan Malhotra",
+          "roll_no": "25",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0110",
+          "admission_no": "DPS-2026-0110",
+          "full_name": "Reyansh Saxena",
+          "roll_no": "26",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0111",
+          "admission_no": "DPS-2026-0111",
+          "full_name": "Dhruv Kumar",
+          "roll_no": "27",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0112",
+          "admission_no": "DPS-2026-0112",
+          "full_name": "Utkarsh Agarwal",
+          "roll_no": "28",
+          "status": "HOLIDAY"
+        }
+      ],
+      "id": "ATT-1788511116412",
+      "teacher_records": [],
+      "created_at": "2026-09-04T08:38:36.412Z"
+    },
+    {
+      "school_id": "DPS2026",
+      "academic_session": "2026-27",
+      "date": "2026-09-04",
+      "class_name": "Class 1",
+      "section": "A",
+      "total_students": 28,
+      "present_count": 0,
+      "absent_count": 0,
+      "holiday_count": 28,
+      "leave_count": 28,
+      "marked_by": "Admin / Principal",
+      "student_records": [
+        {
+          "student_id": "STU-DPS-0113",
+          "admission_no": "DPS-2026-0113",
+          "full_name": "Daksh Shah",
+          "roll_no": "1",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0114",
+          "admission_no": "DPS-2026-0114",
+          "full_name": "Piyush Sharma",
+          "roll_no": "2",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0115",
+          "admission_no": "DPS-2026-0115",
+          "full_name": "Vedant Reddy",
+          "roll_no": "3",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0116",
+          "admission_no": "DPS-2026-0116",
+          "full_name": "Vivaan Mukherjee",
+          "roll_no": "4",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0117",
+          "admission_no": "DPS-2026-0117",
+          "full_name": "Reyansh Shinde",
+          "roll_no": "5",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0118",
+          "admission_no": "DPS-2026-0118",
+          "full_name": "Dhruv Gowda",
+          "roll_no": "6",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0119",
+          "admission_no": "DPS-2026-0119",
+          "full_name": "Utkarsh Khanna",
+          "roll_no": "7",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0120",
+          "admission_no": "DPS-2026-0120",
+          "full_name": "Yash Tripathi",
+          "roll_no": "8",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0121",
+          "admission_no": "DPS-2026-0121",
+          "full_name": "Manav Nair",
+          "roll_no": "9",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0122",
+          "admission_no": "DPS-2026-0122",
+          "full_name": "Varun Chatterjee",
+          "roll_no": "10",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0123",
+          "admission_no": "DPS-2026-0123",
+          "full_name": "Tushar Deshmukh",
+          "roll_no": "11",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0124",
+          "admission_no": "DPS-2026-0124",
+          "full_name": "Madhav Pillai",
+          "roll_no": "12",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0125",
+          "admission_no": "DPS-2026-0125",
+          "full_name": "Chirag Malhotra",
+          "roll_no": "13",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0126",
+          "admission_no": "DPS-2026-0126",
+          "full_name": "Mayank Saxena",
+          "roll_no": "14",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0127",
+          "admission_no": "DPS-2026-0127",
+          "full_name": "Shlok Kumar",
+          "roll_no": "15",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0128",
+          "admission_no": "DPS-2026-0128",
+          "full_name": "Aarav Agarwal",
+          "roll_no": "16",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0129",
+          "admission_no": "DPS-2026-0129",
+          "full_name": "Kabir Joshi",
+          "roll_no": "17",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0130",
+          "admission_no": "DPS-2026-0130",
+          "full_name": "Krishna Hegde",
+          "roll_no": "18",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0131",
+          "admission_no": "DPS-2026-0131",
+          "full_name": "Aayush Rajput",
+          "roll_no": "19",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0132",
+          "admission_no": "DPS-2026-0132",
+          "full_name": "Vihaan Bhatia",
+          "roll_no": "20",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0133",
+          "admission_no": "DPS-2026-0133",
+          "full_name": "Tanmay Gupta",
+          "roll_no": "21",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0134",
+          "admission_no": "DPS-2026-0134",
+          "full_name": "Harshit Mishra",
+          "roll_no": "22",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0135",
+          "admission_no": "DPS-2026-0135",
+          "full_name": "Shivam Sengupta",
+          "roll_no": "23",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0136",
+          "admission_no": "DPS-2026-0136",
+          "full_name": "Keshav Bhat",
+          "roll_no": "24",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0137",
+          "admission_no": "DPS-2026-0137",
+          "full_name": "Gautam Chauhan",
+          "roll_no": "25",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0138",
+          "admission_no": "DPS-2026-0138",
+          "full_name": "Daksh Shah",
+          "roll_no": "26",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0139",
+          "admission_no": "DPS-2026-0139",
+          "full_name": "Piyush Sharma",
+          "roll_no": "27",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0140",
+          "admission_no": "DPS-2026-0140",
+          "full_name": "Vedant Reddy",
+          "roll_no": "28",
+          "status": "HOLIDAY"
+        }
+      ],
+      "id": "ATT-1788511122928",
+      "teacher_records": [],
+      "created_at": "2026-09-04T08:38:42.928Z"
+    },
+    {
+      "school_id": "DPS2026",
+      "academic_session": "2026-27",
+      "date": "2026-09-04",
+      "class_name": "Class 2",
+      "section": "A",
+      "total_students": 28,
+      "present_count": 0,
+      "absent_count": 0,
+      "holiday_count": 28,
+      "leave_count": 28,
+      "marked_by": "Admin / Principal",
+      "student_records": [
+        {
+          "student_id": "STU-DPS-0141",
+          "admission_no": "DPS-2026-0141",
+          "full_name": "Harshit Malhotra",
+          "roll_no": "1",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0142",
+          "admission_no": "DPS-2026-0142",
+          "full_name": "Shivam Saxena",
+          "roll_no": "2",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0143",
+          "admission_no": "DPS-2026-0143",
+          "full_name": "Keshav Kumar",
+          "roll_no": "3",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0144",
+          "admission_no": "DPS-2026-0144",
+          "full_name": "Gautam Agarwal",
+          "roll_no": "4",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0145",
+          "admission_no": "DPS-2026-0145",
+          "full_name": "Daksh Joshi",
+          "roll_no": "5",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0146",
+          "admission_no": "DPS-2026-0146",
+          "full_name": "Piyush Hegde",
+          "roll_no": "6",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0147",
+          "admission_no": "DPS-2026-0147",
+          "full_name": "Vedant Rajput",
+          "roll_no": "7",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0148",
+          "admission_no": "DPS-2026-0148",
+          "full_name": "Vivaan Bhatia",
+          "roll_no": "8",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0149",
+          "admission_no": "DPS-2026-0149",
+          "full_name": "Reyansh Gupta",
+          "roll_no": "9",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0150",
+          "admission_no": "DPS-2026-0150",
+          "full_name": "Dhruv Mishra",
+          "roll_no": "10",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0151",
+          "admission_no": "DPS-2026-0151",
+          "full_name": "Utkarsh Sengupta",
+          "roll_no": "11",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0152",
+          "admission_no": "DPS-2026-0152",
+          "full_name": "Yash Bhat",
+          "roll_no": "12",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0153",
+          "admission_no": "DPS-2026-0153",
+          "full_name": "Manav Chauhan",
+          "roll_no": "13",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0154",
+          "admission_no": "DPS-2026-0154",
+          "full_name": "Varun Shah",
+          "roll_no": "14",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0155",
+          "admission_no": "DPS-2026-0155",
+          "full_name": "Tushar Sharma",
+          "roll_no": "15",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0156",
+          "admission_no": "DPS-2026-0156",
+          "full_name": "Madhav Reddy",
+          "roll_no": "16",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0157",
+          "admission_no": "DPS-2026-0157",
+          "full_name": "Chirag Mukherjee",
+          "roll_no": "17",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0158",
+          "admission_no": "DPS-2026-0158",
+          "full_name": "Mayank Shinde",
+          "roll_no": "18",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0159",
+          "admission_no": "DPS-2026-0159",
+          "full_name": "Shlok Gowda",
+          "roll_no": "19",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0160",
+          "admission_no": "DPS-2026-0160",
+          "full_name": "Aarav Khanna",
+          "roll_no": "20",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0161",
+          "admission_no": "DPS-2026-0161",
+          "full_name": "Kabir Tripathi",
+          "roll_no": "21",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0162",
+          "admission_no": "DPS-2026-0162",
+          "full_name": "Krishna Nair",
+          "roll_no": "22",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0163",
+          "admission_no": "DPS-2026-0163",
+          "full_name": "Aayush Chatterjee",
+          "roll_no": "23",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0164",
+          "admission_no": "DPS-2026-0164",
+          "full_name": "Vihaan Deshmukh",
+          "roll_no": "24",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0165",
+          "admission_no": "DPS-2026-0165",
+          "full_name": "Tanmay Pillai",
+          "roll_no": "25",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0166",
+          "admission_no": "DPS-2026-0166",
+          "full_name": "Harshit Malhotra",
+          "roll_no": "26",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0167",
+          "admission_no": "DPS-2026-0167",
+          "full_name": "Shivam Saxena",
+          "roll_no": "27",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0168",
+          "admission_no": "DPS-2026-0168",
+          "full_name": "Keshav Kumar",
+          "roll_no": "28",
+          "status": "HOLIDAY"
+        }
+      ],
+      "id": "ATT-1788511128851",
+      "teacher_records": [],
+      "created_at": "2026-09-04T08:38:48.851Z"
+    },
+    {
+      "school_id": "DPS2026",
+      "academic_session": "2026-27",
+      "date": "2026-09-04",
+      "class_name": "Class 3",
+      "section": "A",
+      "total_students": 28,
+      "present_count": 0,
+      "absent_count": 0,
+      "holiday_count": 28,
+      "leave_count": 28,
+      "marked_by": "Admin / Principal",
+      "student_records": [
+        {
+          "student_id": "STU-DPS-0169",
+          "admission_no": "DPS-2026-0169",
+          "full_name": "Krishna Chauhan",
+          "roll_no": "1",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0170",
+          "admission_no": "DPS-2026-0170",
+          "full_name": "Aayush Shah",
+          "roll_no": "2",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0171",
+          "admission_no": "DPS-2026-0171",
+          "full_name": "Vihaan Sharma",
+          "roll_no": "3",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0172",
+          "admission_no": "DPS-2026-0172",
+          "full_name": "Tanmay Reddy",
+          "roll_no": "4",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0173",
+          "admission_no": "DPS-2026-0173",
+          "full_name": "Harshit Mukherjee",
+          "roll_no": "5",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0174",
+          "admission_no": "DPS-2026-0174",
+          "full_name": "Shivam Shinde",
+          "roll_no": "6",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0175",
+          "admission_no": "DPS-2026-0175",
+          "full_name": "Keshav Gowda",
+          "roll_no": "7",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0176",
+          "admission_no": "DPS-2026-0176",
+          "full_name": "Gautam Khanna",
+          "roll_no": "8",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0177",
+          "admission_no": "DPS-2026-0177",
+          "full_name": "Daksh Tripathi",
+          "roll_no": "9",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0178",
+          "admission_no": "DPS-2026-0178",
+          "full_name": "Piyush Nair",
+          "roll_no": "10",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0179",
+          "admission_no": "DPS-2026-0179",
+          "full_name": "Vedant Chatterjee",
+          "roll_no": "11",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0180",
+          "admission_no": "DPS-2026-0180",
+          "full_name": "Vivaan Deshmukh",
+          "roll_no": "12",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0181",
+          "admission_no": "DPS-2026-0181",
+          "full_name": "Reyansh Pillai",
+          "roll_no": "13",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0182",
+          "admission_no": "DPS-2026-0182",
+          "full_name": "Dhruv Malhotra",
+          "roll_no": "14",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0183",
+          "admission_no": "DPS-2026-0183",
+          "full_name": "Utkarsh Saxena",
+          "roll_no": "15",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0184",
+          "admission_no": "DPS-2026-0184",
+          "full_name": "Yash Kumar",
+          "roll_no": "16",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0185",
+          "admission_no": "DPS-2026-0185",
+          "full_name": "Manav Agarwal",
+          "roll_no": "17",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0186",
+          "admission_no": "DPS-2026-0186",
+          "full_name": "Varun Joshi",
+          "roll_no": "18",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0187",
+          "admission_no": "DPS-2026-0187",
+          "full_name": "Tushar Hegde",
+          "roll_no": "19",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0188",
+          "admission_no": "DPS-2026-0188",
+          "full_name": "Madhav Rajput",
+          "roll_no": "20",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0189",
+          "admission_no": "DPS-2026-0189",
+          "full_name": "Chirag Bhatia",
+          "roll_no": "21",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0190",
+          "admission_no": "DPS-2026-0190",
+          "full_name": "Mayank Gupta",
+          "roll_no": "22",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0191",
+          "admission_no": "DPS-2026-0191",
+          "full_name": "Shlok Mishra",
+          "roll_no": "23",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0192",
+          "admission_no": "DPS-2026-0192",
+          "full_name": "Aarav Sengupta",
+          "roll_no": "24",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0193",
+          "admission_no": "DPS-2026-0193",
+          "full_name": "Kabir Bhat",
+          "roll_no": "25",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0194",
+          "admission_no": "DPS-2026-0194",
+          "full_name": "Krishna Chauhan",
+          "roll_no": "26",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0195",
+          "admission_no": "DPS-2026-0195",
+          "full_name": "Aayush Shah",
+          "roll_no": "27",
+          "status": "HOLIDAY"
+        },
+        {
+          "student_id": "STU-DPS-0196",
+          "admission_no": "DPS-2026-0196",
+          "full_name": "Vihaan Sharma",
+          "roll_no": "28",
+          "status": "HOLIDAY"
+        }
+      ],
+      "id": "ATT-1788511140210",
+      "teacher_records": [],
+      "created_at": "2026-09-04T08:39:00.210Z"
     }
   ],
   "fee_invoices": [

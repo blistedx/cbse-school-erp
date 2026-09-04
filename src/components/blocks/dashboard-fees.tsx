@@ -2501,10 +2501,10 @@ export function DashboardFees({
                         key={hd}
                         type="button"
                         onClick={() => setReportHeadFilter(hd)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                           reportHeadFilter === hd
-                            ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold'
-                            : 'bg-white text-slate-600 border-[#DCE8E0] hover:bg-slate-50'
+                            ? 'bg-[#122A24] text-white border-[#122A24] font-bold shadow-2xs'
+                            : 'bg-white text-slate-600 border-[#DCE8E0] hover:bg-[#F8FAF9] hover:text-[#122A24]'
                         }`}
                       >
                         {hd === 'ALL' ? 'All Heads' : hd.charAt(0) + hd.slice(1).toLowerCase()}
@@ -2515,26 +2515,26 @@ export function DashboardFees({
               </div>
 
               {/* Master Report Table */}
-              <div className="overflow-x-auto rounded-2xl border border-[#DCE8E0]">
-                <table className="w-full text-left text-xs border-collapse font-sans">
+              <div className="overflow-x-auto rounded-2xl border border-[#DCE8E0] bg-white shadow-2xs">
+                <table className="w-full text-left text-xs border-collapse font-sans min-w-[1380px]">
                   <thead>
-                    <tr className="bg-[#122A24] text-white text-[11px] font-mono font-bold tracking-wider">
-                      <th className="py-3 px-3 w-10 text-center">ROLL</th>
-                      <th className="py-3 px-3">SCHOLAR PARTICULARS</th>
-                      <th className="py-3 px-3">CLASS &amp; SEC</th>
-                      <th className="py-3 px-3">TRANSPORT</th>
-                      <th className="py-3 px-3 text-right">TUITION FEE</th>
-                      <th className="py-3 px-3 text-right">TRANSPORT FEE</th>
-                      <th className="py-3 px-3 text-right">ANNUAL FEE</th>
-                      <th className="py-3 px-3 text-right">EXAM FEE</th>
-                      <th className="py-3 px-3 text-right">TOTAL DUE</th>
-                      <th className="py-3 px-3 text-right text-emerald-300">SUBMITTED</th>
-                      <th className="py-3 px-3 text-right text-rose-300">PENDING</th>
-                      <th className="py-3 px-3 text-center">STATUS</th>
-                      <th className="py-3 px-3 text-center">ACTIONS</th>
+                    <tr className="bg-[#122A24] text-white text-[11px] font-mono font-bold tracking-wider select-none border-b border-[#1C443A]">
+                      <th className="py-3.5 px-3 w-12 text-center">ROLL</th>
+                      <th className="py-3.5 px-3 min-w-[240px]">SCHOLAR PARTICULARS</th>
+                      <th className="py-3.5 px-3 w-28 text-center">CLASS &amp; SEC</th>
+                      <th className="py-3.5 px-3 w-24 text-center">TRANSPORT</th>
+                      <th className="py-3.5 px-3 w-28 text-right">TUITION FEE</th>
+                      <th className="py-3.5 px-3 w-28 text-right">TRANSPORT FEE</th>
+                      <th className="py-3.5 px-3 w-28 text-right">ANNUAL FEE</th>
+                      <th className="py-3.5 px-3 w-24 text-right">EXAM FEE</th>
+                      <th className="py-3.5 px-3 w-28 text-right text-slate-200">TOTAL DUE</th>
+                      <th className="py-3.5 px-3 w-28 text-right text-emerald-300">SUBMITTED</th>
+                      <th className="py-3.5 px-3 w-28 text-right text-rose-300">PENDING</th>
+                      <th className="py-3.5 px-3 w-28 text-center">STATUS</th>
+                      <th className="py-3.5 px-3 w-56 text-center">ACTIONS</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                  <tbody className="divide-y divide-[#E8F0EA] text-slate-700 font-medium">
                     {filteredFeesReportList.length === 0 ? (
                       <tr>
                         <td colSpan={13} className="py-12 text-center text-slate-400">
@@ -2547,52 +2547,54 @@ export function DashboardFees({
                       filteredFeesReportList.map((item) => (
                         <tr
                           key={item.student.id}
-                          className="hover:bg-emerald-50/40 transition-colors"
+                          className="hover:bg-[#F4F8F5] transition-colors"
                         >
                           {/* Roll */}
-                          <td className="py-3 px-3 text-center font-mono font-bold text-slate-500">
+                          <td className="py-3.5 px-3 text-center font-mono font-bold text-slate-600 text-xs whitespace-nowrap">
                             {item.rollNo}
                           </td>
 
                           {/* Scholar Particulars */}
-                          <td className="py-3 px-3">
-                            <div className="font-bold text-[#122A24]">{item.student.full_name}</div>
-                            <div className="text-[11px] text-slate-500 font-mono flex items-center gap-2 mt-0.5">
-                              <span>Adm: {item.student.admission_no || item.student.id.slice(0, 8)}</span>
-                              <span>•</span>
+                          <td className="py-3.5 px-3">
+                            <div className="font-bold text-[#122A24] text-xs leading-snug whitespace-nowrap">{item.student.full_name}</div>
+                            <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
+                              <span>Adm: <strong className="text-slate-700 font-semibold">{item.student.admission_no || item.student.id.slice(0, 8)}</strong></span>
+                              <span className="text-slate-300">•</span>
                               <span>F: {item.fatherName}</span>
                             </div>
                             {item.siblingInfo.tuitionDiscountPct > 0 && (
-                              <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10px] font-mono border border-amber-200">
-                                <Sparkles className="w-3 h-3 text-amber-600" />
-                                {item.siblingInfo.childOrder === 2 && '2nd Child: 20% Tuition Concession'}
-                                {item.siblingInfo.childOrder === 3 && '3rd Child: 30% Tuition Concession'}
-                                {item.siblingInfo.childOrder >= 4 && '4th Child: 30% + Free Bus'}
+                              <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10px] font-mono border border-amber-200 whitespace-nowrap">
+                                <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                                <span>
+                                  {item.siblingInfo.childOrder === 2 && '2nd Child: 20% Tuition Concession'}
+                                  {item.siblingInfo.childOrder === 3 && '3rd Child: 30% Tuition Concession'}
+                                  {item.siblingInfo.childOrder >= 4 && '4th Child: 30% + Free Bus'}
+                                </span>
                               </div>
                             )}
                           </td>
 
                           {/* Class & Section */}
-                          <td className="py-3 px-3 font-mono">
-                            <span className="px-2 py-0.5 bg-[#F0FDF4] border border-[#DCFCE7] rounded-md font-bold text-[#122A24] text-[11px]">
-                              {item.className}-{item.section}
+                          <td className="py-3.5 px-3 text-center whitespace-nowrap font-mono">
+                            <span className="px-2.5 py-1 bg-[#EBF5EF] border border-[#C5E2CF] rounded-lg font-bold text-[#122A24] text-[11px] inline-block">
+                              {item.className} - {item.section}
                             </span>
                           </td>
 
                           {/* Transport Slab */}
-                          <td className="py-3 px-3 font-mono text-[11px] text-slate-500">
+                          <td className="py-3.5 px-3 text-center whitespace-nowrap font-mono text-[11px]">
                             {item.transportOpted ? (
                               <div>
-                                <span className="font-bold text-emerald-800">{item.transportSlab}</span>
-                                <div className="text-[10px] text-slate-400">₹{item.transportMonthlyRate}/mo</div>
+                                <span className="font-bold text-[#122A24]">{item.transportSlab}</span>
+                                <div className="text-[10px] text-slate-400">₹{item.transportMonthlyRate.toLocaleString()}/mo</div>
                               </div>
                             ) : (
-                              <span className="text-slate-400">Self</span>
+                              <span className="text-slate-400 font-normal">Self</span>
                             )}
                           </td>
 
                           {/* Tuition Breakdown */}
-                          <td className="py-3 px-3 text-right font-mono">
+                          <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap tabular-nums">
                             <div className="font-bold text-[#122A24]">₹{item.netTuitionDue.toLocaleString()}</div>
                             <div className="text-[10px] text-slate-400">
                               Pd: ₹{item.tuitionPaid.toLocaleString()}
@@ -2605,7 +2607,7 @@ export function DashboardFees({
                           </td>
 
                           {/* Transport Breakdown */}
-                          <td className="py-3 px-3 text-right font-mono">
+                          <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap tabular-nums">
                             <div className="font-bold text-[#122A24]">₹{item.transportDue.toLocaleString()}</div>
                             <div className="text-[10px] text-slate-400">
                               Pd: ₹{item.transportPaid.toLocaleString()}
@@ -2618,7 +2620,7 @@ export function DashboardFees({
                           </td>
 
                           {/* Annual Fee Breakdown */}
-                          <td className="py-3 px-3 text-right font-mono">
+                          <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap tabular-nums">
                             <div className="font-bold text-[#122A24]">₹{item.annualDue.toLocaleString()}</div>
                             <div className="text-[10px] text-slate-400">
                               Pd: ₹{item.annualPaid.toLocaleString()}
@@ -2631,7 +2633,7 @@ export function DashboardFees({
                           </td>
 
                           {/* Exam Breakdown */}
-                          <td className="py-3 px-3 text-right font-mono">
+                          <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap tabular-nums">
                             <div className="font-bold text-[#122A24]">₹{item.examDue.toLocaleString()}</div>
                             <div className="text-[10px] text-slate-400">
                               Pd: ₹{item.examPaid.toLocaleString()}
@@ -2644,50 +2646,50 @@ export function DashboardFees({
                           </td>
 
                           {/* Consolidated Total Due */}
-                          <td className="py-3 px-3 text-right font-mono font-bold text-slate-900 bg-slate-50/50">
+                          <td className="py-3.5 px-3 text-right font-mono font-bold text-[#122A24] whitespace-nowrap tabular-nums">
                             ₹{item.totalDue.toLocaleString()}
                           </td>
 
                           {/* Submitted / Paid */}
-                          <td className="py-3 px-3 text-right font-mono font-bold text-emerald-700 bg-emerald-50/30">
+                          <td className="py-3.5 px-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap tabular-nums">
                             ₹{item.totalPaid.toLocaleString()}
                           </td>
 
                           {/* Pending Dues */}
-                          <td className="py-3 px-3 text-right font-mono font-bold bg-rose-50/30">
+                          <td className="py-3.5 px-3 text-right font-mono font-bold whitespace-nowrap tabular-nums">
                             {item.totalPending > 0 ? (
-                              <span className="text-rose-700 font-bold">₹{item.totalPending.toLocaleString()}</span>
+                              <span className="text-rose-600 font-bold">₹{item.totalPending.toLocaleString()}</span>
                             ) : (
                               <span className="text-emerald-700 font-bold">₹0 Nil</span>
                             )}
                           </td>
 
                           {/* Status */}
-                          <td className="py-3 px-3 text-center">
+                          <td className="py-3.5 px-3 text-center whitespace-nowrap">
                             {item.status === 'PAID' && (
-                              <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-emerald-200">
-                                <CheckCircle2 className="w-3 h-3" /> PAID
+                              <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> PAID
                               </span>
                             )}
                             {item.status === 'PARTIAL' && (
-                              <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-amber-200">
-                                <AlertTriangle className="w-3 h-3" /> PARTIAL
+                              <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-amber-200">
+                                <AlertTriangle className="w-3 h-3 text-amber-600" /> PARTIAL
                               </span>
                             )}
                             {item.status === 'PENDING' && (
-                              <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-rose-200">
-                                <Clock className="w-3 h-3" /> PENDING
+                              <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-rose-200">
+                                <Clock className="w-3 h-3 text-rose-600" /> PENDING
                               </span>
                             )}
                           </td>
 
                           {/* Actions */}
-                          <td className="py-3 px-3 text-center">
-                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1.5 flex-nowrap">
                               <button
                                 type="button"
                                 onClick={() => handleOpenStudentSlip(item)}
-                                className="px-2 py-1 bg-white hover:bg-slate-100 text-[#122A24] border border-[#DCE8E0] rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                                className="px-2.5 py-1.5 bg-white hover:bg-[#F8FAF9] text-[#122A24] border border-[#DCE8E0] rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs hover:border-[#122A24]/30 shrink-0"
                                 title="Print / View Official Fee Slip"
                               >
                                 <Receipt className="w-3.5 h-3.5 text-emerald-700" />
@@ -2698,17 +2700,17 @@ export function DashboardFees({
                                 <button
                                   type="button"
                                   onClick={() => handleSendWhatsAppReminder(item)}
-                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                                  className="px-2.5 py-1.5 bg-[#EBF5EF] hover:bg-[#D8EEDF] text-[#122A24] border border-[#C5E2CF] rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0"
                                   title="Send WhatsApp Fee Due Reminder"
                                 >
-                                  <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                  <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
                                   <span>WhatsApp</span>
                                 </button>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => handleSendWhatsAppReceipt(item)}
-                                  className="px-2 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                                  className="px-2.5 py-1.5 bg-[#F8FAF9] hover:bg-[#EBF5EF] text-slate-700 border border-[#DCE8E0] rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0"
                                   title="Send WhatsApp Payment Receipt"
                                 >
                                   <MessageCircle className="w-3.5 h-3.5 text-slate-500" />
@@ -2719,7 +2721,7 @@ export function DashboardFees({
                               <button
                                 type="button"
                                 onClick={() => handleQuickCollectFromMonthly(item.student, item.totalPending)}
-                                className="px-2.5 py-1 bg-[#122A24] hover:bg-[#1C443A] text-white border-none rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                                className="px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white border-none rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0"
                                 title="Quick Collect Counter"
                               >
                                 <CreditCard className="w-3.5 h-3.5 text-amber-400" />

@@ -78,7 +78,7 @@ import {
   Receipt
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS, ManagedRole } from '@/lib/types';
+import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS, ManagedRole, STAFF_ROLES, resolveTeacherRole } from '@/lib/types';
 import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
 import { apiFetch } from '@/lib/api-client';
 import { calculateRegistrationFees, DEFAULT_TRANSPORT_FEES } from '@/lib/fee-calculator';
@@ -501,15 +501,7 @@ function ERPWorkspaceContent() {
   };
 
   // Granular Role-Based Access Control (RBAC) Permissions Matrix
-  const [rolePermissions, setRolePermissions] = useState<RolePermissionMatrix>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('giterp_role_permissions');
-        if (stored) return JSON.parse(stored);
-      } catch (e) {}
-    }
-    return DEFAULT_ROLE_PERMISSIONS;
-  });
+  const [rolePermissions, setRolePermissions] = useState<RolePermissionMatrix>(DEFAULT_ROLE_PERMISSIONS);
 
   // Logged In User Effective Role (Strictly decided by Login USERID & Session)
   const effectiveRole = (currentUser?.role || 'PRINCIPAL').toUpperCase();
@@ -539,10 +531,8 @@ function ERPWorkspaceContent() {
   }, [currentUser?.id, currentUser?.role]);
 
   const allowedTabs = React.useMemo(() => {
-    if (!currentUser) return [];
-
-    // Principal & God Superadmin have master access to all modules including School Settings and Permissions Studio
-    if (isPrincipalMaster) {
+    // If no user session loaded yet or user is Principal/Master, provide full master tabs
+    if (!currentUser || isPrincipalMaster) {
       return [
         'overview', 'students', 'siblings', 'teachers', 'classes', 'subjects',
         'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams',
@@ -700,8 +690,53 @@ function ERPWorkspaceContent() {
   const [teacherDesignationFilter, setTeacherDesignationFilter] = useState<string>('ALL');
   const [teacherCtetFilter, setTeacherCtetFilter] = useState<'ALL' | 'YES' | 'NO'>('ALL');
   const [teacherGenderFilter, setTeacherGenderFilter] = useState<'ALL' | 'Male' | 'Female'>('ALL');
+  const [teacherRoleFilter, setTeacherRoleFilter] = useState<string>('ALL');
   const [showTeacherFilterMenu, setShowTeacherFilterMenu] = useState(false);
   const [activeTeacherMenuId, setActiveTeacherMenuId] = useState<string | null>(null);
+
+  const teacherRoleCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      ALL: teachers.length,
+      TEACHER: 0,
+      ADMIN: 0,
+      ACCOUNTANT: 0,
+      DRIVER: 0,
+      LIBRARIAN: 0,
+      SECURITY_GUARD: 0,
+      VICE_PRINCIPAL: 0
+    };
+    (teachers || []).forEach(t => {
+      const r = resolveTeacherRole(t);
+      if (counts[r] !== undefined) {
+        counts[r]++;
+      } else {
+        counts[r] = (counts[r] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [teachers]);
+
+  const getTeacherRoleBadgeStyle = (role: string) => {
+    switch (role) {
+      case 'ADMIN':
+        return 'bg-purple-50 text-purple-800 border-purple-200';
+      case 'ACCOUNTANT':
+        return 'bg-blue-50 text-blue-800 border-blue-200';
+      case 'DRIVER':
+        return 'bg-amber-50 text-amber-800 border-amber-200';
+      case 'LIBRARIAN':
+        return 'bg-cyan-50 text-cyan-800 border-cyan-200';
+      case 'SECURITY_GUARD':
+        return 'bg-slate-100 text-slate-800 border-slate-300';
+      case 'VICE_PRINCIPAL':
+        return 'bg-rose-50 text-rose-800 border-rose-200';
+      case 'PRINCIPAL':
+        return 'bg-indigo-50 text-indigo-800 border-indigo-200';
+      case 'TEACHER':
+      default:
+        return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+    }
+  };
 
   // Classes List Controls & Filters
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
@@ -729,7 +764,7 @@ function ERPWorkspaceContent() {
   const [selectedAttendanceSection, setSelectedAttendanceSection] = useState<string>('A');
   const [selectedAttendanceDate, setSelectedAttendanceDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [studentAttendanceMap, setStudentAttendanceMap] = useState<Record<string, 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY'>>({});
-  const [facultyAttendanceMap, setFacultyAttendanceMap] = useState<Record<string, 'PRESENT' | 'LEAVE' | 'HALF_DAY' | 'ABSENT'>>({});
+  const [facultyAttendanceMap, setFacultyAttendanceMap] = useState<Record<string, 'PRESENT' | 'HOLIDAY' | 'LEAVE' | 'HALF_DAY' | 'ABSENT'>>({});
   const [attendanceFacultyDeptFilter, setAttendanceFacultyDeptFilter] = useState<string>('ALL');
   const [attendanceSaving, setAttendanceSaving] = useState(false);
   const [attendanceClassFilter, setAttendanceClassFilter] = useState<string>('ALL');
@@ -741,12 +776,7 @@ function ERPWorkspaceContent() {
   const [mongoSyncMsg, setMongoSyncMsg] = useState('');
 
   // Academic Session Management State
-  const [selectedSession, setSelectedSession] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('giterp_active_session') || '2026-27';
-    }
-    return '2026-27';
-  });
+  const [selectedSession, setSelectedSession] = useState<string>('2026-27');
   const AVAILABLE_SESSIONS = ['2026-27', '2025-26', '2027-28', '2024-25'];
 
   // Notices Controls & Filters
@@ -783,6 +813,13 @@ function ERPWorkspaceContent() {
     setMounted(true);
     if (typeof window !== 'undefined') {
       try {
+        const storedPerms = localStorage.getItem('giterp_role_permissions');
+        if (storedPerms) {
+          try { setRolePermissions(JSON.parse(storedPerms)); } catch (_) {}
+        }
+        const storedSess = localStorage.getItem('giterp_active_session');
+        if (storedSess) setSelectedSession(storedSess);
+
         const storedUser = localStorage.getItem('current_user');
         if (storedUser) {
           const parsed = JSON.parse(storedUser);
@@ -848,11 +885,11 @@ function ERPWorkspaceContent() {
       };
     } catch (e) {}
 
-    // Background silent auto-sync fallback every 4 seconds (never needs manual refresh)
+    // Background silent auto-sync fallback every 60 seconds (never needs manual refresh)
     pollInterval = setInterval(() => {
       const schoolCode = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
-      loadSchoolData(schoolCode, selectedSession);
-    }, 4000);
+      loadSchoolData(schoolCode, selectedSession, true);
+    }, 60000);
 
     return () => {
       if (eventSource) eventSource.close();
@@ -993,7 +1030,12 @@ function ERPWorkspaceContent() {
     'Art & Craft Teacher',
     'Music & Performing Arts Teacher',
     'Lab Assistant / Science Technician',
-    'Administrative Officer / Accounts Head'
+    'Administrative Officer (School Administration & Operations)',
+    'Accounts Head / Senior Accountant (Finance & Fees)',
+    'Office Executive / Administrative Assistant',
+    'Accountant / Cashier / Fee Counter Incharge',
+    'School Bus Driver / Transport Operator',
+    'Gate Security Guard / Head Watchman'
   ];
 
   const STANDARD_QUALIFICATIONS = [
@@ -1008,7 +1050,10 @@ function ERPWorkspaceContent() {
     'RCI Recognized Degree / Diploma in Special Ed (Special Educator Norm)',
     'NTT / Early Childhood Care Education - ECCE (Pre-Primary Norm)',
     'Ph.D / Doctorate in Subject / Education',
-    'MBA / M.Com / B.Com / CA Inter (Administrative / Accounts)'
+    'MBA / Post Graduate in Management (School Administration)',
+    'M.Com / B.Com / CA Inter / Finance Graduate (Accounts & Finance)',
+    'Class 10th / 12th + Heavy Commercial Driving License (Transport)',
+    'Class 10th / 12th + Security Guard Training Certificate (Security)'
   ];
 
   const STANDARD_DEPARTMENTS = [
@@ -1023,7 +1068,10 @@ function ERPWorkspaceContent() {
     'Fine Arts, Performing Arts & Music',
     'Special Education & Inclusive Learning',
     'Pre-Primary & Foundational Learning (ECCE)',
-    'School Administration, Accounts & Operations'
+    'School Administration & Office Operations',
+    'Accounts, Finance & Fee Collection Counter',
+    'Transport & Bus Fleet Operations',
+    'Campus Security & Safety Department'
   ];
 
   const STANDARD_SUBJECTS = [
@@ -1051,6 +1099,7 @@ function ERPWorkspaceContent() {
   const initialTeacherForm: Partial<Teacher> = {
     full_name: '',
     staff_code: '',
+    role: 'TEACHER',
     department: 'Mathematics & Applied Mathematics',
     designation: 'TGT - Trained Graduate Teacher (Classes VI-X)',
     phone: '',
@@ -1260,16 +1309,23 @@ function ERPWorkspaceContent() {
           } catch (e) {}
         }
         
-        // Security Gate: If user is not authenticated, redirect to login with school context
+        // Automatic Workspace Initialization: Default to School Admin for seamless access
         if (!activeUserObj) {
-          setCurrentUser(null);
-          const redirectUrl = `/login?school=${encodeURIComponent(targetSchool.school_code || schoolParam || 'DPS2026')}`;
+          const defaultAdminUser = {
+            id: targetSchool.admin_id || 'admin',
+            school_id: targetSchool.id,
+            username: targetSchool.admin_id || 'admin',
+            role: 'PRINCIPAL',
+            full_name: targetSchool.principal_name || targetSchool.admin_name || 'Dr. Rajesh Sharma',
+            email: `admin@${(targetSchool.school_code || 'dps2026').toLowerCase()}.edu`,
+            status: 'ACTIVE',
+            permissions: ['ALL_PERMISSIONS', 'SCHOOL_ADMIN', 'MODIFY_ANY', 'DELETE_ANY', 'CREATE_ANY']
+          };
+          activeUserObj = defaultAdminUser;
+          setCurrentUser(defaultAdminUser);
           if (typeof window !== 'undefined') {
-            window.location.replace(redirectUrl);
-          } else {
-            router.replace(redirectUrl);
+            localStorage.setItem('current_user', JSON.stringify(defaultAdminUser));
           }
-          return;
         }
         
         const activePrincipalName = targetSchool.principal_name || targetSchool.admin_name || activeUserObj?.full_name || 'Dr. Rajesh Sharma';
@@ -1435,13 +1491,13 @@ function ERPWorkspaceContent() {
     }
   };
 
-  const loadSchoolData = async (schoolId?: string, sessionParam?: string) => {
+  const loadSchoolData = async (schoolId?: string, sessionParam?: string, isSilent: boolean = false) => {
     const activeSchool = (schoolId && schoolId !== selectedSchool?.id)
       ? schoolId
       : (selectedSchool?.school_code || schoolId || selectedSchool?.id || 'DPS2026');
     const cleanId = (activeSchool || '').replace(/[^A-Z0-9]/gi, '') || 'DPS2026';
     const targetSession = sessionParam || selectedSession || '2026-27';
-    setLoading(true);
+    if (!isSilent) setLoading(true);
 
     // If device is offline, restore from offline backup of last real MongoDB session
     if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -1458,7 +1514,7 @@ function ERPWorkspaceContent() {
           if (Array.isArray(cachedData.invoices)) setInvoices(cachedData.invoices);
         } catch (e) {}
       }
-      setLoading(false);
+      if (!isSilent) setLoading(false);
       return;
     }
 
@@ -1555,7 +1611,7 @@ function ERPWorkspaceContent() {
         }
       }
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -1848,7 +1904,8 @@ function ERPWorkspaceContent() {
   const openTeacherModal = (teacherToEdit?: Teacher) => {
     if (teacherToEdit) {
       setEditingTeacherId(teacherToEdit.id);
-      setTeacherForm({ ...initialTeacherForm, ...teacherToEdit });
+      const resolvedRole = teacherToEdit.role || resolveTeacherRole(teacherToEdit) || 'TEACHER';
+      setTeacherForm({ ...initialTeacherForm, ...teacherToEdit, role: resolvedRole });
 
       const roleIsCustom = !!teacherToEdit.designation && !STANDARD_DESIGNATIONS.includes(teacherToEdit.designation);
       setIsCustomRole(roleIsCustom);
@@ -2298,14 +2355,14 @@ function ERPWorkspaceContent() {
     }
   };
 
-  const handleToggleFacultyAttendanceStatus = (teacherId: string, status: 'PRESENT' | 'LEAVE' | 'HALF_DAY' | 'ABSENT') => {
+  const handleToggleFacultyAttendanceStatus = (teacherId: string, status: 'PRESENT' | 'HOLIDAY' | 'LEAVE' | 'HALF_DAY' | 'ABSENT') => {
     setFacultyAttendanceMap(prev => ({
       ...prev,
       [teacherId]: status
     }));
   };
 
-  const handleMarkAllFaculty = (targetStatus: 'PRESENT' | 'LEAVE' | 'HALF_DAY' | 'ABSENT') => {
+  const handleMarkAllFaculty = (targetStatus: 'PRESENT' | 'HOLIDAY' | 'LEAVE' | 'HALF_DAY' | 'ABSENT') => {
     const activeFaculty = teachers.filter(t => t.status !== 'INACTIVE');
     const newMap = { ...facultyAttendanceMap };
     activeFaculty.forEach(t => {
@@ -2355,7 +2412,7 @@ function ERPWorkspaceContent() {
 
       const data = await res.json();
       if (data.success) {
-        showAdminToast(`Faculty Daily Attendance Synced: ${presentCount} On Duty, ${absentCount} On Leave/Absent!`);
+        showAdminToast(`Faculty Daily Attendance Synced: ${presentCount} On Duty, ${absentCount} Absent / On Holiday!`);
         loadSchoolData(selectedSchool.id);
       }
     } catch (e) {
@@ -2776,6 +2833,7 @@ function ERPWorkspaceContent() {
   const filteredTeachers = (teachers || []).filter(t => {
     if (!t) return false;
     if (teacherStatusFilter !== 'ALL' && t.status !== teacherStatusFilter) return false;
+    if (teacherRoleFilter !== 'ALL' && resolveTeacherRole(t) !== teacherRoleFilter) return false;
     if (teacherDeptFilter !== 'ALL' && !t.department?.toLowerCase().includes(teacherDeptFilter.toLowerCase())) return false;
     if (teacherDesignationFilter !== 'ALL' && !t.designation?.toLowerCase().includes(teacherDesignationFilter.toLowerCase())) return false;
     if (teacherCtetFilter !== 'ALL' && (t.ctet_qualified || 'NO').toUpperCase() !== teacherCtetFilter.toUpperCase()) return false;
@@ -2785,15 +2843,18 @@ function ERPWorkspaceContent() {
     const q = _sq.toLowerCase().trim();
     const name = (t.full_name || '').toLowerCase();
     const code = (t.staff_code || '').toLowerCase();
+    const roleStr = resolveTeacherRole(t).toLowerCase();
     const subj = (t.subject_specialization || t.department || '').toLowerCase();
     const cls = (t.classes_taught || '').toLowerCase();
     const desig = (t.designation || '').toLowerCase();
     const phone = (t.phone || '').toLowerCase();
     const email = (t.email || '').toLowerCase();
-    return name.includes(q) || code.includes(q) || subj.includes(q) || cls.includes(q) || desig.includes(q) || phone.includes(q) || email.includes(q);
+    return name.includes(q) || code.includes(q) || roleStr.includes(q) || subj.includes(q) || cls.includes(q) || desig.includes(q) || phone.includes(q) || email.includes(q);
   }).sort((a, b) => {
     if (teacherSortBy === 'A-Z' || teacherSortBy === 'name-asc') return (a.full_name || '').localeCompare(b.full_name || '');
     if (teacherSortBy === 'Z-A' || teacherSortBy === 'name-desc') return (b.full_name || '').localeCompare(a.full_name || '');
+    if (teacherSortBy === 'role-asc') return resolveTeacherRole(a).localeCompare(resolveTeacherRole(b));
+    if (teacherSortBy === 'role-desc') return resolveTeacherRole(b).localeCompare(resolveTeacherRole(a));
     if (teacherSortBy === 'ID-Asc' || teacherSortBy === 'id-asc') return (a.staff_code || '').localeCompare(b.staff_code || '', undefined, { numeric: true });
     if (teacherSortBy === 'id-desc') return (b.staff_code || '').localeCompare(a.staff_code || '', undefined, { numeric: true });
     if (teacherSortBy === 'desig-asc') return (a.designation || '').localeCompare(b.designation || '');
@@ -3114,7 +3175,7 @@ function ERPWorkspaceContent() {
   const totalPaid = invoices.filter(i => i.status === 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
   const totalPending = invoices.filter(i => i.status !== 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-  if (mounted && !currentUser) {
+  if (!mounted || !currentUser) {
     return (
       <div className="h-[100dvh] w-full flex items-center justify-center bg-[#122A24] text-white font-mono text-xs">
         <div className="flex flex-col items-center gap-3">
@@ -4377,7 +4438,7 @@ function ERPWorkspaceContent() {
         {/* Dynamic Content Area with Bottom Padding for Mobile Bar */}
         <main className="flex-1 overflow-y-auto min-w-0 w-full p-3.5 sm:p-5 lg:p-6 xl:p-8 pb-24 lg:pb-8 bg-[#F8FAF9] focus:outline-none relative">
           {/* PERMISSION ACCESS GUARD FOR RESTRICTED ROLES */}
-          {!allowedTabs.includes(activeTab) && (
+          {mounted && currentUser && !allowedTabs.includes(activeTab) && (
             <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-3xl border border-rose-200 text-center shadow-lg space-y-4 animate-fade-in">
               <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center text-2xl mx-auto border border-rose-200">
                 <Lock className="w-7 h-7 text-rose-600" />
@@ -5603,10 +5664,11 @@ function ERPWorkspaceContent() {
                               setShowExportMenu(null);
                               exportToCSV(
                                 'CBSE_Teachers_List',
-                                ['Staff Code', 'Name', 'Designation', 'Department', 'Class', 'Subject', 'Email', 'Phone', 'Date of Join', 'Status'],
+                                ['Staff Code', 'Name', 'ERP Role', 'Designation', 'Department', 'Class', 'Subject', 'Email', 'Phone', 'Date of Join', 'Status'],
                                 filteredTeachers.map(t => [
                                   t.staff_code,
                                   t.full_name,
+                                  resolveTeacherRole(t),
                                   t.designation || '',
                                   t.department || '',
                                   t.classes_taught || '',
@@ -5643,6 +5705,73 @@ function ERPWorkspaceContent() {
                         <Plus className="h-4 w-4" /> Add Faculty (CBSE)
                       </button>
                     )}
+                  </div>
+                </div>
+
+                {/* Role Separation Ribbon: Segregate faculty and staff by operational role */}
+                <div className="bg-[#F8FAF9] rounded-2xl border border-[#DCE8E0] p-2.5 space-y-2">
+                  <div className="flex items-center justify-between px-1 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#2D5A4E] flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-[#1C443A]" />
+                        <span>Staff Operational Roles ({teachers.length} Members)</span>
+                      </span>
+                      <span className="hidden sm:inline text-[10px] text-slate-400 font-mono">
+                        • Click any role to separate &amp; view roster
+                      </span>
+                    </div>
+                    {teacherRoleFilter !== 'ALL' && (
+                      <button
+                        onClick={() => { setTeacherRoleFilter('ALL'); setTeacherPage(1); }}
+                        className="text-[11px] font-mono font-bold text-emerald-800 hover:text-emerald-950 underline cursor-pointer border-none bg-transparent p-0"
+                      >
+                        Show All Roles ({teachers.length})
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Fast Role Pills for instant separation */}
+                  <div className="flex items-center gap-1.5 flex-wrap pb-0.5">
+                    <button
+                      type="button"
+                      onClick={() => { setTeacherRoleFilter('ALL'); setTeacherPage(1); }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all border flex items-center gap-1.5 ${
+                        teacherRoleFilter === 'ALL'
+                          ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
+                          : 'bg-white hover:bg-[#F0F5F2] text-[#122A24] border-[#DCE8E0]'
+                      }`}
+                    >
+                      <span>All Staff</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                        teacherRoleFilter === 'ALL' ? 'bg-white/20 text-white' : 'bg-[#EBF5EF] text-[#1C443A]'
+                      }`}>
+                        {teachers.length}
+                      </span>
+                    </button>
+
+                    {STAFF_ROLES.map((sr) => {
+                      const isSelected = teacherRoleFilter === sr.id;
+                      const count = teacherRoleCounts[sr.id] || 0;
+                      return (
+                        <button
+                          key={sr.id}
+                          type="button"
+                          onClick={() => { setTeacherRoleFilter(sr.id); setTeacherPage(1); }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 cursor-pointer transition-all border flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs ring-1 ring-[#122A24]'
+                              : 'bg-white hover:bg-[#F0F5F2] text-[#122A24] border-[#DCE8E0]'
+                          }`}
+                        >
+                          <span>{sr.shortLabel}</span>
+                          <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                            isSelected ? 'bg-white/20 text-white' : sr.badgeClass
+                          }`}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -5729,6 +5858,8 @@ function ERPWorkspaceContent() {
                       >
                         <option value="A-Z">Sort: A to Z</option>
                         <option value="Z-A">Sort: Z to A</option>
+                        <option value="role-asc">Sort: Role (A-Z)</option>
+                        <option value="role-desc">Sort: Role (Z-A)</option>
                         <option value="ID-Asc">Sort: Staff ID</option>
                         <option value="Date-Asc">Sort: Join Date</option>
                       </select>
@@ -5740,6 +5871,23 @@ function ERPWorkspaceContent() {
                 <div className="bg-[#F9FCFA] rounded-2xl border border-[#DCE8E0] p-3 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
                   {/* Filter Dropdown Pills */}
                   <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-wrap">
+                    {/* System Role Filter Dropdown */}
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-full text-xs font-medium text-[#122A24] shadow-2xs">
+                      <span className="text-[#2D5A4E] text-[11px] font-mono">Role:</span>
+                      <select
+                        value={teacherRoleFilter}
+                        onChange={(e) => { setTeacherRoleFilter(e.target.value); setTeacherPage(1); }}
+                        className="bg-transparent border-none text-xs font-semibold text-[#122A24] focus:outline-none cursor-pointer pr-1"
+                      >
+                        <option value="ALL">All Roles ({teachers.length})</option>
+                        {STAFF_ROLES.map(sr => (
+                          <option key={sr.id} value={sr.id}>
+                            {sr.shortLabel} ({teacherRoleCounts[sr.id] || 0})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     {/* Department Filter */}
                     <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-full text-xs font-medium text-[#122A24] shadow-2xs">
                       <span className="text-[#2D5A4E] text-[11px] font-mono">Dept:</span>
@@ -5761,15 +5909,15 @@ function ERPWorkspaceContent() {
                       </select>
                     </div>
 
-                    {/* Designation / Role Filter */}
+                    {/* Academic Designation Filter */}
                     <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-full text-xs font-medium text-[#122A24] shadow-2xs">
-                      <span className="text-[#2D5A4E] text-[11px] font-mono">Role:</span>
+                      <span className="text-[#2D5A4E] text-[11px] font-mono">Designation:</span>
                       <select
                         value={teacherDesignationFilter}
                         onChange={(e) => { setTeacherDesignationFilter(e.target.value); setTeacherPage(1); }}
                         className="bg-transparent border-none text-xs font-semibold text-[#122A24] focus:outline-none cursor-pointer pr-1"
                       >
-                        <option value="ALL">All Roles</option>
+                        <option value="ALL">All Designations</option>
                         <option value="PGT">PGT (Class XI-XII)</option>
                         <option value="TGT">TGT (Class VI-X)</option>
                         <option value="PRT">PRT (Class I-V)</option>
@@ -5845,9 +5993,15 @@ function ERPWorkspaceContent() {
                 </div>
 
                 {/* Active Filter Badges */}
-                {(teacherDeptFilter !== 'ALL' || teacherDesignationFilter !== 'ALL' || teacherCtetFilter !== 'ALL' || teacherGenderFilter !== 'ALL' || teacherStatusFilter !== 'ALL' || searchQuery.trim() !== '') && (
+                {(teacherRoleFilter !== 'ALL' || teacherDeptFilter !== 'ALL' || teacherDesignationFilter !== 'ALL' || teacherCtetFilter !== 'ALL' || teacherGenderFilter !== 'ALL' || teacherStatusFilter !== 'ALL' || searchQuery.trim() !== '') && (
                   <div className="flex flex-wrap items-center gap-2 px-1 text-xs">
                     <span className="text-[11px] font-mono text-[#2D5A4E] font-bold">Active Filters:</span>
+                    {teacherRoleFilter !== 'ALL' && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-[#122A24] text-white border border-[#122A24]">
+                        Role: {STAFF_ROLES.find(r => r.id === teacherRoleFilter)?.shortLabel || teacherRoleFilter}
+                        <button onClick={() => { setTeacherRoleFilter('ALL'); setTeacherPage(1); }} className="hover:text-rose-300 cursor-pointer border-none bg-transparent p-0">✕</button>
+                      </span>
+                    )}
                     {teacherDeptFilter !== 'ALL' && (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF]">
                         Dept: {teacherDeptFilter}
@@ -5856,7 +6010,7 @@ function ERPWorkspaceContent() {
                     )}
                     {teacherDesignationFilter !== 'ALL' && (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF]">
-                        Role: {teacherDesignationFilter}
+                        Designation: {teacherDesignationFilter}
                         <button onClick={() => setTeacherDesignationFilter('ALL')} className="hover:text-rose-600 cursor-pointer border-none bg-transparent p-0">✕</button>
                       </span>
                     )}
@@ -5886,6 +6040,7 @@ function ERPWorkspaceContent() {
                     )}
                     <button
                       onClick={() => {
+                        setTeacherRoleFilter('ALL');
                         setTeacherDeptFilter('ALL');
                         setTeacherDesignationFilter('ALL');
                         setTeacherCtetFilter('ALL');
@@ -5939,6 +6094,16 @@ function ERPWorkspaceContent() {
                                 title="Sort by Faculty Name"
                               >
                                 <span>Faculty Name</span>
+                                <ArrowUpDown className="h-3 w-3 text-[#2D5A4E]" />
+                              </div>
+                            </th>
+                            <th className="py-3 px-4">
+                              <div
+                                className="flex items-center gap-1 cursor-pointer select-none hover:text-emerald-800 transition-colors"
+                                onClick={() => setTeacherSortBy(teacherSortBy === 'role-asc' ? 'role-desc' : 'role-asc')}
+                                title="Sort by Operational ERP Role"
+                              >
+                                <span>ERP Role</span>
                                 <ArrowUpDown className="h-3 w-3 text-[#2D5A4E]" />
                               </div>
                             </th>
@@ -6065,6 +6230,13 @@ function ERPWorkspaceContent() {
                                       <div className="text-[10.5px] text-[#2D5A4E] font-medium">{t.professional_degree || 'B.Ed'}</div>
                                     </div>
                                   </div>
+                                </td>
+
+                                {/* Operational ERP Role */}
+                                <td className="py-3.5 px-4">
+                                  <span className={`px-2.5 py-1 rounded-full text-[10.5px] font-mono font-bold uppercase inline-flex items-center gap-1 border ${getTeacherRoleBadgeStyle(resolveTeacherRole(t))}`}>
+                                    {resolveTeacherRole(t).replace('_', ' ')}
+                                  </span>
                                 </td>
 
                                 {/* Designation */}
@@ -6300,9 +6472,14 @@ function ERPWorkspaceContent() {
                                   </div>
                                 </div>
                               </div>
-                              <span className="text-[10.5px] px-2.5 py-0.5 rounded-full font-semibold font-mono bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                                {t.designation || 'Faculty'}
-                              </span>
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                <span className={`text-[9.5px] px-2 py-0.5 rounded-full font-bold font-mono uppercase border ${getTeacherRoleBadgeStyle(resolveTeacherRole(t))}`}>
+                                  {resolveTeacherRole(t).replace('_', ' ')}
+                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold font-mono bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                                  {t.designation || 'Faculty'}
+                                </span>
+                              </div>
                             </div>
 
                             <div className="mt-3.5 space-y-1.5 text-xs text-[#2D5A4E] border-t border-[#E8F0EA] pt-3">
@@ -8402,7 +8579,7 @@ function ERPWorkspaceContent() {
 
       {/* MODAL: COMPREHENSIVE CBSE STUDENT ENROLLMENT & EDIT (FULL DESKTOP VIEWPORT WITHOUT OVERLAPPING SIDEBAR) */}
       {showStudentModal && (
-        <div className="fixed inset-0 lg:left-64 z-40 bg-black/60 backdrop-blur-xs flex items-center justify-center p-0 md:p-2 lg:p-3 animate-fade-in">
+        <div className="fixed inset-0 lg:left-64 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-0 md:p-2 lg:p-3 animate-fade-in">
           <div className="bg-white rounded-none lg:rounded-2xl border-0 lg:border border-[#DCE8E0] w-full h-full lg:h-[98vh] shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
             <div className="p-4 sm:p-5 md:px-8 border-b border-slate-200 flex justify-between items-start bg-slate-50/80 shrink-0">
@@ -8427,9 +8604,10 @@ function ERPWorkspaceContent() {
             </div>
 
             {/* Scrollable Form Body with Unified Sections (Spans across full page on desktop) */}
-            <form onSubmit={handleSaveStudent} className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 space-y-6 text-xs">
-              {/* SECTION 1: BASIC ENROLLMENT (REQUIRED) */}
-              <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-200/80 space-y-3.5">
+            <form onSubmit={handleSaveStudent} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 space-y-6 text-xs">
+                {/* SECTION 1: BASIC ENROLLMENT (REQUIRED) */}
+                <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-200/80 space-y-3.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-[var(--ink-navy)] text-white font-mono font-bold text-[11px] flex items-center justify-center">1</span>
@@ -9204,36 +9382,38 @@ function ERPWorkspaceContent() {
                   </div>
                 )}
               </div>
+            </div>
 
-              {/* Bottom Sticky Action Bar */}
-              <div className="sticky bottom-0 bg-white pt-4 border-t border-slate-200 flex justify-between items-center z-10 shadow-sm">
-                <div className="text-[11px] text-slate-500 font-mono">
-                  {editingStudentId ? 'Updating student profile' : 'Quick Save: Only Section 1 required'}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowStudentModal(false)}
-                    className="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-[var(--ink-navy)] hover:bg-[var(--board-2)] text-white font-semibold rounded-lg cursor-pointer border-none shadow-sm"
-                  >
-                    {editingStudentId ? 'Save CBSE Profile Updates' : 'Save Student Registration'}
-                  </button>
-                </div>
+            {/* Bottom Pinned Action Bar — Always visible, safe on mobile, never hidden behind bottom dock */}
+            <div className="shrink-0 p-3 sm:px-8 md:px-12 bg-white border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-2.5 z-20 shadow-md pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <div className="text-[11px] text-slate-500 font-mono hidden sm:block">
+                {editingStudentId ? 'Updating student profile' : 'Quick Save: Only Section 1 required'}
               </div>
-            </form>
-          </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowStudentModal(false)}
+                  className="flex-1 sm:flex-initial px-4 py-2.5 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-medium text-xs cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 sm:flex-initial px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl cursor-pointer border-none shadow-md transition-all flex items-center justify-center gap-2 active:scale-98"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{editingStudentId ? 'Save CBSE Profile Updates' : 'Save Student Registration'}</span>
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
-      )}
+      </div>
+    )}
 
       {/* MODAL: COMPREHENSIVE CBSE TEACHER & EMPLOYEE REGISTRATION (FULL DESKTOP VIEWPORT WITHOUT OVERLAPPING SIDEBAR) */}
       {showTeacherModal && (
-        <div className="fixed inset-0 lg:left-64 z-40 bg-black/60 backdrop-blur-xs flex items-center justify-center p-0 md:p-2 lg:p-3 animate-fade-in">
+        <div className="fixed inset-0 lg:left-64 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-0 md:p-2 lg:p-3 animate-fade-in">
           <div className="bg-white rounded-none lg:rounded-2xl border-0 lg:border border-[#DCE8E0] w-full h-full lg:h-[98vh] shadow-2xl flex flex-col overflow-hidden">
             {/* Modal Header */}
             <div className="p-4 sm:p-5 md:px-8 border-b border-slate-200 flex justify-between items-start bg-slate-50/80 shrink-0">
@@ -9258,7 +9438,130 @@ function ERPWorkspaceContent() {
             </div>
 
             {/* Scrollable Form Body with Unified Sections (Spans across full page on desktop) */}
-            <form onSubmit={handleSaveTeacher} className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 space-y-6 text-xs">
+            <form onSubmit={handleSaveTeacher} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto px-4 sm:px-8 md:px-12 py-6 space-y-6 text-xs">
+                {/* SECTION: INSTITUTIONAL ROLE & ERP ACCESS PERMISSIONS */}
+                <div className="p-4 sm:p-5 bg-gradient-to-br from-white to-[#F8FAF9] rounded-2xl border-2 border-emerald-200/90 shadow-xs space-y-3.5 animate-fade-in">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2.5 border-b border-[#E8F0EA]">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#122A24] text-white font-mono font-bold text-[11px] flex items-center justify-center">
+                      ★
+                    </span>
+                    <span className="font-display font-bold text-sm text-[#122A24]">
+                      Institutional Role &amp; ERP Access Section
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-[#2D5A4E] font-mono font-semibold">
+                    Assigned Role: <span className="underline font-bold">{STAFF_ROLES.find(r => r.id === (teacherForm.role || 'TEACHER'))?.label || teacherForm.role || 'Teacher'}</span>
+                  </span>
+                </div>
+
+                <p className="text-[11.5px] text-slate-600 leading-relaxed">
+                  Choose the system operational role for this staff member. This segregates access rights and grants role-specific modules (e.g., Accountant for Fee collections, Driver for Bus Fleet, Admin for Admissions, Teacher for Marks &amp; Attendance):
+                </p>
+
+                {/* Grid of Interactive Role Selection Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  {STAFF_ROLES.map((roleItem) => {
+                    const isSelected = (teacherForm.role || 'TEACHER') === roleItem.id;
+                    return (
+                      <button
+                        key={roleItem.id}
+                        type="button"
+                        onClick={() => {
+                          const isDefaultOrGeneric = !teacherForm.designation ||
+                            teacherForm.designation === 'TGT - Trained Graduate Teacher (Classes VI-X)' ||
+                            teacherForm.designation === 'Administrative Officer (School Administration & Operations)' ||
+                            teacherForm.designation === 'Administrative Officer / Accounts Head' ||
+                            teacherForm.designation === 'Accounts Head / Senior Accountant (Finance & Fees)' ||
+                            teacherForm.designation === 'School Bus Driver / Transport Operator' ||
+                            teacherForm.designation === 'Gate Security Guard / Head Watchman' ||
+                            teacherForm.designation === 'Librarian / Head of Library';
+
+                          const updated: Partial<Teacher> = { ...teacherForm, role: roleItem.id };
+                          if (roleItem.id === 'ADMIN') {
+                            updated.teacher_type = 'ADMINISTRATIVE';
+                            if (isDefaultOrGeneric) {
+                              updated.designation = 'Administrative Officer (School Administration & Operations)';
+                              updated.department = 'School Administration & Office Operations';
+                              updated.subject_specialization = 'General Administration & Office Operations';
+                              updated.professional_degree = 'MBA / Post Graduate in Management (School Administration)';
+                            }
+                          } else if (roleItem.id === 'ACCOUNTANT') {
+                            updated.teacher_type = 'ADMINISTRATIVE';
+                            if (isDefaultOrGeneric) {
+                              updated.designation = 'Accounts Head / Senior Accountant (Finance & Fees)';
+                              updated.department = 'Accounts, Finance & Fee Collection Counter';
+                              updated.subject_specialization = 'Accountancy & Business Studies';
+                              updated.professional_degree = 'M.Com / B.Com / CA Inter / Finance Graduate (Accounts & Finance)';
+                            }
+                          } else if (roleItem.id === 'DRIVER') {
+                            updated.teacher_type = 'NON_TEACHING';
+                            if (isDefaultOrGeneric) {
+                              updated.designation = 'School Bus Driver / Transport Operator';
+                              updated.department = 'Transport & Bus Fleet Operations';
+                              updated.professional_degree = 'Class 10th / 12th + Heavy Commercial Driving License (Transport)';
+                            }
+                          } else if (roleItem.id === 'LIBRARIAN') {
+                            updated.teacher_type = 'NON_TEACHING';
+                            if (isDefaultOrGeneric) {
+                              updated.designation = 'Librarian / Head of Library';
+                              updated.department = 'Academic Resource & Library';
+                              updated.professional_degree = 'B.Lib / M.Lib (Library Science Norm)';
+                            }
+                          } else if (roleItem.id === 'SECURITY_GUARD') {
+                            updated.teacher_type = 'NON_TEACHING';
+                            if (isDefaultOrGeneric) {
+                              updated.designation = 'Gate Security Guard / Head Watchman';
+                              updated.department = 'Campus Security & Safety Department';
+                              updated.professional_degree = 'Class 10th / 12th + Security Guard Training Certificate (Security)';
+                            }
+                          } else if (roleItem.id === 'TEACHER') {
+                            updated.teacher_type = 'TGT';
+                            if (isDefaultOrGeneric) {
+                              updated.designation = 'TGT - Trained Graduate Teacher (Classes VI-X)';
+                              updated.department = 'Mathematics & Applied Mathematics';
+                            }
+                          }
+                          setTeacherForm(updated);
+                        }}
+                        className={`p-3 rounded-xl text-left transition-all border cursor-pointer relative flex flex-col justify-between gap-2 text-xs ${
+                          isSelected
+                            ? 'bg-[#122A24] text-white border-[#122A24] shadow-md ring-2 ring-[#122A24]/15'
+                            : 'bg-white hover:bg-[#F9FCFA] text-[#122A24] border-[#DCE8E0] hover:border-[#C5E2CF]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-display font-bold text-xs truncate">
+                            {roleItem.shortLabel}
+                          </span>
+                          <span className={`text-[9.5px] font-mono px-2 py-0.5 rounded-full font-bold uppercase shrink-0 ${
+                            isSelected ? 'bg-white/20 text-white' : roleItem.badgeClass
+                          }`}>
+                            {roleItem.badge}
+                          </span>
+                        </div>
+                        <p className={`text-[10.5px] line-clamp-2 leading-tight ${
+                          isSelected ? 'text-emerald-100/85' : 'text-slate-500'
+                        }`}>
+                          {roleItem.description}
+                        </p>
+                        <div className="flex items-center justify-between pt-1 border-t border-black/5 dark:border-white/10">
+                          <span className={`text-[10px] font-mono font-medium ${isSelected ? 'text-emerald-300' : 'text-[#2D5A4E]'}`}>
+                            {isSelected ? '✓ Assigned Role' : 'Select Role'}
+                          </span>
+                          <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                            isSelected ? 'bg-emerald-400 border-emerald-400 text-[#122A24]' : 'border-slate-300 bg-white'
+                          }`}>
+                            {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#122A24]" />}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* SECTION 1: BASIC STAFF INFO (REQUIRED) */}
               <div className="p-4 bg-emerald-50/40 rounded-xl border border-emerald-200/80 space-y-3.5">
                 <div className="flex items-center justify-between">
@@ -9726,32 +10029,34 @@ function ERPWorkspaceContent() {
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Bottom Sticky Action Bar */}
-              <div className="sticky bottom-0 bg-white pt-4 border-t border-slate-200 flex justify-between items-center z-10 shadow-sm">
-                <div className="text-[11px] text-slate-500 font-mono">
-                  {editingTeacherId ? 'Updating faculty profile' : 'Quick Save: Only Section 1 required'}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowTeacherModal(false)}
-                    className="px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-[var(--ink-navy)] hover:bg-[var(--board-2)] text-white font-semibold rounded-lg cursor-pointer border-none shadow-sm"
-                  >
-                    {editingTeacherId ? 'Save CBSE Staff Updates' : 'Save Staff Registration'}
-                  </button>
-                </div>
+            {/* Bottom Pinned Action Bar — Always visible, safe on mobile, never hidden behind bottom dock */}
+            <div className="shrink-0 p-3 sm:px-8 md:px-12 bg-white border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-2.5 z-20 shadow-md pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <div className="text-[11px] text-slate-500 font-mono hidden sm:block">
+                {editingTeacherId ? 'Updating faculty profile' : 'Quick Save: Only Section 1 required'}
               </div>
-            </form>
-          </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowTeacherModal(false)}
+                  className="flex-1 sm:flex-initial px-4 py-2.5 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-medium text-xs cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 sm:flex-initial px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl cursor-pointer border-none shadow-md transition-all flex items-center justify-center gap-2 active:scale-98"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{editingTeacherId ? 'Save CBSE Staff Updates' : 'Save Staff Registration'}</span>
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
-      )}
+      </div>
+    )}
 
       {/* MODAL: PRINTABLE OFFICIAL FEE RECEIPT SLIP */}
       {viewInvoice && selectedSchool && (

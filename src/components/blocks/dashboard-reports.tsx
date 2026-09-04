@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { School, Student, Teacher, ClassRoom, FeeInvoice, AttendanceRecord } from '@/lib/types';
+import { School, Student, Teacher, ClassRoom, FeeInvoice, AttendanceRecord, resolveTeacherRole, STAFF_ROLES } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 import {
@@ -46,6 +46,7 @@ export function DashboardReports({
   const [searchFilter, setSearchFilter] = useState('');
   const [classFilter, setClassFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [staffRoleFilter, setStaffRoleFilter] = useState('ALL');
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   // Sorted unique class list
@@ -362,16 +363,18 @@ export function DashboardReports({
 
   const filteredTeachersDossier = useMemo(() => {
     return teachers.filter(t => {
+      if (staffRoleFilter !== 'ALL' && resolveTeacherRole(t) !== staffRoleFilter) return false;
       if (searchFilter) {
         const q = searchFilter.toLowerCase();
         const teacherName = (t.full_name || (t as any).name || '').toLowerCase();
         const teacherSubj = ((t as any).subject || t.department || '').toLowerCase();
         const empCode = ((t as any).employee_code || t.staff_code || '').toLowerCase();
-        return teacherName.includes(q) || empCode.includes(q) || teacherSubj.includes(q);
+        const roleStr = resolveTeacherRole(t).toLowerCase();
+        return teacherName.includes(q) || empCode.includes(q) || teacherSubj.includes(q) || roleStr.includes(q);
       }
       return true;
     });
-  }, [teachers, searchFilter]);
+  }, [teachers, searchFilter, staffRoleFilter]);
 
   // Dynamic Official Institutional Report Document Configurator
   const modalReportConfig = useMemo(() => {
@@ -566,6 +569,7 @@ export function DashboardReports({
         const columns: ReportColumn[] = [
           { header: 'Emp Code', render: (t) => (t as any).employee_code || t.staff_code || t.id, width: '100px' },
           { header: 'Faculty Name', render: (t) => t.full_name || (t as any).name },
+          { header: 'ERP Role', render: (t) => resolveTeacherRole(t).replace('_', ' ') },
           { header: 'Designation', key: 'designation' },
           { header: 'Primary Subject', render: (t) => (t as any).subject || t.department || 'All General' },
           { header: 'Qualification', render: (t) => t.qualification || 'B.Ed / Post Graduate' },
@@ -574,6 +578,7 @@ export function DashboardReports({
         ];
         const filterSummary = [
           { label: 'Total Faculty', value: `${filteredTeachersDossier.length} Staff Members` },
+          ...(staffRoleFilter !== 'ALL' ? [{ label: 'Operational Role', value: staffRoleFilter }] : []),
           ...(searchFilter ? [{ label: 'Search Query', value: `"${searchFilter}"` }] : [])
         ];
         const statsSummary = [
@@ -656,13 +661,14 @@ export function DashboardReports({
       });
     } else if (reportSubTab === 'employee_dossier') {
       csvContent += `Central School ERP - Faculty & Staff Statutory Employment Dossier - Session ${session}\r\n`;
-      csvContent += "Employee Code,Faculty Name,Designation,Primary Subject,Qualification,Experience (Yrs),Phone,Email,OASIS ID,PAN No,Status\r\n";
+      csvContent += "Employee Code,Faculty Name,ERP Role,Designation,Primary Subject,Qualification,Experience (Yrs),Phone,Email,OASIS ID,PAN No,Status\r\n";
       filteredTeachersDossier.forEach(t => {
         const empCode = (t as any).employee_code || t.staff_code || t.id;
         const facName = t.full_name || (t as any).name || 'Teacher';
+        const erpRole = resolveTeacherRole(t);
         const primarySubj = (t as any).subject || t.department || 'All Subjects';
         const oasisId = (t as any).oasis_id || t.staff_code || 'OASIS-2026';
-        csvContent += `"${empCode}","${facName}","${t.designation || 'Teacher'}","${primarySubj}","${t.qualification || 'Post Graduate / B.Ed'}",${(t as any).experience_years || 6},"${t.phone || 'N/A'}","${t.email || 'N/A'}","${oasisId}","${(t as any).pan_no || 'ABCDE1234F'}","${t.status || 'Active'}"\r\n`;
+        csvContent += `"${empCode}","${facName}","${erpRole}","${t.designation || 'Teacher'}","${primarySubj}","${t.qualification || 'Post Graduate / B.Ed'}",${(t as any).experience_years || 6},"${t.phone || 'N/A'}","${t.email || 'N/A'}","${oasisId}","${(t as any).pan_no || 'ABCDE1234F'}","${t.status || 'Active'}"\r\n`;
       });
     }
 
@@ -1599,6 +1605,21 @@ export function DashboardReports({
             </div>
 
             <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
+              {/* Role Filter Selector */}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24]">
+                <span className="text-[#2D5A4E] text-[11px] font-mono">Role:</span>
+                <select
+                  value={staffRoleFilter}
+                  onChange={(e) => setStaffRoleFilter(e.target.value)}
+                  className="bg-transparent border-none text-xs font-semibold text-[#122A24] focus:outline-none cursor-pointer pr-1"
+                >
+                  <option value="ALL">All Roles ({teachers.length})</option>
+                  {STAFF_ROLES.map(sr => (
+                    <option key={sr.id} value={sr.id}>{sr.shortLabel}</option>
+                  ))}
+                </select>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setIsReportModalOpen(true)}
@@ -1624,6 +1645,7 @@ export function DashboardReports({
                 <tr className="border-b border-[#E8F0EA] text-[10.5px] font-mono text-slate-500 uppercase bg-[#F8FAF9]">
                   <th className="py-3 px-3.5 font-bold">EMP CODE</th>
                   <th className="py-3 px-3 font-bold">FACULTY NAME</th>
+                  <th className="py-3 px-3 font-bold">ERP ROLE</th>
                   <th className="py-3 px-3 font-bold">DESIGNATION</th>
                   <th className="py-3 px-3 font-bold">PRIMARY SUBJECT</th>
                   <th className="py-3 px-3 font-bold">QUALIFICATION</th>
@@ -1636,6 +1658,11 @@ export function DashboardReports({
                   <tr key={t.id} className="hover:bg-[#F9FCFA] transition-colors">
                     <td className="py-3 px-3.5 font-bold text-[#122A24]">{(t as any).employee_code || t.staff_code || t.id}</td>
                     <td className="py-3 px-3 font-sans font-bold text-[#122A24]">{t.full_name || (t as any).name}</td>
+                    <td className="py-3 px-3">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                        {resolveTeacherRole(t).replace('_', ' ')}
+                      </span>
+                    </td>
                     <td className="py-3 px-3 font-sans">{t.designation || 'Teacher'}</td>
                     <td className="py-3 px-3">{(t as any).subject || t.department || 'All General'}</td>
                     <td className="py-3 px-3 text-slate-600">{t.qualification || 'B.Ed / Post Graduate'}</td>
@@ -1649,7 +1676,7 @@ export function DashboardReports({
                 ))}
                 {filteredTeachersDossier.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-10 text-center text-slate-400 font-mono text-xs">
+                    <td colSpan={8} className="py-10 text-center text-slate-400 font-mono text-xs">
                       No staff records match the selected filter.
                     </td>
                   </tr>

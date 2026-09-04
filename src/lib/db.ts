@@ -17,7 +17,8 @@ import {
   FeeInvoice,
   Holiday,
   SchoolOverview,
-  ScheduledExamItem
+  ScheduledExamItem,
+  resolveTeacherRole
 } from './types';
 import { getDefaultCbseSubjectsForClass, sortClassesChronologically } from './cbse-subjects';
 
@@ -151,11 +152,13 @@ let isIndexesInitialized = false;
 
 async function ensureIndexes() {
   if (isIndexesInitialized || !isMongoConfigured()) return;
+  isIndexesInitialized = true;
   try {
     const db = await getDatabase();
     if (!db) return;
 
-    await Promise.all([
+    // Build indexes in background without blocking API queries
+    Promise.all([
       db.collection('schools').createIndex({ school_code: 1 }, { unique: true }),
       db.collection('schools').createIndex({ id: 1 }),
       db.collection('demo_requests').createIndex({ id: 1 }),
@@ -168,9 +171,9 @@ async function ensureIndexes() {
       db.collection('fee_invoices').createIndex({ school_id: 1, academic_session: 1, invoice_no: 1 }),
       db.collection('holidays').createIndex({ school_id: 1, academic_session: 1, start_date: 1, end_date: 1 }),
       db.collection('exams').createIndex({ school_id: 1, academic_session: 1, date: -1 }),
-    ]);
-
-    isIndexesInitialized = true;
+    ]).catch((e) => {
+      console.warn('[MongoDB] Index setup note:', e.message);
+    });
   } catch (e: any) {
     console.warn('[MongoDB] Index setup note:', e.message);
   }
@@ -712,26 +715,12 @@ export const Database = {
         const desig = (matchedTeacher.designation || '').toLowerCase();
         const dept = (matchedTeacher.department || '').toLowerCase();
 
+        const resolved = resolveTeacherRole(matchedTeacher);
         let assignedRole: 'PRINCIPAL' | 'VICE_PRINCIPAL' | 'ADMIN' | 'TEACHER' | 'ACCOUNTANT' | 'DRIVER' | 'LIBRARIAN' | 'SECURITY_GUARD' = 'TEACHER';
-        if (desig.includes('vice principal') || dept.includes('vice principal')) {
-          assignedRole = 'VICE_PRINCIPAL';
-        } else if (roleUpper === 'DRIVER' || desig.includes('driver') || dept.includes('transport') || (matchedTeacher.staff_code || '').startsWith('DRV') || (matchedTeacher.staff_code || '').startsWith('BUS')) {
-          assignedRole = 'DRIVER';
-        } else if (roleUpper === 'LIBRARIAN' || desig.includes('librar') || dept.includes('library') || (matchedTeacher.staff_code || '').startsWith('LIB')) {
-          assignedRole = 'LIBRARIAN';
-        } else if (roleUpper === 'SECURITY_GUARD' || roleUpper === 'GUARD' || roleUpper === 'SECURITY' || desig.includes('guard') || desig.includes('security') || (matchedTeacher.staff_code || '').startsWith('SEC')) {
-          assignedRole = 'SECURITY_GUARD';
-        } else if (roleUpper === 'ACCOUNTANT' || desig.includes('account') || dept.includes('account') || (matchedTeacher.staff_code || '').startsWith('ACC')) {
-          assignedRole = 'ACCOUNTANT';
-        } else if (
-          roleUpper === 'ADMIN' ||
-          matchedTeacher.teacher_type === 'ADMINISTRATIVE' ||
-          desig.includes('admin') ||
-          desig.includes('officer') ||
-          dept.includes('admin') ||
-          dept.includes('operation')
-        ) {
-          assignedRole = 'ADMIN';
+        if (desig.includes('principal') && !desig.includes('vice')) {
+          assignedRole = 'PRINCIPAL';
+        } else if (resolved === 'ADMIN' || resolved === 'VICE_PRINCIPAL' || resolved === 'ACCOUNTANT' || resolved === 'DRIVER' || resolved === 'LIBRARIAN' || resolved === 'SECURITY_GUARD' || resolved === 'TEACHER') {
+          assignedRole = resolved as any;
         }
 
         const isElevated = assignedRole === 'ADMIN' || assignedRole === 'VICE_PRINCIPAL';
@@ -1172,6 +1161,7 @@ export const Database = {
         if (results) {
           return results.map(sanitizeDoc<Teacher>).map(ensureTeacherGender).map(t => ({
             ...t,
+            role: t.role || resolveTeacherRole(t),
             academic_session: t.academic_session || '2026-27'
           }));
         }
@@ -1184,12 +1174,12 @@ export const Database = {
       return memoryStore.teachers
         .filter(t => ids.includes(t.school_id) && matchesSession(t, targetSession))
         .map(ensureTeacherGender)
-        .map(t => ({ ...t, academic_session: t.academic_session || '2026-27' }));
+        .map(t => ({ ...t, role: t.role || resolveTeacherRole(t), academic_session: t.academic_session || '2026-27' }));
     }
     return memoryStore.teachers
       .filter(t => matchesSession(t, targetSession))
       .map(ensureTeacherGender)
-      .map(t => ({ ...t, academic_session: t.academic_session || '2026-27' }));
+      .map(t => ({ ...t, role: t.role || resolveTeacherRole(t), academic_session: t.academic_session || '2026-27' }));
   },
 
   async createTeacher(teacherData: Partial<Teacher>): Promise<Teacher> {
@@ -1204,6 +1194,7 @@ export const Database = {
       full_name: teacherData.full_name || 'New Faculty',
       department: teacherData.department || 'General',
       designation: teacherData.designation || 'Teacher',
+      role: teacherData.role || resolveTeacherRole(teacherData),
       qualification: teacherData.qualification || '',
       phone: teacherData.phone || '',
       email: teacherData.email || '',
@@ -1212,6 +1203,7 @@ export const Database = {
       ...teacherData
     };
     teacher.academic_session = academic_session;
+    teacher.role = teacher.role || resolveTeacherRole(teacher);
 
     // Offload heavy Base64 image to Local Media Vault
     if (teacher.photo && teacher.photo.startsWith('data:')) {
@@ -1716,7 +1708,8 @@ export const Database = {
       total_students: data.total_students !== undefined ? Number(data.total_students) : 30,
       present_count: data.present_count !== undefined ? Number(data.present_count) : 30,
       absent_count: data.absent_count !== undefined ? Number(data.absent_count) : 0,
-      leave_count: data.leave_count !== undefined ? Number(data.leave_count) : 0,
+      leave_count: data.leave_count !== undefined ? Number(data.leave_count) : (data.holiday_count !== undefined ? Number(data.holiday_count) : 0),
+      holiday_count: data.holiday_count !== undefined ? Number(data.holiday_count) : (data.leave_count !== undefined ? Number(data.leave_count) : 0),
       marked_by: data.marked_by || 'Admin',
       student_records: Array.isArray(data.student_records) ? data.student_records : [],
       teacher_records: Array.isArray(data.teacher_records) ? data.teacher_records : [],
@@ -2102,10 +2095,12 @@ export const Database = {
   // OVERVIEW STATS
   async getSchoolOverview(schoolId: string, session?: string): Promise<SchoolOverview> {
     const targetSession = session || '2026-27';
-    const students = await this.getStudents(schoolId, targetSession);
-    const teachers = await this.getTeachers(schoolId, targetSession);
-    const attendance = await this.getAttendance(schoolId, targetSession);
-    const invoices = await this.getFeeInvoices(schoolId, targetSession);
+    const [students, teachers, attendance, invoices] = await Promise.all([
+      this.getStudents(schoolId, targetSession),
+      this.getTeachers(schoolId, targetSession),
+      this.getAttendance(schoolId, targetSession),
+      this.getFeeInvoices(schoolId, targetSession)
+    ]);
 
     const totalStudents = students.length;
     const totalTeachers = teachers.length;
