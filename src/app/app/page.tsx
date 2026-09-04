@@ -1281,11 +1281,15 @@ function ERPWorkspaceContent() {
 
   useEffect(() => {
     setMounted(true);
-    // 0ms INSTANT SWR CACHE HYDRATION: Restore full state from local cache in 0ms on mount
+    // Strict Access Control: Redirect to /login if user is not authenticated
     if (typeof window !== 'undefined') {
+      const storedUser = localStorage.getItem('current_user');
+      if (!storedUser) {
+        window.location.replace('/login');
+        return;
+      }
       try {
         const storedSchool = localStorage.getItem('current_school');
-        const storedUser = localStorage.getItem('current_user');
         if (storedSchool) {
           const parsedSchool = JSON.parse(storedSchool);
           setSelectedSchool(parsedSchool);
@@ -1304,9 +1308,7 @@ function ERPWorkspaceContent() {
             setLoading(false);
           }
         }
-        if (storedUser) {
-          try { setCurrentUser(JSON.parse(storedUser)); } catch (e) {}
-        }
+        try { setCurrentUser(JSON.parse(storedUser)); } catch (e) {}
       } catch (e) {}
     }
     fetchAuthenticatedSchool();
@@ -1315,6 +1317,13 @@ function ERPWorkspaceContent() {
   const fetchAuthenticatedSchool = async () => {
     let hasLocalCache = false;
     try {
+      if (typeof window !== 'undefined') {
+        const storedUser = localStorage.getItem('current_user');
+        if (!storedUser) {
+          window.location.replace('/login');
+          return;
+        }
+      }
       const schoolParam = searchParams.get('school');
       let targetSchool: School | null = null;
 
@@ -1409,23 +1418,15 @@ function ERPWorkspaceContent() {
           } catch (e) {}
         }
         
-        // Automatic Workspace Initialization: Default to School Admin for seamless access
+        // Strict Access Control: No 1-click or auto-login fallback.
+        // User MUST have authenticated with school code, ID, and passcode at /login.
         if (!activeUserObj) {
-          const defaultAdminUser = {
-            id: targetSchool.admin_id || 'admin',
-            school_id: targetSchool.id,
-            username: targetSchool.admin_id || 'admin',
-            role: 'PRINCIPAL',
-            full_name: targetSchool.principal_name || targetSchool.admin_name || 'Dr. Rajesh Sharma',
-            email: `admin@${(targetSchool.school_code || 'dps2026').toLowerCase()}.edu`,
-            status: 'ACTIVE',
-            permissions: ['ALL_PERMISSIONS', 'SCHOOL_ADMIN', 'MODIFY_ANY', 'DELETE_ANY', 'CREATE_ANY']
-          };
-          activeUserObj = defaultAdminUser;
-          setCurrentUser(defaultAdminUser);
           if (typeof window !== 'undefined') {
-            localStorage.setItem('current_user', JSON.stringify(defaultAdminUser));
+            window.location.replace('/login');
+          } else {
+            router.replace('/login');
           }
+          return;
         }
         
         const activePrincipalName = targetSchool.principal_name || targetSchool.admin_name || activeUserObj?.full_name || 'Dr. Rajesh Sharma';

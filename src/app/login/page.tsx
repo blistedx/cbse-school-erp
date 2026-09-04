@@ -170,8 +170,28 @@ export default function LoginPage() {
     setError('');
     setSuccess('');
 
-    const isGod = userId.trim().toLowerCase() === 'blistedx';
-    const effectiveSchoolCode = schoolCode.trim().toUpperCase() || (isGod ? 'DPS2026' : '');
+    const cleanSchoolCode = schoolCode.trim().toUpperCase();
+    const cleanUserId = userId.trim();
+    const cleanPassword = password.trim();
+
+    const isGod = cleanUserId.toLowerCase() === 'blistedx';
+    const effectiveSchoolCode = cleanSchoolCode || (isGod ? 'DPS2026' : '');
+
+    if (!cleanSchoolCode && !isGod) {
+      setError('School Code is required.');
+      setLoading(false);
+      return;
+    }
+    if (!cleanUserId) {
+      setError('User ID / Staff Code / Admission No is required.');
+      setLoading(false);
+      return;
+    }
+    if (!cleanPassword) {
+      setError('Passcode / Password is required.');
+      setLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -179,8 +199,8 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           school_code: effectiveSchoolCode,
-          username: userId.trim(),
-          password: password.trim()
+          username: cleanUserId,
+          password: cleanPassword
         })
       });
 
@@ -299,48 +319,49 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin}>
             <div className="field">
-              <label htmlFor="schoolCode">School code</label>
+              <label htmlFor="schoolCode">School Code</label>
               <input
                 type="text"
                 id="schoolCode"
                 name="schoolCode"
                 value={schoolCode}
                 onChange={(e) => setSchoolCode(e.target.value)}
-                placeholder="e.g. VDY-APS-014"
+                placeholder="e.g. DPS2026"
                 autoComplete="organization"
-                required={userId.trim().toLowerCase() !== 'blistedx'}
+                required
                 style={{ textTransform: 'uppercase' }}
               />
-              <p className="hint">issued when your school was set up</p>
+              <p className="hint">Enter the official School Code provided by your institution</p>
             </div>
 
             <div className="field">
-              <label htmlFor="userId" id="idLabel">User ID / Employee Code / Admission No</label>
+              <label htmlFor="userId" id="idLabel">User ID / Staff Code / Admission No</label>
               <input
                 type="text"
                 id="userId"
                 name="userId"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                placeholder="e.g. admin, FAC-101, ACC-01, BUS-04, SEC-01, ADM No"
+                placeholder="e.g. admin, EMP-202601, DPS-2026-0001"
                 autoComplete="username"
                 required
               />
-              <p className="hint" id="idHint">Your institutional Staff Code, Admission Number or Admin ID</p>
+              <p className="hint" id="idHint">Your official login ID, Employee Code, or Admission Number</p>
             </div>
 
             <div className="field">
-              <label htmlFor="password">Password</label>
+              <label htmlFor="password">Passcode / Password</label>
               <input
                 type="password"
                 id="password"
                 name="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Enter your security passcode"
                 autoComplete="current-password"
                 required
               />
+              <p className="hint">Confidential security PIN / passcode</p>
             </div>
 
             <div className="row-between">
@@ -353,7 +374,7 @@ export default function LoginPage() {
                 />{' '}
                 Keep me signed in
               </label>
-              <a href="#">Forgot password?</a>
+              <a href="#">Forgot passcode?</a>
             </div>
 
             {error && (
@@ -372,37 +393,6 @@ export default function LoginPage() {
               <span className="stamp-icon">✓</span>
               {loading ? 'Authenticating...' : 'Sign in to ERP'}
             </button>
-
-            {/* 1-Click Instant Access Presets */}
-            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px dashed #DCE8E0' }}>
-              <p style={{ fontSize: '10.5px', fontFamily: 'monospace', fontWeight: 'bold', color: '#1C443A', textTransform: 'uppercase', marginBottom: '8px', textAlign: 'center' }}>
-                ⚡ Quick 1-Click Access
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSchoolCode('DPS2026');
-                    setUserId('admin');
-                    setPassword('123456');
-                  }}
-                  style={{ padding: '8px', borderRadius: '10px', border: '1px solid #A7F3D0', backgroundColor: '#ECFDF5', color: '#065F46', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer', textAlign: 'center' }}
-                >
-                  👑 Principal / Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSchoolCode('DPS2026');
-                    setUserId('EMP-202602');
-                    setPassword('123456');
-                  }}
-                  style={{ padding: '8px', borderRadius: '10px', border: '1px solid #BFDBFE', backgroundColor: '#EFF6FF', color: '#1E40AF', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer', textAlign: 'center' }}
-                >
-                  👩‍🏫 Faculty / Teacher
-                </button>
-              </div>
-            </div>
           </form>
 
           <Link className="back" href="/">← Back to Giterp</Link>
