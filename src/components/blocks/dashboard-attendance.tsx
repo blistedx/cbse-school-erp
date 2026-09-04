@@ -1389,20 +1389,25 @@ export function DashboardAttendance({
             <div className="block lg:hidden space-y-2 pb-24">
               {filteredRosterList.map((item: any, idx: number) => {
                 const currentStatus = studentStatuses[item.id] || 'PRESENT';
+                const isEven = idx % 2 === 0;
                 return (
                   <div
                     key={item.id}
-                    className={`px-3 py-2.5 rounded-xl border transition-all bg-white flex items-center justify-between gap-2 shadow-2xs ${
-                      currentStatus === 'PRESENT'
-                        ? 'border-emerald-200/90 bg-emerald-50/20 border-l-[3.5px] border-l-emerald-600'
-                        : currentStatus === 'ABSENT'
-                        ? 'border-rose-200/90 bg-rose-50/25 border-l-[3.5px] border-l-rose-600'
-                        : 'border-blue-200/90 bg-blue-50/25 border-l-[3.5px] border-l-blue-600'
+                    className={`px-3 py-2.5 rounded-xl border transition-all flex items-center justify-between gap-2 shadow-2xs ${
+                      isEven
+                        ? 'bg-white border-[#DCE8E0]'
+                        : 'bg-[#F0F8F3] border-[#CDE3D5]'
                     }`}
                   >
                     {/* Left: Roll No + Student / Faculty Details */}
                     <div className="min-w-0 flex-1 flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-md bg-[#F0F4F2] text-[#122A24] font-mono font-bold text-[11px] flex items-center justify-center shrink-0 border border-[#DCE8E0]">
+                      <span
+                        className={`w-6 h-6 rounded-md font-mono font-bold text-[11px] flex items-center justify-center shrink-0 border ${
+                          isEven
+                            ? 'bg-[#F0F4F2] text-[#122A24] border-[#DCE8E0]'
+                            : 'bg-white text-[#122A24] border-[#CDE3D5]'
+                        }`}
+                      >
                         {item.roll_no || idx + 1}
                       </span>
                       <div className="min-w-0 flex-1">
@@ -1540,8 +1545,16 @@ export function DashboardAttendance({
                   <tbody className="divide-y divide-[#EBF2ED] text-xs">
                     {filteredRosterList.map((item: any, idx: number) => {
                       const currentStatus = studentStatuses[item.id] || 'PRESENT';
+                      const isEven = idx % 2 === 0;
                       return (
-                        <tr key={item.id} className="hover:bg-[#F9FCFA] transition-colors">
+                        <tr
+                          key={item.id}
+                          className={`transition-colors ${
+                            isEven
+                              ? 'bg-white hover:bg-emerald-50/40'
+                              : 'bg-[#F0F8F3] hover:bg-[#E4F2E9]'
+                          }`}
+                        >
                           <td className="py-3 px-4 text-center font-mono font-bold text-slate-400">
                             {item.roll_no || idx + 1}
                           </td>
@@ -1865,12 +1878,16 @@ export function DashboardAttendance({
                         return dow !== 0 && !getHolidayForDate(dtStr) && dtStr <= todayDateStr;
                       }).length;
 
+                      const isEven = sIdx % 2 === 0;
+                      const rowBg = isEven ? 'bg-white' : 'bg-[#F0F8F3]';
+                      const hoverBg = isEven ? 'hover:bg-emerald-50/40' : 'hover:bg-[#E4F2E9]';
+
                       return (
-                        <tr key={stu.id} className="hover:bg-[#F9FCFA] transition-colors">
-                          <td className="py-2.5 px-3 text-center font-bold text-[#122A24] sticky left-0 bg-white group-hover:bg-[#F9FCFA] border-r border-[#E8F0EA]">
+                        <tr key={stu.id} className={`${rowBg} ${hoverBg} transition-colors`}>
+                          <td className={`py-2.5 px-3 text-center font-bold text-[#122A24] sticky left-0 ${rowBg} border-r border-[#E8F0EA]`}>
                             {stu.roll_no || sIdx + 1}
                           </td>
-                          <td className="py-2.5 px-4 font-sans font-bold text-[#122A24] sticky left-10 bg-white group-hover:bg-[#F9FCFA] border-r border-[#E8F0EA] truncate max-w-[180px]">
+                          <td className={`py-2.5 px-4 font-sans font-bold text-[#122A24] sticky left-10 ${rowBg} border-r border-[#E8F0EA] truncate max-w-[180px]`}>
                             {stu.full_name}
                           </td>
                           {daysArray.map(d => {
@@ -2082,8 +2099,17 @@ export function DashboardAttendance({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#EBF2ED] text-xs">
-                    {classSummaryData.map((item) => (
-                      <tr key={item.cls.id} className="hover:bg-[#F9FCFA] transition-colors">
+                    {classSummaryData.map((item, idx) => {
+                      const isEven = idx % 2 === 0;
+                      return (
+                        <tr
+                          key={item.cls.id}
+                          className={`transition-colors ${
+                            isEven
+                              ? 'bg-white hover:bg-emerald-50/40'
+                              : 'bg-[#F0F8F3] hover:bg-[#E4F2E9]'
+                          }`}
+                        >
                         <td className="py-3 px-4 font-bold text-[#122A24]">
                           {item.cls.class_name} - Section {item.cls.section}
                         </td>
@@ -2145,7 +2171,8 @@ export function DashboardAttendance({
                           </button>
                         </td>
                       </tr>
-                    ))}
+                    );
+                  })}
                   </tbody>
                 </table>
               </div>
@@ -2200,8 +2227,16 @@ export function DashboardAttendance({
                           facStatus = rec.status || 'PRESENT';
                         }
                       }
+                      const isEven = idx % 2 === 0;
                       return (
-                        <tr key={t.id} className="hover:bg-[#F9FCFA] transition-colors">
+                        <tr
+                          key={t.id}
+                          className={`transition-colors ${
+                            isEven
+                              ? 'bg-white hover:bg-emerald-50/40'
+                              : 'bg-[#F0F8F3] hover:bg-[#E4F2E9]'
+                          }`}
+                        >
                           <td className="py-3 px-4 font-mono font-bold text-slate-700">{t.staff_code}</td>
                           <td className="py-3 px-4 font-bold text-[#122A24]">{t.full_name}</td>
                           <td className="py-3 px-4 font-mono text-slate-600">{t.designation || 'Teacher'}</td>

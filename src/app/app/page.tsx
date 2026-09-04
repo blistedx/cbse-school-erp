@@ -5119,10 +5119,17 @@ function ERPWorkspaceContent() {
                             ];
                             const avatarStyle = avatarGradients[idx % avatarGradients.length];
 
+                            const isEven = idx % 2 === 0;
                             return (
                               <tr
                                 key={s.id}
-                                className={`hover:bg-[#F9FCFA] transition-colors ${isSelected ? 'bg-[#EBF5EF]/60' : ''}`}
+                                className={`transition-colors ${
+                                  isSelected
+                                    ? 'bg-emerald-100/70'
+                                    : isEven
+                                    ? 'bg-white hover:bg-emerald-50/40'
+                                    : 'bg-[#F0F8F3] hover:bg-[#E4F2E9]'
+                                }`}
                               >
                                 {/* Selection Checkbox */}
                                 <td className="py-3.5 px-3.5 text-center">
@@ -6247,10 +6254,17 @@ function ERPWorkspaceContent() {
                             ];
                             const avatarStyle = avatarGradients[idx % avatarGradients.length];
 
+                            const isEven = idx % 2 === 0;
                             return (
                               <tr
                                 key={t.id}
-                                className={`hover:bg-[#F9FCFA] transition-colors ${isSelected ? 'bg-[#EBF5EF]/60' : ''}`}
+                                className={`transition-colors ${
+                                  isSelected
+                                    ? 'bg-emerald-100/70'
+                                    : isEven
+                                    ? 'bg-white hover:bg-emerald-50/40'
+                                    : 'bg-[#F0F8F3] hover:bg-[#E4F2E9]'
+                                }`}
                               >
                                 {/* Checkbox */}
                                 <td className="py-3.5 px-3.5 text-center">
@@ -7060,10 +7074,17 @@ function ERPWorkspaceContent() {
                           ).length;
                           const displayStudentsCount = classStudentsCount > 0 ? classStudentsCount : (c.capacity || 30);
 
+                          const isEven = idx % 2 === 0;
                           return (
                             <tr
                               key={c.id}
-                              className={`hover:bg-[#F9FCFA] transition-colors ${isSelected ? 'bg-[#EBF5EF]/60' : ''}`}
+                              className={`transition-colors ${
+                                isSelected
+                                  ? 'bg-emerald-100/70'
+                                  : isEven
+                                  ? 'bg-white hover:bg-emerald-50/40'
+                                  : 'bg-[#F0F8F3] hover:bg-[#E4F2E9]'
+                              }`}
                             >
                               {/* Checkbox */}
                               <td className="py-3.5 px-3.5 text-center">
