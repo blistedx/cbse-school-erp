@@ -96,17 +96,19 @@ export function DashboardAttendance({
   const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
   const [notifyParentsOption, setNotifyParentsOption] = useState<'YES' | 'NO'>('NO');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [savedDetails, setSavedDetails] = useState<{ title: string; subtitle: string }>({ title: '', subtitle: '' });
 
-  const triggerSaveSuccess = useCallback(() => {
+  const triggerSaveSuccess = useCallback((title = 'Attendance Saved!', subtitle = 'Ledger synced successfully') => {
+    setSavedDetails({ title, subtitle });
     setSaveSuccess(true);
     try {
       if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate?.([30, 50, 40]);
+        navigator.vibrate?.(40);
       }
     } catch (_) {}
     setTimeout(() => {
       setSaveSuccess(false);
-    }, 2800);
+    }, 1000); // 1 second animation
   }, []);
 
   // ── IN-APP SLEEK ALERT / NOTIFICATION DIALOG BOX (NO NATIVE BROWSER ALERT) ──
@@ -491,7 +493,10 @@ export function DashboardAttendance({
 
         const data = await res.json();
         if (data.success) {
-          triggerSaveSuccess();
+          triggerSaveSuccess(
+            'Attendance Saved!',
+            sendPushToParents ? `${selectedClass.class_name}-${selectedClass.section} • Alerts Dispatched to Parents` : `${selectedClass.class_name}-${selectedClass.section} Ledger Synced`
+          );
           if (sendPushToParents) {
             // Dispatches notification STRICTLY to parents only
             try {
@@ -509,9 +514,6 @@ export function DashboardAttendance({
                 })
               });
             } catch (_) {}
-            showAdminToast(`Attendance saved! Push alert dispatched strictly to PARENTS.`);
-          } else {
-            showAdminToast(`Attendance for ${selectedClass.class_name}-${selectedClass.section} saved! (No notification sent)`);
           }
 
           loadedContextKeyRef.current = '';
@@ -556,8 +558,10 @@ export function DashboardAttendance({
 
         const data = await res.json();
         if (data.success) {
-          triggerSaveSuccess();
-          showAdminToast(`Faculty attendance saved! (${presentFac}/${totalFaculty} On-Duty)`);
+          triggerSaveSuccess(
+            'Faculty Attendance Saved!',
+            `${presentFac}/${totalFaculty} Faculty Members On-Duty`
+          );
           loadedContextKeyRef.current = '';
           onRefresh();
         } else {
@@ -767,8 +771,7 @@ export function DashboardAttendance({
 
       setSheetEdits({});
       setHasUnsavedSheetChanges(false);
-      triggerSaveSuccess();
-      showAdminToast(`Monthly attendance register updated and saved for ${editedDates.size} date(s)!`);
+      triggerSaveSuccess('Monthly Register Saved!', `${editedDates.size} Date(s) Ledger Committed`);
       onRefresh();
     } catch (err: any) {
       console.error(err);
@@ -1036,24 +1039,42 @@ export function DashboardAttendance({
   return (
     <div className="space-y-3 sm:space-y-6 max-w-7xl mx-auto animate-fade-in text-slate-800">
       
-      {/* ── DELIGHTFUL ANIMATED TICK LOGO CONFIRMATION BADGE ── */}
+      {/* ── SINGLE ATTENDANCE SAVED ANIMATION: CENTERED IN ERP WITH FULL BACKDROP BLUR (1 SEC ANIMATION) ── */}
       {saveSuccess && (
-        <div className="fixed top-14 sm:top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 animate-fade-in px-4 w-full max-w-md">
-          <div className="bg-[#122A24]/95 text-white px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl shadow-2xl border border-emerald-500/60 flex items-center justify-between gap-3 backdrop-blur-md mx-auto">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md animate-tick-pop">
-                <Check className="w-4 h-4 stroke-[3.5] text-white animate-tick-draw" />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs sm:text-sm font-bold text-white tracking-tight leading-tight truncate">
-                  Attendance Saved Successfully!
-                </span>
-                <span className="text-[10.5px] font-mono text-emerald-300 truncate">
-                  {attendanceType === 'STUDENT' ? `${selectedClass?.class_name}-${selectedClass?.section} Ledger Synced` : 'Faculty Directorate Synced'}
-                </span>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-md p-4 animate-in fade-in duration-150 pointer-events-none select-none">
+          <div className="bg-[#122A24] text-white px-7 py-6 sm:px-8 sm:py-7 rounded-3xl shadow-2xl border border-emerald-500/50 flex flex-col items-center text-center max-w-xs sm:max-w-sm w-full mx-auto transform transition-all animate-[tickPop_0.35s_cubic-bezier(0.175,0.885,0.32,1.275)]">
+            {/* Animated Center Checkmark Circle */}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-500/20 border-2 border-emerald-400/70 flex items-center justify-center mb-3.5 shadow-xl shadow-emerald-950/50 animate-tick-pop">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-md">
+                <svg
+                  className="w-7 h-7 sm:w-8 sm:h-8 text-white"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline className="animate-tick-draw" points="20 6 9 17 4 12" />
+                </svg>
               </div>
             </div>
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
+
+            {/* Heading */}
+            <h3 className="font-display font-bold text-lg sm:text-xl text-white tracking-tight">
+              {savedDetails.title || 'Attendance Saved!'}
+            </h3>
+
+            {/* Subtitle */}
+            <p className="text-xs sm:text-[13px] font-mono text-emerald-300 mt-1 font-medium">
+              {savedDetails.subtitle || 'Ledger synced successfully'}
+            </p>
+
+            {/* Pulse Indicator */}
+            <div className="mt-3.5 px-3 py-1 rounded-full bg-emerald-900/60 border border-emerald-500/30 text-[10.5px] font-mono text-emerald-200 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>CBSE Academic Ledger Updated</span>
+            </div>
           </div>
         </div>
       )}
@@ -1347,21 +1368,12 @@ export function DashboardAttendance({
                   type="button"
                   onClick={handleSaveAttendance}
                   disabled={savingAttendance}
-                  className={`hidden sm:flex px-4 py-2 rounded-xl text-white text-xs font-bold shadow-xs cursor-pointer items-center gap-1.5 disabled:opacity-50 transition-all border-none ${
-                    saveSuccess ? 'bg-emerald-600 shadow-emerald-200' : 'bg-[#122A24] hover:bg-[#1C443A]'
-                  }`}
+                  className="hidden sm:flex px-4 py-2 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold shadow-xs cursor-pointer items-center gap-1.5 disabled:opacity-50 transition-all border-none"
                 >
                   {savingAttendance ? (
                     <>
                       <RotateCcw className="h-3.5 w-3.5 animate-spin text-emerald-400" />
                       <span>Saving Ledger...</span>
-                    </>
-                  ) : saveSuccess ? (
-                    <>
-                      <span className="w-4 h-4 rounded-full bg-white text-emerald-600 flex items-center justify-center shrink-0 animate-tick-pop shadow-2xs">
-                        <Check className="w-3 h-3 stroke-[3.5] animate-tick-draw" />
-                      </span>
-                      <span className="text-white font-bold">Saved &amp; Synced!</span>
                     </>
                   ) : (
                     <>
@@ -1495,23 +1507,12 @@ export function DashboardAttendance({
                 type="button"
                 onClick={handleSaveAttendance}
                 disabled={savingAttendance}
-                className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md cursor-pointer border-none flex items-center gap-2 active:scale-95 transition-all shrink-0 ${
-                  saveSuccess
-                    ? 'bg-emerald-600 text-white ring-2 ring-emerald-300 shadow-emerald-200'
-                    : 'bg-[#122A24] hover:bg-[#1C443A] text-white'
-                } disabled:opacity-50`}
+                className="px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md cursor-pointer border-none flex items-center gap-2 active:scale-95 transition-all shrink-0 bg-[#122A24] hover:bg-[#1C443A] text-white disabled:opacity-50"
               >
                 {savingAttendance ? (
                   <>
                     <RotateCcw className="h-4 w-4 animate-spin text-emerald-400" />
                     <span>Saving...</span>
-                  </>
-                ) : saveSuccess ? (
-                  <>
-                    <span className="w-5 h-5 rounded-full bg-white text-emerald-600 flex items-center justify-center shrink-0 animate-tick-pop shadow-xs">
-                      <Check className="w-3.5 h-3.5 stroke-[3.5] animate-tick-draw" />
-                    </span>
-                    <span className="tracking-tight">Saved!</span>
                   </>
                 ) : (
                   <>
