@@ -83,6 +83,7 @@ import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects'
 import { apiFetch } from '@/lib/api-client';
 import { calculateRegistrationFees, DEFAULT_TRANSPORT_FEES } from '@/lib/fee-calculator';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
+import { TaskCompletionOverlay, TaskCelebrationData, TaskCelebrationType } from '@/components/task-completion-overlay';
 
 const DashboardOverview = dynamic(
   () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
@@ -644,22 +645,82 @@ function ERPWorkspaceContent() {
     };
   }, [checkUnreadBroadcasts]);
 
-  const [actionSuccessMsg, setActionSuccessMsg] = useState('');
-  const toastTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [celebrationData, setCelebrationData] = useState<TaskCelebrationData | null>(null);
+  const celebrationTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  const showAdminToast = (msg: string) => {
+  const triggerTaskCelebration = useCallback((
+    typeOrData: TaskCelebrationType | TaskCelebrationData | string,
+    titleOrMsg?: string,
+    subtitle?: string
+  ) => {
+    let data: TaskCelebrationData;
+    if (typeof typeOrData === 'object' && typeOrData !== null) {
+      data = typeOrData as TaskCelebrationData;
+    } else if (typeof typeOrData === 'string') {
+      const fullText = (typeOrData + ' ' + (titleOrMsg || '')).toLowerCase();
+      let type: TaskCelebrationType = 'GENERAL';
+
+      if (fullText.includes('signout') || fullText.includes('logged out') || fullText.includes('signing out') || fullText.includes('logout')) {
+        type = 'SIGNOUT';
+      } else if (fullText.includes('fee') || fullText.includes('payment') || fullText.includes('invoice') || fullText.includes('receipt') || fullText.includes('₹') || fullText.includes('paid')) {
+        type = 'FEES';
+      } else if (fullText.includes('visitor') || fullText.includes('gate pass') || fullText.includes('escort') || fullText.includes('checked out')) {
+        type = 'VISITOR';
+      } else if (fullText.includes('student') || fullText.includes('scholar') || fullText.includes('admission') || fullText.includes('promot')) {
+        type = 'STUDENT';
+      } else if (fullText.includes('faculty') || fullText.includes('teacher') || fullText.includes('staff')) {
+        type = 'FACULTY';
+      } else if (fullText.includes('attendance') || fullText.includes('roll call') || fullText.includes('ledger') || fullText.includes('turnout')) {
+        type = 'ATTENDANCE';
+      } else if (fullText.includes('exam') || fullText.includes('mark') || fullText.includes('grade') || fullText.includes('assessment') || fullText.includes('result')) {
+        type = 'EXAMS';
+      } else if (fullText.includes('homework') || fullText.includes('assignment') || fullText.includes('study material')) {
+        type = 'HOMEWORK';
+      } else if (fullText.includes('broadcast') || fullText.includes('notice') || fullText.includes('circular') || fullText.includes('alert')) {
+        type = 'BROADCAST';
+      } else if (fullText.includes('certificate') || fullText.includes('bonafide') || fullText.includes('transfer cert')) {
+        type = 'CERTIFICATE';
+      } else if (fullText.includes('transport') || fullText.includes('route') || fullText.includes('bus') || fullText.includes('fleet') || fullText.includes('driver')) {
+        type = 'TRANSPORT';
+      } else if (fullText.includes('class') || fullText.includes('division') || fullText.includes('section')) {
+        type = 'CLASS';
+      } else if (fullText.includes('pin') || fullText.includes('password') || fullText.includes('credential') || fullText.includes('security')) {
+        type = 'SECURITY';
+      }
+
+      data = {
+        type,
+        title: titleOrMsg || typeOrData,
+        subtitle: subtitle || 'Ledger updated & synchronized successfully'
+      };
+    } else {
+      data = { type: 'GENERAL', title: 'Action Completed', subtitle: 'Ledger updated successfully' };
+    }
+
+    if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current);
+    setCelebrationData(data);
+
+    try {
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate?.(40);
+      }
+    } catch (_) {}
+
+    celebrationTimerRef.current = setTimeout(() => {
+      setCelebrationData(null);
+    }, 1000); // exactly 1 second animation
+  }, []);
+
+  const showAdminToast = useCallback((msg: string, customSubtitle?: string) => {
     if (!msg) return;
     const cleanMsg = msg
       .replace(/Live MongoDB real-time sync active!/gi, 'Network restored: Live sync active')
       .replace(/MongoDB Atlas/gi, 'Cloud Database')
       .replace(/MongoDB/gi, 'Database');
 
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setActionSuccessMsg(cleanMsg);
-    toastTimeoutRef.current = setTimeout(() => {
-      setActionSuccessMsg('');
-    }, 2000);
-  };
+    triggerTaskCelebration(cleanMsg, undefined, customSubtitle);
+  }, [triggerTaskCelebration]);
+
   const showToast = showAdminToast;
   const [pinModal, setPinModal] = useState<{ type: 'student' | 'teacher'; id: string; name: string; currentPin: string } | null>(null);
   const [customPinInput, setCustomPinInput] = useState('123456');
@@ -2665,26 +2726,34 @@ function ERPWorkspaceContent() {
   };
 
   const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('current_user');
-      localStorage.removeItem('current_school');
-      localStorage.removeItem('giterp_role_permissions');
-      localStorage.removeItem('erp_session_token'); // Invalidate signed session token
-      try {
-        Object.keys(localStorage).forEach((key) => {
-          if (key.startsWith('erp_active_marks_teacher_') || key.startsWith('cbse_') || key === 'agency_auth') {
-            localStorage.removeItem(key);
-          }
-        });
-      } catch (_) {}
-      sessionStorage.clear();
-    }
-    setCurrentUser(null);
-    if (typeof window !== 'undefined') {
-      window.location.replace('/login');
-    } else {
-      router.replace('/login');
-    }
+    triggerTaskCelebration({
+      type: 'SIGNOUT',
+      title: 'Signing Out Securely...',
+      subtitle: 'Session closed & credentials locked'
+    });
+
+    setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('current_user');
+        localStorage.removeItem('current_school');
+        localStorage.removeItem('giterp_role_permissions');
+        localStorage.removeItem('erp_session_token'); // Invalidate signed session token
+        try {
+          Object.keys(localStorage).forEach((key) => {
+            if (key.startsWith('erp_active_marks_teacher_') || key.startsWith('cbse_') || key === 'agency_auth') {
+              localStorage.removeItem(key);
+            }
+          });
+        } catch (_) {}
+        sessionStorage.clear();
+      }
+      setCurrentUser(null);
+      if (typeof window !== 'undefined') {
+        window.location.replace('/login');
+      } else {
+        router.replace('/login');
+      }
+    }, 950);
   };
 
   const formatClassDisplay = (cls?: string) => {
@@ -11920,29 +11989,8 @@ function ERPWorkspaceContent() {
         onCollectFee={(s) => handleQuickCollectFee(s)}
       />
 
-      {/* FLOATING ACTION NOTIFICATION (2 SECS DURATION) */}
-      {actionSuccessMsg && (
-        <div 
-          role="status"
-          aria-live="polite"
-          className="fixed top-6 right-6 z-50 bg-[#122A24] text-white px-4 py-3 rounded-2xl shadow-xl border border-emerald-500/50 flex items-center gap-3 animate-in slide-in-from-top-3 fade-in duration-200 select-none max-w-md"
-        >
-          <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="text-xs text-white font-medium flex-1 leading-snug">
-            {actionSuccessMsg}
-          </div>
-          <button
-            type="button"
-            onClick={() => setActionSuccessMsg('')}
-            className="text-slate-400 hover:text-white border-none bg-transparent cursor-pointer p-0.5 text-xs leading-none shrink-0"
-            aria-label="Dismiss notification"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+      {/* UNIVERSAL TASK COMPLETION OVERLAY (1 SEC CENTERED BACKDROP BLUR) */}
+      <TaskCompletionOverlay data={celebrationData} />
 
       {/* SCHOOL PURGE WITH CAPTCHA MODAL (AGENCY SUPERADMIN) */}
       {purgeTargetSchool && (
