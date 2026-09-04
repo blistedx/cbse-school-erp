@@ -1318,7 +1318,7 @@ export function DashboardAttendance({
             </div>
 
             {/* MOBILE ROSTER VIEW: Touch-optimized cards with P A H buttons right next to student name */}
-            <div className="block lg:hidden space-y-2.5">
+            <div className="block lg:hidden space-y-2.5 pb-36">
               {filteredRosterList.map((item: any, idx: number) => {
                 const currentStatus = studentStatuses[item.id] || 'PRESENT';
                 return (
@@ -1349,10 +1349,10 @@ export function DashboardAttendance({
                               <span className="text-slate-500">{item.guardian_phone}</span>
                             </>
                           )}
-                          {attendanceType === 'FACULTY' && item.designation && (
+                          {attendanceType === 'FACULTY' && (item.designation || item.department) && (
                             <>
                               <span>•</span>
-                              <span className="text-slate-500">{item.designation}</span>
+                              <span className="text-slate-500 truncate">{item.designation || item.department}</span>
                             </>
                           )}
                         </div>
@@ -1417,24 +1417,20 @@ export function DashboardAttendance({
               )}
             </div>
 
-            {/* Mobile Sticky Quick-Save Bar */}
-            <div className="lg:hidden sticky bottom-14 left-0 right-0 z-20 py-2.5 px-3 bg-white/95 backdrop-blur-md border border-[#DCE8E0] rounded-2xl shadow-lg flex items-center justify-between gap-2">
-              <div className="text-xs font-mono font-bold text-[#122A24] flex items-center gap-2">
-                <span className="text-emerald-700">{presentCount}P</span>
-                <span>•</span>
-                <span className="text-rose-700">{absentCount}A</span>
+            {/* Mobile Docked Quick-Save Bar (Seamlessly stacked right on top of bottom navigation dock) */}
+            <div className="lg:hidden fixed bottom-[calc(3.4rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 px-3.5 py-2 bg-white/95 backdrop-blur-md border-t border-[#DCE8E0] shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex items-center justify-between gap-2">
+              <div className="text-xs font-mono font-bold text-[#122A24] flex items-center gap-1.5">
+                <span className="px-2 py-0.5 rounded-md bg-emerald-100/80 text-emerald-800 text-[11px] font-bold">{presentCount} P</span>
+                <span className="px-2 py-0.5 rounded-md bg-rose-100/80 text-rose-800 text-[11px] font-bold">{absentCount} A</span>
                 {holidayCount > 0 && (
-                  <>
-                    <span>•</span>
-                    <span className="text-blue-700">{holidayCount}H</span>
-                  </>
+                  <span className="px-2 py-0.5 rounded-md bg-blue-100/80 text-blue-800 text-[11px] font-bold">{holidayCount} H</span>
                 )}
               </div>
               <button
                 type="button"
                 onClick={handleSaveAttendance}
                 disabled={savingAttendance}
-                className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer border-none flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer border-none flex items-center gap-1.5 disabled:opacity-50 transition-all"
               >
                 <Save className="h-3.5 w-3.5 text-emerald-400" />
                 <span>{savingAttendance ? 'Saving...' : 'Save & Sync Ledger'}</span>
