@@ -95,6 +95,19 @@ export function DashboardAttendance({
   // ── SAVE ATTENDANCE & PARENT NOTIFICATION CONFIRMATION STATE ──
   const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
   const [notifyParentsOption, setNotifyParentsOption] = useState<'YES' | 'NO'>('NO');
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const triggerSaveSuccess = useCallback(() => {
+    setSaveSuccess(true);
+    try {
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate?.([30, 50, 40]);
+      }
+    } catch (_) {}
+    setTimeout(() => {
+      setSaveSuccess(false);
+    }, 2800);
+  }, []);
 
   // ── IN-APP SLEEK ALERT / NOTIFICATION DIALOG BOX (NO NATIVE BROWSER ALERT) ──
   const [alertModal, setAlertModal] = useState<{
@@ -478,6 +491,7 @@ export function DashboardAttendance({
 
         const data = await res.json();
         if (data.success) {
+          triggerSaveSuccess();
           if (sendPushToParents) {
             // Dispatches notification STRICTLY to parents only
             try {
@@ -542,6 +556,7 @@ export function DashboardAttendance({
 
         const data = await res.json();
         if (data.success) {
+          triggerSaveSuccess();
           showAdminToast(`Faculty attendance saved! (${presentFac}/${totalFaculty} On-Duty)`);
           loadedContextKeyRef.current = '';
           onRefresh();
@@ -752,6 +767,7 @@ export function DashboardAttendance({
 
       setSheetEdits({});
       setHasUnsavedSheetChanges(false);
+      triggerSaveSuccess();
       showAdminToast(`Monthly attendance register updated and saved for ${editedDates.size} date(s)!`);
       onRefresh();
     } catch (err: any) {
@@ -1018,12 +1034,34 @@ export function DashboardAttendance({
   }, [holidays, holidaySearchQuery]);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto animate-fade-in text-slate-800">
+    <div className="space-y-3 sm:space-y-6 max-w-7xl mx-auto animate-fade-in text-slate-800">
       
+      {/* ── DELIGHTFUL ANIMATED TICK LOGO CONFIRMATION BADGE ── */}
+      {saveSuccess && (
+        <div className="fixed top-14 sm:top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 animate-fade-in px-4 w-full max-w-md">
+          <div className="bg-[#122A24]/95 text-white px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl shadow-2xl border border-emerald-500/60 flex items-center justify-between gap-3 backdrop-blur-md mx-auto">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md animate-tick-pop">
+                <Check className="w-4 h-4 stroke-[3.5] text-white animate-tick-draw" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs sm:text-sm font-bold text-white tracking-tight leading-tight truncate">
+                  Attendance Saved Successfully!
+                </span>
+                <span className="text-[10.5px] font-mono text-emerald-300 truncate">
+                  {attendanceType === 'STUDENT' ? `${selectedClass?.class_name}-${selectedClass?.section} Ledger Synced` : 'Faculty Directorate Synced'}
+                </span>
+              </div>
+            </div>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
+          </div>
+        </div>
+      )}
+
       {/* ─────────────────────────────────────────────────────────────
           1. HEADER & DEDICATED RESPONSIVE TABS BAR
           ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#DCE8E0] shadow-xs p-3 sm:p-7 space-y-4 sm:space-y-5 relative overflow-hidden">
+      <div className="bg-white rounded-xl sm:rounded-3xl border border-[#DCE8E0] shadow-xs p-2.5 sm:p-6 lg:p-7 space-y-3 sm:space-y-5 relative overflow-hidden">
         {/* Background Watermark Behind Header Text */}
         <div 
           aria-hidden="true" 
@@ -1309,16 +1347,34 @@ export function DashboardAttendance({
                   type="button"
                   onClick={handleSaveAttendance}
                   disabled={savingAttendance}
-                  className="hidden sm:flex px-4 py-1.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold shadow-xs cursor-pointer items-center gap-1.5 disabled:opacity-50 transition-all border-none"
+                  className={`hidden sm:flex px-4 py-2 rounded-xl text-white text-xs font-bold shadow-xs cursor-pointer items-center gap-1.5 disabled:opacity-50 transition-all border-none ${
+                    saveSuccess ? 'bg-emerald-600 shadow-emerald-200' : 'bg-[#122A24] hover:bg-[#1C443A]'
+                  }`}
                 >
-                  <Save className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>{savingAttendance ? 'Saving Ledger...' : 'Save & Sync Ledger'}</span>
+                  {savingAttendance ? (
+                    <>
+                      <RotateCcw className="h-3.5 w-3.5 animate-spin text-emerald-400" />
+                      <span>Saving Ledger...</span>
+                    </>
+                  ) : saveSuccess ? (
+                    <>
+                      <span className="w-4 h-4 rounded-full bg-white text-emerald-600 flex items-center justify-center shrink-0 animate-tick-pop shadow-2xs">
+                        <Check className="w-3 h-3 stroke-[3.5] animate-tick-draw" />
+                      </span>
+                      <span className="text-white font-bold">Saved &amp; Synced!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-3.5 w-3.5 text-emerald-400" />
+                      <span>Save &amp; Sync Ledger</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
 
             {/* MOBILE ROSTER VIEW: Touch-optimized cards with P A H buttons right next to student name */}
-            <div className="block lg:hidden space-y-2 pb-40">
+            <div className="block lg:hidden space-y-2 pb-24">
               {filteredRosterList.map((item: any, idx: number) => {
                 const currentStatus = studentStatuses[item.id] || 'PRESENT';
                 return (
@@ -1417,20 +1473,20 @@ export function DashboardAttendance({
               )}
             </div>
 
-            {/* Mobile Docked Quick-Save Bar (Seamlessly stacked right on top of bottom navigation dock) */}
-            <div className="lg:hidden fixed bottom-[calc(3.4rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 px-3.5 py-2.5 bg-white border-t border-[#DCE8E0] shadow-[0_-4px_20px_rgba(0,0,0,0.08)] flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 font-mono text-xs">
-                <span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+            {/* Mobile Docked Attendance Summary & Quick-Save Bar (Elevated width, height & prominent counters) */}
+            <div className="lg:hidden fixed bottom-[calc(3.4rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 px-3.5 sm:px-4 py-3 sm:py-3.5 bg-white/98 backdrop-blur-md border-t-2 border-[#DCE8E0] shadow-[0_-6px_25px_rgba(0,0,0,0.1)] flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-1.5 sm:gap-2 font-mono">
+                <span className="px-2.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-900 border border-emerald-300 font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
                   <span>{presentCount} P</span>
                 </span>
-                <span className="px-2 py-1 rounded-lg bg-rose-50 text-rose-800 border border-rose-200/80 font-bold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                <span className="px-2.5 py-1.5 rounded-xl bg-rose-50 text-rose-900 border border-rose-300 font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
                   <span>{absentCount} A</span>
                 </span>
                 {holidayCount > 0 && (
-                  <span className="px-2 py-1 rounded-lg bg-blue-50 text-blue-800 border border-blue-200/80 font-bold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                  <span className="px-2.5 py-1.5 rounded-xl bg-blue-50 text-blue-900 border border-blue-300 font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
                     <span>{holidayCount} H</span>
                   </span>
                 )}
@@ -1439,10 +1495,30 @@ export function DashboardAttendance({
                 type="button"
                 onClick={handleSaveAttendance}
                 disabled={savingAttendance}
-                className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer border-none flex items-center gap-1.5 disabled:opacity-50 transition-all shrink-0"
+                className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md cursor-pointer border-none flex items-center gap-2 active:scale-95 transition-all shrink-0 ${
+                  saveSuccess
+                    ? 'bg-emerald-600 text-white ring-2 ring-emerald-300 shadow-emerald-200'
+                    : 'bg-[#122A24] hover:bg-[#1C443A] text-white'
+                } disabled:opacity-50`}
               >
-                <Save className="h-3.5 w-3.5 text-emerald-400" />
-                <span>{savingAttendance ? 'Saving...' : 'Save & Sync'}</span>
+                {savingAttendance ? (
+                  <>
+                    <RotateCcw className="h-4 w-4 animate-spin text-emerald-400" />
+                    <span>Saving...</span>
+                  </>
+                ) : saveSuccess ? (
+                  <>
+                    <span className="w-5 h-5 rounded-full bg-white text-emerald-600 flex items-center justify-center shrink-0 animate-tick-pop shadow-xs">
+                      <Check className="w-3.5 h-3.5 stroke-[3.5] animate-tick-draw" />
+                    </span>
+                    <span className="tracking-tight">Saved!</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 text-emerald-400" />
+                    <span>Save &amp; Sync</span>
+                  </>
+                )}
               </button>
             </div>
 

@@ -4436,7 +4436,7 @@ function ERPWorkspaceContent() {
         </aside>
 
         {/* Dynamic Content Area with Bottom Padding for Mobile Bar */}
-        <main className="flex-1 overflow-y-auto min-w-0 w-full p-3.5 sm:p-5 lg:p-6 xl:p-8 pb-24 lg:pb-8 bg-[#F8FAF9] focus:outline-none relative">
+        <main className="flex-1 overflow-y-auto min-w-0 w-full p-2 sm:p-5 lg:p-6 xl:p-8 pb-24 lg:pb-8 bg-[#F8FAF9] focus:outline-none relative">
           {/* PERMISSION ACCESS GUARD FOR RESTRICTED ROLES */}
           {mounted && currentUser && !allowedTabs.includes(activeTab) && (
             <div className="max-w-xl mx-auto my-12 p-8 bg-white rounded-3xl border border-rose-200 text-center shadow-lg space-y-4 animate-fade-in">
