@@ -845,6 +845,7 @@ function ERPWorkspaceContent() {
 
   // PWA Offline-First & Live MongoDB Network Sync State
   const [isOffline, setIsOffline] = useState(false);
+  const [isSyncingLive, setIsSyncingLive] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -1280,11 +1281,39 @@ function ERPWorkspaceContent() {
 
   useEffect(() => {
     setMounted(true);
+    // 0ms INSTANT SWR CACHE HYDRATION: Restore full state from local cache in 0ms on mount
+    if (typeof window !== 'undefined') {
+      try {
+        const storedSchool = localStorage.getItem('current_school');
+        const storedUser = localStorage.getItem('current_user');
+        if (storedSchool) {
+          const parsedSchool = JSON.parse(storedSchool);
+          setSelectedSchool(parsedSchool);
+          const cleanId = (parsedSchool.school_code || parsedSchool.id || 'DPS2026').replace(/[^A-Z0-9]/gi, '');
+          const activeSession = localStorage.getItem('giterp_active_session') || selectedSession || '2026-27';
+          const cachedBackup = localStorage.getItem(`giterp_offline_backup_${cleanId}_${activeSession}`) || localStorage.getItem(`giterp_offline_backup_${cleanId}`);
+          if (cachedBackup) {
+            const data = JSON.parse(cachedBackup);
+            if (data.overview) setOverview(data.overview);
+            if (Array.isArray(data.students) && data.students.length > 0) setStudents(data.students);
+            if (Array.isArray(data.teachers) && data.teachers.length > 0) setTeachers(data.teachers);
+            if (Array.isArray(data.classes) && data.classes.length > 0) setClasses(data.classes);
+            if (Array.isArray(data.notices) && data.notices.length > 0) setNotices(data.notices);
+            if (Array.isArray(data.attendance) && data.attendance.length > 0) setAttendance(data.attendance);
+            if (Array.isArray(data.invoices) && data.invoices.length > 0) setInvoices(data.invoices);
+            setLoading(false);
+          }
+        }
+        if (storedUser) {
+          try { setCurrentUser(JSON.parse(storedUser)); } catch (e) {}
+        }
+      } catch (e) {}
+    }
     fetchAuthenticatedSchool();
   }, [searchParams]);
 
   const fetchAuthenticatedSchool = async () => {
-    setLoading(true);
+    let hasLocalCache = false;
     try {
       const schoolParam = searchParams.get('school');
       let targetSchool: School | null = null;
@@ -1311,9 +1340,19 @@ function ERPWorkspaceContent() {
             }
             if (!schoolParam || parsed.school_code === schoolParam || parsed.id === schoolParam || parsed.school_code?.replace(/[^A-Z0-9]/gi, '') === schoolParam?.replace(/[^A-Z0-9]/gi, '')) {
               targetSchool = parsed;
+              hasLocalCache = true;
             }
           } catch (e) {}
         }
+      }
+
+      if (!hasLocalCache) {
+        setLoading(true);
+      }
+
+      // Parallelize: Load school data immediately if targetSchool is known without waiting for /api/schools!
+      if (targetSchool) {
+        loadSchoolData(targetSchool.school_code || targetSchool.id, undefined, true);
       }
 
       const schRes = await apiFetch('/api/schools');
@@ -1550,34 +1589,45 @@ function ERPWorkspaceContent() {
       console.error(e);
       showAdminToast('Error updating credentials: ' + (e.message || ''));
     }
-  };
-
-  const loadSchoolData = async (schoolId?: string, sessionParam?: string, isSilent: boolean = false) => {
+  };  const loadSchoolData = async (schoolId?: string, sessionParam?: string, isSilent: boolean = false) => {
     const activeSchool = (schoolId && schoolId !== selectedSchool?.id)
       ? schoolId
       : (selectedSchool?.school_code || schoolId || selectedSchool?.id || 'DPS2026');
     const cleanId = (activeSchool || '').replace(/[^A-Z0-9]/gi, '') || 'DPS2026';
     const targetSession = sessionParam || selectedSession || '2026-27';
-    if (!isSilent) setLoading(true);
 
-    // If device is offline, restore from offline backup of last real MongoDB session
-    if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && !navigator.onLine) {
+    // 0ms Instant SWR Hydration: Display cached data immediately so user experiences ZERO lag!
+    let hasHydrated = false;
+    if (typeof window !== 'undefined') {
       const offlineBackup = localStorage.getItem(`giterp_offline_backup_${cleanId}_${targetSession}`) || localStorage.getItem(`giterp_offline_backup_${cleanId}`);
       if (offlineBackup) {
         try {
           const cachedData = JSON.parse(offlineBackup);
           if (cachedData.overview) setOverview(cachedData.overview);
-          if (Array.isArray(cachedData.students)) setStudents(cachedData.students);
-          if (Array.isArray(cachedData.teachers)) setTeachers(cachedData.teachers);
-          if (Array.isArray(cachedData.classes)) setClasses(cachedData.classes);
-          if (Array.isArray(cachedData.notices)) setNotices(cachedData.notices);
-          if (Array.isArray(cachedData.attendance)) setAttendance(cachedData.attendance);
-          if (Array.isArray(cachedData.invoices)) setInvoices(cachedData.invoices);
+          if (Array.isArray(cachedData.students) && cachedData.students.length > 0) setStudents(cachedData.students);
+          if (Array.isArray(cachedData.teachers) && cachedData.teachers.length > 0) setTeachers(cachedData.teachers);
+          if (Array.isArray(cachedData.classes) && cachedData.classes.length > 0) setClasses(cachedData.classes);
+          if (Array.isArray(cachedData.notices) && cachedData.notices.length > 0) setNotices(cachedData.notices);
+          if (Array.isArray(cachedData.attendance) && cachedData.attendance.length > 0) setAttendance(cachedData.attendance);
+          if (Array.isArray(cachedData.invoices) && cachedData.invoices.length > 0) setInvoices(cachedData.invoices);
+          hasHydrated = true;
+          setLoading(false);
         } catch (e) {}
       }
-      if (!isSilent) setLoading(false);
+    }
+
+    // Only show full loading spinner if this is a first-time load with zero cached data
+    if (!hasHydrated && !isSilent) {
+      setLoading(true);
+    }
+
+    // If device is offline, stop here
+    if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && !navigator.onLine) {
+      setLoading(false);
       return;
     }
+
+    setIsSyncingLive(true);
 
     try {
       const storedUser = typeof window !== 'undefined' ? localStorage.getItem('current_user') : null;
@@ -1587,7 +1637,6 @@ function ERPWorkspaceContent() {
       }
 
       const fetchOpts = {
-        cache: 'no-store' as RequestCache,
         headers: {
           'x-user-role': activeRole || 'ANONYMOUS'
         }
@@ -1620,13 +1669,13 @@ function ERPWorkspaceContent() {
       const freshAttendance = atData.success ? (atData.attendance || []) : [];
       const freshInvoices = inData.success ? (inData.invoices || []) : [];
 
-      setOverview(freshOverview);
-      setStudents(freshStudents);
-      setTeachers(freshTeachers);
-      setClasses(freshClasses);
-      setNotices(freshNotices);
-      setAttendance(freshAttendance);
-      setInvoices(freshInvoices);
+      if (freshOverview) setOverview(freshOverview);
+      if (freshStudents.length > 0 || !hasHydrated) setStudents(freshStudents);
+      if (freshTeachers.length > 0 || !hasHydrated) setTeachers(freshTeachers);
+      if (freshClasses.length > 0 || !hasHydrated) setClasses(freshClasses);
+      if (freshNotices.length > 0 || !hasHydrated) setNotices(freshNotices);
+      if (freshAttendance.length > 0 || !hasHydrated) setAttendance(freshAttendance);
+      if (freshInvoices.length > 0 || !hasHydrated) setInvoices(freshInvoices);
 
       // Save real MongoDB session data as offline backup (safely guarded against QuotaExceededError)
       if (typeof window !== 'undefined') {
@@ -1655,24 +1704,10 @@ function ERPWorkspaceContent() {
         }
       }
     } catch (e) {
-      console.error('Failed to load live school data from MongoDB, attempting offline recovery:', e);
-      if (typeof window !== 'undefined') {
-        const offlineBackup = localStorage.getItem(`giterp_offline_backup_${cleanId}_${targetSession}`) || localStorage.getItem(`giterp_offline_backup_${cleanId}`);
-        if (offlineBackup) {
-          try {
-            const cachedData = JSON.parse(offlineBackup);
-            if (cachedData.overview) setOverview(cachedData.overview);
-            if (Array.isArray(cachedData.students)) setStudents(cachedData.students);
-            if (Array.isArray(cachedData.teachers)) setTeachers(cachedData.teachers);
-            if (Array.isArray(cachedData.classes)) setClasses(cachedData.classes);
-            if (Array.isArray(cachedData.notices)) setNotices(cachedData.notices);
-            if (Array.isArray(cachedData.attendance)) setAttendance(cachedData.attendance);
-            if (Array.isArray(cachedData.invoices)) setInvoices(cachedData.invoices);
-          } catch (err) {}
-        }
-      }
+      console.error('Failed to load live school data from MongoDB:', e);
     } finally {
-      if (!isSilent) setLoading(false);
+      setIsSyncingLive(false);
+      setLoading(false);
     }
   };
 
@@ -3382,6 +3417,19 @@ function ERPWorkspaceContent() {
               ))}
             </select>
           </div>
+
+          {/* Live Data Sync Micro-Status Indicator */}
+          {isSyncingLive ? (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full text-[10.5px] font-mono font-bold shrink-0 animate-pulse shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+              <span className="hidden sm:inline">Syncing...</span>
+            </div>
+          ) : (
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-[#F0F8F3] border border-[#DCE8E0] text-[#1C443A] rounded-full text-[10.5px] font-mono font-medium shrink-0 shadow-2xs" title="Connected & Synced with Database">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Live Synced</span>
+            </div>
+          )}
 
 
 

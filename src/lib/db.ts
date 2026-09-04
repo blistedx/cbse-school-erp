@@ -63,6 +63,39 @@ const memoryStore: MemoryStore = {
   exams: []
 };
 
+// High-speed in-memory TTL caching engine for instant enterprise ERP performance
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+const serverCache = new Map<string, CacheEntry<any>>();
+
+function getCached<T>(key: string): T | null {
+  const entry = serverCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    serverCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCached<T>(key: string, data: T, ttlMs = 45000): void {
+  serverCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
+
+export function invalidateServerCache(pattern?: string): void {
+  if (!pattern) {
+    serverCache.clear();
+    return;
+  }
+  for (const key of Array.from(serverCache.keys())) {
+    if (key.includes(pattern)) {
+      serverCache.delete(key);
+    }
+  }
+}
+
 function loadLocalStore() {
   try {
     if (fs.existsSync(LOCAL_STORE_FILE)) {
@@ -341,6 +374,10 @@ export const Database = {
 
   // SCHOOLS
   async getSchools(): Promise<School[]> {
+    const cacheKey = 'schools:active';
+    const cached = getCached<School[]>(cacheKey);
+    if (cached && cached.length > 0) return cached;
+
     await ensureIndexes();
     try {
       const db = await getDatabase();
@@ -350,13 +387,18 @@ export const Database = {
           .sort({ created_at: 1 })
           .toArray();
         if (results && results.length > 0) {
-          return results.map(sanitizeDoc<School>);
+          const mapped = results.map(sanitizeDoc<School>);
+          setCached(cacheKey, mapped, 60000);
+          return mapped;
         }
       }
     } catch (e) {}
 
-
-    return memoryStore.schools.filter(s => s.status === 'ACTIVE');
+    const fallback = memoryStore.schools.filter(s => s.status === 'ACTIVE');
+    if (fallback.length > 0) {
+      setCached(cacheKey, fallback, 60000);
+    }
+    return fallback;
   },
 
   async getSchoolById(schoolId: string): Promise<School | null> {
@@ -886,12 +928,16 @@ export const Database = {
 
   // STUDENTS
   async getStudents(schoolId?: string, session?: string): Promise<Student[]> {
+    const targetSession = session || '2026-27';
+    const cacheKey = `students:${schoolId || 'all'}:${targetSession}`;
+    const cached = getCached<Student[]>(cacheKey);
+    if (cached && cached.length > 0) return cached;
+
     await ensureIndexes();
     const school = schoolId ? await this.getSchoolById(schoolId) : null;
     const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
     const targetId = school?.id || cleanId;
     const targetCode = school?.school_code || cleanId;
-    const targetSession = session || '2026-27';
 
     // 1. MongoDB Query (Fast Primary Store)
     try {
@@ -905,26 +951,31 @@ export const Database = {
           .find(filter)
           .sort({ admission_no: 1 })
           .toArray();
-        if (results) {
-          return results.map(sanitizeDoc<Student>).map(s => ({
+        if (results && results.length > 0) {
+          const mapped = results.map(sanitizeDoc<Student>).map(s => ({
             ...s,
             academic_session: s.academic_session || '2026-27'
           }));
+          setCached(cacheKey, mapped, 45000);
+          return mapped;
         }
       }
     } catch (e) {}
 
-
     // 3. MemoryStore / LocalStore Fallback
     if (targetId || schoolId) {
       const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-      return memoryStore.students
+      const res = memoryStore.students
         .filter(s => ids.includes(s.school_id) && matchesSession(s, targetSession))
         .map(s => ({ ...s, academic_session: s.academic_session || '2026-27' }));
+      if (res.length > 0) setCached(cacheKey, res, 45000);
+      return res;
     }
-    return memoryStore.students
+    const allRes = memoryStore.students
       .filter(s => matchesSession(s, targetSession))
       .map(s => ({ ...s, academic_session: s.academic_session || '2026-27' }));
+    if (allRes.length > 0) setCached(cacheKey, allRes, 45000);
+    return allRes;
   },
 
   async createStudent(studentData: Partial<Student>): Promise<Student> {
@@ -976,6 +1027,8 @@ export const Database = {
 
     memoryStore.students.push(student);
     saveLocalStore();
+    invalidateServerCache('students');
+    invalidateServerCache('overview');
     return student;
   },
 
@@ -1004,6 +1057,9 @@ export const Database = {
       }
     } catch (e) {}
 
+    invalidateServerCache('students');
+    invalidateServerCache('overview');
+
     const idx = memoryStore.students.findIndex(s => s.id === studentId || s.admission_no === studentId);
     if (idx >= 0) {
       memoryStore.students[idx] = {
@@ -1023,6 +1079,9 @@ export const Database = {
         await db.collection('students').deleteOne({ id: studentId });
       }
     } catch (e) {}
+
+    invalidateServerCache('students');
+    invalidateServerCache('overview');
 
     const idx = memoryStore.students.findIndex(s => s.id === studentId);
     if (idx >= 0) {
@@ -1098,17 +1157,23 @@ export const Database = {
     }
 
     saveLocalStore();
+    invalidateServerCache('students');
+    invalidateServerCache('overview');
     return { promoted, retained, graduated, left };
   },
 
   // TEACHERS
   async getTeachers(schoolId?: string, session?: string): Promise<Teacher[]> {
+    const targetSession = session || '2026-27';
+    const cacheKey = `teachers:${schoolId || 'all'}:${targetSession}`;
+    const cached = getCached<Teacher[]>(cacheKey);
+    if (cached && cached.length > 0) return cached;
+
     await ensureIndexes();
     const school = schoolId ? await this.getSchoolById(schoolId) : null;
     const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
     const targetId = school?.id || cleanId;
     const targetCode = school?.school_code || cleanId;
-    const targetSession = session || '2026-27';
 
     const ensureTeacherGender = (t: Teacher): Teacher => {
       if (t.gender && (t.gender.toLowerCase() === 'female' || t.gender.toLowerCase() === 'f')) {
@@ -1158,28 +1223,33 @@ export const Database = {
           .find(filter)
           .sort({ staff_code: 1 })
           .toArray();
-        if (results) {
-          return results.map(sanitizeDoc<Teacher>).map(ensureTeacherGender).map(t => ({
+        if (results && results.length > 0) {
+          const mapped = results.map(sanitizeDoc<Teacher>).map(ensureTeacherGender).map(t => ({
             ...t,
             role: t.role || resolveTeacherRole(t),
             academic_session: t.academic_session || '2026-27'
           }));
+          setCached(cacheKey, mapped, 45000);
+          return mapped;
         }
       }
     } catch (e) {}
 
-
     if (targetId || schoolId) {
       const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-      return memoryStore.teachers
+      const res = memoryStore.teachers
         .filter(t => ids.includes(t.school_id) && matchesSession(t, targetSession))
         .map(ensureTeacherGender)
         .map(t => ({ ...t, role: t.role || resolveTeacherRole(t), academic_session: t.academic_session || '2026-27' }));
+      if (res.length > 0) setCached(cacheKey, res, 45000);
+      return res;
     }
-    return memoryStore.teachers
+    const allRes = memoryStore.teachers
       .filter(t => matchesSession(t, targetSession))
       .map(ensureTeacherGender)
       .map(t => ({ ...t, role: t.role || resolveTeacherRole(t), academic_session: t.academic_session || '2026-27' }));
+    if (allRes.length > 0) setCached(cacheKey, allRes, 45000);
+    return allRes;
   },
 
   async createTeacher(teacherData: Partial<Teacher>): Promise<Teacher> {
@@ -1229,6 +1299,8 @@ export const Database = {
 
     memoryStore.teachers.push(teacher);
     saveLocalStore();
+    invalidateServerCache('teachers');
+    invalidateServerCache('overview');
     return teacher;
   },
 
@@ -1257,6 +1329,9 @@ export const Database = {
       }
     } catch (e) {}
 
+    invalidateServerCache('teachers');
+    invalidateServerCache('overview');
+
     const idx = memoryStore.teachers.findIndex(t => t.id === teacherId || t.staff_code === teacherId);
     if (idx >= 0) {
       memoryStore.teachers[idx] = {
@@ -1277,6 +1352,9 @@ export const Database = {
       }
     } catch (e) {}
 
+    invalidateServerCache('teachers');
+    invalidateServerCache('overview');
+
     const idx = memoryStore.teachers.findIndex(t => t.id === teacherId);
     if (idx >= 0) {
       memoryStore.teachers.splice(idx, 1);
@@ -1288,12 +1366,16 @@ export const Database = {
 
   // CLASSES & SECTIONS (CBSE Pre-Primary to Class XII-B Norms)
   async getClasses(schoolId?: string, session?: string): Promise<ClassRoom[]> {
+    const targetSession = session || '2026-27';
+    const cacheKey = `classes:${schoolId || 'all'}:${targetSession}`;
+    const cached = getCached<ClassRoom[]>(cacheKey);
+    if (cached && cached.length > 0) return cached;
+
     await ensureIndexes();
     const school = schoolId ? await this.getSchoolById(schoolId) : null;
     const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
     const targetId = school?.id || cleanId;
     const targetCode = school?.school_code || cleanId;
-    const targetSession = session || '2026-27';
 
     let classesList: ClassRoom[] = [];
 
@@ -1341,7 +1423,11 @@ export const Database = {
       return cls;
     });
 
-    return sortClassesChronologically(preparedClasses);
+    const sorted = sortClassesChronologically(preparedClasses);
+    if (sorted && sorted.length > 0) {
+      setCached(cacheKey, sorted, 60000);
+    }
+    return sorted;
   },
 
   async createClass(data: Partial<ClassRoom>): Promise<ClassRoom> {
@@ -1620,12 +1706,16 @@ export const Database = {
 
   // ATTENDANCE
   async getAttendance(schoolId?: string, session?: string): Promise<AttendanceRecord[]> {
+    const targetSession = session || '2026-27';
+    const cacheKey = `attendance:${schoolId || 'all'}:${targetSession}`;
+    const cached = getCached<AttendanceRecord[]>(cacheKey);
+    if (cached && cached.length > 0) return cached;
+
     await ensureIndexes();
     const school = schoolId ? await this.getSchoolById(schoolId) : null;
     const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
     const targetId = school?.id || cleanId;
     const targetCode = school?.school_code || cleanId;
-    const targetSession = session || '2026-27';
 
     // 1. MongoDB Query (Fast Primary Store)
     try {
@@ -1639,7 +1729,7 @@ export const Database = {
           .find(filter)
           .sort({ date: -1 })
           .toArray();
-        if (results) {
+        if (results && results.length > 0) {
           const sanitized = results.map(sanitizeDoc<AttendanceRecord>);
           const dedupMap = new Map<string, AttendanceRecord>();
           sanitized.forEach(item => {
@@ -1648,11 +1738,12 @@ export const Database = {
               dedupMap.set(key, item);
             }
           });
-          return Array.from(dedupMap.values());
+          const list = Array.from(dedupMap.values());
+          if (list.length > 0) setCached(cacheKey, list, 30000);
+          return list;
         }
       }
     } catch (e) {}
-
 
     const rawList = (targetId || schoolId)
       ? memoryStore.attendance.filter(a => [targetId, targetCode, schoolId, cleanId].filter(Boolean).includes(a.school_id) && matchesSession(a, targetSession))
@@ -1665,7 +1756,9 @@ export const Database = {
         memDedupMap.set(key, item);
       }
     });
-    return Array.from(memDedupMap.values());
+    const memList = Array.from(memDedupMap.values());
+    if (memList.length > 0) setCached(cacheKey, memList, 30000);
+    return memList;
   },
 
   async recordAttendance(data: Partial<AttendanceRecord>): Promise<AttendanceRecord> {
@@ -1752,6 +1845,8 @@ export const Database = {
       memoryStore.attendance.push(record);
     }
     saveLocalStore();
+    invalidateServerCache('attendance');
+    invalidateServerCache('overview');
     return record;
   },
 
@@ -1762,6 +1857,9 @@ export const Database = {
         await db.collection('attendance').deleteOne({ id });
       }
     } catch (e) {}
+
+    invalidateServerCache('attendance');
+    invalidateServerCache('overview');
 
     const idx = memoryStore.attendance.findIndex(a => a.id === id);
     if (idx >= 0) {
@@ -1774,12 +1872,16 @@ export const Database = {
 
   // FEES & INVOICES
   async getFeeInvoices(schoolId?: string, session?: string): Promise<FeeInvoice[]> {
+    const targetSession = session || '2026-27';
+    const cacheKey = `fees:${schoolId || 'all'}:${targetSession}`;
+    const cached = getCached<FeeInvoice[]>(cacheKey);
+    if (cached && cached.length > 0) return cached;
+
     await ensureIndexes();
     const school = schoolId ? await this.getSchoolById(schoolId) : null;
     const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
     const targetId = school?.id || cleanId;
     const targetCode = school?.school_code || cleanId;
-    const targetSession = session || '2026-27';
 
     // 1. MongoDB Query (Fast Primary Store)
     try {
@@ -1793,18 +1895,23 @@ export const Database = {
           .find(filter)
           .sort({ due_date: 1 })
           .toArray();
-        if (results) {
-          return results.map(sanitizeDoc<FeeInvoice>);
+        if (results && results.length > 0) {
+          const mapped = results.map(sanitizeDoc<FeeInvoice>);
+          setCached(cacheKey, mapped, 45000);
+          return mapped;
         }
       }
     } catch (e) {}
 
-
     if (targetId || schoolId) {
       const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-      return memoryStore.fee_invoices.filter(f => ids.includes(f.school_id) && matchesSession(f, targetSession));
+      const res = memoryStore.fee_invoices.filter(f => ids.includes(f.school_id) && matchesSession(f, targetSession));
+      if (res.length > 0) setCached(cacheKey, res, 45000);
+      return res;
     }
-    return memoryStore.fee_invoices.filter(f => matchesSession(f, targetSession));
+    const allRes = memoryStore.fee_invoices.filter(f => matchesSession(f, targetSession));
+    if (allRes.length > 0) setCached(cacheKey, allRes, 45000);
+    return allRes;
   },
 
   async createFeeInvoice(data: Partial<FeeInvoice>): Promise<FeeInvoice> {
@@ -1868,6 +1975,8 @@ export const Database = {
 
     memoryStore.fee_invoices.push(invoice);
     saveLocalStore();
+    invalidateServerCache('fees');
+    invalidateServerCache('overview');
     return invoice;
   },
 
@@ -1944,6 +2053,8 @@ export const Database = {
     } catch (e) {}
 
     saveLocalStore();
+    invalidateServerCache('fees');
+    invalidateServerCache('overview');
     return inv;
   },
 
@@ -1959,6 +2070,9 @@ export const Database = {
         await db.collection('fee_invoices').deleteOne({ id: invoiceId });
       }
     } catch (e) {}
+
+    invalidateServerCache('fees');
+    invalidateServerCache('overview');
 
     const idx = memoryStore.fee_invoices.findIndex(i => i.id === invoiceId);
     if (idx >= 0) {
@@ -2095,6 +2209,10 @@ export const Database = {
   // OVERVIEW STATS
   async getSchoolOverview(schoolId: string, session?: string): Promise<SchoolOverview> {
     const targetSession = session || '2026-27';
+    const cacheKey = `overview:${schoolId}:${targetSession}`;
+    const cached = getCached<SchoolOverview>(cacheKey);
+    if (cached) return cached;
+
     const [students, teachers, attendance, invoices] = await Promise.all([
       this.getStudents(schoolId, targetSession),
       this.getTeachers(schoolId, targetSession),
@@ -2157,7 +2275,7 @@ export const Database = {
     const pendingFeeAmount = pendingInvoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
     const feeCollectionRate = invoices.length > 0 ? Math.round((paidInvoices.length / invoices.length) * 100) : 0;
 
-    return {
+    const overviewResult: SchoolOverview = {
       academic_session: targetSession,
       kpis: {
         totalStudents,
@@ -2178,6 +2296,8 @@ export const Database = {
       recentStudents: students.slice(-5).reverse(),
       recentInvoices: invoices.slice(-5).reverse()
     };
+    setCached(cacheKey, overviewResult, 30000);
+    return overviewResult;
   },
 
   // ==========================================
