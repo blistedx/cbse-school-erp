@@ -1037,7 +1037,7 @@ function ERPWorkspaceContent() {
     blood_group: 'O+',
     aadhaar_no: '',
     apaar_id: '',
-    house: 'Red House',
+    house: '',
     nationality: 'Indian',
     religion: 'Hindu',
     category: 'GENERAL',
@@ -2907,6 +2907,17 @@ function ERPWorkspaceContent() {
     'class 11': 13, '11': 13, 'class 12': 14, '12': 14
   };
 
+  // Distinct houses present in the school (dynamically created by the school)
+  const availableHouses = useMemo(() => {
+    const set = new Set<string>();
+    (students || []).forEach(s => {
+      if (s.house && s.house.trim()) {
+        set.add(s.house.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [students]);
+
   // 1. FILTERED STUDENTS
   // Use empty string before mount to avoid SSR/CSR searchQuery mismatch (hydration)
   const _sq = mounted ? searchQuery : '';
@@ -2922,7 +2933,7 @@ function ERPWorkspaceContent() {
     if (studentFeeFilter !== 'ALL' && s.fee_status?.toUpperCase() !== studentFeeFilter.toUpperCase()) return false;
     if (studentGenderFilter !== 'ALL' && s.gender?.toLowerCase() !== studentGenderFilter.toLowerCase()) return false;
     if (studentHouseFilter !== 'ALL') {
-      const sHouse = s.house || (['Red House', 'Blue House', 'Green House', 'Yellow House'][(students.indexOf(s)) % 4]);
+      const sHouse = (s.house || '').trim();
       if (sHouse !== studentHouseFilter) return false;
     }
     
@@ -5153,10 +5164,9 @@ function ERPWorkspaceContent() {
                         className="bg-transparent border-none text-xs font-semibold text-[#122A24] focus:outline-none cursor-pointer pr-1"
                       >
                         <option value="ALL">All Houses</option>
-                        <option value="Red House">Red House</option>
-                        <option value="Blue House">Blue House</option>
-                        <option value="Green House">Green House</option>
-                        <option value="Yellow House">Yellow House</option>
+                        {availableHouses.map((hName) => (
+                          <option key={hName} value={hName}>{hName}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -5769,7 +5779,7 @@ function ERPWorkspaceContent() {
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-slate-400">House:</span>
-                                <span className="font-semibold text-xs text-[#1C443A]">{s.house || 'Red House'}</span>
+                                <span className="font-semibold text-xs text-[#1C443A]">{s.house || '—'}</span>
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-slate-400">DOB:</span>
@@ -9184,17 +9194,22 @@ function ERPWorkspaceContent() {
                     </select>
                   </div>
                   <div>
-                    <label className="block font-semibold text-[var(--ink-navy)] mb-1">School House</label>
-                    <select
-                      value={studentForm.house || 'Red House'}
+                    <label className="block font-semibold text-[var(--ink-navy)] mb-1">
+                      School House (Custom)
+                    </label>
+                    <input
+                      type="text"
+                      list="school-houses-list"
+                      value={studentForm.house || ''}
                       onChange={(e) => setStudentForm({ ...studentForm, house: e.target.value })}
+                      placeholder="e.g. Gandhi House, Yellow House..."
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-xs font-medium"
-                    >
-                      <option value="Red House">Red House (Tagore)</option>
-                      <option value="Blue House">Blue House (Shivaji)</option>
-                      <option value="Green House">Green House (Ashoka)</option>
-                      <option value="Yellow House">Yellow House (Raman)</option>
-                    </select>
+                    />
+                    <datalist id="school-houses-list">
+                      {availableHouses.map((h) => (
+                        <option key={h} value={h} />
+                      ))}
+                    </datalist>
                   </div>
                   <div>
                     <label className="block font-semibold text-[var(--ink-navy)] mb-1">Fee Status</label>

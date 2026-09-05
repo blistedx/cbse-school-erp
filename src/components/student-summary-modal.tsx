@@ -342,7 +342,7 @@ export function StudentSummaryModal({
                   </div>
                   <div className="p-3 bg-white rounded-xl border border-[#E2ECE5]">
                     <span className="text-[10px] text-slate-500 block uppercase font-medium">House Matrix</span>
-                    <span className="font-bold text-slate-900 mt-0.5 block">{student.house || 'Green House'}</span>
+                    <span className="font-bold text-slate-900 mt-0.5 block">{student.house || '—'}</span>
                   </div>
                 </div>
               </div>
