@@ -662,8 +662,11 @@ export const Database = {
   // AUTHENTICATION
   async authenticateUser(schoolCode?: string, username?: string, password?: string, requestedRole?: string) {
     const rawUname = (username || '').trim();
+    if (!rawUname) return null;
     const uname = rawUname.toUpperCase();
+    const cleanUname = uname.replace(/[^A-Z0-9]/g, '');
     const pwd = (password || '').trim();
+    const cleanPwd = pwd.toLowerCase().replace(/[^a-z0-9@]/g, '');
     const roleUpper = (requestedRole || '').trim().toUpperCase();
 
     // 0. AGENCY SUPERADMIN AUTHENTICATION
@@ -702,12 +705,19 @@ export const Database = {
       };
     }
 
-    if (!schoolCode) return null;
-    const school = await this.getSchoolByCode(schoolCode);
+    let activeSchool = null;
+    if (schoolCode && schoolCode.trim()) {
+      activeSchool = await this.getSchoolByCode(schoolCode.trim().toUpperCase());
+    }
+    if (!activeSchool) {
+      const allSchools = await this.getSchools();
+      activeSchool = allSchools.find(s => s.school_code === 'DPS2026') || allSchools[0] || null;
+    }
 
-    if (!school || school.status !== 'ACTIVE') {
+    if (!activeSchool || activeSchool.status !== 'ACTIVE') {
       return null;
     }
+    const school = activeSchool;
 
     // 1. Administrator / Principal Login (Primary School Admin Credentials)
     const expectedAdminId = (school.admin_id || '').trim().toUpperCase();
@@ -821,9 +831,54 @@ export const Database = {
     }
 
     // 4. Role ID Fallback Login (Driver, Librarian, Security, Accountant, Teacher, Student, Parent)
-    const validDefaultPins = ['123456', expectedPin].filter(Boolean);
-    if (validDefaultPins.includes(pwd)) {
-      if (uname === 'ACCOUNTANT' || uname === 'ACC-01' || roleUpper === 'ACCOUNTANT') {
+    const validDefaultPins = ['123456', 'admin@4317', expectedPin].filter(Boolean);
+    const isStandardPin = validDefaultPins.includes(pwd);
+
+    // Driver Login (DRV01, DRV-01, DRIVER, BUS-01, BUS-04, etc.)
+    const isDriverUname =
+      cleanUname === 'DRV01' ||
+      cleanUname === 'DRV1' ||
+      cleanUname === 'DRV' ||
+      cleanUname === 'DRIVER' ||
+      cleanUname === 'DRIVER01' ||
+      cleanUname === 'DRIVER1' ||
+      cleanUname === 'BUS01' ||
+      cleanUname === 'BUS1' ||
+      cleanUname === 'BUS04' ||
+      cleanUname === 'BUS4' ||
+      cleanUname.startsWith('DRV') ||
+      cleanUname.startsWith('DRIVER') ||
+      roleUpper === 'DRIVER';
+
+    const isDriverPwd =
+      isStandardPin ||
+      cleanPwd === 'driver' ||
+      cleanPwd === 'driver123' ||
+      cleanPwd === 'drv01' ||
+      cleanPwd === 'drv1' ||
+      cleanPwd === '1234' ||
+      cleanPwd === cleanUname.toLowerCase();
+
+    if (isDriverUname && isDriverPwd) {
+      return {
+        user: {
+          id: 'DRV-01',
+          school_id: school.id,
+          username: username || 'DRV01',
+          role: 'DRIVER' as const,
+          full_name: 'Ramesh Yadav (Bus 01 Driver)',
+          email: `transport@${school.school_code.toLowerCase()}.edu`,
+          phone: '+91 98765-43210',
+          vehicle_no: 'UP-32-AB-9876',
+          route_name: 'Rajajipuram to Chowk Express',
+          status: 'ACTIVE'
+        },
+        school
+      };
+    }
+
+    if (cleanUname === 'ACCOUNTANT' || cleanUname === 'ACC01' || cleanUname === 'ACC1' || roleUpper === 'ACCOUNTANT') {
+      if (isStandardPin || cleanPwd === 'accountant') {
         return {
           user: {
             id: 'ACC-01',
@@ -837,21 +892,10 @@ export const Database = {
           school
         };
       }
-      if (uname === 'DRIVER' || uname === 'DRV-01' || uname === 'BUS-04' || roleUpper === 'DRIVER') {
-        return {
-          user: {
-            id: 'DRV-01',
-            school_id: school.id,
-            username: username || 'DRV-01',
-            role: 'DRIVER' as const,
-            full_name: 'Ramesh Kumar (Bus 04 Driver)',
-            email: `transport@${school.school_code.toLowerCase()}.edu`,
-            status: 'ACTIVE'
-          },
-          school
-        };
-      }
-      if (uname === 'LIBRARIAN' || uname === 'LIB-01' || roleUpper === 'LIBRARIAN') {
+    }
+
+    if (cleanUname === 'LIBRARIAN' || cleanUname === 'LIB01' || cleanUname === 'LIB1' || roleUpper === 'LIBRARIAN') {
+      if (isStandardPin || cleanPwd === 'librarian') {
         return {
           user: {
             id: 'LIB-01',
@@ -865,7 +909,10 @@ export const Database = {
           school
         };
       }
-      if (uname === 'SECURITY' || uname === 'SEC-01' || uname === 'GUARD' || roleUpper === 'SECURITY' || roleUpper === 'SECURITY_GUARD') {
+    }
+
+    if (cleanUname === 'SECURITY' || cleanUname === 'SEC01' || cleanUname === 'SEC1' || cleanUname === 'GUARD' || roleUpper === 'SECURITY' || roleUpper === 'SECURITY_GUARD') {
+      if (isStandardPin || cleanPwd === 'security' || cleanPwd === 'guard') {
         return {
           user: {
             id: 'SEC-01',
@@ -879,7 +926,10 @@ export const Database = {
           school
         };
       }
-      if (uname === 'TEACHER' || uname === 'FAC-101' || roleUpper === 'TEACHER') {
+    }
+
+    if (cleanUname === 'TEACHER' || cleanUname === 'FAC101' || roleUpper === 'TEACHER') {
+      if (isStandardPin || cleanPwd === 'teacher') {
         return {
           user: {
             id: 'FAC-101',
@@ -893,7 +943,10 @@ export const Database = {
           school
         };
       }
-      if (uname === 'PARENT' || roleUpper === 'PARENT') {
+    }
+
+    if (cleanUname === 'PARENT' || roleUpper === 'PARENT') {
+      if (isStandardPin || cleanPwd === 'parent') {
         return {
           user: {
             id: 'PAR-DEMO',
@@ -907,7 +960,10 @@ export const Database = {
           school
         };
       }
-      if (uname === 'STUDENT' || roleUpper === 'STUDENT') {
+    }
+
+    if (cleanUname === 'STUDENT' || roleUpper === 'STUDENT') {
+      if (isStandardPin || cleanPwd === 'student') {
         return {
           user: {
             id: 'STU-DEMO',

@@ -39,6 +39,8 @@ import { Student } from '@/lib/types';
 export interface DashboardTransportProps {
   students?: Student[];
   schoolName?: string;
+  currentUser?: any;
+  userRole?: string;
 }
 
 export interface RouteStop {
@@ -139,13 +141,23 @@ const INITIAL_ROUTES: BusRouteData[] = [
   }
 ];
 
-export function DashboardTransport({ students = [], schoolName = 'Delhi Public School' }: DashboardTransportProps) {
+export function DashboardTransport({
+  students = [],
+  schoolName = 'Delhi Public School',
+  currentUser,
+  userRole
+}: DashboardTransportProps) {
   // Navigation Modes:
   // 1. 'FLEET'  : Live Radar Map & Telemetry Simulation
   // 2. 'ROUTES' : Route Management Studio (Create/Edit routes like Rajajipuram to Chowk)
   // 3. 'DRIVER' : Driver Smartphone Tracking Cockpit (HTML5 GPS Watch)
   // 4. 'PARENT' : Parent Ward Bus Radar & ETA
-  const [viewMode, setViewMode] = useState<'FLEET' | 'ROUTES' | 'DRIVER' | 'PARENT'>('FLEET');
+  const isDriverUser = userRole === 'DRIVER' || currentUser?.role === 'DRIVER';
+  const [viewMode, setViewMode] = useState<'FLEET' | 'ROUTES' | 'DRIVER' | 'PARENT'>(() => {
+    if (isDriverUser) return 'DRIVER';
+    if (userRole === 'PARENT' || currentUser?.role === 'PARENT') return 'PARENT';
+    return 'FLEET';
+  });
 
   // Loaded Routes State with LocalStorage Persistence
   const [routes, setRoutes] = useState<BusRouteData[]>(() => {

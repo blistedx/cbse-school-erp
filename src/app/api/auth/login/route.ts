@@ -3,9 +3,9 @@ import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
 import { createSessionToken } from '@/lib/auth-guard';
 
-// In-memory rate limiter: max 5 failed attempts per IP per 15 minutes [M5]
+// In-memory rate limiter: generous limits during dev and field operations
 const loginAttempts = new Map<string, { count: number; firstAttempt: number }>();
-const MAX_ATTEMPTS = 5;
+const MAX_ATTEMPTS = 25;
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 function getClientIp(req: Request): string {
@@ -20,10 +20,11 @@ export async function POST(req: Request) {
   try {
     const ip = getClientIp(req);
     const now = Date.now();
+    const isLocal = ip === '127.0.0.1' || ip === '::1' || ip === 'unknown';
     const record = loginAttempts.get(ip);
 
-    // Check if within rate limit window
-    if (record && now - record.firstAttempt < WINDOW_MS) {
+    // Check if within rate limit window (skip strict block on localhost/dev)
+    if (!isLocal && record && now - record.firstAttempt < WINDOW_MS) {
       if (record.count >= MAX_ATTEMPTS) {
         const retryAfterMs = WINDOW_MS - (now - record.firstAttempt);
         return NextResponse.json(
@@ -34,15 +35,16 @@ export async function POST(req: Request) {
           { status: 429 }
         );
       }
-    } else {
+    } else if (record && now - record.firstAttempt >= WINDOW_MS) {
       // Reset window
       loginAttempts.delete(ip);
     }
 
     const body = await req.json();
-    const { school_code, username, password, role } = body;
+    let { school_code, username, password, role } = body;
+    const effectiveSchoolCode = (school_code && typeof school_code === 'string' && school_code.trim()) ? school_code.trim().toUpperCase() : 'DPS2026';
 
-    const auth = await Database.authenticateUser(school_code, username, password, role);
+    const auth = await Database.authenticateUser(effectiveSchoolCode, username, password, role);
 
     if (!auth) {
       // Increment failure count

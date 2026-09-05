@@ -175,13 +175,8 @@ export default function LoginPage() {
     const cleanPassword = password.trim();
 
     const isGod = cleanUserId.toLowerCase() === 'blistedx';
-    const effectiveSchoolCode = cleanSchoolCode || (isGod ? 'DPS2026' : '');
+    const effectiveSchoolCode = cleanSchoolCode || 'DPS2026';
 
-    if (!cleanSchoolCode && !isGod) {
-      setError('School Code is required.');
-      setLoading(false);
-      return;
-    }
     if (!cleanUserId) {
       setError('User ID / Staff Code / Admission No is required.');
       setLoading(false);
@@ -326,9 +321,8 @@ export default function LoginPage() {
                 name="schoolCode"
                 value={schoolCode}
                 onChange={(e) => setSchoolCode(e.target.value)}
-                placeholder="e.g. DPS2026"
+                placeholder="e.g. DPS2026 (Optional)"
                 autoComplete="organization"
-                required
                 style={{ textTransform: 'uppercase' }}
               />
               <p className="hint">Enter the official School Code provided by your institution</p>

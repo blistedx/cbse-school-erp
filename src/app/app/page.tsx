@@ -8799,6 +8799,8 @@ function ERPWorkspaceContent() {
             <DashboardTransport
               students={students}
               schoolName={selectedSchool?.school_name}
+              currentUser={currentUser}
+              userRole={effectiveRole}
             />
           )}
 
