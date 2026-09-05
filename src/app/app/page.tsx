@@ -102,6 +102,10 @@ const DashboardTransport = dynamic(
   () => import('@/components/blocks/dashboard-transport').then((m) => m.DashboardTransport),
   { ssr: false }
 );
+const DriverMobileApp = dynamic(
+  () => import('@/components/mobile/driver-mobile-app'),
+  { ssr: false }
+);
 const DashboardExams = dynamic(
   () => import('@/components/blocks/dashboard-exams').then((m) => m.DashboardExams),
   { ssr: false }
@@ -3418,6 +3422,19 @@ function ERPWorkspaceContent() {
           <span>Authenticating ERP Session...</span>
         </div>
       </div>
+    );
+  }
+
+  // DEDICATED DRIVER MOBILE APP: Strictly renders Driver Mobile App for driver field staff
+  if (effectiveRole === 'DRIVER') {
+    return (
+      <DriverMobileApp
+        currentUser={currentUser}
+        selectedSchool={selectedSchool}
+        students={students}
+        notices={notices}
+        onLogout={handleLogout}
+      />
     );
   }
 

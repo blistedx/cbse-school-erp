@@ -58,6 +58,29 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [recentBroadcasts, setRecentBroadcasts] = useState<any[]>([]);
+  const [liveDriverTelemetry, setLiveDriverTelemetry] = useState<any>(null);
+
+  // Poll live driver GPS telemetry from server
+  React.useEffect(() => {
+    if (activeTab !== 'bus') return;
+    let timer: any;
+    const fetchTelemetry = async () => {
+      try {
+        const res = await fetch(`/api/transport/telemetry?t=${Date.now()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.telemetries) {
+            const active = Object.values(data.telemetries).find((t: any) => t.isOnline);
+            if (active) setLiveDriverTelemetry(active);
+            else setLiveDriverTelemetry(null);
+          }
+        }
+      } catch (e) {}
+    };
+    fetchTelemetry();
+    timer = setInterval(fetchTelemetry, 3000);
+    return () => clearInterval(timer);
+  }, [activeTab]);
 
   React.useEffect(() => {
     const fetchRecent = async () => {
@@ -645,11 +668,13 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
             {/* Telemetry Header */}
             <div className="flex items-center justify-between relative z-10">
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
-                <span className="font-bold text-sm tracking-tight text-white">Live Transport GPS</span>
+                <span className={`w-3 h-3 rounded-full ${liveDriverTelemetry ? 'bg-emerald-400 animate-ping' : 'bg-emerald-400'}`} />
+                <span className="font-bold text-sm tracking-tight text-white">
+                  {liveDriverTelemetry ? '🟢 Driver GPS Live On Road' : 'Live Transport GPS'}
+                </span>
               </div>
               <span className="text-[11px] font-mono bg-emerald-950 border border-emerald-500/30 text-emerald-300 px-2 py-0.5 rounded-full">
-                Speed: 34 km/h
+                Speed: {liveDriverTelemetry?.speedKmh !== undefined ? `${liveDriverTelemetry.speedKmh} km/h` : '34 km/h'}
               </span>
             </div>
 

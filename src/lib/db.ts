@@ -870,7 +870,10 @@ export const Database = {
           email: `transport@${school.school_code.toLowerCase()}.edu`,
           phone: '+91 98765-43210',
           vehicle_no: 'UP-32-AB-9876',
+          bus_no: 'BUS-01',
+          route_id: 'ROUTE-LKO-01',
           route_name: 'Rajajipuram to Chowk Express',
+          license_no: 'DL-04201809283',
           status: 'ACTIVE'
         },
         school

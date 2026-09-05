@@ -312,6 +312,23 @@ export default function LoginPage() {
           <h2>Sign in</h2>
           <p className="sub">Enter your school code, user ID and password to proceed.</p>
 
+          {/* Quick Access Badges for Field Staff & Drivers */}
+          <div className="flex items-center gap-2 mb-4 p-2 bg-[#EBF5EF] rounded-xl border border-[#CDE5D6]">
+            <span className="text-[11px] font-bold text-[#122A24] shrink-0">Quick Login:</span>
+            <button
+              type="button"
+              onClick={() => {
+                setSchoolCode('DPS2026');
+                setUserId('driver');
+                setPassword('123456');
+              }}
+              className="px-2.5 py-1 text-xs font-bold bg-[#122A24] text-white rounded-lg hover:bg-[#1C443A] transition-all flex items-center gap-1 cursor-pointer shadow-xs active:scale-95"
+            >
+              🚌 Driver App
+            </button>
+            <span className="text-[10px] text-[#2D5A4E] font-mono">ID: driver • PIN: 123456</span>
+          </div>
+
           <form onSubmit={handleLogin}>
             <div className="field">
               <label htmlFor="schoolCode">School Code</label>
