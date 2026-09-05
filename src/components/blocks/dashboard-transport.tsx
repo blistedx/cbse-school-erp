@@ -379,7 +379,7 @@ export function DashboardTransport({
   };
 
   // ─────────────────────────────────────────────────────────────
-  // DRIVER SMARTPHONE COCKPIT STATE (HTML5 Live GPS)
+  // DRIVER SMARTPHONE COCKPIT STATE (HTML5 Live GPS & Cloud Broadcast)
   // ─────────────────────────────────────────────────────────────
   const [driverTripActive, setDriverTripActive] = useState(false);
   const [liveDriverGeo, setLiveDriverGeo] = useState<{
@@ -398,27 +398,86 @@ export function DashboardTransport({
     lastUpdated: 'Ready'
   });
   const [geoWatchId, setGeoWatchId] = useState<number | null>(null);
+  const [serverTelemetry, setServerTelemetry] = useState<any>(null);
+  const [isLivePhoneStreaming, setIsLivePhoneStreaming] = useState(false);
+
+  // Poll live telemetry from server to check if driver's mobile is actively transmitting
+  useEffect(() => {
+    let timer: any;
+    const pollTelemetry = async () => {
+      try {
+        const res = await fetch(`/api/transport/telemetry?routeId=${encodeURIComponent(selectedRouteId)}&t=${Date.now()}`);
+        const data = await res.json();
+        if (data && data.success) {
+          if (data.isOnline && data.telemetry) {
+            setServerTelemetry(data.telemetry);
+            setIsLivePhoneStreaming(true);
+            if (data.telemetry.speedKmh !== undefined) {
+              setCurrentSpeed(data.telemetry.speedKmh);
+            }
+            if (data.telemetry.heading !== undefined) {
+              setHeadingDegrees(data.telemetry.heading);
+            }
+          } else {
+            setIsLivePhoneStreaming(false);
+          }
+        }
+      } catch (e) {}
+    };
+
+    pollTelemetry();
+    timer = setInterval(pollTelemetry, 2500);
+    return () => clearInterval(timer);
+  }, [selectedRouteId]);
+
+  // Broadcast driver's mobile coordinates to cloud API
+  const broadcastTelemetry = async (
+    coords: { latitude: number; longitude: number; speedKmh: number; heading: number; accuracyMeters: number },
+    active: boolean = true
+  ) => {
+    try {
+      await fetch('/api/transport/telemetry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          routeId: activeRoute.id,
+          vehicleNo: activeRoute.vehicleNo,
+          driver: activeRoute.driver,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          speedKmh: coords.speedKmh,
+          heading: coords.heading,
+          accuracyMeters: coords.accuracyMeters,
+          active
+        })
+      });
+    } catch (e) {}
+  };
 
   const startDriverTrip = () => {
     setDriverTripActive(true);
+    broadcastTelemetry(liveDriverGeo, true);
+
     if (typeof window !== 'undefined' && 'geolocation' in navigator) {
       try {
         const id = navigator.geolocation.watchPosition(
           (pos) => {
             const speedKmh = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : Math.floor(25 + Math.random() * 15);
-            setLiveDriverGeo({
+            const newGeo = {
               latitude: Number(pos.coords.latitude.toFixed(6)),
               longitude: Number(pos.coords.longitude.toFixed(6)),
               speedKmh: speedKmh,
               heading: pos.coords.heading || 45,
               accuracyMeters: Math.round(pos.coords.accuracy || 5),
               lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-            });
+            };
+            setLiveDriverGeo(newGeo);
+            broadcastTelemetry(newGeo, true);
           },
           (err) => {
             console.warn('[Driver Phone GPS Notice]', err.message);
           },
-          { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+          { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
         );
         setGeoWatchId(id);
       } catch (e) {}
@@ -427,6 +486,7 @@ export function DashboardTransport({
 
   const stopDriverTrip = () => {
     setDriverTripActive(false);
+    broadcastTelemetry(liveDriverGeo, false);
     if (geoWatchId !== null && typeof window !== 'undefined' && 'geolocation' in navigator) {
       navigator.geolocation.clearWatch(geoWatchId);
       setGeoWatchId(null);
@@ -594,6 +654,28 @@ export function DashboardTransport({
                   </button>
                 </div>
               </div>
+
+              {/* Live Driver Smartphone Active Cloud Banner */}
+              {isLivePhoneStreaming && (
+                <div className="mb-4 p-3 rounded-2xl bg-emerald-950/70 border border-emerald-400/60 shadow-inner flex items-center justify-between flex-wrap gap-2 text-xs animate-fade-in">
+                  <div className="flex items-center gap-2 text-emerald-300 font-bold">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+                    </span>
+                    <span>LIVE DRIVER SMARTPHONE TRANSMITTING</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
+                      {serverTelemetry?.vehicleNo}
+                    </span>
+                  </div>
+                  <div className="text-[11px] font-mono text-slate-300 flex items-center gap-3 flex-wrap">
+                    <span>GPS: <strong>{serverTelemetry?.latitude}</strong>, <strong>{serverTelemetry?.longitude}</strong></span>
+                    <span>Speed: <strong className="text-emerald-300 font-bold">{serverTelemetry?.speedKmh} km/h</strong></span>
+                    <span>Acc: <strong>&plusmn;{serverTelemetry?.accuracyMeters}m</strong></span>
+                    <span>Last Ping: <strong className="text-emerald-400">{serverTelemetry?.lastUpdatedText}</strong></span>
+                  </div>
+                </div>
+              )}
 
               {/* Graphical SVG Radar Canvas */}
               <div className="w-full h-72 sm:h-80 bg-[#0A1A16] rounded-2xl border border-emerald-900/50 relative overflow-hidden flex items-center justify-center">
