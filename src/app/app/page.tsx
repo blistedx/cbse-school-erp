@@ -4645,7 +4645,7 @@ function ERPWorkspaceContent() {
                         </span>
                       )}
                     </div>
-                    <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#2D5A4E] font-mono mt-1">
+                    <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#2D5A4E] font-medium mt-1">
                       <span>DPS2026</span>
                       <span>/</span>
                       <span>Institutional Registry</span>
@@ -4674,8 +4674,8 @@ function ERPWorkspaceContent() {
                         onClick={() => setStudentSubTab('siblings')}
                         className={`px-3 py-1.5 rounded-full text-xs font-semibold border-none cursor-pointer transition-all ${
                           studentSubTab === 'siblings'
-                            ? 'bg-purple-900 text-white shadow-xs'
-                            : 'bg-transparent text-purple-900 hover:text-purple-950'
+                            ? 'bg-[#122A24] text-white shadow-xs'
+                            : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24]'
                         }`}
                       >
                         Siblings Hub
@@ -5688,7 +5688,7 @@ function ERPWorkspaceContent() {
                 {/* Background Watermark */}
                 <div 
                   aria-hidden="true" 
-                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-purple-900/[0.06] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-slate-100/60 text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
                 >
                   SIBLINGS
                 </div>
@@ -5699,11 +5699,11 @@ function ERPWorkspaceContent() {
                       <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
                         Siblings &amp; Household Hub
                       </h1>
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-purple-50 text-purple-900 border border-purple-200">
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
                         CBSE Family Linkage
                       </span>
                     </div>
-                    <p className="text-xs text-[#2D5A4E] font-mono mt-1">
+                    <p className="text-xs text-[#2D5A4E] mt-1 font-medium">
                       Automated parent matching across Father &amp; Mother names, phone registry and address coordinates.
                     </p>
                   </div>
