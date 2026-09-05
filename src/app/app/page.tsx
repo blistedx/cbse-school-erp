@@ -532,6 +532,16 @@ function ERPWorkspaceContent() {
     }
   }, [currentUser?.id, currentUser?.role]);
 
+  // STRICTLY BAN Overview, Students, Faculty, Attendance, etc. for DRIVER role
+  useEffect(() => {
+    if (effectiveRole === 'DRIVER') {
+      const allowedDriverTabs = ['transport', 'notices', 'broadcast', 'profile'];
+      if (!allowedDriverTabs.includes(activeTab)) {
+        setActiveTab('transport');
+      }
+    }
+  }, [effectiveRole, activeTab]);
+
   const allowedTabs = React.useMemo(() => {
     // If no user session loaded yet or user is Principal/Master, provide full master tabs
     if (!currentUser || isPrincipalMaster) {
@@ -3454,9 +3464,9 @@ function ERPWorkspaceContent() {
 
           <button
             type="button"
-            onClick={() => setActiveTab('overview')}
+            onClick={() => setActiveTab(effectiveRole === 'DRIVER' ? 'transport' : 'overview')}
             className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1 border-none bg-transparent p-0 text-left cursor-pointer group"
-            title="Go to Overview Dashboard"
+            title={effectiveRole === 'DRIVER' ? 'Go to Transport Console' : 'Go to Overview Dashboard'}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {selectedSchool?.logo || settingsForm.logo ? (
@@ -3517,37 +3527,41 @@ function ERPWorkspaceContent() {
             </div>
           ) : null}
 
-          {/* Universal Omni-Search Trigger Button */}
-          <button
-            type="button"
-            onClick={() => setIsOmniSearchOpen(true)}
-            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 bg-[#F4F8F5] hover:bg-[#EBF5EF] border border-[#DCE8E0] hover:border-emerald-600/50 text-[#122A24] rounded-full text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
-            title="Quick Search scholars, staff, invoices, classes, notices (Ctrl+K)"
-          >
-            <Search className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
-            <span className="hidden sm:inline text-slate-600 font-sans text-[11.5px]">Search anything...</span>
-            <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9.5px] font-mono bg-white border border-[#DCE8E0] rounded text-slate-400 font-bold">
-              Ctrl K
-            </kbd>
-          </button>
-
-          {/* Academic Session Switcher Dropdown (Responsive Compact Pill) */}
-          <div className="flex items-center gap-1 px-2 sm:px-3 py-1 bg-[#EBF5EF] hover:bg-[#D8EEDF] border border-[#C5E2CF] text-[#122A24] rounded-full text-xs font-bold font-mono shadow-2xs transition-colors shrink-0">
-            <Calendar className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
-            <span className="hidden md:inline text-[10px] text-[#2D5A4E] uppercase font-bold tracking-wider">Session:</span>
-            <select
-              value={selectedSession}
-              onChange={(e) => handleSwitchSession(e.target.value)}
-              className="bg-transparent border-none text-[11px] sm:text-xs font-bold font-mono text-[#122A24] focus:outline-none cursor-pointer pr-0.5 max-w-[68px] sm:max-w-none"
-              title="Switch Academic Session"
+          {/* Universal Omni-Search Trigger Button (Hidden for Driver) */}
+          {effectiveRole !== 'DRIVER' && (
+            <button
+              type="button"
+              onClick={() => setIsOmniSearchOpen(true)}
+              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 bg-[#F4F8F5] hover:bg-[#EBF5EF] border border-[#DCE8E0] hover:border-emerald-600/50 text-[#122A24] rounded-full text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
+              title="Quick Search scholars, staff, invoices, classes, notices (Ctrl+K)"
             >
-              {AVAILABLE_SESSIONS.map((sess) => (
-                <option key={sess} value={sess}>
-                  {sess}
-                </option>
-              ))}
-            </select>
-          </div>
+              <Search className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+              <span className="hidden sm:inline text-slate-600 font-sans text-[11.5px]">Search anything...</span>
+              <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9.5px] font-mono bg-white border border-[#DCE8E0] rounded text-slate-400 font-bold">
+                Ctrl K
+              </kbd>
+            </button>
+          )}
+
+          {/* Academic Session Switcher Dropdown (Hidden for Driver) */}
+          {effectiveRole !== 'DRIVER' && (
+            <div className="flex items-center gap-1 px-2 sm:px-3 py-1 bg-[#EBF5EF] hover:bg-[#D8EEDF] border border-[#C5E2CF] text-[#122A24] rounded-full text-xs font-bold font-mono shadow-2xs transition-colors shrink-0">
+              <Calendar className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+              <span className="hidden md:inline text-[10px] text-[#2D5A4E] uppercase font-bold tracking-wider">Session:</span>
+              <select
+                value={selectedSession}
+                onChange={(e) => handleSwitchSession(e.target.value)}
+                className="bg-transparent border-none text-[11px] sm:text-xs font-bold font-mono text-[#122A24] focus:outline-none cursor-pointer pr-0.5 max-w-[68px] sm:max-w-none"
+                title="Switch Academic Session"
+              >
+                {AVAILABLE_SESSIONS.map((sess) => (
+                  <option key={sess} value={sess}>
+                    {sess}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Live Data Sync Micro-Status Indicator */}
           {isSyncingLive ? (
@@ -3686,9 +3700,9 @@ function ERPWorkspaceContent() {
             <div className="flex items-center justify-between pb-4 mb-2 border-b border-white/15">
               <button
                 type="button"
-                onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
+                onClick={() => { setActiveTab(effectiveRole === 'DRIVER' ? 'transport' : 'overview'); setMobileMenuOpen(false); }}
                 className="flex items-center gap-2.5 border-none bg-transparent p-0 text-left cursor-pointer group"
-                title="Go to Overview Dashboard"
+                title={effectiveRole === 'DRIVER' ? "Go to Transport Console" : "Go to Overview Dashboard"}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {selectedSchool?.logo || settingsForm.logo ? (
@@ -4190,9 +4204,9 @@ function ERPWorkspaceContent() {
           {/* Giterp Brand Badge */}
           <button
             type="button"
-            onClick={() => setActiveTab('overview')}
+            onClick={() => setActiveTab(effectiveRole === 'DRIVER' ? 'transport' : 'overview')}
             className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 mb-3 transition-colors text-left border-none cursor-pointer group w-full"
-            title="Go to Overview Dashboard"
+            title={effectiveRole === 'DRIVER' ? "Go to Transport Console" : "Go to Overview Dashboard"}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {selectedSchool?.logo || settingsForm.logo ? (
@@ -4699,10 +4713,10 @@ function ERPWorkspaceContent() {
               </p>
               <div className="pt-2">
                 <button
-                  onClick={() => setActiveTab('overview')}
+                  onClick={() => setActiveTab(effectiveRole === 'DRIVER' ? 'transport' : 'overview')}
                   className="px-5 py-2.5 bg-[#122A24] text-white rounded-full text-xs font-bold shadow-xs hover:bg-[#1C443A] cursor-pointer border-none"
                 >
-                  Return to Overview Dashboard
+                  Return to {effectiveRole === 'DRIVER' ? 'Transport Console' : 'Overview Dashboard'}
                 </button>
               </div>
             </div>
@@ -4749,7 +4763,7 @@ function ERPWorkspaceContent() {
           )}
 
           {/* TAB 2: STUDENTS (THEME-ALIGNED PREMIUM MINT & FOREST GREEN) */}
-          {activeTab === 'students' && (
+          {activeTab === 'students' && allowedTabs.includes('students') && (
             <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
               {/* Main Card Container */}
               <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
@@ -5875,7 +5889,7 @@ function ERPWorkspaceContent() {
           )}
 
           {/* TAB 3: TEACHERS (THEME-ALIGNED PREMIUM MINT & FOREST GREEN) */}
-          {activeTab === 'teachers' && (
+          {activeTab === 'teachers' && allowedTabs.includes('teachers') && (
             <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
               {/* Main Card Container */}
               <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
@@ -7574,7 +7588,7 @@ function ERPWorkspaceContent() {
           )}
 
           {/* TAB 5: ATTENDANCE HUB (STUDENT vs ADMIN/FACULTY) */}
-          {activeTab === 'attendance' && (
+          {activeTab === 'attendance' && allowedTabs.includes('attendance') && (
             effectiveRole === 'STUDENT' ? (
               <DashboardStudentPortal
                 currentUser={currentUser}
@@ -12004,21 +12018,73 @@ function ERPWorkspaceContent() {
         </div>
       )}
 
-      {/* MOBILE BOTTOM NAVIGATION DOCK (ROLE ADAPTIVE FOR ADMIN, TEACHER, STUDENT, PARENT) */}
+      {/* MOBILE BOTTOM NAVIGATION DOCK (ROLE ADAPTIVE FOR ADMIN, TEACHER, STUDENT, PARENT, DRIVER) */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#DCE8E0] px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.06)] select-none">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-            activeTab === 'overview' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-          }`}
-        >
-          <div className={`p-1 rounded-lg ${activeTab === 'overview' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-            <BarChart3 className="h-4 w-4" />
-          </div>
-          <span>Overview</span>
-        </button>
+        {effectiveRole !== 'DRIVER' && (
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+              activeTab === 'overview' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${activeTab === 'overview' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+              <BarChart3 className="h-4 w-4" />
+            </div>
+            <span>Overview</span>
+          </button>
+        )}
 
-        {effectiveRole === 'TEACHER' ? (
+        {effectiveRole === 'DRIVER' ? (
+          <>
+            <button
+              onClick={() => setActiveTab('transport')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'transport' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'transport' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <Bus className="h-4 w-4" />
+              </div>
+              <span>Transport</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('notices')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'notices' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'notices' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <Bell className="h-4 w-4" />
+              </div>
+              <span>Notice Board</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('broadcast')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'broadcast' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'broadcast' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <Radio className="h-4 w-4" />
+              </div>
+              <span>Broadcast</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
+                activeTab === 'profile' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'profile' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
+                <User className="h-4 w-4" />
+              </div>
+              <span>My Profile</span>
+            </button>
+          </>
+        ) : effectiveRole === 'TEACHER' ? (
           <>
             <button
               onClick={() => setActiveTab('attendance')}

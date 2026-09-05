@@ -480,7 +480,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     homework: { can_view: false, can_edit: false, can_add: false, can_delete: false },
     approvals: { can_view: false, can_edit: false, can_add: false, can_delete: false },
     notices: { can_view: true, can_edit: false, can_add: false, can_delete: false },
-    students: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    students: { can_view: false, can_edit: false, can_add: false, can_delete: false },
     siblings: { can_view: false, can_edit: false, can_add: false, can_delete: false },
     teachers: { can_view: false, can_edit: false, can_add: false, can_delete: false },
     fees: { can_view: false, can_edit: false, can_add: false, can_delete: false },
