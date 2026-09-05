@@ -4,7 +4,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { APP_INFO } from '@/lib/app-info';
 
 // DYNAMIC MATRIX CODE RAIN / FALLING ALPHABETS CANVAS COMPONENT
 function MatrixRain({ theme = 'chalkboard' }: { theme?: 'chalkboard' | 'light' }) {
@@ -144,25 +143,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [buildInfo, setBuildInfo] = useState({
-    buildNumber: APP_INFO.buildNumber,
-    releaseTag: APP_INFO.releaseTag
-  });
-
-  useEffect(() => {
-    // Dynamically fetch live server build info to bypass any local service-worker or browser cache
-    fetch(`/api/app-info?t=${Date.now()}`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.buildNumber) {
-          setBuildInfo({
-            buildNumber: data.buildNumber,
-            releaseTag: data.releaseTag || APP_INFO.releaseTag
-          });
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,9 +182,9 @@ export default function LoginPage() {
       const data = await res.json();
       if (data.success) {
         if (data.user?.is_god_admin || data.user?.role === 'AGENCY_SUPERADMIN' || isGod) {
-          setSuccess('⚡ GOD ACCESS GRANTED! Welcome Master BlistedX — Unlocking all schools on platform...');
+          setSuccess('⚡ Access granted! Unlocking platform...');
         } else {
-          setSuccess(`Authentication successful! Welcome ${data.user?.full_name || data.user?.username}...`);
+          setSuccess(`Welcome ${data.user?.full_name || data.user?.username}! Signing in...`);
         }
         localStorage.setItem('current_user', JSON.stringify({
           ...data.user,
@@ -230,108 +210,69 @@ export default function LoginPage() {
 
   return (
     <div className="auth-split-layout relative overflow-hidden min-h-screen">
-      {/* Light Green Matrix Rain ONLY on Mobile Screen (< md) */}
-      <div className="md:hidden">
-        <MatrixRain theme="light" />
-      </div>
-
-      {/* Left chalkboard panel with live Falling Matrix Alphabets (Desktop Only) */}
+      {/* Left chalkboard panel (Desktop Only) */}
       <div className="panel relative overflow-hidden z-10">
         <MatrixRain theme="chalkboard" />
 
-        <svg className="doodle p1 relative z-10" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="18" cy="22" r="12" stroke="#FFFFFF" strokeWidth="2" />
-          <path d="M18 10c1-4 4-6 7-6" stroke="#C4432B" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-        <svg className="doodle p2 relative z-10" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="6" y="17" width="28" height="6" rx="2" stroke="#FFFFFF" strokeWidth="2" />
-          <path d="M10 17v6M16 17v6M22 17v6M28 17v6" stroke="#FFFFFF" strokeWidth="1.4" />
-        </svg>
-
-        <Link className="brand relative z-10" href="/">
+        <Link className="brand relative z-10 no-underline" href="/">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/giterp-logo.png" alt="Giterp Logo" className="w-10 h-10 rounded-xl object-contain shadow-sm bg-[#122A24] border border-white/20 p-1" />
-          <span className="brand-text">
+          <span className="brand-text text-white">
             Giterp
-            <span>Manage • Integrate • Grow</span>
+            <span className="text-emerald-300/80">Manage • Integrate • Grow</span>
           </span>
         </Link>
 
-        <div className="panel-mid relative z-10">
-          <p className="eyebrow">Restricted Access</p>
-          <h1>
-            One login,{' '}
-            <span className="underline">
-              any school
-              <svg viewBox="0 0 160 12" preserveAspectRatio="none">
-                <path d="M2 8 Q40 2 80 7 T158 5" stroke="#C4432B" strokeWidth="3" fill="none" strokeLinecap="round" />
-              </svg>
-            </span>{' '}
-            on the platform.
+        <div className="panel-mid relative z-10 my-auto">
+          <p className="eyebrow text-emerald-300/90 font-mono text-xs uppercase tracking-widest mb-3">
+            Enterprise CBSE Platform
+          </p>
+          <h1 className="text-3xl lg:text-4xl font-extrabold text-white leading-tight mb-4">
+            Unified Portal for School Operations.
           </h1>
-          <p>
-            Enter your school code first, then sign in with your User ID / Employee Code and password. Your role and workspace will be assigned automatically.
+          <p className="text-sm text-emerald-100/80 leading-relaxed max-w-md">
+            Sign in to access student management, faculty workflows, live GPS fleet tracking, and real-time CBSE attendance registers.
           </p>
         </div>
 
-        <div className="stamp-mini relative z-10">
-          <svg viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="80" cy="80" r="70" stroke="#C4432B" strokeWidth="3" strokeDasharray="4 6" />
-            <circle cx="80" cy="80" r="58" stroke="#C4432B" strokeWidth="2" />
-            <text x="80" y="93" textAnchor="middle" fontFamily="Sora, sans-serif" fontWeight="700" fontSize="40" fill="#C4432B">
-              A+
-            </text>
-          </svg>
+        <div className="relative z-10 text-xs text-white/50 font-mono">
+          &copy; {new Date().getFullYear()} Giterp ERP &bull; All rights reserved.
         </div>
       </div>
 
-      {/* Right form panel (Clean on Desktop & Mobile with classic boxes) */}
-      <div className="formside relative z-10">
-        <div className="card">
+      {/* Right form panel: Clean, Modern, Minimal */}
+      <div className="formside relative z-10 flex items-center justify-center p-6 sm:p-12 bg-[#FAF8F5]">
+        <div className="card w-full max-w-md bg-white p-7 sm:p-9 rounded-3xl border border-[#E2ECE5] shadow-xl">
           {/* Mobile Brand Header with Official Giterp Logo & Name */}
-          <div className="flex sm:hidden items-center justify-center gap-3 mb-5 pb-3.5 border-b border-[#E8F0EA]">
+          <div className="flex sm:hidden items-center justify-center gap-3 mb-6 pb-4 border-b border-[#E8F0EA]">
             <Link href="/" className="flex items-center gap-3 no-underline">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/giterp-logo.png"
                 alt="Giterp Logo"
-                className="w-11 h-11 rounded-xl object-contain shadow-xs bg-[#122A24] border border-[#1C443A] p-1"
+                className="w-10 h-10 rounded-xl object-contain shadow-xs bg-[#122A24] border border-[#1C443A] p-1"
               />
               <div className="text-left">
-                <span className="font-display font-bold text-xl text-[#122A24] block leading-tight tracking-tight">
+                <span className="font-display font-bold text-lg text-[#122A24] block leading-tight">
                   Giterp
                 </span>
                 <span className="text-[10px] font-mono text-[#2D5A4E] font-medium block uppercase tracking-wider">
-                  Manage • Integrate • Grow
+                  School ERP Portal
                 </span>
               </div>
             </Link>
           </div>
 
-          <p className="kicker">Hall pass required</p>
-          <h2>Sign in</h2>
-          <p className="sub">Enter your school code, user ID and password to proceed.</p>
-
-          {/* Quick Access Badges for Field Staff & Drivers */}
-          <div className="flex items-center gap-2 mb-4 p-2 bg-[#EBF5EF] rounded-xl border border-[#CDE5D6]">
-            <span className="text-[11px] font-bold text-[#122A24] shrink-0">Quick Login:</span>
-            <button
-              type="button"
-              onClick={() => {
-                setSchoolCode('DPS2026');
-                setUserId('driver');
-                setPassword('123456');
-              }}
-              className="px-2.5 py-1 text-xs font-bold bg-[#122A24] text-white rounded-lg hover:bg-[#1C443A] transition-all flex items-center gap-1 cursor-pointer shadow-xs active:scale-95"
-            >
-              🚌 Driver App
-            </button>
-            <span className="text-[10px] text-[#2D5A4E] font-mono">ID: driver • PIN: 123456</span>
+          <div className="mb-6">
+            <h2 className="text-2xl sm:text-3xl font-bold text-[#122A24] tracking-tight">Sign In</h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Enter your credentials to access your portal.
+            </p>
           </div>
 
-          <form onSubmit={handleLogin}>
+          <form onSubmit={handleLogin} className="space-y-4">
             <div className="field">
-              <label htmlFor="schoolCode">School Code</label>
+              <label htmlFor="schoolCode" className="block text-xs font-bold text-[#122A24] mb-1">School Code</label>
               <input
                 type="text"
                 id="schoolCode"
@@ -341,81 +282,90 @@ export default function LoginPage() {
                 placeholder="e.g. DPS2026 (Optional)"
                 autoComplete="organization"
                 style={{ textTransform: 'uppercase' }}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#C5E2CF] focus:outline-none focus:ring-2 focus:ring-[#1C443A] text-sm"
               />
-              <p className="hint">Enter the official School Code provided by your institution</p>
             </div>
 
             <div className="field">
-              <label htmlFor="userId" id="idLabel">User ID / Staff Code / Admission No</label>
+              <label htmlFor="userId" id="idLabel" className="block text-xs font-bold text-[#122A24] mb-1">User ID / Staff ID / Admission No</label>
               <input
                 type="text"
                 id="userId"
                 name="userId"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                placeholder="e.g. admin, EMP-202601, DPS-2026-0001"
+                placeholder="e.g. admin, teacher, student, driver"
                 autoComplete="username"
                 required
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#C5E2CF] focus:outline-none focus:ring-2 focus:ring-[#1C443A] text-sm"
               />
-              <p className="hint" id="idHint">Your official login ID, Employee Code, or Admission Number</p>
             </div>
 
             <div className="field">
-              <label htmlFor="password">Passcode / Password</label>
+              <label htmlFor="password" className="block text-xs font-bold text-[#122A24] mb-1">Password / Passcode</label>
               <input
                 type="password"
                 id="password"
                 name="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your security passcode"
+                placeholder="••••••••"
                 autoComplete="current-password"
                 required
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#C5E2CF] focus:outline-none focus:ring-2 focus:ring-[#1C443A] text-sm"
               />
-              <p className="hint">Confidential security PIN / passcode</p>
             </div>
 
-            <div className="row-between">
-              <label>
+            <div className="flex items-center justify-between text-xs pt-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600">
                 <input
                   type="checkbox"
                   id="remember"
                   checked={remember}
                   onChange={(e) => setRemember(e.target.checked)}
-                />{' '}
-                Keep me signed in
+                  className="rounded border-[#C5E2CF] text-[#1C443A] focus:ring-[#1C443A]"
+                />
+                <span>Keep me signed in</span>
               </label>
-              <a href="#">Forgot passcode?</a>
+              <a href="#" className="text-[#1C443A] hover:underline font-medium">Forgot password?</a>
             </div>
 
             {error && (
-              <p className="status-msg" style={{ color: '#C4432B', marginBottom: '16px' }}>
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
                 {error}
-              </p>
+              </div>
             )}
 
             {success && (
-              <p className="status-msg" style={{ color: '#1C443A', marginBottom: '16px' }}>
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium">
                 {success}
-              </p>
+              </div>
             )}
 
-            <button type="submit" className="submit" disabled={loading}>
-              <span className="stamp-icon">✓</span>
-              {loading ? 'Authenticating...' : 'Sign in to ERP'}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 px-4 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border-none disabled:opacity-60 active:scale-[0.99] mt-2"
+            >
+              {loading ? (
+                <span>Authenticating...</span>
+              ) : (
+                <>
+                  <span>Sign In</span>
+                  <span>&rarr;</span>
+                </>
+              )}
             </button>
           </form>
 
-          <Link className="back" href="/">← Back to Giterp</Link>
-          <Link className="back" href="/request-demo" style={{ marginTop: '8px' }}>
-            New school? Request a demo →
-          </Link>
-
-          <div
-            style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid #E2ECE5', textAlign: 'center', fontFamily: 'monospace', fontSize: '11px', color: '#52796F' }}
-          >
-            <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10B981', marginRight: '6px' }} />
-            Build #{buildInfo.buildNumber} • {buildInfo.releaseTag}
+          {/* Clean Footer Links */}
+          <div className="flex items-center justify-between text-xs text-slate-500 pt-5 mt-6 border-t border-[#E8F0EA]">
+            <Link href="/" className="hover:text-[#122A24] font-medium transition-colors no-underline">
+              &larr; Back to Home
+            </Link>
+            <Link href="/request-demo" className="hover:text-[#122A24] font-medium transition-colors no-underline">
+              Request Demo &rarr;
+            </Link>
           </div>
         </div>
       </div>
