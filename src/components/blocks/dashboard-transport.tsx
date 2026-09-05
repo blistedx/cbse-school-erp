@@ -524,46 +524,49 @@ export function DashboardTransport({
   const [geoWatchId, setGeoWatchId] = useState<number | null>(null);
   const [gpsPollTimer, setGpsPollTimer] = useState<any>(null);
   const [serverTelemetry, setServerTelemetry] = useState<any>(null);
+  const [allTelemetries, setAllTelemetries] = useState<Record<string, any>>({});
+  const [isRefreshingTelemetry, setIsRefreshingTelemetry] = useState(false);
   const [isLivePhoneStreaming, setIsLivePhoneStreaming] = useState(false);
   const [gpsStatusMessage, setGpsStatusMessage] = useState<string>('Ready to Transmit');
 
-  // Poll live telemetry from server to check if driver's mobile is actively transmitting
-  useEffect(() => {
-    let timer: any;
-    const pollTelemetry = async () => {
-      try {
-        const res = await fetch(`/api/transport/telemetry?t=${Date.now()}`);
-        const data = await res.json();
-        if (data && data.success) {
-          // Check all active telemetries or current route
-          let activeTele: any = null;
-          if (data.telemetries) {
-            if (data.telemetries[selectedRouteId]?.isOnline) {
-              activeTele = data.telemetries[selectedRouteId];
-            } else {
-              activeTele = Object.values(data.telemetries).find((t: any) => t.isOnline);
-            }
-          }
-          if (activeTele && activeTele.isOnline) {
-            setServerTelemetry(activeTele);
-            setIsLivePhoneStreaming(true);
-            if (activeTele.speedKmh !== undefined) {
-              setCurrentSpeed(activeTele.speedKmh);
-            }
-            if (activeTele.heading !== undefined) {
-              setHeadingDegrees(activeTele.heading);
-            }
-          } else {
-            setIsLivePhoneStreaming(false);
-          }
+  // Fetch live telemetry from server to check if driver's mobile is actively transmitting
+  const fetchTelemetry = useCallback(async () => {
+    setIsRefreshingTelemetry(true);
+    try {
+      const res = await fetch(`/api/transport/telemetry?t=${Date.now()}`);
+      const data = await res.json();
+      if (data && data.success && data.telemetries) {
+        setAllTelemetries(data.telemetries);
+        let activeTele: any = null;
+        if (data.telemetries[selectedRouteId]?.isOnline) {
+          activeTele = data.telemetries[selectedRouteId];
+        } else {
+          activeTele = Object.values(data.telemetries).find((t: any) => t.isOnline);
         }
-      } catch (e) {}
-    };
-
-    pollTelemetry();
-    timer = setInterval(pollTelemetry, 2000);
-    return () => clearInterval(timer);
+        if (activeTele && activeTele.isOnline) {
+          setServerTelemetry(activeTele);
+          setIsLivePhoneStreaming(true);
+          if (activeTele.speedKmh !== undefined) {
+            setCurrentSpeed(activeTele.speedKmh);
+          }
+          if (activeTele.heading !== undefined) {
+            setHeadingDegrees(activeTele.heading);
+          }
+        } else {
+          setIsLivePhoneStreaming(false);
+        }
+      }
+    } catch (e) {} finally {
+      setTimeout(() => setIsRefreshingTelemetry(false), 400);
+    }
   }, [selectedRouteId]);
+
+  // Poll live telemetry every 2 seconds
+  useEffect(() => {
+    fetchTelemetry();
+    const timer = setInterval(fetchTelemetry, 2000);
+    return () => clearInterval(timer);
+  }, [fetchTelemetry]);
 
   // Broadcast driver's mobile coordinates to cloud API
   const broadcastTelemetry = async (
@@ -909,6 +912,30 @@ export function DashboardTransport({
     return Math.round((completedStopIds.length / currentShiftStops.length) * 100);
   }, [completedStopIds, currentShiftStops]);
 
+  // Master telemetry coordinates for Admin Fleet View
+  const adminBusCoords = useMemo(() => {
+    if (serverTelemetry && serverTelemetry.latitude && serverTelemetry.longitude) {
+      return {
+        lat: Number(serverTelemetry.latitude),
+        lng: Number(serverTelemetry.longitude),
+        speedKmh: Number(serverTelemetry.speedKmh || 0),
+        heading: Number(serverTelemetry.heading || 0),
+        accuracyMeters: Number(serverTelemetry.accuracyMeters || 4),
+        isStreaming: isLivePhoneStreaming,
+        lastUpdated: serverTelemetry.lastUpdatedText || 'Live Streaming'
+      };
+    }
+    return {
+      lat: liveDriverGeo.latitude || currentShiftStops[0]?.lat || 26.8378,
+      lng: liveDriverGeo.longitude || currentShiftStops[0]?.lng || 80.8872,
+      speedKmh: liveDriverGeo.speedKmh || 0,
+      heading: liveDriverGeo.heading || 0,
+      accuracyMeters: liveDriverGeo.accuracyMeters || 5,
+      isStreaming: driverTripActive || isLivePhoneStreaming,
+      lastUpdated: liveDriverGeo.lastUpdated || 'Standby'
+    };
+  }, [serverTelemetry, isLivePhoneStreaming, liveDriverGeo, driverTripActive, currentShiftStops]);
+
   // Filter students strictly assigned to this driver's bus route, filtered by active shift
   const busAssignedStudents = useMemo(() => {
     if (!students || students.length === 0) return [];
@@ -1096,331 +1123,429 @@ export function DashboardTransport({
       {viewMode === 'FLEET' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
-          {/* Left Column: Interactive Radar Canvas & Telemetry */}
+          {/* Left Column: Master Google Maps Console & Telemetry */}
           <div className="lg:col-span-8 space-y-6">
-            
-            {/* The Live Interactive Radar Screen */}
-            <div className="bg-[#122A24] rounded-3xl p-6 shadow-xl border border-[#1C443A] text-white relative overflow-hidden">
-              
-              {/* Radar Header */}
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+
+            {/* 1. ACTIVE BUS SHIFT SELECTOR BAR FOR ADMIN */}
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#DCE8E0] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center shrink-0 border border-[#C5E2CF]">
+                  <Repeat className="w-6 h-6 text-emerald-700" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-[#122A24] uppercase tracking-wider">
+                      {activeRoute.code} &bull; Fleet Transit Shift
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-extrabold font-mono uppercase">
+                      {ROUTE_SHIFTS_METADATA[activeShift].shortLabel}
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-sm sm:text-base text-[#122A24] mt-0.5">
+                    {ROUTE_SHIFTS_METADATA[activeShift].name} ({ROUTE_SHIFTS_METADATA[activeShift].timing})
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {ROUTE_SHIFTS_METADATA[activeShift].description}
+                  </p>
+                </div>
+              </div>
+
+              {/* 3 Shift Switcher Buttons */}
+              <div className="flex items-center gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] self-start md:self-auto overflow-x-auto max-w-full">
+                {(['MORNING', 'AFTERNOON', 'EVENING'] as ShiftType[]).map((shiftKey) => {
+                  const shift = ROUTE_SHIFTS_METADATA[shiftKey];
+                  const isActive = activeShift === shiftKey;
+                  return (
+                    <button
+                      key={shiftKey}
+                      type="button"
+                      onClick={() => handleShiftChange(shiftKey)}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none flex items-center gap-1.5 whitespace-nowrap ${
+                        isActive
+                          ? 'bg-[#122A24] text-white shadow-sm ring-2 ring-emerald-500/40'
+                          : 'bg-transparent text-slate-600 hover:text-[#122A24] hover:bg-white/80'
+                      }`}
+                      title={`Switch to ${shift.name}`}
+                    >
+                      <span>{shiftKey === 'MORNING' ? '🌅' : shiftKey === 'AFTERNOON' ? '☀️' : '🌙'}</span>
+                      <span>{shiftKey === 'MORNING' ? 'Morning Pickup' : shiftKey === 'AFTERNOON' ? 'Afternoon Drop' : 'Evening Transit'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2. MASTER GOOGLE MAPS FLEET RADAR CONSOLE (REPLACES SYNTHETIC SVG & OPENSTREETMAP) */}
+            <div className={`bg-white rounded-3xl p-5 sm:p-6 border border-[#DCE8E0] shadow-sm space-y-4 transition-all ${
+              isMapFullscreen ? 'fixed inset-0 z-50 rounded-none p-4 sm:p-6 bg-slate-900 border-none flex flex-col overflow-auto' : ''
+            }`}>
+              {/* Header Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400">
+                  <div className="w-10 h-10 rounded-2xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center shrink-0 border border-[#C5E2CF]">
                     <Bus className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="font-bold text-base text-white flex items-center gap-2">
-                      <span>{activeRoute.name}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-bold">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className={`font-bold text-base ${isMapFullscreen ? 'text-white' : 'text-[#122A24]'}`}>
+                        {activeRoute.name}
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-md bg-[#122A24] text-emerald-300 font-mono text-[10px] font-bold">
                         {activeRoute.code}
                       </span>
-                    </h2>
-                    <p className="text-xs text-slate-300 font-mono">
-                      Vehicle: <strong>{activeRoute.vehicleNo}</strong> &bull; Driver: <strong>{activeRoute.driver}</strong> ({activeRoute.driverPhone})
+                      {activeRoute.substituteDriver && (
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                          Relief: {activeRoute.substituteDriver}
+                        </span>
+                      )}
+                    </div>
+                    <p className={`text-xs ${isMapFullscreen ? 'text-slate-300' : 'text-slate-500'}`}>
+                      Vehicle: <strong className="font-mono">{activeRoute.vehicleNo}</strong> &bull; Driver: {activeRoute.driver} ({activeRoute.driverPhone})
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setGpsActive(!gpsActive)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
-                      gpsActive
-                        ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300'
-                        : 'bg-rose-500/20 border-rose-400/40 text-rose-300'
-                    }`}
-                  >
-                    <span className={`w-2 h-2 rounded-full ${gpsActive ? 'bg-emerald-400 animate-ping' : 'bg-rose-400'}`} />
-                    <span>{gpsActive ? 'GPS ACTIVE' : 'GPS PAUSED'}</span>
-                  </button>
-
-                  <button
-                    onClick={() => setProgressPercent(5)}
-                    className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/10 transition-colors cursor-pointer"
-                    title="Reset Simulation"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Live Driver Smartphone Active Cloud Banner */}
-              {isLivePhoneStreaming && (
-                <div className="mb-4 p-3 rounded-2xl bg-emerald-950/70 border border-emerald-400/60 shadow-inner flex items-center justify-between flex-wrap gap-2 text-xs animate-fade-in">
-                  <div className="flex items-center gap-2 text-emerald-300 font-bold">
-                    <span className="relative flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
-                    </span>
-                    <span>LIVE DRIVER SMARTPHONE TRANSMITTING</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
-                      {serverTelemetry?.vehicleNo}
-                    </span>
-                  </div>
-                  <div className="text-[11px] font-mono text-slate-300 flex items-center gap-3 flex-wrap">
-                    <span>GPS: <strong>{serverTelemetry?.latitude}</strong>, <strong>{serverTelemetry?.longitude}</strong></span>
-                    <span>Speed: <strong className="text-emerald-300 font-bold">{serverTelemetry?.speedKmh} km/h</strong></span>
-                    <span>Acc: <strong>&plusmn;{serverTelemetry?.accuracyMeters}m</strong></span>
-                    <span>Last Ping: <strong className="text-emerald-400">{serverTelemetry?.lastUpdatedText}</strong></span>
-                  </div>
-                </div>
-              )}
-
-              {/* Graphical SVG Radar Canvas */}
-              <div className="w-full h-72 sm:h-80 bg-[#0A1A16] rounded-2xl border border-emerald-900/50 relative overflow-hidden flex items-center justify-center">
-                
-                {/* Radar grid rings */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-                  <div className="w-96 h-96 rounded-full border border-emerald-400/40" />
-                  <div className="w-64 h-64 rounded-full border border-emerald-400/50" />
-                  <div className="w-32 h-32 rounded-full border border-emerald-400/60" />
-                  <div className="absolute w-full h-[1px] bg-emerald-400/30" />
-                  <div className="absolute h-full w-[1px] bg-emerald-400/30" />
-                </div>
-
-                {/* SVG Route Line & Animated Bus Node */}
-                <svg className="w-full h-full" viewBox="0 0 600 240" preserveAspectRatio="none">
-                  {/* Route polyline glow */}
-                  <polyline
-                    points={activeRoute.pathCoords.map(p => `${p.x},${p.y}`).join(' ')}
-                    fill="none"
-                    stroke="#10B981"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeDasharray="6 4"
-                    className="opacity-90"
-                  />
-
-                  {/* Stops Nodes */}
-                  {activeRoute.stops.map((st, sIdx) => {
-                    const coord = activeRoute.pathCoords[sIdx] || { x: 50 + sIdx * 100, y: 120 };
-                    const isPassed = sIdx < currentStopIndex;
-                    const isCurrent = sIdx === currentStopIndex;
-
-                    return (
-                      <g key={st.id} className="cursor-pointer group">
-                        <circle
-                          cx={coord.x}
-                          cy={coord.y}
-                          r={isCurrent ? 7 : 5}
-                          fill={isCurrent ? '#F59E0B' : isPassed ? '#10B981' : '#475569'}
-                          stroke="#ffffff"
-                          strokeWidth="2"
-                        />
-                        {isCurrent && (
-                          <circle
-                            cx={coord.x}
-                            cy={coord.y}
-                            r="12"
-                            fill="none"
-                            stroke="#F59E0B"
-                            strokeWidth="2"
-                            className="animate-ping"
-                          />
-                        )}
-                        <text
-                          x={coord.x}
-                          y={coord.y - 12}
-                          fontSize="9.5"
-                          fontFamily="sans-serif"
-                          fontWeight="bold"
-                          fill="#E2E8F0"
-                          textAnchor="middle"
-                        >
-                          {st.name.length > 18 ? st.name.substring(0, 16) + '..' : st.name}
-                        </text>
-                      </g>
-                    );
-                  })}
-
-                  {/* Moving Bus Marker */}
-                  <g transform={`translate(${busCoords.x}, ${busCoords.y})`}>
-                    <circle r="14" fill="#10B981" fillOpacity="0.3" className="animate-pulse" />
-                    <circle r="9" fill="#10B981" stroke="#ffffff" strokeWidth="2.5" />
-                    <text x="0" y="3.5" fontSize="8" fill="#122A24" fontWeight="bold" textAnchor="middle">
-                      BUS
-                    </text>
-                  </g>
-                </svg>
-
-                {/* Floating GPS live telemetry badge */}
-                <div className="absolute bottom-3 left-3 bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 font-mono text-[10.5px] text-emerald-300 flex items-center gap-3">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>POS: {busCoords.x}, {busCoords.y}</span>
+                {/* Right Action Buttons */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Streaming Status Pill */}
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold font-mono border ${
+                    adminBusCoords.isStreaming
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : 'bg-slate-100 text-slate-600 border-slate-200'
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full ${adminBusCoords.isStreaming ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
+                    <span>{adminBusCoords.isStreaming ? 'LIVE GPS STREAMING' : 'GPS STANDBY'}</span>
                   </span>
-                  <span>&bull;</span>
-                  <span>HEADING: {Math.round(headingDegrees)}&deg; NE</span>
-                  <span>&bull;</span>
-                  <span>SPEED: <strong>{currentSpeed} km/h</strong></span>
-                </div>
 
-                {/* Floating Stop ETA badge */}
-                <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md px-3.5 py-2 rounded-xl border border-amber-400/40 text-right">
-                  <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-                    Next Stop
+                  {/* Refresh Telemetry */}
+                  <button
+                    type="button"
+                    onClick={fetchTelemetry}
+                    disabled={isRefreshingTelemetry}
+                    className="p-2 rounded-xl bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] transition-colors cursor-pointer"
+                    title="Refresh GPS Telemetry"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isRefreshingTelemetry ? 'animate-spin text-emerald-600' : ''}`} />
+                  </button>
+
+                  {/* Map Size Buttons */}
+                  <div className="hidden sm:flex items-center bg-[#F4F8F5] p-1 rounded-xl border border-[#DCE8E0] gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => { setMapSize('STANDARD'); setIsMapFullscreen(false); }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border-none ${
+                        mapSize === 'STANDARD' && !isMapFullscreen
+                          ? 'bg-[#122A24] text-white shadow-xs'
+                          : 'bg-transparent text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      540px
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setMapSize('THEATER'); setIsMapFullscreen(false); }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border-none ${
+                        mapSize === 'THEATER' && !isMapFullscreen
+                          ? 'bg-[#122A24] text-white shadow-xs'
+                          : 'bg-transparent text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      780px
+                    </button>
                   </div>
-                  <div className="text-xs font-bold text-amber-300">
-                    {nextStop.name}
+
+                  {/* Fullscreen Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setIsMapFullscreen(prev => !prev)}
+                    className="p-2 rounded-xl bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] transition-colors cursor-pointer"
+                    title={isMapFullscreen ? 'Exit Fullscreen' : 'Fullscreen Map'}
+                  >
+                    {isMapFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                  </button>
+
+                  {/* Launch Native Google Maps */}
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&origin=${adminBusCoords.lat},${adminBusCoords.lng}&destination=${currentShiftStops[currentShiftStops.length - 1]?.lat || 26.8520},${currentShiftStops[currentShiftStops.length - 1]?.lng || 80.9400}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold flex items-center gap-1.5 no-underline shadow-xs cursor-pointer"
+                  >
+                    <Navigation className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Open in Maps</span>
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                  </a>
+                </div>
+              </div>
+
+              {/* 4 Interactive Map Mode Tabs */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] text-xs">
+                <button
+                  type="button"
+                  onClick={() => setGoogleMapMode('ROUTE_PATH')}
+                  className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                    googleMapMode === 'ROUTE_PATH'
+                      ? 'bg-[#122A24] text-white shadow-sm'
+                      : 'bg-transparent text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  🗺️ Marked Driving Route
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setGoogleMapMode('LIVE_PIN')}
+                  className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                    googleMapMode === 'LIVE_PIN'
+                      ? 'bg-[#122A24] text-white shadow-sm'
+                      : 'bg-transparent text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  📍 Live Bus GPS Pin
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setGoogleMapMode('LIVE_NAV')}
+                  className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                    googleMapMode === 'LIVE_NAV'
+                      ? 'bg-[#122A24] text-white shadow-sm'
+                      : 'bg-transparent text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  🎯 Nav to Current Stop ({nextDriverStop?.name?.replace('Stop', '').trim() || 'Next'})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setGoogleMapMode('RADAR_CANVAS')}
+                  className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                    googleMapMode === 'RADAR_CANVAS'
+                      ? 'bg-[#122A24] text-white shadow-sm'
+                      : 'bg-transparent text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  🧭 Stops Radar Canvas
+                </button>
+              </div>
+
+              {/* Embedded Google Maps Container */}
+              <div className={`relative w-full rounded-2xl overflow-hidden bg-slate-100 border border-[#DCE8E0] shadow-inner transition-all duration-300 ${
+                isMapFullscreen
+                  ? 'flex-1 min-h-[400px]'
+                  : mapSize === 'THEATER'
+                  ? 'h-[720px] sm:h-[780px]'
+                  : 'h-[480px] sm:h-[540px]'
+              }`}>
+                {/* Mode 1: Marked Route Path Directions */}
+                {googleMapMode === 'ROUTE_PATH' && (
+                  <iframe
+                    src={`https://maps.google.com/maps?saddr=${currentShiftStops[0]?.lat || 26.8378},${currentShiftStops[0]?.lng || 80.8872}&daddr=${currentShiftStops[currentShiftStops.length - 1]?.lat || 26.8520},${currentShiftStops[currentShiftStops.length - 1]?.lng || 80.9400}&hl=en&z=13&output=embed`}
+                    className="w-full h-full border-0"
+                    loading="lazy"
+                    title="Marked Bus Route Directions on Google Maps"
+                  />
+                )}
+
+                {/* Mode 2: Live Bus GPS Pin */}
+                {googleMapMode === 'LIVE_PIN' && (
+                  <iframe
+                    src={`https://maps.google.com/maps?q=${adminBusCoords.lat},${adminBusCoords.lng}&hl=en&z=16&output=embed`}
+                    className="w-full h-full border-0"
+                    loading="lazy"
+                    title="Live Moving Bus Pin on Google Maps"
+                  />
+                )}
+
+                {/* Mode 3: Navigation to Approaching Stop */}
+                {googleMapMode === 'LIVE_NAV' && (
+                  <iframe
+                    src={`https://maps.google.com/maps?saddr=${adminBusCoords.lat},${adminBusCoords.lng}&daddr=${nextDriverStop?.lat || currentShiftStops[currentShiftStops.length - 1]?.lat || 26.8520},${nextDriverStop?.lng || currentShiftStops[currentShiftStops.length - 1]?.lng || 80.9400}&hl=en&z=14&output=embed`}
+                    className="w-full h-full border-0"
+                    loading="lazy"
+                    title="Live Navigation to Approaching Stop"
+                  />
+                )}
+
+                {/* Mode 4: Radar Canvas */}
+                {googleMapMode === 'RADAR_CANVAS' && (
+                  <div className="w-full h-full bg-[#122A24] p-6 flex flex-col justify-between relative overflow-hidden text-white">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-600/20 via-transparent to-transparent opacity-80 pointer-events-none" />
+
+                    <div className="relative z-10 flex items-center justify-between text-xs sm:text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
+                        <span className="font-bold text-emerald-300 font-mono uppercase tracking-wider">{activeRoute.code} &bull; {ROUTE_SHIFTS_METADATA[activeShift].shortLabel} Radar</span>
+                      </div>
+                      <span className="font-mono text-xs text-slate-300">{currentShiftStops.length} Stops &bull; Real-time GPS</span>
+                    </div>
+
+                    {/* Progress Track */}
+                    <div className="relative z-10 my-auto py-8">
+                      <div className="relative flex items-center justify-between">
+                        <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-2 bg-emerald-950 rounded-full border border-emerald-500/30 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-emerald-400 to-emerald-200 transition-all duration-500"
+                            style={{ width: `${Math.max(10, dynamicProgressPercent)}%` }}
+                          />
+                        </div>
+
+                        {currentShiftStops.map((st, i) => {
+                          const isPast = completedStopIds.includes(st.id);
+                          const isCurrent = !isPast && nextDriverStop?.id === st.id;
+                          return (
+                            <div key={st.id} className="relative z-10 flex flex-col items-center">
+                              <div
+                                className={`w-9 h-9 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all shadow-md ${
+                                  isPast
+                                    ? 'bg-emerald-500 text-white'
+                                    : isCurrent
+                                    ? 'bg-emerald-300 text-[#122A24] ring-4 ring-emerald-500/50 scale-125 font-black'
+                                    : 'bg-[#1C443A] text-slate-300 border border-emerald-500/40'
+                                }`}
+                              >
+                                {isPast ? '✓' : i + 1}
+                              </div>
+                              <span className={`text-[10.5px] font-bold mt-2 text-center max-w-[80px] truncate block ${
+                                isCurrent ? 'text-emerald-300 font-extrabold' : 'text-slate-400'
+                              }`}>
+                                {st.name.replace('Stop', '').replace('(Drop Point)', '').replace('(Campus Gate)', '').replace('(Departure Point)', '').trim()}
+                              </span>
+                              <span className="text-[9.5px] font-mono text-slate-400">
+                                {st.scheduledTime}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="relative z-10 flex items-center justify-between text-xs sm:text-sm font-mono bg-black/40 p-3.5 rounded-2xl border border-white/10">
+                      <span className="text-slate-300">Approaching: <strong className="text-emerald-300">{nextDriverStop?.name}</strong></span>
+                      <span className="text-emerald-400 font-bold">{liveDistanceToNextKm} km &bull; ~{dynamicEtaMinutes}m Dynamic ETA</span>
+                    </div>
                   </div>
-                  <div className="text-[10.5px] text-emerald-400 font-mono font-bold mt-0.5">
-                    ETA: ~4 mins ({nextStop.scheduledTime})
+                )}
+
+                {/* Floating Telemetry HUD over Google Maps */}
+                <div className="absolute top-3 left-3 bg-[#122A24]/90 backdrop-blur-md text-white p-3 rounded-2xl border border-emerald-500/30 shadow-xl text-xs space-y-1.5 z-10 max-w-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-400">
+                      <Smartphone className="w-3.5 h-3.5" />
+                      <span>{adminBusCoords.isStreaming ? 'Live Smartphone Telemetry' : 'Standby Telemetry'}</span>
+                    </div>
+                    <span className="font-mono text-[10.5px] text-slate-300">{adminBusCoords.lastUpdated}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs font-mono text-slate-200 flex-wrap">
+                    <span>Lat: <strong>{adminBusCoords.lat.toFixed(4)}&deg;</strong></span>
+                    <span>Lng: <strong>{adminBusCoords.lng.toFixed(4)}&deg;</strong></span>
+                    <span className="text-emerald-300 font-bold bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                      ⚡ {adminBusCoords.speedKmh} km/h
+                    </span>
+                    <span className="text-slate-400">&plusmn;{adminBusCoords.accuracyMeters}m</span>
                   </div>
                 </div>
               </div>
 
-              {/* Bottom 4-Card Telemetry Dashboard */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 space-y-1">
-                  <div className="text-slate-400 text-[10px] uppercase font-bold flex items-center gap-1.5">
-                    <Gauge className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Current Speed</span>
+              {/* 3. 4-Card Telemetry Dashboard (FUEL COMPLETELY REMOVED) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                {/* Card 1: Active Shift */}
+                <div className="bg-[#F4F8F5] border border-[#DCE8E0] rounded-2xl p-3.5 space-y-1">
+                  <div className="text-slate-500 text-[10px] uppercase font-bold flex items-center gap-1.5">
+                    <Repeat className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Active Shift</span>
                   </div>
-                  <div className="text-xl font-mono font-extrabold text-white">
-                    {currentSpeed} <span className="text-xs font-normal text-slate-400">km/h</span>
+                  <div className="text-base font-bold text-[#122A24] leading-tight line-clamp-1">
+                    {ROUTE_SHIFTS_METADATA[activeShift].shortLabel}
                   </div>
-                  <div className="text-[10px] text-emerald-400">
-                    Optimal City Cruise
-                  </div>
-                </div>
-
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 space-y-1">
-                  <div className="text-slate-400 text-[10px] uppercase font-bold flex items-center gap-1.5">
-                    <Compass className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Bearing &amp; Heading</span>
-                  </div>
-                  <div className="text-xl font-mono font-extrabold text-white">
-                    {Math.round(headingDegrees)}&deg; <span className="text-xs font-normal text-slate-400">NE</span>
-                  </div>
-                  <div className="text-[10px] text-slate-400">
-                    Gyro Synced
+                  <div className="text-[10.5px] text-emerald-700 font-mono font-bold">
+                    {ROUTE_SHIFTS_METADATA[activeShift].timing}
                   </div>
                 </div>
 
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 space-y-1">
-                  <div className="text-slate-400 text-[10px] uppercase font-bold flex items-center gap-1.5">
-                    <Activity className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Route Completed</span>
+                {/* Card 2: Live Speed & Bearing */}
+                <div className="bg-[#F4F8F5] border border-[#DCE8E0] rounded-2xl p-3.5 space-y-1">
+                  <div className="text-slate-500 text-[10px] uppercase font-bold flex items-center gap-1.5">
+                    <Gauge className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Live Speed</span>
                   </div>
-                  <div className="text-xl font-mono font-extrabold text-amber-300">
-                    {Math.round(progressPercent)}%
+                  <div className="text-xl font-mono font-extrabold text-[#122A24] leading-tight">
+                    {adminBusCoords.speedKmh} <span className="text-xs font-normal text-slate-500">km/h</span>
                   </div>
-                  <div className="text-[10px] text-slate-400 font-mono">
-                    Stop {currentStopIndex + 1} of {activeRoute.stops.length}
+                  <div className="text-[10.5px] text-slate-500 font-mono">
+                    Bearing: {Math.round(adminBusCoords.heading)}&deg; NE
                   </div>
                 </div>
 
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 space-y-1">
-                  <div className="text-slate-400 text-[10px] uppercase font-bold flex items-center gap-1.5">
-                    <Fuel className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Vehicle Status</span>
+                {/* Card 3: Route Stops Progress */}
+                <div className="bg-[#F4F8F5] border border-[#DCE8E0] rounded-2xl p-3.5 space-y-1">
+                  <div className="text-slate-500 text-[10px] uppercase font-bold flex items-center gap-1.5">
+                    <Activity className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Shift Progress</span>
                   </div>
-                  <div className="text-base font-bold text-white uppercase mt-0.5">
-                    {activeRoute.status === 'ON_ROUTE' ? 'LIVE ON ROUTE' : activeRoute.status}
+                  <div className="text-xl font-mono font-extrabold text-[#122A24] leading-tight">
+                    {dynamicProgressPercent}%
                   </div>
-                  <div className="text-[10px] text-emerald-300 font-mono">
-                    Engine OK &bull; Safe Speed
+                  <div className="text-[10.5px] text-slate-500 font-mono">
+                    {completedStopIds.length} of {currentShiftStops.length} stops reached
+                  </div>
+                </div>
+
+                {/* Card 4: Vehicle & Driver Telemetry */}
+                <div className="bg-[#F4F8F5] border border-[#DCE8E0] rounded-2xl p-3.5 space-y-1">
+                  <div className="text-slate-500 text-[10px] uppercase font-bold flex items-center gap-1.5">
+                    <Bus className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Vehicle &amp; Driver</span>
+                  </div>
+                  <div className="text-sm font-bold text-[#122A24] leading-tight line-clamp-1">
+                    {activeRoute.vehicleNo}
+                  </div>
+                  <div className="text-[10.5px] text-slate-500 line-clamp-1">
+                    {activeRoute.substituteDriver ? `Relief: ${activeRoute.substituteDriver}` : activeRoute.driver}
                   </div>
                 </div>
               </div>
 
             </div>
 
-            {/* Live Real-Time Driver Smartphone GPS Pinpoint Card */}
-            {serverTelemetry && serverTelemetry.latitude ? (
-              <div className="bg-white rounded-3xl p-6 border-2 border-emerald-500 shadow-xl space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                      <MapPin className="w-5 h-5 text-emerald-600 animate-bounce" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-base text-[#122A24] flex items-center gap-2">
-                        <span>Driver Smartphone Live GPS</span>
-                        <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-mono font-bold ${isLivePhoneStreaming ? 'bg-emerald-100 text-emerald-700 animate-pulse' : 'bg-slate-100 text-slate-500'}`}>
-                          {isLivePhoneStreaming ? '● LIVE MOBILE STREAMING' : 'IDLE / RECENT'}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 font-mono">
-                        {serverTelemetry.driver} &bull; Vehicle: {serverTelemetry.vehicleNo} &bull; Last ping: {serverTelemetry.lastUpdatedText || 'Just now'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <a
-                    href={`https://www.google.com/maps?q=${serverTelemetry.latitude},${serverTelemetry.longitude}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-2 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold flex items-center gap-1.5 transition-colors no-underline shadow-sm"
+            {/* 4. ROUTE STOPS SEQUENCE PROGRESSION (DYNAMIC BASED ON ACTIVE SHIFT) */}
+            <div className="bg-white rounded-3xl p-6 border border-[#DCE8E0] shadow-sm space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <h3 className="font-bold text-sm text-[#122A24] flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-emerald-700" />
+                    <span>{ROUTE_SHIFTS_METADATA[activeShift].name} Progression &bull; {activeRoute.name}</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {completedStopIds.length} of {currentShiftStops.length} stops reached &bull; Next: <strong className="text-[#122A24]">{nextDriverStop?.name}</strong> (~{dynamicEtaMinutes}m ETA)
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCompletedStopIds([])}
+                    className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer border-none"
+                    title="Reset stop sequence for this shift"
                   >
-                    <Navigation className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Open in Google Maps &rarr;</span>
-                  </a>
-                </div>
-
-                {/* Live Coordinates Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Latitude</span>
-                    <span className="font-bold text-slate-800 text-sm">{serverTelemetry.latitude}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Longitude</span>
-                    <span className="font-bold text-slate-800 text-sm">{serverTelemetry.longitude}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Mobile Speed</span>
-                    <span className="font-bold text-emerald-600 text-sm">{serverTelemetry.speedKmh} km/h</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">GPS Accuracy</span>
-                    <span className="font-bold text-blue-600 text-sm">&plusmn;{serverTelemetry.accuracyMeters}m</span>
-                  </div>
-                </div>
-
-                {/* Real OpenStreetMap View of Driver's Exact Location (Large View) */}
-                <div className="w-full h-96 sm:h-[480px] lg:h-[540px] rounded-2xl overflow-hidden border border-slate-200 relative bg-slate-100 shadow-inner">
-                  <iframe
-                    title="Live Driver GPS Map"
-                    width="100%"
-                    height="100%"
-                    frameBorder="0"
-                    scrolling="no"
-                    marginHeight={0}
-                    marginWidth={0}
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(serverTelemetry.longitude) - 0.008}%2C${Number(serverTelemetry.latitude) - 0.008}%2C${Number(serverTelemetry.longitude) + 0.008}%2C${Number(serverTelemetry.latitude) + 0.008}&layer=mapnik&marker=${serverTelemetry.latitude}%2C${serverTelemetry.longitude}`}
-                    className="w-full h-full"
-                  />
+                    Reset Shift Stops
+                  </button>
                 </div>
               </div>
-            ) : null}
 
-            {/* Route Stops Sequence Progression */}
-            <div className="bg-[#EBF5EF] rounded-3xl p-6 border border-[#C5E2CF] shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-display font-bold text-sm text-[#122A24] flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-[#1C443A]" />
-                  <span>Stops Progression Timeline — {activeRoute.name}</span>
-                </h3>
-                <span className="text-xs font-mono font-bold text-[#1C443A]">
-                  Total {activeRoute.stops.length} Designated Pick-up Points
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {activeRoute.stops.map((stop, sIdx) => {
-                  const isPassed = sIdx < currentStopIndex;
-                  const isCurrent = sIdx === currentStopIndex;
+              <div className="space-y-2.5">
+                {currentShiftStops.map((stop, sIdx) => {
+                  const isPassed = completedStopIds.includes(stop.id);
+                  const isCurrent = !isPassed && nextDriverStop?.id === stop.id;
+                  const isFinalTerminus = sIdx === currentShiftStops.length - 1;
 
                   return (
                     <div
                       key={stop.id}
                       className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
                         isCurrent
-                          ? 'bg-white border-amber-400 shadow-md ring-2 ring-amber-400/30'
+                          ? 'bg-[#EBF5EF] border-[#C5E2CF] shadow-sm ring-2 ring-emerald-500/20'
                           : isPassed
-                          ? 'bg-[#DCE8E0]/50 border-emerald-300/60 opacity-85'
+                          ? 'bg-[#F4F8F5]/80 border-slate-200 opacity-80'
                           : 'bg-white border-[#DCE8E0]'
                       }`}
                     >
@@ -1428,21 +1553,23 @@ export function DashboardTransport({
                         <div
                           className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-mono shrink-0 ${
                             isCurrent
-                              ? 'bg-amber-500 text-white animate-bounce'
+                              ? 'bg-[#1C443A] text-white shadow-sm ring-4 ring-emerald-100'
                               : isPassed
                               ? 'bg-emerald-600 text-white'
+                              : isFinalTerminus
+                              ? 'bg-rose-50 text-rose-600 border border-rose-200'
                               : 'bg-slate-200 text-slate-600'
                           }`}
                         >
-                          {isPassed ? <Check className="w-3.5 h-3.5" /> : sIdx + 1}
+                          {isPassed ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : isFinalTerminus ? <Flag className="w-3 h-3 fill-rose-600" /> : sIdx + 1}
                         </div>
 
                         <div>
                           <div className="font-bold text-xs text-[#122A24] flex items-center gap-2">
-                            <span>{stop.name}</span>
+                            <span className={isPassed ? 'line-through text-slate-500' : ''}>{stop.name}</span>
                             {isCurrent && (
-                              <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                                BUS APPROACHING
+                              <span className="px-2 py-0.5 rounded-md text-[9.5px] font-extrabold bg-emerald-100 text-emerald-800 uppercase">
+                                BUS APPROACHING ({liveDistanceToNextKm} km)
                               </span>
                             )}
                           </div>
@@ -1452,15 +1579,24 @@ export function DashboardTransport({
                         </div>
                       </div>
 
-                      <div className="text-right shrink-0">
+                      <div className="text-right shrink-0 flex items-center gap-2">
                         {isPassed ? (
                           <span className="text-emerald-700 text-xs font-bold flex items-center gap-1 font-mono">
                             <CheckCircle2 className="w-3.5 h-3.5" /> Departed
                           </span>
                         ) : isCurrent ? (
-                          <span className="text-amber-700 text-xs font-bold font-mono">
-                            ETA: ~4 mins
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-800 text-xs font-bold font-mono bg-emerald-100 px-2 py-1 rounded-lg">
+                              ETA: ~{dynamicEtaMinutes}m
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setCompletedStopIds(prev => [...prev, stop.id])}
+                              className="px-2.5 py-1 rounded-lg bg-[#122A24] hover:bg-[#1C443A] text-white text-[10px] font-bold cursor-pointer transition-colors border-none"
+                            >
+                              Mark Reached
+                            </button>
+                          </div>
                         ) : (
                           <span className="text-slate-400 text-xs font-mono">
                             Upcoming
@@ -1497,13 +1633,19 @@ export function DashboardTransport({
               <div className="space-y-2.5">
                 {routes.map(r => {
                   const isSelected = r.id === selectedRouteId;
+                  const busTele = allTelemetries[r.id] || Object.values(allTelemetries).find((t: any) => t.vehicleNo === r.vehicleNo || t.routeId === r.id);
+                  const isBusOnline = busTele?.isOnline || (r.id === selectedRouteId && (isLivePhoneStreaming || driverTripActive));
+
                   return (
                     <div
                       key={r.id}
-                      onClick={() => setSelectedRouteId(r.id)}
+                      onClick={() => {
+                        setSelectedRouteId(r.id);
+                        setCompletedStopIds([]);
+                      }}
                       className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-[#122A24] text-white border-[#122A24] shadow-md'
+                          ? 'bg-[#122A24] text-white border-[#122A24] shadow-md ring-2 ring-emerald-500/40'
                           : 'bg-[#F4F8F5] text-[#122A24] border-[#DCE8E0] hover:bg-[#EBF5EF]'
                       }`}
                     >
@@ -1511,27 +1653,43 @@ export function DashboardTransport({
                         <div className="font-bold text-xs">
                           {r.name}
                         </div>
-                        <span
-                          className={`text-[9.5px] px-2 py-0.5 rounded-full font-bold font-mono ${
-                            isSelected
-                              ? 'bg-emerald-400 text-[#122A24]'
-                              : r.status === 'ON_ROUTE'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-slate-200 text-slate-700'
-                          }`}
-                        >
-                          {r.code}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {isBusOnline ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold font-mono bg-emerald-500 text-white animate-pulse">
+                              LIVE
+                            </span>
+                          ) : (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold font-mono ${isSelected ? 'bg-white/10 text-slate-400' : 'bg-slate-200 text-slate-600'}`}>
+                              STANDBY
+                            </span>
+                          )}
+                          <span
+                            className={`text-[9.5px] px-2 py-0.5 rounded-full font-bold font-mono ${
+                              isSelected
+                                ? 'bg-emerald-400 text-[#122A24]'
+                                : r.status === 'ON_ROUTE'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            {r.code}
+                          </span>
+                        </div>
                       </div>
 
                       <div className={`text-[11px] mt-1.5 flex items-center justify-between ${isSelected ? 'text-slate-300' : 'text-slate-600'}`}>
-                        <span>Driver: {r.driver}</span>
+                        <span>Driver: {r.substituteDriver ? `Relief: ${r.substituteDriver}` : r.driver}</span>
                         <span className="font-mono">{r.vehicleNo}</span>
                       </div>
 
-                      <div className={`text-[10px] mt-1 flex items-center gap-1.5 ${isSelected ? 'text-emerald-300' : 'text-emerald-700 font-semibold'}`}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        <span>{r.stops.length} Stops &bull; {r.capacity}</span>
+                      <div className={`text-[10px] mt-1 flex items-center justify-between ${isSelected ? 'text-emerald-300' : 'text-emerald-700 font-semibold'}`}>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full ${isBusOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+                          <span>{r.stops.length} Stops &bull; {r.capacity}</span>
+                        </div>
+                        <span className="font-mono text-[9.5px] opacity-80">
+                          {ROUTE_SHIFTS_METADATA[activeShift].shortLabel}
+                        </span>
                       </div>
                     </div>
                   );
