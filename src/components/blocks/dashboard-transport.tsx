@@ -32,7 +32,25 @@ import {
   Shield,
   ArrowRight,
   Fuel,
-  CornerDownRight
+  CornerDownRight,
+  Bell,
+  CheckSquare,
+  Users,
+  MessageSquare,
+  AlertCircle,
+  Award,
+  FileText,
+  Flag,
+  MoreHorizontal,
+  PhoneCall,
+  ClipboardCheck,
+  AlertOctagon,
+  LocateFixed,
+  CircleDot,
+  Circle,
+  Menu,
+  CheckCircle,
+  Home
 } from 'lucide-react';
 import { Student } from '@/lib/types';
 
@@ -565,6 +583,85 @@ export function DashboardTransport({
   }, [isDriverUser]);
 
   // ─────────────────────────────────────────────────────────────
+  // MODERN DRIVER MOBILE APP STATE (Matching Reference Screenshot)
+  // ─────────────────────────────────────────────────────────────
+  const [driverActiveTab, setDriverActiveTab] = useState<'dashboard' | 'trips' | 'students' | 'messages' | 'more'>('dashboard');
+  const [driverFuelLevel, setDriverFuelLevel] = useState<number>(72);
+  const [showAttendanceModal, setShowAttendanceModal] = useState<boolean>(false);
+  const [showReportIssueModal, setShowReportIssueModal] = useState<boolean>(false);
+  const [showFuelModal, setShowFuelModal] = useState<boolean>(false);
+  const [showSosModal, setShowSosModal] = useState<boolean>(false);
+  const [showNotificationModal, setShowNotificationModal] = useState<boolean>(false);
+  const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
+  const [issueType, setIssueType] = useState<string>('Heavy Traffic Jam (+15m)');
+  const [issueNotes, setIssueNotes] = useState<string>('');
+  const [fuelInput, setFuelInput] = useState<number>(72);
+  const [fuelLiters, setFuelLiters] = useState<string>('45');
+  const [fuelOdometer, setFuelOdometer] = useState<string>('14,280 km');
+  const [unreadNotifications, setUnreadNotifications] = useState<number>(3);
+  const [currentDriverStopIndex, setCurrentDriverStopIndex] = useState<number>(4); // Stop 5: Sunrise Villa (0-indexed 4)
+  const [driverStudentSearch, setDriverStudentSearch] = useState<string>('');
+  const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PICKED' | 'PENDING' | 'DROPPED'>('ALL');
+
+  const [driverStudents, setDriverStudents] = useState([
+    { id: 'st-1', name: 'Aarav Sharma', class: 'Class 5-A', stop: 'Green Park Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43211' },
+    { id: 'st-2', name: 'Ananya Verma', class: 'Class 4-B', stop: 'Green Park Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43212' },
+    { id: 'st-3', name: 'Vihaan Gupta', class: 'Class 6-A', stop: 'Sector 62 Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43213' },
+    { id: 'st-4', name: 'Sara Ali', class: 'Class 3-A', stop: 'Sector 62 Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43214' },
+    { id: 'st-5', name: 'Reyansh Joshi', class: 'Class 7-B', stop: 'City Center Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43215' },
+    { id: 'st-6', name: 'Myra Khan', class: 'Class 2-C', stop: 'City Center Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43216' },
+    { id: 'st-7', name: 'Advik Patel', class: 'Class 8-A', stop: 'River Side Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43217' },
+    { id: 'st-8', name: 'Ishita Sen', class: 'Class 5-B', stop: 'River Side Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43218' },
+    { id: 'st-9', name: 'Kabir Das', class: 'Class 4-A', stop: 'River Side Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43219' },
+    { id: 'st-10', name: 'Diya Reddy', class: 'Class 1-A', stop: 'Green Park Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43220' },
+    { id: 'st-11', name: 'Aryan Mehta', class: 'Class 9-B', stop: 'Sector 62 Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43221' },
+    { id: 'st-12', name: 'Riya Chopra', class: 'Class 6-B', stop: 'Sector 62 Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43222' },
+    { id: 'st-13', name: 'Atharv Saxena', class: 'Class 3-B', stop: 'City Center Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43223' },
+    { id: 'st-14', name: 'Saanvi Nair', class: 'Class 5-C', stop: 'City Center Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43224' },
+    { id: 'st-15', name: 'Devansh Tiwari', class: 'Class 8-C', stop: 'River Side Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43225' },
+    { id: 'st-16', name: 'Avni Yadav', class: 'Class 4-C', stop: 'Green Park Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43226' },
+    { id: 'st-17', name: 'Arjun Kapoor', class: 'Class 7-A', stop: 'Sector 62 Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43227' },
+    { id: 'st-18', name: 'Pari Bhatia', class: 'Class 2-A', stop: 'City Center Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43228' },
+    { id: 'st-19', name: 'Rudra Singh', class: 'Class 6-C', stop: 'River Side Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43229' },
+    { id: 'st-20', name: 'Kavya Malhotra', class: 'Class 5-A', stop: 'Green Park Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43230' },
+    { id: 'st-21', name: 'Tanmay Jain', class: 'Class 3-C', stop: 'Sector 62 Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43231' },
+    // 7 Pending / Left
+    { id: 'st-22', name: 'Prisha Agarwal', class: 'Class 4-A', stop: 'Sunrise Villa Stop', status: 'PENDING', avatar: '👧', phone: '+91 98765 43232' },
+    { id: 'st-23', name: 'Shaurya Chauhan', class: 'Class 8-B', stop: 'Sunrise Villa Stop', status: 'PENDING', avatar: '👦', phone: '+91 98765 43233' },
+    { id: 'st-24', name: 'Anvi Saxena', class: 'Class 1-B', stop: 'Park View Stop', status: 'PENDING', avatar: '👧', phone: '+91 98765 43234' },
+    { id: 'st-25', name: 'Yashwardhan Roy', class: 'Class 7-C', stop: 'Park View Stop', status: 'PENDING', avatar: '👦', phone: '+91 98765 43235' },
+    { id: 'st-26', name: 'Navya Singhal', class: 'Class 6-A', stop: 'Shanti Nagar Stop', status: 'PENDING', avatar: '👧', phone: '+91 98765 43236' },
+    { id: 'st-27', name: 'Harshvardhan Rao', class: 'Class 9-A', stop: 'Shanti Nagar Stop', status: 'PENDING', avatar: '👦', phone: '+91 98765 43237' },
+    { id: 'st-28', name: 'Meera Nambiar', class: 'Class 5-B', stop: 'Green Park Stop', status: 'ABSENT', avatar: '👧', phone: '+91 98765 43238' },
+  ]);
+
+  const driverGreeting = useMemo(() => {
+    const hr = new Date().getHours();
+    if (hr < 12) return 'Good Morning,';
+    if (hr < 17) return 'Good Afternoon,';
+    return 'Good Evening,';
+  }, []);
+
+  const driverTotalStudents = driverStudents.length;
+  const driverPickedCount = useMemo(() => driverStudents.filter(s => s.status === 'PICKED').length, [driverStudents]);
+  const driverDroppedCount = useMemo(() => driverStudents.filter(s => s.status === 'DROPPED').length, [driverStudents]);
+  const driverLeftCount = useMemo(() => driverStudents.filter(s => s.status === 'PENDING' || s.status === 'ABSENT').length, [driverStudents]);
+
+  const driverStopsTimeline = [
+    { id: 'ds-1', name: 'Green Park Stop', time: '07:15 AM', type: 'STOP' },
+    { id: 'ds-2', name: 'Sector 62 Stop', time: '07:22 AM', type: 'STOP' },
+    { id: 'ds-3', name: 'City Center Stop', time: '07:30 AM', type: 'STOP' },
+    { id: 'ds-4', name: 'River Side Stop', time: '07:38 AM', type: 'STOP' },
+    { id: 'ds-5', name: 'Sunrise Villa Stop', time: '07:45 AM', type: 'STOP', address: '2nd Cross Road, Sunrise Villa' },
+    { id: 'ds-6', name: 'Park View Stop', time: '07:53 AM', type: 'STOP' },
+    { id: 'ds-7', name: 'Shanti Nagar Stop', time: '08:02 AM', type: 'STOP' },
+    { id: 'ds-8', name: 'Anand School', time: '08:20 AM', type: 'DROP' },
+  ];
+
+  const driverDisplayName = currentUser?.name || activeRoute.driver || 'Rajesh Kumar';
+  const driverVehicleNo = activeRoute.vehicleNo || 'UP32 AB 1234';
+
+  // ─────────────────────────────────────────────────────────────
   // PARENT LIVE BUS TRACKER STATE
   // ─────────────────────────────────────────────────────────────
   const [parentStopId, setParentStopId] = useState<string>(activeRoute.stops[2]?.id || activeRoute.stops[0]?.id || 's3');
@@ -583,28 +680,28 @@ export function DashboardTransport({
     <div className="space-y-6">
       
       {/* ─────────────────────────────────────────────────────────────
-          1. TOP HERO & MODE CONTROLLER TOOLBAR
+          1. TOP HERO & MODE CONTROLLER TOOLBAR (For Admins / Managers)
           ───────────────────────────────────────────────────────────── */}
-      <div className="bg-[#122A24] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-white/10 relative overflow-hidden">
-        {/* Subtle grid watermark */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-600/20 via-transparent to-transparent opacity-60 pointer-events-none" />
-        
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold uppercase tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Live Fleet Telematics &bull; GPS Engine
+      {!isDriverUser && (
+        <div className="bg-[#122A24] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-white/10 relative overflow-hidden">
+          {/* Subtle grid watermark */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-600/20 via-transparent to-transparent opacity-60 pointer-events-none" />
+          
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                Live Fleet Telematics &bull; GPS Engine
+              </div>
+              <h1 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight text-white">
+                Transport &amp; Live GPS Fleet Radar
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+                Real-time vehicle tracking, custom route builder (e.g. <em>Rajajipuram to Chowk</em>), driver smartphone GPS transmitter, and instant parent ETA radar.
+              </p>
             </div>
-            <h1 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight text-white">
-              Transport &amp; Live GPS Fleet Radar
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Real-time vehicle tracking, custom route builder (e.g. <em>Rajajipuram to Chowk</em>), driver smartphone GPS transmitter, and instant parent ETA radar.
-            </p>
-          </div>
 
-          {/* Mode Navigation Tabs */}
-          {!isDriverUser && (
+            {/* Mode Navigation Tabs */}
             <div className="flex items-center bg-black/40 p-1.5 rounded-2xl border border-white/10 gap-1 overflow-x-auto shrink-0">
               <button
                 onClick={() => setViewMode('FLEET')}
@@ -654,25 +751,25 @@ export function DashboardTransport({
                 <span>Parent Bus Radar</span>
               </button>
             </div>
+          </div>
+
+          {/* Live SOS alert ticker if active */}
+          {activeAlert && (
+            <div className="mt-4 p-3 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-200 text-xs flex items-center justify-between gap-3 animate-fade-in">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span><strong>Fleet Alert:</strong> {activeAlert}</span>
+              </div>
+              <button
+                onClick={() => setActiveAlert(null)}
+                className="text-amber-300 hover:text-white text-xs underline cursor-pointer border-none bg-transparent"
+              >
+                Dismiss
+              </button>
+            </div>
           )}
         </div>
-
-        {/* Live SOS alert ticker if active */}
-        {activeAlert && (
-          <div className="mt-4 p-3 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-200 text-xs flex items-center justify-between gap-3 animate-fade-in">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-              <span><strong>Fleet Alert:</strong> {activeAlert}</span>
-            </div>
-            <button
-              onClick={() => setActiveAlert(null)}
-              className="text-amber-300 hover:text-white text-xs underline cursor-pointer border-none bg-transparent"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────
           MODE 1: LIVE FLEET RADAR & MAP CANVAS
@@ -1289,125 +1386,1241 @@ export function DashboardTransport({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          MODE 3: DRIVER SMARTPHONE TRACKING APP (Mobile Simulator)
+          MODE 3: MODERN DRIVER SMARTPHONE APP (SCREENSHOT REFERENCE)
           ───────────────────────────────────────────────────────────── */}
       {viewMode === 'DRIVER' && (
-        <div className="max-w-2xl mx-auto space-y-6">
-          <div className="bg-white rounded-3xl p-6 border border-[#DCE8E0] shadow-sm text-center space-y-2">
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF] inline-flex items-center gap-1.5">
-              <Smartphone className="w-3.5 h-3.5" /> Driver Smartphone Transmitter Cockpit
-            </span>
-            <h2 className="font-display font-extrabold text-xl text-[#122A24]">
-              Mobile Phone GPS Broadcaster
-            </h2>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Driver apne mobile phone me is screen ko open karke <strong>&ldquo;Start GPS Trip&rdquo;</strong> dabata hai, jisse smartphone ka real GPS live ERP radar me broadcast hota hai.
-            </p>
-          </div>
+        <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6 animate-fade-in font-sans pb-12">
+          
+          {/* 1. TOP DRIVER BAR */}
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-100 shadow-sm flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5 sm:gap-4">
+              <button 
+                onClick={() => setShowNotificationModal(true)}
+                className="p-2 rounded-2xl hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer border-none bg-transparent"
+                title="Driver Menu"
+              >
+                <Menu className="w-6 h-6 text-slate-800" />
+              </button>
 
-          {/* Smartphone Simulator Chassis */}
-          <div className="bg-[#122A24] text-white rounded-[40px] p-6 sm:p-8 shadow-2xl border-4 border-slate-700 space-y-6 relative overflow-hidden">
-            
-            {/* Top Phone Status Bar */}
-            <div className="flex items-center justify-between text-xs text-slate-400 font-mono pb-4 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>GPS HARDWARE ACTIVE</span>
+              {/* Driver Avatar (Stylized Cap & Uniform from Screenshot) */}
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-[#1E3A8A] flex-shrink-0 border-2 border-white shadow-sm flex items-center justify-center relative">
+                <svg viewBox="0 0 100 100" className="w-full h-full">
+                  <circle cx="50" cy="50" r="50" fill="#E2E8F0" />
+                  <path d="M20 95 C20 70, 35 65, 50 65 C65 65, 80 70, 80 95 Z" fill="#1E3A8A" />
+                  <path d="M45 65 L50 78 L55 65 Z" fill="#F8FAFC" />
+                  <path d="M48 72 L50 85 L52 72 Z" fill="#F59E0B" />
+                  <rect x="44" y="55" width="12" height="12" rx="4" fill="#F6C8A6" />
+                  <ellipse cx="50" cy="46" rx="16" ry="18" fill="#F6C8A6" />
+                  <path d="M40 52 C45 49, 48 53, 50 51 C52 53, 55 49, 60 52 C57 56, 43 56, 40 52 Z" fill="#1E293B" />
+                  <circle cx="43" cy="43" r="2" fill="#0F172A" />
+                  <circle cx="57" cy="43" r="2" fill="#0F172A" />
+                  <path d="M40 39 Q43 37 46 39" stroke="#0F172A" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                  <path d="M54 39 Q57 37 60 39" stroke="#0F172A" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                  <path d="M30 35 C30 20, 70 20, 70 35 Z" fill="#1E3A8A" />
+                  <path d="M26 35 C35 32, 65 32, 74 35 C70 41, 30 41, 26 35 Z" fill="#0F172A" />
+                  <ellipse cx="50" cy="29" rx="4" ry="4" fill="#F59E0B" />
+                  <polygon points="50,26 52,31 48,31" fill="#FDE047" />
+                </svg>
               </div>
-              <div>{activeRoute.code} &bull; {activeRoute.vehicleNo}</div>
+
+              {/* Greeting & Driver Details */}
+              <div>
+                <p className="text-xs text-slate-500 font-medium leading-none">
+                  {driverGreeting}
+                </p>
+                <h1 className="font-display font-extrabold text-lg sm:text-xl text-slate-900 leading-tight mt-0.5 flex items-center gap-1.5">
+                  <span>{driverDisplayName}</span>
+                  <span>👋</span>
+                </h1>
+                <p className="text-xs text-slate-500 font-medium">
+                  Driver &bull; <strong className="text-slate-700">{driverVehicleNo}</strong>
+                </p>
+              </div>
             </div>
 
-            {/* Active Driver Profile */}
-            <div className="flex items-center justify-between bg-white/10 p-4 rounded-2xl border border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-500 text-[#122A24] font-bold flex items-center justify-center">
+            {/* Top Notification Bell with Badge */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotificationModal(true)}
+                className="w-11 h-11 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-700 transition-colors cursor-pointer relative"
+                title="Notifications"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center shadow-md">
+                    {unreadNotifications}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* 2. TOP 4 METRIC CARDS ROW / GRID */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            
+            {/* Card 1: Route & Status */}
+            <div className="bg-[#F0F5FF] border border-[#D9E6FE] rounded-3xl p-4 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-500/15 text-blue-600 flex items-center justify-center shadow-sm">
+                  <Bus className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-bold text-slate-900 text-sm leading-tight">
+                  {activeRoute.name || 'Route 04 Morning'}
+                </h3>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  07:15 AM – 08:20 AM
+                </p>
+              </div>
+              <div className="mt-3">
+                {driverTripActive ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    In Progress
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-200/70 text-slate-700 text-[11px] font-semibold">
+                    Ready to Start
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Card 2: Students */}
+            <div className="bg-[#F0FDF4] border border-[#DCFCE7] rounded-3xl p-4 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center shadow-sm">
+                  <Users className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs text-slate-500 font-medium">Students</p>
+                <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
+                  {driverTotalStudents}
+                </p>
+              </div>
+              <div className="mt-3 text-[11px] text-slate-600 flex items-center gap-2">
+                <span>Picked: <strong className="text-emerald-600">{driverPickedCount}</strong></span>
+                <span>&bull;</span>
+                <span>Left: <strong className="text-amber-600">{driverLeftCount}</strong></span>
+              </div>
+            </div>
+
+            {/* Card 3: Stops */}
+            <div className="bg-[#FAF5FF] border border-[#F3E8FF] rounded-3xl p-4 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-10 h-10 rounded-2xl bg-purple-500/15 text-purple-600 flex items-center justify-center shadow-sm">
+                  <MapPin className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs text-slate-500 font-medium">Stops</p>
+                <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
+                  12
+                </p>
+              </div>
+              <div className="mt-3 text-[11px] text-slate-600 flex items-center gap-2">
+                <span>Done: <strong className="text-emerald-600">7</strong></span>
+                <span>&bull;</span>
+                <span>Pending: <strong className="text-amber-600">5</strong></span>
+              </div>
+            </div>
+
+            {/* Card 4: Fuel Level */}
+            <div className="bg-[#FFFBEB] border border-[#FEF3C7] rounded-3xl p-4 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-600 flex items-center justify-center shadow-sm">
+                  <Fuel className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs text-slate-500 font-medium">Fuel Level</p>
+                <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
+                  {driverFuelLevel}%
+                </p>
+              </div>
+              <div className="mt-3">
+                <span className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                  Good
+                </span>
+              </div>
+            </div>
+
+          </div>
+
+          {/* 3. TWO-COLUMN MIDDLE SECTION */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+            
+            {/* ────── LEFT COLUMN: TRIP PROGRESS & QUICK ACTIONS ────── */}
+            <div className="lg:col-span-6 space-y-5 sm:space-y-6">
+              
+              {/* CURRENT TRIP PROGRESS CARD */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-100 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-base text-slate-900">
+                    Current Trip Progress
+                  </h3>
+                  <button
+                    onClick={() => setShowScheduleModal(true)}
+                    className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer border-none bg-transparent"
+                  >
+                    View Route
+                  </button>
+                </div>
+
+                {/* Subtitle & Route Path */}
+                <div>
+                  <h4 className="font-bold text-base text-slate-900">
+                    Route 04 - Morning
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Green Park &rarr; Anand School
+                  </p>
+                </div>
+
+                {/* Progress Bar with Stops Completed */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                      style={{ width: '58%' }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-600 font-semibold">
+                    <span>7 / 12 Stops Completed</span>
+                    <span className="font-mono text-emerald-600 font-bold">58%</span>
+                  </div>
+                </div>
+
+                {/* Vertical Stops Timeline */}
+                <div className="pt-2 space-y-3 relative before:absolute before:left-[11px] before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
+                  {driverStopsTimeline.map((st, idx) => {
+                    const isCompleted = idx < 4;
+                    const isCurrent = idx === 4;
+                    const isUpcoming = idx > 4 && idx < 7;
+                    const isDropPoint = idx === 7;
+
+                    return (
+                      <div key={st.id} className="flex items-start justify-between gap-3 relative z-10">
+                        <div className="flex items-start gap-2.5">
+                          {isCompleted && (
+                            <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                              <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            </div>
+                          )}
+
+                          {isCurrent && (
+                            <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md ring-4 ring-blue-100">
+                              <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                            </div>
+                          )}
+
+                          {isUpcoming && (
+                            <div className="w-6 h-6 rounded-full bg-white border-2 border-slate-300 flex items-center justify-center shrink-0" />
+                          )}
+
+                          {isDropPoint && (
+                            <div className="w-6 h-6 rounded-full bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
+                              <Flag className="w-3.5 h-3.5 fill-rose-600" />
+                            </div>
+                          )}
+
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-bold leading-tight ${
+                                isCurrent ? 'text-blue-600' : isDropPoint ? 'text-rose-600' : 'text-slate-800'
+                              }`}>
+                                {st.name}
+                              </span>
+                              {isCurrent && (
+                                <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 text-[10px] font-extrabold uppercase">
+                                  Current
+                                </span>
+                              )}
+                            </div>
+                            {isDropPoint && (
+                              <span className="text-[11px] text-slate-400 font-medium block">Drop Point</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <span className="text-xs font-mono text-slate-500 font-semibold shrink-0">
+                          {st.time}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* QUICK ACTIONS CARD */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-100 shadow-sm space-y-3">
+                <h3 className="font-bold text-base text-slate-900">
+                  Quick Actions
+                </h3>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {/* Action 1: Mark Attendance */}
+                  <button
+                    onClick={() => setShowAttendanceModal(true)}
+                    className="p-3.5 rounded-2xl bg-[#F0FDF4] hover:bg-[#DCFCE7] border border-[#DCFCE7] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <ClipboardCheck className="w-5 h-5" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
+                      Mark Attendance
+                    </span>
+                  </button>
+
+                  {/* Action 2: Report Issue */}
+                  <button
+                    onClick={() => setShowReportIssueModal(true)}
+                    className="p-3.5 rounded-2xl bg-[#FEF2F2] hover:bg-[#FEE2E2] border border-[#FEE2E2] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
+                      Report Issue
+                    </span>
+                  </button>
+
+                  {/* Action 3: Call School */}
+                  <a
+                    href="tel:+915222610000"
+                    className="p-3.5 rounded-2xl bg-[#EFF6FF] hover:bg-[#DBEAFE] border border-[#DBEAFE] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer no-underline group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Phone className="w-5 h-5" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
+                      Call School
+                    </span>
+                  </a>
+
+                  {/* Action 4: Call Transport Incharge */}
+                  <a
+                    href="tel:+919876543210"
+                    className="p-3.5 rounded-2xl bg-[#FAF5FF] hover:bg-[#F3E8FF] border border-[#F3E8FF] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer no-underline group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <PhoneCall className="w-5 h-5" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
+                      Call Transport Incharge
+                    </span>
+                  </a>
+
+                  {/* Action 5: Fuel Log */}
+                  <button
+                    onClick={() => setShowFuelModal(true)}
+                    className="p-3.5 rounded-2xl bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#FEF3C7] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Fuel className="w-5 h-5" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
+                      Fuel Log
+                    </span>
+                  </button>
+
+                  {/* Action 6: Emergency SOS */}
+                  <button
+                    onClick={() => setShowSosModal(true)}
+                    className="p-3.5 rounded-2xl bg-[#FFF1F2] hover:bg-[#FFE4E6] border border-[#FFE4E6] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center group-hover:scale-110 transition-transform font-bold text-xs shadow-sm">
+                      SOS
+                    </div>
+                    <span className="text-xs font-extrabold text-rose-700 leading-tight">
+                      Emergency SOS
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            {/* ────── RIGHT COLUMN: LIVE TRACKING, NEXT STOP, SCHEDULE ────── */}
+            <div className="lg:col-span-6 space-y-5 sm:space-y-6">
+              
+              {/* LIVE TRACKING MAP CARD */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-100 shadow-sm space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-base text-slate-900">
+                    Live Tracking
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Live
+                  </span>
+                </div>
+
+                {/* Vector Map Graphic Canvas */}
+                <div className="relative h-56 sm:h-64 rounded-2xl overflow-hidden bg-[#E2E8F0] border border-slate-200/80 shadow-inner">
+                  <svg viewBox="0 0 400 300" className="w-full h-full object-cover">
+                    {/* Map Base Background */}
+                    <rect width="400" height="300" fill="#EDF2F7" />
+
+                    {/* Green Park Patch */}
+                    <path d="M 280,30 C 320,20 370,40 380,80 C 370,120 330,130 290,100 Z" fill="#DCFCE7" />
+                    <path d="M 30,160 C 50,140 90,150 100,190 C 80,220 40,210 30,180 Z" fill="#DCFCE7" />
+
+                    {/* City Road Network Grid */}
+                    <path d="M 0,90 L 400,120" stroke="#CBD5E1" strokeWidth="6" strokeLinecap="round" />
+                    <path d="M 0,210 L 400,190" stroke="#CBD5E1" strokeWidth="5" strokeLinecap="round" />
+                    <path d="M 120,0 L 90,300" stroke="#CBD5E1" strokeWidth="5" strokeLinecap="round" />
+                    <path d="M 270,0 L 310,300" stroke="#CBD5E1" strokeWidth="6" strokeLinecap="round" />
+                    <path d="M 200,0 L 230,300" stroke="#E2E8F0" strokeWidth="4" />
+                    <path d="M 0,160 L 400,150" stroke="#E2E8F0" strokeWidth="4" />
+
+                    {/* Blue Active Route Track */}
+                    <path
+                      d="M 345,65 Q 280,75 250,110 T 170,140 T 120,210 T 220,240 T 315,195"
+                      fill="none"
+                      stroke="#2563EB"
+                      strokeWidth="5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeDasharray="none"
+                    />
+
+                    {/* Route Stops Markers */}
+                    {/* Stop 1: Green Park */}
+                    <circle cx="345" cy="65" r="8" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+                    <circle cx="345" cy="65" r="3" fill="#FFFFFF" />
+                    <text x="345" y="50" textAnchor="middle" fill="#1E293B" fontSize="10" fontWeight="bold">Green Park</text>
+
+                    {/* Stop 2: Sector 62 */}
+                    <circle cx="250" cy="110" r="7" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+                    <circle cx="250" cy="110" r="2.5" fill="#FFFFFF" />
+                    <text x="250" y="98" textAnchor="middle" fill="#475569" fontSize="9" fontWeight="600">Sector 62</text>
+
+                    {/* Stop 3: City Center */}
+                    <circle cx="120" cy="210" r="7" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+                    <circle cx="120" cy="210" r="2.5" fill="#FFFFFF" />
+                    <text x="120" y="228" textAnchor="middle" fill="#475569" fontSize="9" fontWeight="600">City Center</text>
+
+                    {/* Drop Point: Anand School */}
+                    <circle cx="315" cy="195" r="9" fill="#EF4444" stroke="#FFFFFF" strokeWidth="2" />
+                    <circle cx="315" cy="195" r="3.5" fill="#FFFFFF" />
+                    <text x="315" y="215" textAnchor="middle" fill="#DC2626" fontSize="10" fontWeight="bold">Anand School</text>
+
+                    {/* Current Live Bus Marker */}
+                    <g transform="translate(195, 140)">
+                      {/* Pulse circle */}
+                      <circle cx="0" cy="0" r="20" fill="#F59E0B" fillOpacity="0.25" className="animate-ping" />
+                      {/* Outer shadow badge */}
+                      <circle cx="0" cy="0" r="14" fill="#F59E0B" stroke="#FFFFFF" strokeWidth="2.5" />
+                      {/* Small bus icon inside badge */}
+                      <rect x="-6" y="-6" width="12" height="12" rx="2.5" fill="#0F172A" />
+                      <circle cx="-3" cy="4" r="1.5" fill="#F59E0B" />
+                      <circle cx="3" cy="4" r="1.5" fill="#F59E0B" />
+                      <rect x="-4.5" y="-4" width="9" height="4" rx="1" fill="#FFFFFF" />
+                    </g>
+                  </svg>
+
+                  {/* Locate Crosshair Button */}
+                  <button
+                    onClick={readAndTransmitLivePosition}
+                    className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-white shadow-md border border-slate-200 text-blue-600 flex items-center justify-center hover:bg-slate-50 transition-colors cursor-pointer"
+                    title="Center GPS Target"
+                  >
+                    <LocateFixed className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* GPS Transmitter Action Button */}
+                <div className="space-y-2">
+                  {!driverTripActive ? (
+                    <button
+                      onClick={startDriverTrip}
+                      className="w-full py-3.5 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border-none"
+                    >
+                      <Play className="w-4 h-4 fill-white" />
+                      <span>START GPS TRIP (TRANSMIT LIVE LOCATION)</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={stopDriverTrip}
+                      className="w-full py-3.5 px-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border-none"
+                    >
+                      <Square className="w-4 h-4 fill-white" />
+                      <span>END TRIP &bull; STOP TRANSMITTING GPS</span>
+                    </button>
+                  )}
+
+                  {/* Live Telemetry Ping */}
+                  <p className="text-[11px] font-mono text-center text-slate-500">
+                    {driverTripActive ? (
+                      <span className="text-emerald-700 font-semibold">
+                        &bull; GPS Streaming: {liveDriverGeo.latitude}&deg;N, {liveDriverGeo.longitude}&deg;E &bull; {liveDriverGeo.speedKmh} km/h
+                      </span>
+                    ) : (
+                      <span>Tap Start GPS Trip to broadcast your real smartphone location</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* NEXT STOP CARD */}
+              <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-100 shadow-sm flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Next Stop
+                    </span>
+                    <h4 className="font-bold text-sm sm:text-base text-slate-900 leading-tight">
+                      Sunrise Villa Stop
+                    </h4>
+                    <p className="text-xs text-slate-500 font-medium">
+                      2nd Cross Road, Sunrise Villa
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                    ETA
+                  </span>
+                  <span className="text-lg sm:text-xl font-black text-emerald-600 leading-tight">
+                    3 min
+                  </span>
+                </div>
+              </div>
+
+              {/* TODAY'S SCHEDULE CARD */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-100 shadow-sm space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-base text-slate-900">
+                    Today&apos;s Schedule
+                  </h3>
+                  <button
+                    onClick={() => setShowScheduleModal(true)}
+                    className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer border-none bg-transparent"
+                  >
+                    View All
+                  </button>
+                </div>
+
+                {/* Schedule Timeline Items */}
+                <div className="space-y-3 pt-1">
+                  {/* Item 1 */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-200">
+                      <Play className="w-3 h-3 fill-emerald-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900">Start from Depot</span>
+                        <span className="text-xs font-mono font-semibold text-slate-500">07:15 AM</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 block">Green Park</span>
+                    </div>
+                  </div>
+
+                  {/* Item 2 */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 border border-blue-200">
+                      <Bus className="w-3 h-3" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900">Route 04 - Morning</span>
+                        <span className="text-xs font-mono font-semibold text-slate-500">07:15 AM – 08:20 AM</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 block">Pickup Students</span>
+                    </div>
+                  </div>
+
+                  {/* Item 3 */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 mt-0.5 border border-rose-200">
+                      <Flag className="w-3 h-3 fill-rose-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900">Drop at School</span>
+                        <span className="text-xs font-mono font-semibold text-slate-500">08:20 AM</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 block">Anand School</span>
+                    </div>
+                  </div>
+
+                  {/* Item 4 */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 mt-0.5 border border-slate-300">
+                      <Square className="w-2.5 h-2.5 fill-slate-500" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900">End of Trip</span>
+                        <span className="text-xs font-mono font-semibold text-slate-500">08:30 AM</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 block">Back to Depot</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* 4. TODAY'S ATTENDANCE SUMMARY CARD */}
+          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-100 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-base text-slate-900">
+                Today&apos;s Attendance Summary
+              </h3>
+              <button
+                onClick={() => setShowAttendanceModal(true)}
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer border-none bg-transparent"
+              >
+                View Details
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+              {/* Stat 1: Total Assigned */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-xl font-black text-slate-900 leading-tight block">
+                    {driverTotalStudents}
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    Total Assigned
+                  </span>
+                </div>
+              </div>
+
+              {/* Stat 2: Picked Up */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                  <Bus className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-xl font-black text-slate-900 leading-tight block">
+                    {driverPickedCount}
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    Picked Up
+                  </span>
+                </div>
+              </div>
+
+              {/* Stat 3: Dropped */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
                   <User className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="font-bold text-sm text-white">{activeRoute.driver}</div>
-                  <div className="text-xs text-slate-300 font-mono">{activeRoute.driverPhone}</div>
+                  <span className="text-xl font-black text-slate-900 leading-tight block">
+                    {driverDroppedCount}
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    Dropped
+                  </span>
                 </div>
               </div>
-              <span className="text-[10px] font-bold font-mono px-2.5 py-1 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30">
-                ACTIVE SHIFT
-              </span>
-            </div>
 
-            {/* Big Speedometer */}
-            <div className="text-center py-6 bg-black/40 rounded-3xl border border-white/10 space-y-1">
-              <div className="text-slate-400 text-xs uppercase font-bold tracking-widest">
-                Vehicle Speed
-              </div>
-              <div className="text-6xl font-mono font-black text-emerald-400 tracking-tight">
-                {driverTripActive ? liveDriverGeo.speedKmh : 0}
-              </div>
-              <div className="text-xs text-slate-400 font-mono">
-                Kilometers Per Hour (GPS Telemetry)
-              </div>
-            </div>
-
-            {/* Geolocation Coordinates Stream */}
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 font-mono text-xs space-y-2">
-              <div className="flex items-center justify-between text-slate-400">
-                <span>LATITUDE: <strong>{liveDriverGeo.latitude}</strong></span>
-                <span>LONGITUDE: <strong>{liveDriverGeo.longitude}</strong></span>
-              </div>
-              <div className="flex items-center justify-between text-slate-400">
-                <span>ACCURACY: <strong>&plusmn;{liveDriverGeo.accuracyMeters}m</strong></span>
-                <span>LAST PING: <strong>{liveDriverGeo.lastUpdated}</strong></span>
+              {/* Stat 4: Left / Absent */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-xl font-black text-slate-900 leading-tight block">
+                    {driverLeftCount}
+                  </span>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    Left / Absent
+                  </span>
+                </div>
               </div>
             </div>
-
-            {/* Next Stop Indicator for Driver */}
-            <div className="bg-amber-500/20 border border-amber-400/40 p-4 rounded-2xl text-amber-200 space-y-1">
-              <div className="text-[10px] uppercase font-bold text-amber-300 tracking-wider">
-                Next Pick-up Stop:
-              </div>
-              <div className="text-base font-bold text-white">
-                {nextStop.name}
-              </div>
-              <div className="text-xs text-amber-300 font-mono">
-                Scheduled Time: {nextStop.scheduledTime}
-              </div>
-            </div>
-
-            {/* GPS Live Status Notice */}
-            <div className={`p-3 rounded-2xl text-xs font-mono text-center border transition-all ${
-              gpsStatusMessage.includes('❌')
-                ? 'bg-rose-950/70 border-rose-500/50 text-rose-300'
-                : driverTripActive
-                ? 'bg-emerald-950/70 border-emerald-400/50 text-emerald-300 animate-pulse'
-                : 'bg-white/5 border-white/10 text-slate-400'
-            }`}>
-              {gpsStatusMessage}
-            </div>
-
-            {/* Start / Stop GPS Button */}
-            <div>
-              {!driverTripActive ? (
-                <button
-                  onClick={startDriverTrip}
-                  className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-[#122A24] font-extrabold text-base flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer border-none"
-                >
-                  <Play className="w-5 h-5 fill-current" />
-                  <span>START GPS TRIP (TRANSMIT LOCATION)</span>
-                </button>
-              ) : (
-                <button
-                  onClick={stopDriverTrip}
-                  className="w-full py-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-base flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer border-none"
-                >
-                  <Square className="w-5 h-5 fill-current" />
-                  <span>END TRIP &bull; STOP GPS TRANSMITTER</span>
-                </button>
-              )}
-            </div>
-
-            <div className="text-center text-xs text-slate-400">
-              * Tap start button to allow your phone&apos;s GPS sensor to stream live movement coordinates.
-            </div>
-
           </div>
+
+          {/* 5. IN-APP BOTTOM NAVIGATION DOCK (MATCHING SCREENSHOT) */}
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-lg p-2 flex items-center justify-around">
+            <button
+              onClick={() => setDriverActiveTab('dashboard')}
+              className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all border-none bg-transparent cursor-pointer ${
+                driverActiveTab === 'dashboard' ? 'text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600 font-medium'
+              }`}
+            >
+              <Home className="w-5 h-5" />
+              <span className="text-[11px]">Dashboard</span>
+            </button>
+
+            <button
+              onClick={() => setShowScheduleModal(true)}
+              className="flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 font-medium"
+            >
+              <Navigation className="w-5 h-5" />
+              <span className="text-[11px]">My Trips</span>
+            </button>
+
+            <button
+              onClick={() => setShowAttendanceModal(true)}
+              className="flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 font-medium"
+            >
+              <Users className="w-5 h-5" />
+              <span className="text-[11px]">Students</span>
+            </button>
+
+            <button
+              onClick={() => setShowNotificationModal(true)}
+              className="flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 font-medium relative"
+            >
+              <div className="relative">
+                <MessageSquare className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">
+                  2
+                </span>
+              </div>
+              <span className="text-[11px]">Messages</span>
+            </button>
+
+            <button
+              onClick={() => setShowFuelModal(true)}
+              className="flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 font-medium"
+            >
+              <MoreHorizontal className="w-5 h-5" />
+              <span className="text-[11px]">More</span>
+            </button>
+          </div>
+
+          {/* ────── INTERACTIVE DRIVER MODAL DIALOGS ────── */}
+
+          {/* MODAL 1: STUDENT ATTENDANCE & PICKUP ROSTER */}
+          {showAttendanceModal && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-scale-up">
+                
+                {/* Header */}
+                <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-base text-slate-900">
+                      Student Pickup Attendance
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Route 04 &bull; {driverPickedCount} Picked &bull; {driverLeftCount} Remaining
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowAttendanceModal(false)}
+                    className="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors border-none bg-transparent cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Filter & Search Bar */}
+                <div className="p-4 border-b border-slate-100 space-y-3 bg-slate-50/50">
+                  <input
+                    type="text"
+                    value={driverStudentSearch}
+                    onChange={(e) => setDriverStudentSearch(e.target.value)}
+                    placeholder="Search student or stop name..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+
+                  <div className="flex items-center gap-1.5 overflow-x-auto text-[11px]">
+                    {(['ALL', 'PICKED', 'PENDING', 'DROPPED'] as const).map(tab => (
+                      <button
+                        key={tab}
+                        onClick={() => setAttendanceFilter(tab)}
+                        className={`px-3 py-1 rounded-lg font-bold transition-all border cursor-pointer ${
+                          attendanceFilter === tab
+                            ? 'bg-slate-900 text-white border-slate-900'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {tab} ({
+                          tab === 'ALL' ? driverStudents.length :
+                          tab === 'PICKED' ? driverPickedCount :
+                          tab === 'PENDING' ? driverLeftCount :
+                          driverDroppedCount
+                        })
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Students List */}
+                <div className="p-4 overflow-y-auto flex-1 space-y-2.5">
+                  {driverStudents
+                    .filter(s => {
+                      if (attendanceFilter === 'PICKED') return s.status === 'PICKED';
+                      if (attendanceFilter === 'PENDING') return s.status === 'PENDING' || s.status === 'ABSENT';
+                      if (attendanceFilter === 'DROPPED') return s.status === 'DROPPED';
+                      return true;
+                    })
+                    .filter(s => {
+                      if (!driverStudentSearch) return true;
+                      const q = driverStudentSearch.toLowerCase();
+                      return s.name.toLowerCase().includes(q) || s.stop.toLowerCase().includes(q) || s.class.toLowerCase().includes(q);
+                    })
+                    .map(student => (
+                      <div
+                        key={student.id}
+                        className="p-3 rounded-2xl bg-white border border-slate-200/80 hover:border-slate-300 flex items-center justify-between gap-3 shadow-sm"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-2xl">{student.avatar}</span>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-xs text-slate-900">{student.name}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono font-semibold">
+                                {student.class}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-slate-500 font-medium block">
+                              Stop: {student.stop}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Status Toggle Buttons */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => {
+                              setDriverStudents(prev => prev.map(s => s.id === student.id ? { ...s, status: 'PICKED' } : s));
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                              student.status === 'PICKED'
+                                ? 'bg-emerald-500 text-white border-emerald-500'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                            }`}
+                          >
+                            Picked
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setDriverStudents(prev => prev.map(s => s.id === student.id ? { ...s, status: 'ABSENT' } : s));
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                              student.status === 'ABSENT'
+                                ? 'bg-rose-500 text-white border-rose-500'
+                                : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                            }`}
+                          >
+                            Absent
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setDriverStudents(prev => prev.map(s => s.id === student.id ? { ...s, status: 'DROPPED' } : s));
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                              student.status === 'DROPPED'
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                            }`}
+                          >
+                            Drop
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                  <span className="text-xs text-slate-500 font-medium">
+                    Changes save automatically to ERP
+                  </span>
+                  <button
+                    onClick={() => setShowAttendanceModal(false)}
+                    className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer border-none"
+                  >
+                    Done
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* MODAL 2: REPORT ISSUE */}
+          {showReportIssueModal && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 p-6 space-y-4 animate-scale-up">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-rose-600">
+                    <AlertTriangle className="w-5 h-5" />
+                    <h3 className="font-bold text-base text-slate-900">
+                      Report Trip Delay / Issue
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowReportIssueModal(false)}
+                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 border-none bg-transparent cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-500">
+                  Select issue type to instantly notify the School Control Room and Parents on this route:
+                </p>
+
+                {/* Issue Type Chips */}
+                <div className="space-y-2">
+                  {[
+                    'Heavy Traffic Jam (+15m delay)',
+                    'Flat Tyre / Puncture (+20m delay)',
+                    'Road Diversion / Construction (+10m delay)',
+                    'Vehicle Engine Heating / Breakdown',
+                    'Heavy Rainfall / Waterlogging'
+                  ].map(item => (
+                    <button
+                      key={item}
+                      onClick={() => setIssueType(item)}
+                      className={`w-full text-left p-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                        issueType === item
+                          ? 'bg-rose-50 border-rose-400 text-rose-800 font-bold shadow-sm'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      &bull; {item}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 block">Additional Notes (Optional)</label>
+                  <textarea
+                    rows={2}
+                    value={issueNotes}
+                    onChange={(e) => setIssueNotes(e.target.value)}
+                    placeholder="Location landmark or extra message..."
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => setShowReportIssueModal(false)}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold cursor-pointer border-none"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveAlert(`${issueType} reported by ${driverDisplayName} for ${activeRoute.name}.`);
+                      setShowReportIssueModal(false);
+                      alert('✅ Issue broadcasted to School Transport Manager and Parent Portal.');
+                    }}
+                    className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors cursor-pointer border-none shadow-md"
+                  >
+                    Broadcast Alert
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL 3: FUEL LOG */}
+          {showFuelModal && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 p-6 space-y-5 animate-scale-up">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <Fuel className="w-5 h-5" />
+                    <h3 className="font-bold text-base text-slate-900">
+                      Fuel Log Entry
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowFuelModal(false)}
+                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 border-none bg-transparent cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Fuel Slider */}
+                <div className="space-y-2 bg-amber-50/60 p-4 rounded-2xl border border-amber-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700">Current Fuel Gauge</span>
+                    <span className="text-xl font-black text-amber-700 font-mono">{fuelInput}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    value={fuelInput}
+                    onChange={(e) => setFuelInput(Number(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                  />
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                    <span>Empty (10%)</span>
+                    <span>Half (50%)</span>
+                    <span>Full (100%)</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 block">Liters Filled</label>
+                    <input
+                      type="text"
+                      value={fuelLiters}
+                      onChange={(e) => setFuelLiters(e.target.value)}
+                      placeholder="e.g. 45"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-800 outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 block">Odometer (Km)</label>
+                    <input
+                      type="text"
+                      value={fuelOdometer}
+                      onChange={(e) => setFuelOdometer(e.target.value)}
+                      placeholder="e.g. 14,280"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-800 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => setShowFuelModal(false)}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold cursor-pointer border-none"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDriverFuelLevel(fuelInput);
+                      setShowFuelModal(false);
+                      alert('✅ Fuel log saved successfully.');
+                    }}
+                    className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-[#122A24] text-xs font-bold transition-colors cursor-pointer border-none shadow-md"
+                  >
+                    Save Fuel Entry
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL 4: EMERGENCY SOS */}
+          {showSosModal && (
+            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border-4 border-rose-500 p-6 space-y-5 animate-scale-up">
+                <div className="text-center space-y-2">
+                  <div className="w-16 h-16 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto shadow-md animate-pulse">
+                    <AlertOctagon className="w-9 h-9" />
+                  </div>
+                  <h3 className="font-display font-black text-xl text-rose-600">
+                    EMERGENCY DRIVER SOS
+                  </h3>
+                  <p className="text-xs text-slate-600">
+                    One-tap priority emergency hotline for school bus drivers in distress:
+                  </p>
+                </div>
+
+                <div className="space-y-2.5">
+                  <a
+                    href="tel:+915222610000"
+                    className="w-full p-3.5 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-800 flex items-center justify-between font-bold text-xs no-underline cursor-pointer"
+                  >
+                    <span>📞 School Emergency Dispatch</span>
+                    <span className="font-mono text-[11px]">+91 522 2610000</span>
+                  </a>
+
+                  <a
+                    href="tel:+919876543210"
+                    className="w-full p-3.5 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-800 flex items-center justify-between font-bold text-xs no-underline cursor-pointer"
+                  >
+                    <span>📞 Transport Manager</span>
+                    <span className="font-mono text-[11px]">+91 98765 43210</span>
+                  </a>
+
+                  <a
+                    href="tel:112"
+                    className="w-full p-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-between font-bold text-xs no-underline cursor-pointer"
+                  >
+                    <span>🚨 Police Emergency Control</span>
+                    <span className="font-mono text-[11px]">Dial 112</span>
+                  </a>
+
+                  <a
+                    href="tel:108"
+                    className="w-full p-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-between font-bold text-xs no-underline cursor-pointer"
+                  >
+                    <span>🚑 Medical Ambulance</span>
+                    <span className="font-mono text-[11px]">Dial 108</span>
+                  </a>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    onClick={() => {
+                      setActiveAlert(`🚨 SOS ALERT: Emergency triggered by Driver ${driverDisplayName} for vehicle ${driverVehicleNo}!`);
+                      setShowSosModal(false);
+                      alert('🚨 SOS alert broadcasted to school management and authorities.');
+                    }}
+                    className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs cursor-pointer border-none shadow-lg"
+                  >
+                    Trigger Live SOS Broadcast
+                  </button>
+                  <button
+                    onClick={() => setShowSosModal(false)}
+                    className="px-4 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer border-none"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL 5: NOTIFICATIONS & DISPATCH */}
+          {showNotificationModal && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 p-6 space-y-4 animate-scale-up">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-blue-600" />
+                    <h3 className="font-bold text-base text-slate-900">
+                      Driver Dispatch Messages
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowNotificationModal(false)}
+                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 border-none bg-transparent cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="p-3 rounded-2xl bg-blue-50/70 border border-blue-100 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-blue-900">Parent of Aarav Sharma</span>
+                      <span className="text-[10px] text-slate-400 font-mono">07:20 AM</span>
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      &ldquo;Aarav will board at Green Park Stop today. Running 2 minutes ahead.&rdquo;
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-900">School Control Room</span>
+                      <span className="text-[10px] text-slate-400 font-mono">07:10 AM</span>
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      &ldquo;Road diversion near Anand School cleared. You can use standard route gate 2.&rdquo;
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-900">Shift Started</span>
+                      <span className="text-[10px] text-slate-400 font-mono">07:05 AM</span>
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      &ldquo;Morning trip assigned to UP32 AB 1234. Please ensure GPS transmitter is active.&rdquo;
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    onClick={() => {
+                      setUnreadNotifications(0);
+                    }}
+                    className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer border-none bg-transparent"
+                  >
+                    Mark All as Read
+                  </button>
+
+                  <button
+                    onClick={() => setShowNotificationModal(false)}
+                    className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer border-none"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MODAL 6: FULL SCHEDULE MODAL */}
+          {showScheduleModal && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 p-6 space-y-5 animate-scale-up">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-base text-slate-900">
+                    Route 04 - Daily Schedule
+                  </h3>
+                  <button
+                    onClick={() => setShowScheduleModal(false)}
+                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 border-none bg-transparent cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-[#F0F5FF] border border-[#D9E6FE] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-blue-900 uppercase">Morning Shift (Current)</span>
+                      <span className="text-xs font-mono font-bold text-blue-600">07:15 AM – 08:30 AM</span>
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      Depot &rarr; Green Park &rarr; Sector 62 &rarr; City Center &rarr; Sunrise Villa &rarr; Anand School
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-800 uppercase">Afternoon Drop Shift</span>
+                      <span className="text-xs font-mono font-bold text-slate-500">01:45 PM – 03:00 PM</span>
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      Anand School (Gate 2) &rarr; Sunrise Villa &rarr; City Center &rarr; Sector 62 &rarr; Green Park &rarr; Depot
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-800 uppercase">Remedial Class Evening Shift</span>
+                      <span className="text-xs font-mono font-bold text-slate-500">04:30 PM – 05:30 PM</span>
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      Campus Special Transit &bull; Senior Class 9-12 Evening Drop
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right pt-2">
+                  <button
+                    onClick={() => setShowScheduleModal(false)}
+                    className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer border-none"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 
