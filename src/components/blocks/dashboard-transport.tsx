@@ -77,6 +77,44 @@ export interface RouteStop {
   lng?: number;
 }
 
+export type ShiftType = 'MORNING' | 'AFTERNOON' | 'EVENING';
+
+export interface RouteShiftConfig {
+  id: ShiftType;
+  name: string;
+  shortLabel: string;
+  timing: string;
+  type: 'PICKUP' | 'DROP';
+  description: string;
+}
+
+export const ROUTE_SHIFTS_METADATA: Record<ShiftType, RouteShiftConfig> = {
+  MORNING: {
+    id: 'MORNING',
+    name: 'Morning Pickup Shift',
+    shortLabel: 'Pickup to School',
+    timing: '07:15 AM – 08:30 AM',
+    type: 'PICKUP',
+    description: 'Residential Terminals &rarr; City Stops &rarr; School Main Gate'
+  },
+  AFTERNOON: {
+    id: 'AFTERNOON',
+    name: 'Afternoon Drop Shift',
+    shortLabel: 'Junior School Drop',
+    timing: '01:45 PM – 03:00 PM',
+    type: 'DROP',
+    description: 'School Main Gate &rarr; Reverse Residential Drops'
+  },
+  EVENING: {
+    id: 'EVENING',
+    name: 'Evening Special Transit',
+    shortLabel: 'Senior & Remedial',
+    timing: '04:30 PM – 05:30 PM',
+    type: 'DROP',
+    description: 'School Main Gate &rarr; Senior & Sports Hub Drops'
+  }
+};
+
 export interface BusRouteData {
   id: string;
   code: string;
@@ -732,6 +770,85 @@ export function DashboardTransport({
   const [mapSize, setMapSize] = useState<'STANDARD' | 'LARGE' | 'THEATER'>('LARGE');
   const [isMapFullscreen, setIsMapFullscreen] = useState<boolean>(false);
 
+  // Active Operating Shift for the Bus (Morning Pickup vs Afternoon Drop vs Evening Transit)
+  // Auto-detects based on current clock time, with manual 1-click override
+  const [activeShift, setActiveShift] = useState<ShiftType>(() => {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 12) return 'MORNING';
+    if (hour >= 12 && hour < 16) return 'AFTERNOON';
+    return 'EVENING';
+  });
+
+  // Dynamic stops sequence for the currently active shift
+  const currentShiftStops = useMemo((): RouteStop[] => {
+    const baseStops = activeRoute.stops || [];
+    if (!baseStops.length) return [];
+    if (activeShift === 'MORNING') {
+      return baseStops;
+    }
+
+    if (activeShift === 'AFTERNOON') {
+      // Reverse order: originates at School Campus, visits residential stops in reverse to drop kids home
+      const schoolStop = baseStops[baseStops.length - 1];
+      const otherStops = baseStops.slice(0, baseStops.length - 1).reverse();
+      const dropStops: RouteStop[] = [
+        {
+          id: `${schoolStop.id}-aft-start`,
+          name: `${schoolStop.name} (Departure Point)`,
+          scheduledTime: '01:45 PM',
+          distanceKm: 0,
+          lat: schoolStop.lat,
+          lng: schoolStop.lng
+        },
+        ...otherStops.map((s, idx) => {
+          const mins = 15 + idx * 12;
+          const h = 2;
+          const m = mins < 60 ? mins : mins - 60;
+          const timeStr = `0${h}:${m < 10 ? '0' : ''}${m} PM`;
+          return {
+            id: `${s.id}-aft`,
+            name: `${s.name} (Drop Point)`,
+            scheduledTime: timeStr,
+            distanceKm: Number((4.5 + idx * 4.2).toFixed(1)),
+            lat: s.lat,
+            lng: s.lng
+          };
+        })
+      ];
+      return dropStops;
+    }
+
+    // EVENING shift: Senior & Remedial transit
+    const schoolStop = baseStops[baseStops.length - 1];
+    const keyStops = baseStops.slice(0, Math.min(3, baseStops.length - 1)).reverse();
+    return [
+      {
+        id: `${schoolStop.id}-eve-start`,
+        name: `${schoolStop.name} (Campus Gate)`,
+        scheduledTime: '04:30 PM',
+        distanceKm: 0,
+        lat: schoolStop.lat,
+        lng: schoolStop.lng
+      },
+      ...keyStops.map((s, idx) => {
+        const mins = 20 + idx * 15;
+        return {
+          id: `${s.id}-eve`,
+          name: `${s.name} (Express Hub)`,
+          scheduledTime: `04:${mins} PM`,
+          distanceKm: Number((6.0 + idx * 5.5).toFixed(1)),
+          lat: s.lat,
+          lng: s.lng
+        };
+      })
+    ];
+  }, [activeRoute, activeShift]);
+
+  const handleShiftChange = (newShift: ShiftType) => {
+    setActiveShift(newShift);
+    setCompletedStopIds([]); // Reset reached stops for the new shift's journey
+  };
+
   // Haversine distance calculator in kilometers
   const calculateDistanceKm = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
     if (!lat1 || !lon1 || !lat2 || !lon2) return 1.5;
@@ -754,7 +871,7 @@ export function DashboardTransport({
     const currentLat = liveDriverGeo.latitude;
     const currentLng = liveDriverGeo.longitude;
 
-    activeRoute.stops.forEach(st => {
+    currentShiftStops.forEach(st => {
       if (st.lat && st.lng && !completedStopIds.includes(st.id)) {
         const dist = calculateDistanceKm(currentLat, currentLng, st.lat, st.lng);
         if (dist <= 0.35) { // within 350m of stop
@@ -762,14 +879,14 @@ export function DashboardTransport({
         }
       }
     });
-  }, [driverTripActive, liveDriverGeo.latitude, liveDriverGeo.longitude, activeRoute.stops, completedStopIds, calculateDistanceKm]);
+  }, [driverTripActive, liveDriverGeo.latitude, liveDriverGeo.longitude, currentShiftStops, completedStopIds, calculateDistanceKm]);
 
-  // Next stop calculation from uncompleted stops (fixed by transport incharge)
+  // Next stop calculation from uncompleted stops of the ACTIVE SHIFT
   const nextDriverStop = useMemo(() => {
-    const uncompleted = activeRoute.stops.filter(s => !completedStopIds.includes(s.id));
+    const uncompleted = currentShiftStops.filter(s => !completedStopIds.includes(s.id));
     if (uncompleted.length > 0) return uncompleted[0];
-    return activeRoute.stops[activeRoute.stops.length - 1] || activeRoute.stops[0];
-  }, [activeRoute.stops, completedStopIds]);
+    return currentShiftStops[currentShiftStops.length - 1] || currentShiftStops[0];
+  }, [currentShiftStops, completedStopIds]);
 
   // Real-time distance to next stop
   const liveDistanceToNextKm = useMemo(() => {
@@ -786,13 +903,13 @@ export function DashboardTransport({
     return Math.max(1, Math.round((liveDistanceToNextKm / speed) * 60));
   }, [liveDistanceToNextKm, liveDriverGeo.speedKmh]);
 
-  // Dynamic progress percentage: 100% computed from real live location and stops
+  // Dynamic progress percentage: 100% computed from real live location and stops of ACTIVE SHIFT
   const dynamicProgressPercent = useMemo(() => {
-    if (!activeRoute.stops || activeRoute.stops.length === 0) return 0;
-    return Math.round((completedStopIds.length / activeRoute.stops.length) * 100);
-  }, [completedStopIds, activeRoute.stops]);
+    if (!currentShiftStops || currentShiftStops.length === 0) return 0;
+    return Math.round((completedStopIds.length / currentShiftStops.length) * 100);
+  }, [completedStopIds, currentShiftStops]);
 
-  // Filter students strictly assigned to this driver's bus route
+  // Filter students strictly assigned to this driver's bus route, filtered by active shift
   const busAssignedStudents = useMemo(() => {
     if (!students || students.length === 0) return [];
     const rCode = (activeRoute.code || '').toLowerCase().trim();
@@ -806,40 +923,38 @@ export function DashboardTransport({
       return sRoute === rCode || sRoute === rName || sRoute === rId || sRoute.includes(rCode) || rName.includes(sRoute);
     });
 
-    if (directMatches.length > 0) {
-      return directMatches.map((st: any, i) => ({
-        id: st.id || `st-${i}`,
-        name: st.name || `Student ${i + 1}`,
-        class: st.class_name || st.class || 'Assigned',
-        stop: st.transport_stop || activeRoute.stops[i % activeRoute.stops.length]?.name || 'Bus Stop',
-        avatar: i % 2 === 0 ? '👦' : '👧',
-        phone: st.parent_phone || st.phone || '+91 98765-43210'
-      }));
+    let pool = directMatches;
+    if (pool.length === 0) {
+      const transportStudents = students.filter((st: any) => st.bus_route || st.transport_opted || st.transport_stop);
+      pool = transportStudents.length > 0 ? transportStudents.slice(0, 28) : students.slice(0, 24);
     }
 
-    // 2. Transport-opted students
-    const transportStudents = students.filter((st: any) => st.bus_route || st.transport_opted || st.transport_stop);
-    if (transportStudents.length > 0) {
-      return transportStudents.slice(0, 28).map((st: any, i) => ({
-        id: st.id || `st-${i}`,
-        name: st.name || `Student ${i + 1}`,
-        class: st.class_name || st.class || 'Assigned',
-        stop: st.transport_stop || activeRoute.stops[i % activeRoute.stops.length]?.name || 'Bus Stop',
-        avatar: i % 2 === 0 ? '👦' : '👧',
-        phone: st.parent_phone || st.phone || '+91 98765-43210'
-      }));
+    // Filter by shift:
+    if (activeShift === 'AFTERNOON') {
+      // Junior students drop shift (Nursery to 8th)
+      const juniors = pool.filter((st: any) => {
+        const cl = (st.class_name || st.class || '').toUpperCase();
+        return !cl.includes('9') && !cl.includes('10') && !cl.includes('11') && !cl.includes('12');
+      });
+      if (juniors.length > 0) pool = juniors;
+    } else if (activeShift === 'EVENING') {
+      // Senior students drop shift (9th to 12th)
+      const seniors = pool.filter((st: any) => {
+        const cl = (st.class_name || st.class || '').toUpperCase();
+        return cl.includes('9') || cl.includes('10') || cl.includes('11') || cl.includes('12');
+      });
+      if (seniors.length > 0) pool = seniors;
     }
 
-    // 3. Fallback slice assigned to this bus route
-    return students.slice(0, 24).map((st: any, i) => ({
+    return pool.map((st: any, i) => ({
       id: st.id || `st-${i}`,
       name: st.name || `Student ${i + 1}`,
       class: st.class_name || st.class || 'Assigned',
-      stop: activeRoute.stops[i % activeRoute.stops.length]?.name || 'Campus Stop',
+      stop: st.transport_stop || currentShiftStops[i % currentShiftStops.length]?.name || 'Bus Stop',
       avatar: i % 2 === 0 ? '👦' : '👧',
       phone: st.parent_phone || st.phone || '+91 98765-43210'
     }));
-  }, [students, activeRoute]);
+  }, [students, activeRoute, activeShift, currentShiftStops]);
 
   const [studentStatusMap, setStudentStatusMap] = useState<Record<string, 'PICKED' | 'ABSENT' | 'DROPPED' | 'PENDING'>>({});
 
@@ -1800,6 +1915,55 @@ export function DashboardTransport({
             </div>
           )}
 
+          {/* 1.5. ACTIVE BUS SHIFT & SCHEDULE SELECTOR */}
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#DCE8E0] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center shrink-0 border border-[#C5E2CF]">
+                <Repeat className="w-6 h-6 text-emerald-700" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[#122A24] uppercase tracking-wider">
+                    {activeRoute.code} &bull; Multi-Shift Transit
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-extrabold font-mono uppercase">
+                    {ROUTE_SHIFTS_METADATA[activeShift].shortLabel}
+                  </span>
+                </div>
+                <h4 className="font-bold text-sm sm:text-base text-[#122A24] mt-0.5">
+                  {ROUTE_SHIFTS_METADATA[activeShift].name} ({ROUTE_SHIFTS_METADATA[activeShift].timing})
+                </h4>
+                <p className="text-xs text-slate-500 font-medium">
+                  {ROUTE_SHIFTS_METADATA[activeShift].description}
+                </p>
+              </div>
+            </div>
+
+            {/* 3 Shift Switcher Buttons */}
+            <div className="flex items-center gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] self-start md:self-auto overflow-x-auto max-w-full">
+              {(['MORNING', 'AFTERNOON', 'EVENING'] as ShiftType[]).map((shiftKey) => {
+                const shift = ROUTE_SHIFTS_METADATA[shiftKey];
+                const isActive = activeShift === shiftKey;
+                return (
+                  <button
+                    key={shiftKey}
+                    type="button"
+                    onClick={() => handleShiftChange(shiftKey)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none flex items-center gap-1.5 whitespace-nowrap ${
+                      isActive
+                        ? 'bg-[#122A24] text-white shadow-sm ring-2 ring-emerald-500/40'
+                        : 'bg-transparent text-slate-600 hover:text-[#122A24] hover:bg-white/80'
+                    }`}
+                    title={`Switch to ${shift.name}`}
+                  >
+                    <span>{shiftKey === 'MORNING' ? '🌅' : shiftKey === 'AFTERNOON' ? '☀️' : '🌙'}</span>
+                    <span>{shiftKey === 'MORNING' ? 'Morning Pickup' : shiftKey === 'AFTERNOON' ? 'Afternoon Drop' : 'Evening Transit'}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* 2. TOP 4 METRIC CARDS ROW / GRID */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             
@@ -1809,14 +1973,16 @@ export function DashboardTransport({
                 <div className="w-10 h-10 rounded-2xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center shadow-sm">
                   <Bus className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">Shift Info</span>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 uppercase font-mono">
+                  {ROUTE_SHIFTS_METADATA[activeShift].shortLabel}
+                </span>
               </div>
               <div className="space-y-0.5">
                 <h3 className="font-bold text-[#122A24] text-sm leading-tight line-clamp-1">
-                  {activeRoute.name}
+                  {ROUTE_SHIFTS_METADATA[activeShift].name}
                 </h3>
-                <p className="text-[11px] text-slate-500 font-medium">
-                  07:15 AM – 08:30 AM
+                <p className="text-[11px] text-slate-500 font-medium font-mono">
+                  {ROUTE_SHIFTS_METADATA[activeShift].timing}
                 </p>
               </div>
               <div className="mt-3">
@@ -1863,19 +2029,19 @@ export function DashboardTransport({
                   <MapPin className="w-5 h-5" />
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                  Fixed by Incharge
+                  {activeShift} Sequence
                 </span>
               </div>
               <div className="space-y-0.5">
-                <p className="text-xs text-slate-500 font-medium">Route Stops</p>
+                <p className="text-xs text-slate-500 font-medium">Shift Stops</p>
                 <p className="text-2xl sm:text-3xl font-black text-[#122A24] tracking-tight leading-none">
-                  {activeRoute.stops.length}
+                  {currentShiftStops.length}
                 </p>
               </div>
               <div className="mt-3 text-[11px] text-slate-600 flex items-center gap-2">
                 <span>Reached: <strong className="text-emerald-700 font-bold">{completedStopIds.length}</strong></span>
                 <span>&bull;</span>
-                <span>Pending: <strong className="text-slate-600 font-bold">{Math.max(0, activeRoute.stops.length - completedStopIds.length)}</strong></span>
+                <span>Pending: <strong className="text-slate-600 font-bold">{Math.max(0, currentShiftStops.length - completedStopIds.length)}</strong></span>
               </div>
             </div>
 
@@ -2030,7 +2196,7 @@ export function DashboardTransport({
 
                 {/* Native App Launcher */}
                 <a
-                  href={`https://www.google.com/maps/dir/?api=1&origin=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&destination=${nextDriverStop?.lat || activeRoute.stops[activeRoute.stops.length - 1]?.lat || 26.8520},${nextDriverStop?.lng || activeRoute.stops[activeRoute.stops.length - 1]?.lng || 80.9400}`}
+                  href={`https://www.google.com/maps/dir/?api=1&origin=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&destination=${nextDriverStop?.lat || currentShiftStops[currentShiftStops.length - 1]?.lat || 26.8520},${nextDriverStop?.lng || currentShiftStops[currentShiftStops.length - 1]?.lng || 80.9400}`}
                   target="_blank"
                   rel="noreferrer"
                   className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1.5 bg-[#EBF5EF] hover:bg-[#D8EEDF] px-3 py-1.5 rounded-xl border border-[#C5E2CF] no-underline transition-all shadow-xs"
@@ -2107,7 +2273,7 @@ export function DashboardTransport({
               {/* Mode 1: Marked Route Driving Directions with exact start & end coordinates */}
               {googleMapMode === 'ROUTE_PATH' && (
                 <iframe
-                  src={`https://maps.google.com/maps?saddr=${activeRoute.stops[0]?.lat || 26.8378},${activeRoute.stops[0]?.lng || 80.8872}&daddr=${activeRoute.stops[activeRoute.stops.length - 1]?.lat || 26.8520},${activeRoute.stops[activeRoute.stops.length - 1]?.lng || 80.9400}&hl=en&z=13&output=embed`}
+                  src={`https://maps.google.com/maps?saddr=${currentShiftStops[0]?.lat || 26.8378},${currentShiftStops[0]?.lng || 80.8872}&daddr=${currentShiftStops[currentShiftStops.length - 1]?.lat || 26.8520},${currentShiftStops[currentShiftStops.length - 1]?.lng || 80.9400}&hl=en&z=13&output=embed`}
                   className="w-full h-full border-0"
                   loading="lazy"
                   title="Assigned Bus Route Driving Directions on Google Maps"
@@ -2117,7 +2283,7 @@ export function DashboardTransport({
               {/* Mode 2: Live Navigation from Driver's Phone to Approaching Next Stop */}
               {googleMapMode === 'LIVE_NAV' && (
                 <iframe
-                  src={`https://maps.google.com/maps?saddr=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&daddr=${nextDriverStop?.lat || activeRoute.stops[activeRoute.stops.length - 1]?.lat || 26.8520},${nextDriverStop?.lng || activeRoute.stops[activeRoute.stops.length - 1]?.lng || 80.9400}&hl=en&z=14&output=embed`}
+                  src={`https://maps.google.com/maps?saddr=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&daddr=${nextDriverStop?.lat || currentShiftStops[currentShiftStops.length - 1]?.lat || 26.8520},${nextDriverStop?.lng || currentShiftStops[currentShiftStops.length - 1]?.lng || 80.9400}&hl=en&z=14&output=embed`}
                   className="w-full h-full border-0"
                   loading="lazy"
                   title="Live Turn-by-Turn to Next Bus Stop"
@@ -2144,9 +2310,9 @@ export function DashboardTransport({
                   <div className="relative z-10 flex items-center justify-between text-xs sm:text-sm">
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
-                      <span className="font-bold text-emerald-300 font-mono uppercase tracking-wider">{activeRoute.code} &bull; Radar Path</span>
+                      <span className="font-bold text-emerald-300 font-mono uppercase tracking-wider">{activeRoute.code} &bull; {ROUTE_SHIFTS_METADATA[activeShift].shortLabel} Radar</span>
                     </div>
-                    <span className="font-mono text-xs text-slate-300">{activeRoute.stops.length} Stops Marked &bull; Live Telemetry</span>
+                    <span className="font-mono text-xs text-slate-300">{currentShiftStops.length} Stops Marked &bull; Live Telemetry</span>
                   </div>
 
                   {/* Route Path Track Visualization */}
@@ -2161,7 +2327,7 @@ export function DashboardTransport({
                       </div>
 
                       {/* Stops Pointers */}
-                      {activeRoute.stops.map((st, i) => {
+                      {currentShiftStops.map((st, i) => {
                         const isPast = completedStopIds.includes(st.id);
                         const isCurrent = !isPast && nextDriverStop.id === st.id;
                         return (
@@ -2180,7 +2346,7 @@ export function DashboardTransport({
                             <span className={`text-[10.5px] font-bold mt-2 text-center max-w-[80px] truncate block ${
                               isCurrent ? 'text-emerald-300 font-extrabold' : 'text-slate-400'
                             }`}>
-                              {st.name.replace('Stop', '').trim()}
+                              {st.name.replace('Stop', '').replace('(Drop Point)', '').replace('(Campus Gate)', '').replace('(Departure Point)', '').trim()}
                             </span>
                             <span className="text-[9.5px] font-mono text-slate-400">
                               {st.scheduledTime}
@@ -2304,23 +2470,23 @@ export function DashboardTransport({
                     />
                   </div>
                   <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                    <span>{completedStopIds.length} of {activeRoute.stops.length} stops reached</span>
-                    <span>{activeRoute.stops.length - completedStopIds.length} stops remaining</span>
+                    <span>{completedStopIds.length} of {currentShiftStops.length} stops reached</span>
+                    <span>{Math.max(0, currentShiftStops.length - completedStopIds.length)} stops remaining</span>
                   </div>
                 </div>
 
                 {/* Notice: Stops Fixed by Transport Incharge */}
                 <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#F4F8F5] border border-[#DCE8E0] text-[#1C443A] text-xs font-semibold">
                   <Shield className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Stops &amp; Schedule Fixed by Transport Incharge (Read-Only)</span>
+                  <span>{ROUTE_SHIFTS_METADATA[activeShift].name} Sequence (Fixed by Incharge)</span>
                 </div>
 
                 {/* STOPS VERTICAL TIMELINE (READ-ONLY FOR DRIVER) */}
                 <div className="pt-2 space-y-3 relative before:absolute before:left-[11px] before:top-3 before:bottom-3 before:w-0.5 before:bg-[#DCE8E0]">
-                  {activeRoute.stops.map((st, idx) => {
+                  {currentShiftStops.map((st, idx) => {
                     const isCompleted = completedStopIds.includes(st.id);
                     const isCurrent = !isCompleted && nextDriverStop.id === st.id;
-                    const isDropPoint = idx === activeRoute.stops.length - 1;
+                    const isFinalDropPoint = idx === currentShiftStops.length - 1;
 
                     return (
                       <div key={st.id} className="flex items-start justify-between gap-3 relative z-10">
@@ -2333,7 +2499,7 @@ export function DashboardTransport({
                             <div className="w-6 h-6 rounded-full bg-[#1C443A] text-white flex items-center justify-center shrink-0 shadow-md ring-4 ring-emerald-100">
                               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                             </div>
-                          ) : isDropPoint ? (
+                          ) : isFinalDropPoint ? (
                             <div className="w-6 h-6 rounded-full bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
                               <Flag className="w-3.5 h-3.5 fill-rose-600" />
                             </div>
@@ -2344,7 +2510,7 @@ export function DashboardTransport({
                           <div>
                             <div className="flex items-center gap-2">
                               <span className={`text-xs font-bold leading-tight ${
-                                isCurrent ? 'text-[#1C443A]' : isCompleted ? 'text-slate-500 line-through' : isDropPoint ? 'text-rose-700' : 'text-slate-800'
+                                isCurrent ? 'text-[#1C443A]' : isCompleted ? 'text-slate-500 line-through' : isFinalDropPoint ? 'text-rose-700' : 'text-slate-800'
                               }`}>
                                 {st.name}
                               </span>
@@ -2355,7 +2521,7 @@ export function DashboardTransport({
                               )}
                             </div>
                             <span className="text-[11px] text-slate-400 font-medium block">
-                              {isDropPoint ? 'Final School Drop Point' : `Stop #${idx + 1}`}
+                              {isFinalDropPoint ? (activeShift === 'MORNING' ? 'School Campus Main Arrival' : 'Shift Final Drop Terminus') : idx === 0 && activeShift !== 'MORNING' ? 'Campus Departure Gate' : `Stop #${idx + 1}`}
                             </span>
                           </div>
                         </div>
@@ -2530,45 +2696,51 @@ export function DashboardTransport({
                 </div>
 
                 {/* Schedule Timeline Items */}
-                <div className="space-y-3 pt-1">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-200">
-                      <Play className="w-3 h-3 fill-emerald-600" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#122A24]">Morning Pickup Shift</span>
-                        <span className="text-xs font-mono font-semibold text-emerald-700">07:15 AM – 08:30 AM</span>
-                      </div>
-                      <span className="text-[11px] text-slate-500 block">Depot &rarr; City Stops &rarr; School Main Gate</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 border border-blue-200">
-                      <Bus className="w-3 h-3" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800">Afternoon Drop Shift</span>
-                        <span className="text-xs font-mono font-semibold text-slate-500">01:45 PM – 03:00 PM</span>
-                      </div>
-                      <span className="text-[11px] text-slate-500 block">School Main Gate &rarr; Reverse Route Terminals</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 mt-0.5 border border-slate-300">
-                      <Square className="w-2.5 h-2.5 fill-slate-500" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800">Evening Special Transit</span>
-                        <span className="text-xs font-mono font-semibold text-slate-500">04:30 PM – 05:30 PM</span>
-                      </div>
-                      <span className="text-[11px] text-slate-500 block">Campus Special Transit &bull; Senior Class 9-12 Evening Drop</span>
-                    </div>
-                  </div>
+                <div className="space-y-2.5 pt-1">
+                  {(['MORNING', 'AFTERNOON', 'EVENING'] as ShiftType[]).map((shiftKey) => {
+                    const shift = ROUTE_SHIFTS_METADATA[shiftKey];
+                    const isActive = activeShift === shiftKey;
+                    return (
+                      <button
+                        key={shiftKey}
+                        type="button"
+                        onClick={() => handleShiftChange(shiftKey)}
+                        className={`w-full text-left p-3 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 ${
+                          isActive
+                            ? 'bg-[#EBF5EF] border-[#C5E2CF] shadow-xs'
+                            : 'bg-white hover:bg-[#F4F8F5] border-[#DCE8E0]'
+                        }`}
+                      >
+                        <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                          isActive
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {shiftKey === 'MORNING' ? <Play className="w-3.5 h-3.5 fill-current" /> : shiftKey === 'AFTERNOON' ? <Bus className="w-3.5 h-3.5" /> : <Square className="w-3 h-3 fill-current" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-xs font-bold truncate ${isActive ? 'text-[#122A24]' : 'text-slate-800'}`}>
+                              {shift.name}
+                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {isActive && (
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-extrabold uppercase">
+                                  Active
+                                </span>
+                              )}
+                              <span className={`text-[11px] font-mono font-semibold ${isActive ? 'text-emerald-700' : 'text-slate-500'}`}>
+                                {shift.timing}
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-[11px] text-slate-500 block truncate mt-0.5">
+                            {shift.description}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -3061,36 +3233,57 @@ export function DashboardTransport({
                   </button>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="p-4 rounded-2xl bg-[#EBF5EF] border border-[#C5E2CF] space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-[#122A24] uppercase">Morning Shift (Current)</span>
-                      <span className="text-xs font-mono font-bold text-emerald-700">07:15 AM – 08:30 AM</span>
-                    </div>
-                    <p className="text-xs text-slate-700">
-                      Depot &rarr; City Stops &rarr; Campus Main Gate
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-slate-800 uppercase">Afternoon Drop Shift</span>
-                      <span className="text-xs font-mono font-bold text-slate-500">01:45 PM – 03:00 PM</span>
-                    </div>
-                    <p className="text-xs text-slate-600">
-                      Anand School (Gate 2) &rarr; Sunrise Villa &rarr; City Center &rarr; Sector 62 &rarr; Green Park &rarr; Depot
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-slate-800 uppercase">Remedial Class Evening Shift</span>
-                      <span className="text-xs font-mono font-bold text-slate-500">04:30 PM – 05:30 PM</span>
-                    </div>
-                    <p className="text-xs text-slate-600">
-                      Campus Special Transit &bull; Senior Class 9-12 Evening Drop
-                    </p>
-                  </div>
+                <div className="space-y-3">
+                  {(['MORNING', 'AFTERNOON', 'EVENING'] as ShiftType[]).map((shiftKey) => {
+                    const shift = ROUTE_SHIFTS_METADATA[shiftKey];
+                    const isActive = activeShift === shiftKey;
+                    return (
+                      <div
+                        key={shiftKey}
+                        className={`p-4 rounded-2xl border transition-all space-y-2 ${
+                          isActive
+                            ? 'bg-[#EBF5EF] border-[#C5E2CF] shadow-xs'
+                            : 'bg-white border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-[#122A24] uppercase">
+                              {shift.name}
+                            </span>
+                            {isActive && (
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-extrabold uppercase">
+                                Active Shift
+                              </span>
+                            )}
+                          </div>
+                          <span className={`text-xs font-mono font-bold ${isActive ? 'text-emerald-700' : 'text-slate-500'}`}>
+                            {shift.timing}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600">
+                          {shift.description}
+                        </p>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[11px] text-slate-400">
+                            {shiftKey === 'MORNING' ? 'Pickup Roster (All Classes)' : shiftKey === 'AFTERNOON' ? 'Junior Drop Roster (Nursery-8th)' : 'Senior Express Roster (9th-12th)'}
+                          </span>
+                          {!isActive && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleShiftChange(shiftKey);
+                                setShowScheduleModal(false);
+                              }}
+                              className="px-3 py-1 rounded-lg bg-[#122A24] hover:bg-[#1C443A] text-white text-[11px] font-bold cursor-pointer border-none"
+                            >
+                              Switch to this Shift
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="text-right pt-2">
