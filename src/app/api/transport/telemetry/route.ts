@@ -1,5 +1,6 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
+import { getDatabase } from '@/lib/mongodb';
 
 export interface TelemetryPayload {
   routeId: string;
@@ -15,8 +16,8 @@ export interface TelemetryPayload {
   lastUpdatedText?: string;
 }
 
-// In-memory telemetry cache keyed by routeId
-const telemetryStore = new Map<string, TelemetryPayload>();
+// In-memory fallback telemetry cache
+const memoryStore = new Map<string, TelemetryPayload>();
 
 export const dynamic = 'force-dynamic';
 
@@ -26,10 +27,41 @@ export async function GET(req: Request) {
     const routeId = searchParams.get('routeId');
 
     const now = Date.now();
-    const timeoutMs = 20000; // Consider offline if no ping in 20s
+    const timeoutMs = 25000; // Consider offline if no ping in 25s
 
+    // Try reading from MongoDB Atlas Cloud for multi-serverless sync
+    try {
+      const db = await getDatabase();
+      if (db) {
+        const col = db.collection<TelemetryPayload>('transport_telemetry');
+        if (routeId) {
+          const doc = await col.findOne({ routeId });
+          const isOnline = doc ? (now - doc.timestamp < timeoutMs && doc.active) : false;
+          return NextResponse.json({
+            success: true,
+            routeId,
+            isOnline,
+            telemetry: doc || null
+          });
+        } else {
+          const docs = await col.find({}).toArray();
+          const all: Record<string, TelemetryPayload & { isOnline: boolean }> = {};
+          for (const d of docs) {
+            all[d.routeId] = {
+              ...d,
+              isOnline: (now - d.timestamp < timeoutMs && d.active)
+            };
+          }
+          return NextResponse.json({ success: true, telemetries: all });
+        }
+      }
+    } catch (dbErr) {
+      // Fallback to in-memory store
+    }
+
+    // In-memory fallback
     if (routeId) {
-      const data = telemetryStore.get(routeId);
+      const data = memoryStore.get(routeId);
       const isOnline = data ? (now - data.timestamp < timeoutMs && data.active) : false;
       return NextResponse.json({
         success: true,
@@ -39,9 +71,8 @@ export async function GET(req: Request) {
       });
     }
 
-    // Return all active fleet telemetries
     const all: Record<string, TelemetryPayload & { isOnline: boolean }> = {};
-    for (const [rId, tData] of telemetryStore.entries()) {
+    for (const [rId, tData] of memoryStore.entries()) {
       all[rId] = {
         ...tData,
         isOnline: (now - tData.timestamp < timeoutMs && tData.active)
@@ -90,7 +121,23 @@ export async function POST(req: Request) {
       lastUpdatedText: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     };
 
-    telemetryStore.set(routeId, payload);
+    // Update in-memory fallback
+    memoryStore.set(routeId, payload);
+
+    // Persist to MongoDB Atlas for real-time global multi-device sync
+    try {
+      const db = await getDatabase();
+      if (db) {
+        const col = db.collection('transport_telemetry');
+        await col.updateOne(
+          { routeId },
+          { $set: payload },
+          { upsert: true }
+        );
+      }
+    } catch (e) {
+      console.warn('[Telemetry MongoDB Sync Notice]', e);
+    }
 
     return NextResponse.json({
       success: true,
