@@ -55,7 +55,9 @@ import {
   UserX,
   Repeat,
   Layers,
-  ExternalLink
+  ExternalLink,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { Student } from '@/lib/types';
 
@@ -726,6 +728,9 @@ export function DashboardTransport({
   const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PICKED' | 'PENDING' | 'DROPPED'>('ALL');
   // Default to ROUTE_PATH so marked route directions display immediately on load
   const [googleMapMode, setGoogleMapMode] = useState<'ROUTE_PATH' | 'LIVE_PIN' | 'LIVE_NAV' | 'RADAR_CANVAS'>('ROUTE_PATH');
+  // Dynamic Map Sizing presets: STANDARD (580px), LARGE (740px), THEATER (880px)
+  const [mapSize, setMapSize] = useState<'STANDARD' | 'LARGE' | 'THEATER'>('LARGE');
+  const [isMapFullscreen, setIsMapFullscreen] = useState<boolean>(false);
 
   // Haversine distance calculator in kilometers
   const calculateDistanceKm = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -1259,8 +1264,8 @@ export function DashboardTransport({
                   </div>
                 </div>
 
-                {/* Real OpenStreetMap View of Driver's Exact Location */}
-                <div className="w-full h-64 rounded-2xl overflow-hidden border border-slate-200 relative bg-slate-100">
+                {/* Real OpenStreetMap View of Driver's Exact Location (Large View) */}
+                <div className="w-full h-96 sm:h-[480px] lg:h-[540px] rounded-2xl overflow-hidden border border-slate-200 relative bg-slate-100 shadow-inner">
                   <iframe
                     title="Live Driver GPS Map"
                     width="100%"
@@ -1935,7 +1940,340 @@ export function DashboardTransport({
 
           </div>
 
-          {/* 3. MAIN DASHBOARD CONTENT (2 COLUMNS) */}
+          {/* 3. HERO FULL-WIDTH LIVE GOOGLE MAP & MARKED ROUTE RADAR */}
+          <div className={`bg-white rounded-3xl p-4 sm:p-6 border border-[#DCE8E0] shadow-md space-y-4 transition-all duration-300 ${
+            isMapFullscreen ? 'fixed inset-0 z-[100] rounded-none p-3 sm:p-5 flex flex-col h-screen w-screen bg-[#0A1814] text-white overflow-hidden border-none' : ''
+          }`}>
+            {/* Header: Title + Modes + Size Controls + Native Maps Launcher */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center font-bold">
+                  <Navigation className="w-5 h-5 text-emerald-700" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className={`font-bold text-base sm:text-lg leading-tight ${isMapFullscreen ? 'text-white' : 'text-[#122A24]'}`}>
+                      Live Google Maps &amp; Route Navigation
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Live GPS
+                    </span>
+                  </div>
+                  <p className={`text-xs ${isMapFullscreen ? 'text-slate-300' : 'text-slate-500'}`}>
+                    Active Route: <strong className={isMapFullscreen ? 'text-emerald-400' : 'text-[#122A24]'}>{activeRoute.code} &bull; {activeRoute.name}</strong>
+                  </p>
+                </div>
+              </div>
+
+              {/* Map Size Controls & Fullscreen Launcher */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Size Presets (When not in fullscreen) */}
+                {!isMapFullscreen && (
+                  <div className="flex items-center bg-[#F4F8F5] p-1 rounded-xl border border-[#DCE8E0] text-[11px] font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setMapSize('STANDARD')}
+                      className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer border-none ${
+                        mapSize === 'STANDARD' ? 'bg-[#122A24] text-white shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 bg-transparent'
+                      }`}
+                      title="Standard View (580px)"
+                    >
+                      580px
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMapSize('LARGE')}
+                      className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer border-none ${
+                        mapSize === 'LARGE' ? 'bg-[#122A24] text-white shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 bg-transparent'
+                      }`}
+                      title="Large View (750px)"
+                    >
+                      750px (Large)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMapSize('THEATER')}
+                      className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer border-none ${
+                        mapSize === 'THEATER' ? 'bg-[#122A24] text-white shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 bg-transparent'
+                      }`}
+                      title="Theater View (900px)"
+                    >
+                      900px (Max)
+                    </button>
+                  </div>
+                )}
+
+                {/* Fullscreen Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsMapFullscreen(prev => !prev)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                    isMapFullscreen
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white border-none'
+                      : 'bg-[#122A24] hover:bg-[#1C443A] text-white border-none'
+                  }`}
+                  title={isMapFullscreen ? 'Exit Fullscreen Mode' : 'Expand to Fullscreen Map'}
+                >
+                  {isMapFullscreen ? (
+                    <>
+                      <Minimize2 className="w-3.5 h-3.5" />
+                      <span>Exit Fullscreen</span>
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 className="w-3.5 h-3.5" />
+                      <span>Fullscreen Map</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Native App Launcher */}
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&origin=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&destination=${nextDriverStop?.lat || activeRoute.stops[activeRoute.stops.length - 1]?.lat || 26.8520},${nextDriverStop?.lng || activeRoute.stops[activeRoute.stops.length - 1]?.lng || 80.9400}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1.5 bg-[#EBF5EF] hover:bg-[#D8EEDF] px-3 py-1.5 rounded-xl border border-[#C5E2CF] no-underline transition-all shadow-xs"
+                  title="Launch Google Maps App with Turn-by-Turn Voice Navigation"
+                >
+                  <Navigation className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Google Maps App</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                </a>
+              </div>
+            </div>
+
+            {/* 4 Interactive Map Mode Tabs */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] text-xs">
+              <button
+                type="button"
+                onClick={() => setGoogleMapMode('ROUTE_PATH')}
+                className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                  googleMapMode === 'ROUTE_PATH'
+                    ? 'bg-[#122A24] text-white shadow-sm'
+                    : 'bg-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                🗺️ Marked Driving Route
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setGoogleMapMode('LIVE_NAV')}
+                className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                  googleMapMode === 'LIVE_NAV'
+                    ? 'bg-[#122A24] text-white shadow-sm'
+                    : 'bg-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                🎯 Nav to Next Stop ({nextDriverStop?.name || 'School'})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setGoogleMapMode('LIVE_PIN')}
+                className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                  googleMapMode === 'LIVE_PIN'
+                    ? 'bg-[#122A24] text-white shadow-sm'
+                    : 'bg-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                📍 Live Moving Bus Pin
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setGoogleMapMode('RADAR_CANVAS')}
+                className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                  googleMapMode === 'RADAR_CANVAS'
+                    ? 'bg-[#122A24] text-white shadow-sm'
+                    : 'bg-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                🧭 Stops Radar Canvas
+              </button>
+            </div>
+
+            {/* MASSIVE EMBEDDED MAP CONTAINER (DOUBLED/TRIPLED HEIGHT + FULLSCREEN CAPABILITY) */}
+            <div className={`relative w-full rounded-2xl overflow-hidden bg-slate-100 border border-[#DCE8E0] shadow-inner transition-all duration-300 ${
+              isMapFullscreen
+                ? 'flex-1 min-h-[400px]'
+                : mapSize === 'STANDARD'
+                ? 'h-[520px] sm:h-[580px]'
+                : mapSize === 'THEATER'
+                ? 'h-[820px] sm:h-[900px]'
+                : 'h-[660px] sm:h-[750px]'
+            }`}>
+              {/* Mode 1: Marked Route Driving Directions with exact start & end coordinates */}
+              {googleMapMode === 'ROUTE_PATH' && (
+                <iframe
+                  src={`https://maps.google.com/maps?saddr=${activeRoute.stops[0]?.lat || 26.8378},${activeRoute.stops[0]?.lng || 80.8872}&daddr=${activeRoute.stops[activeRoute.stops.length - 1]?.lat || 26.8520},${activeRoute.stops[activeRoute.stops.length - 1]?.lng || 80.9400}&hl=en&z=13&output=embed`}
+                  className="w-full h-full border-0"
+                  loading="lazy"
+                  title="Assigned Bus Route Driving Directions on Google Maps"
+                />
+              )}
+
+              {/* Mode 2: Live Navigation from Driver's Phone to Approaching Next Stop */}
+              {googleMapMode === 'LIVE_NAV' && (
+                <iframe
+                  src={`https://maps.google.com/maps?saddr=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&daddr=${nextDriverStop?.lat || activeRoute.stops[activeRoute.stops.length - 1]?.lat || 26.8520},${nextDriverStop?.lng || activeRoute.stops[activeRoute.stops.length - 1]?.lng || 80.9400}&hl=en&z=14&output=embed`}
+                  className="w-full h-full border-0"
+                  loading="lazy"
+                  title="Live Turn-by-Turn to Next Bus Stop"
+                />
+              )}
+
+              {/* Mode 3: Live Driver GPS High-Zoom Pin */}
+              {googleMapMode === 'LIVE_PIN' && (
+                <iframe
+                  src={`https://maps.google.com/maps?q=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&hl=en&z=16&output=embed`}
+                  className="w-full h-full border-0"
+                  loading="lazy"
+                  title="Driver Live Location on Google Maps"
+                />
+              )}
+
+              {/* Mode 4: Interactive Route & Stops Radar Canvas */}
+              {googleMapMode === 'RADAR_CANVAS' && (
+                <div className="w-full h-full bg-[#122A24] p-6 flex flex-col justify-between relative overflow-hidden text-white">
+                  {/* Subtle radar sweep grid background */}
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-600/20 via-transparent to-transparent opacity-80 pointer-events-none" />
+
+                  {/* Header radar status */}
+                  <div className="relative z-10 flex items-center justify-between text-xs sm:text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
+                      <span className="font-bold text-emerald-300 font-mono uppercase tracking-wider">{activeRoute.code} &bull; Radar Path</span>
+                    </div>
+                    <span className="font-mono text-xs text-slate-300">{activeRoute.stops.length} Stops Marked &bull; Live Telemetry</span>
+                  </div>
+
+                  {/* Route Path Track Visualization */}
+                  <div className="relative z-10 my-auto py-8">
+                    <div className="relative flex items-center justify-between">
+                      {/* Connecting track line */}
+                      <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-2 bg-emerald-950 rounded-full border border-emerald-500/30 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-emerald-400 to-emerald-200 transition-all duration-500"
+                          style={{ width: `${Math.max(10, dynamicProgressPercent)}%` }}
+                        />
+                      </div>
+
+                      {/* Stops Pointers */}
+                      {activeRoute.stops.map((st, i) => {
+                        const isPast = completedStopIds.includes(st.id);
+                        const isCurrent = !isPast && nextDriverStop.id === st.id;
+                        return (
+                          <div key={st.id} className="relative z-10 flex flex-col items-center">
+                            <div
+                              className={`w-9 h-9 rounded-full flex items-center justify-center font-mono text-xs font-bold transition-all shadow-md ${
+                                isPast
+                                  ? 'bg-emerald-500 text-white'
+                                  : isCurrent
+                                  ? 'bg-emerald-300 text-[#122A24] ring-4 ring-emerald-500/50 scale-125 font-black'
+                                  : 'bg-[#1C443A] text-slate-300 border border-emerald-500/40'
+                              }`}
+                            >
+                              {isPast ? '✓' : i + 1}
+                            </div>
+                            <span className={`text-[10.5px] font-bold mt-2 text-center max-w-[80px] truncate block ${
+                              isCurrent ? 'text-emerald-300 font-extrabold' : 'text-slate-400'
+                            }`}>
+                              {st.name.replace('Stop', '').trim()}
+                            </span>
+                            <span className="text-[9.5px] font-mono text-slate-400">
+                              {st.scheduledTime}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Radar Footer Info */}
+                  <div className="relative z-10 flex items-center justify-between text-xs sm:text-sm font-mono bg-black/40 p-3.5 rounded-2xl border border-white/10">
+                    <span className="text-slate-300">Approaching: <strong className="text-emerald-300">{nextDriverStop?.name}</strong></span>
+                    <span className="text-emerald-400 font-bold">{liveDistanceToNextKm} km &bull; {dynamicEtaMinutes}m Dynamic ETA</span>
+                  </div>
+                </div>
+              )}
+
+              {/* FLOATING MOBILE LIVE TELEMETRY STATUS HUD OVER GOOGLE MAP */}
+              <div className="absolute top-4 left-4 right-4 sm:right-auto z-10 bg-[#122A24]/90 backdrop-blur-md text-white p-3 rounded-2xl border border-emerald-500/30 shadow-xl text-xs space-y-1.5">
+                <div className="flex items-center justify-between sm:justify-start gap-3">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-400">
+                    <Smartphone className="w-4 h-4" />
+                    <span>Mobile GPS: {driverTripActive ? 'Streaming Live' : 'Hardware Ready'}</span>
+                  </div>
+                  <span className="font-mono text-[10.5px] text-slate-300">{liveDriverGeo.lastUpdated}</span>
+                </div>
+                <div className="flex items-center gap-3.5 text-xs font-mono text-slate-200 flex-wrap">
+                  <span>Lat: <strong>{liveDriverGeo.latitude.toFixed(4)}&deg;</strong></span>
+                  <span>Lng: <strong>{liveDriverGeo.longitude.toFixed(4)}&deg;</strong></span>
+                  <span className="text-emerald-300 font-bold bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                    ⚡ {liveDriverGeo.speedKmh} km/h
+                  </span>
+                  <span className="text-slate-400">&plusmn;{liveDriverGeo.accuracyMeters}m</span>
+                </div>
+              </div>
+
+              {/* Center GPS Crosshair Button */}
+              <button
+                type="button"
+                onClick={readAndTransmitLivePosition}
+                className="absolute bottom-4 right-4 w-12 h-12 rounded-full bg-white shadow-xl border border-slate-300 text-[#122A24] flex items-center justify-center hover:bg-[#EBF5EF] transition-all cursor-pointer z-10 hover:scale-105"
+                title="Center My Live GPS Position"
+              >
+                <LocateFixed className="w-6 h-6 text-[#1C443A]" />
+              </button>
+            </div>
+
+            {/* GPS Transmitter Action Button & Next Stop Glance */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
+              <div className="sm:col-span-8">
+                {!driverTripActive ? (
+                  <button
+                    type="button"
+                    onClick={startDriverTrip}
+                    className="w-full py-3.5 px-4 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border-none"
+                  >
+                    <Play className="w-4 h-4 fill-white" />
+                    <span>START GPS TRIP (TRANSMIT LIVE LOCATION)</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={stopDriverTrip}
+                    className="w-full py-3.5 px-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border-none"
+                  >
+                    <Square className="w-4 h-4 fill-white" />
+                    <span>END TRIP &bull; STOP TRANSMITTING GPS</span>
+                  </button>
+                )}
+                <p className={`text-[11px] text-center font-medium mt-1 ${isMapFullscreen ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {gpsStatusMessage}
+                </p>
+              </div>
+
+              <div className={`sm:col-span-4 p-3 rounded-2xl border flex items-center justify-between gap-2 ${
+                isMapFullscreen ? 'bg-[#122A24] border-emerald-800 text-white' : 'bg-[#F4F8F5] border-[#DCE8E0]'
+              }`}>
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Next Stop</span>
+                  <span className="font-bold text-xs sm:text-sm truncate block max-w-[140px]">{nextDriverStop?.name || 'School'}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-mono text-slate-400 block">{liveDistanceToNextKm} km</span>
+                  <span className="font-black text-emerald-600 font-mono text-sm sm:text-base">
+                    {liveDistanceToNextKm <= 0.25 ? 'ARRIVED' : `${dynamicEtaMinutes}m`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. MAIN DASHBOARD CONTENT (2 COLUMNS) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
             
             {/* ────── LEFT COLUMN: DYNAMIC TRIP PROGRESS & FIXED STOPS TIMELINE ────── */}
@@ -2029,6 +2367,7 @@ export function DashboardTransport({
                           {/* Driver can confirm stop reached manually if GPS accuracy jitter occurs */}
                           {isCurrent && (
                             <button
+                              type="button"
                               onClick={() => {
                                 setCompletedStopIds(prev => [...prev, st.id]);
                               }}
@@ -2048,45 +2387,47 @@ export function DashboardTransport({
               {/* QUICK ACTIONS CARD */}
               <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#DCE8E0] shadow-sm space-y-3">
                 <h3 className="font-bold text-base text-[#122A24]">
-                  Driver Quick Actions
+                  Quick Operations
                 </h3>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {/* Action 1: Mark Attendance */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {/* Action 1: Refresh Status */}
                   <button
-                    onClick={() => setShowAttendanceModal(true)}
-                    className="p-3.5 rounded-2xl bg-[#EBF5EF] hover:bg-[#D8EEDF] border border-[#C5E2CF] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
+                    type="button"
+                    onClick={readAndTransmitLivePosition}
+                    className="p-3.5 rounded-2xl bg-[#F4F8F5] hover:bg-[#EBF5EF] border border-[#DCE8E0] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-emerald-600/15 text-emerald-800 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <ClipboardCheck className="w-5 h-5" />
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center group-hover:rotate-180 transition-transform">
+                      <RefreshCw className="w-4 h-4" />
                     </div>
-                    <span className="text-xs font-bold text-[#122A24] leading-tight">
-                      Mark Attendance
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
+                      Refresh GPS
                     </span>
                   </button>
 
-                  {/* Action 2: Report Issue */}
+                  {/* Action 2: Report Traffic Jam */}
                   <button
+                    type="button"
                     onClick={() => setShowReportIssueModal(true)}
+                    className="p-3.5 rounded-2xl bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#FEF3C7] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
+                      Report Traffic
+                    </span>
+                  </button>
+
+                  {/* Action 3: Driver Absence / Relief */}
+                  <button
+                    type="button"
+                    onClick={() => setShowAbsenceModal(true)}
                     className="p-3.5 rounded-2xl bg-[#FEF2F2] hover:bg-[#FEE2E2] border border-[#FEE2E2] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
                   >
                     <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-700 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <AlertTriangle className="w-5 h-5" />
-                    </div>
-                    <span className="text-xs font-bold text-[#122A24] leading-tight">
-                      Report Delay
-                    </span>
-                  </button>
-
-                  {/* Action 3: Report Leave / Absence */}
-                  <button
-                    onClick={() => setShowAbsenceModal(true)}
-                    className="p-3.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-800 flex items-center justify-center group-hover:scale-110 transition-transform">
                       <UserX className="w-5 h-5" />
                     </div>
-                    <span className="text-xs font-bold text-amber-900 leading-tight">
+                    <span className="text-xs font-bold text-slate-800 leading-tight">
                       Driver Leave / Relief
                     </span>
                   </button>
@@ -2119,6 +2460,7 @@ export function DashboardTransport({
 
                   {/* Action 6: Emergency SOS */}
                   <button
+                    type="button"
                     onClick={() => setShowSosModal(true)}
                     className="p-3.5 rounded-2xl bg-[#FFF1F2] hover:bg-[#FFE4E6] border border-[#FFE4E6] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
                   >
@@ -2134,231 +2476,9 @@ export function DashboardTransport({
 
             </div>
 
-            {/* ────── RIGHT COLUMN: LIVE GOOGLE MAP, DYNAMIC ETA, SCHEDULE ────── */}
+            {/* ────── RIGHT COLUMN: NEXT STOP CARD & TODAY'S SCHEDULE ────── */}
             <div className="lg:col-span-6 space-y-5 sm:space-y-6">
               
-              {/* LIVE TRACKING GOOGLE MAP & MARKED ROUTE CARD WITH REAL-TIME MOBILE TELEMETRY HUD */}
-              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#DCE8E0] shadow-sm space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-base text-[#122A24]">
-                      Live Google Maps &amp; Route Radar
-                    </h3>
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      Live Map
-                    </span>
-                  </div>
-
-                  {/* Open in Native Google Maps App Button for Turn-by-Turn Voice Navigation */}
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&origin=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&destination=${nextDriverStop?.lat || activeRoute.stops[activeRoute.stops.length - 1]?.lat || 26.8520},${nextDriverStop?.lng || activeRoute.stops[activeRoute.stops.length - 1]?.lng || 80.9400}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1.5 bg-[#EBF5EF] hover:bg-[#D8EEDF] px-3 py-1.5 rounded-xl border border-[#C5E2CF] no-underline transition-all shadow-xs"
-                    title="Launch voice navigation in Google Maps app"
-                  >
-                    <Navigation className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>Open in Maps App</span>
-                    <ExternalLink className="w-3 h-3 text-slate-400" />
-                  </a>
-                </div>
-
-                {/* 4 Interactive Map Mode Tabs */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] text-[11px]">
-                  <button
-                    onClick={() => setGoogleMapMode('ROUTE_PATH')}
-                    className={`py-1.5 px-2 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
-                      googleMapMode === 'ROUTE_PATH'
-                        ? 'bg-[#122A24] text-white shadow-sm'
-                        : 'bg-transparent text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    🗺️ Marked Route
-                  </button>
-
-                  <button
-                    onClick={() => setGoogleMapMode('LIVE_NAV')}
-                    className={`py-1.5 px-2 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
-                      googleMapMode === 'LIVE_NAV'
-                        ? 'bg-[#122A24] text-white shadow-sm'
-                        : 'bg-transparent text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    🎯 Nav to Next Stop
-                  </button>
-
-                  <button
-                    onClick={() => setGoogleMapMode('LIVE_PIN')}
-                    className={`py-1.5 px-2 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
-                      googleMapMode === 'LIVE_PIN'
-                        ? 'bg-[#122A24] text-white shadow-sm'
-                        : 'bg-transparent text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    📍 Live Bus Pin
-                  </button>
-
-                  <button
-                    onClick={() => setGoogleMapMode('RADAR_CANVAS')}
-                    className={`py-1.5 px-2 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
-                      googleMapMode === 'RADAR_CANVAS'
-                        ? 'bg-[#122A24] text-white shadow-sm'
-                        : 'bg-transparent text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    🧭 Stops Radar
-                  </button>
-                </div>
-
-                {/* Interactive Embedded Map Container */}
-                <div className="relative h-72 sm:h-80 rounded-2xl overflow-hidden bg-slate-100 border border-[#DCE8E0] shadow-inner">
-                  {/* Mode 1: Marked Route Driving Directions with exact start & end coordinates */}
-                  {googleMapMode === 'ROUTE_PATH' && (
-                    <iframe
-                      src={`https://maps.google.com/maps?saddr=${activeRoute.stops[0]?.lat || 26.8378},${activeRoute.stops[0]?.lng || 80.8872}&daddr=${activeRoute.stops[activeRoute.stops.length - 1]?.lat || 26.8520},${activeRoute.stops[activeRoute.stops.length - 1]?.lng || 80.9400}&hl=en&z=13&output=embed`}
-                      className="w-full h-full border-0"
-                      loading="lazy"
-                      title="Assigned Bus Route Driving Directions on Google Maps"
-                    />
-                  )}
-
-                  {/* Mode 2: Live Navigation from Driver's Phone to Approaching Next Stop */}
-                  {googleMapMode === 'LIVE_NAV' && (
-                    <iframe
-                      src={`https://maps.google.com/maps?saddr=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&daddr=${nextDriverStop?.lat || activeRoute.stops[activeRoute.stops.length - 1]?.lat || 26.8520},${nextDriverStop?.lng || activeRoute.stops[activeRoute.stops.length - 1]?.lng || 80.9400}&hl=en&z=14&output=embed`}
-                      className="w-full h-full border-0"
-                      loading="lazy"
-                      title="Live Turn-by-Turn to Next Bus Stop"
-                    />
-                  )}
-
-                  {/* Mode 3: Live Driver GPS High-Zoom Pin */}
-                  {googleMapMode === 'LIVE_PIN' && (
-                    <iframe
-                      src={`https://maps.google.com/maps?q=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&hl=en&z=16&output=embed`}
-                      className="w-full h-full border-0"
-                      loading="lazy"
-                      title="Driver Live Location on Google Maps"
-                    />
-                  )}
-
-                  {/* Mode 4: Interactive Route & Stops Radar Canvas */}
-                  {googleMapMode === 'RADAR_CANVAS' && (
-                    <div className="w-full h-full bg-[#122A24] p-4 flex flex-col justify-between relative overflow-hidden text-white">
-                      {/* Subtle radar sweep grid background */}
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-600/20 via-transparent to-transparent opacity-80 pointer-events-none" />
-
-                      {/* Header radar status */}
-                      <div className="relative z-10 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                          <span className="font-bold text-emerald-300 font-mono uppercase tracking-wider">{activeRoute.code} &bull; Radar Path</span>
-                        </div>
-                        <span className="font-mono text-[11px] text-slate-300">{activeRoute.stops.length} Stops Marked</span>
-                      </div>
-
-                      {/* Route Path Track Visualization */}
-                      <div className="relative z-10 my-auto py-4">
-                        <div className="relative flex items-center justify-between">
-                          {/* Connecting track line */}
-                          <div className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-1.5 bg-emerald-950 rounded-full border border-emerald-500/30 overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-emerald-400 to-emerald-200 transition-all duration-500"
-                              style={{ width: `${Math.max(10, dynamicProgressPercent)}%` }}
-                            />
-                          </div>
-
-                          {/* Stops Pointers */}
-                          {activeRoute.stops.map((st, i) => {
-                            const isPast = completedStopIds.includes(st.id);
-                            const isCurrent = !isPast && nextDriverStop.id === st.id;
-                            return (
-                              <div key={st.id} className="relative z-10 flex flex-col items-center">
-                                <div
-                                  className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-[10px] font-bold transition-all shadow-md ${
-                                    isPast
-                                      ? 'bg-emerald-500 text-white'
-                                      : isCurrent
-                                      ? 'bg-emerald-300 text-[#122A24] ring-4 ring-emerald-500/50 scale-125'
-                                      : 'bg-[#1C443A] text-slate-300 border border-emerald-500/40'
-                                  }`}
-                                >
-                                  {isPast ? '✓' : i + 1}
-                                </div>
-                                <span className={`text-[9px] font-bold mt-1 text-center max-w-[55px] truncate block ${
-                                  isCurrent ? 'text-emerald-300 font-extrabold' : 'text-slate-400'
-                                }`}>
-                                  {st.name.replace('Stop', '').trim()}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Radar Footer Info */}
-                      <div className="relative z-10 flex items-center justify-between text-[11px] font-mono bg-black/40 p-2.5 rounded-xl border border-white/10">
-                        <span className="text-slate-300">Next: <strong className="text-emerald-300">{nextDriverStop?.name}</strong></span>
-                        <span className="text-emerald-400 font-bold">{liveDistanceToNextKm} km &bull; {dynamicEtaMinutes}m ETA</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* FLOATING MOBILE LIVE TELEMETRY STATUS HUD OVER GOOGLE MAP */}
-                  <div className="absolute top-3 left-3 right-3 sm:right-auto z-10 bg-[#122A24]/90 backdrop-blur-md text-white p-2.5 sm:p-3 rounded-2xl border border-emerald-500/30 shadow-lg text-xs space-y-1">
-                    <div className="flex items-center justify-between sm:justify-start gap-2">
-                      <div className="flex items-center gap-1.5 font-bold text-emerald-400">
-                        <Smartphone className="w-3.5 h-3.5" />
-                        <span>Mobile GPS Status: {driverTripActive ? 'Streaming' : 'Ready'}</span>
-                      </div>
-                      <span className="font-mono text-[10px] text-slate-300">{liveDriverGeo.lastUpdated}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-[11px] font-mono text-slate-200">
-                      <span>Lat: {liveDriverGeo.latitude.toFixed(4)}&deg;</span>
-                      <span>Lng: {liveDriverGeo.longitude.toFixed(4)}&deg;</span>
-                      <span className="text-emerald-300 font-bold">{liveDriverGeo.speedKmh} km/h</span>
-                      <span className="text-slate-400">&plusmn;{liveDriverGeo.accuracyMeters}m</span>
-                    </div>
-                  </div>
-
-                  {/* Center GPS Crosshair Button */}
-                  <button
-                    onClick={readAndTransmitLivePosition}
-                    className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-300 text-[#122A24] flex items-center justify-center hover:bg-[#EBF5EF] transition-colors cursor-pointer z-10"
-                    title="Center My Live GPS"
-                  >
-                    <LocateFixed className="w-5 h-5 text-[#1C443A]" />
-                  </button>
-                </div>
-
-                {/* GPS Transmitter Action Button */}
-                <div className="space-y-2">
-                  {!driverTripActive ? (
-                    <button
-                      onClick={startDriverTrip}
-                      className="w-full py-3.5 px-4 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border-none"
-                    >
-                      <Play className="w-4 h-4 fill-white" />
-                      <span>START GPS TRIP (TRANSMIT LIVE LOCATION)</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={stopDriverTrip}
-                      className="w-full py-3.5 px-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border-none"
-                    >
-                      <Square className="w-4 h-4 fill-white" />
-                      <span>END TRIP &bull; STOP TRANSMITTING GPS</span>
-                    </button>
-                  )}
-
-                  {/* Live Status Description */}
-                  <p className="text-[11px] text-center text-slate-500 font-medium">
-                    {gpsStatusMessage}
-                  </p>
-                </div>
-              </div>
-
               {/* NEXT STOP CARD WITH LIVE DYNAMIC ETA (NO DEMO ETA) */}
               <div className="bg-white rounded-3xl p-5 border border-[#DCE8E0] shadow-sm flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3.5">
@@ -2401,6 +2521,7 @@ export function DashboardTransport({
                     <p className="text-xs text-slate-500">Fixed by Transport Incharge</p>
                   </div>
                   <button
+                    type="button"
                     onClick={() => setShowScheduleModal(true)}
                     className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer border-none bg-transparent"
                   >
