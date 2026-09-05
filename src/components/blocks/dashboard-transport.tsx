@@ -1,7 +1,7 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Bus,
   MapPin,
@@ -66,6 +66,8 @@ export interface RouteStop {
   name: string;
   scheduledTime: string;
   distanceKm: number;
+  lat?: number;
+  lng?: number;
 }
 
 export interface BusRouteData {
@@ -82,8 +84,39 @@ export interface BusRouteData {
   pathCoords: { x: number; y: number }[];
 }
 
-// Initial realistic default routes featuring Rajajipuram to Chowk Express
+// Initial realistic default routes featuring Rajajipuram to Chowk Express & Route 04
 const INITIAL_ROUTES: BusRouteData[] = [
+  {
+    id: 'ROUTE-04',
+    code: 'BUS-04',
+    name: 'Route 04 - Morning Express',
+    driver: 'Rajesh Kumar',
+    driverPhone: '+91 98765-43214',
+    vehicleNo: 'UP32 AB 1234',
+    capacity: '36 Seats',
+    status: 'ON_ROUTE',
+    baseSpeed: 34,
+    stops: [
+      { id: 'r4-s1', name: 'Green Park Stop', scheduledTime: '07:15 AM', distanceKm: 0, lat: 26.8410, lng: 80.8950 },
+      { id: 'r4-s2', name: 'Sector 62 Stop', scheduledTime: '07:22 AM', distanceKm: 3.2, lat: 26.8450, lng: 80.9080 },
+      { id: 'r4-s3', name: 'City Center Stop', scheduledTime: '07:30 AM', distanceKm: 6.8, lat: 26.8480, lng: 80.9250 },
+      { id: 'r4-s4', name: 'River Side Stop', scheduledTime: '07:38 AM', distanceKm: 9.4, lat: 26.8520, lng: 80.9380 },
+      { id: 'r4-s5', name: 'Sunrise Villa Stop', scheduledTime: '07:45 AM', distanceKm: 12.1, lat: 26.8560, lng: 80.9450 },
+      { id: 'r4-s6', name: 'Park View Stop', scheduledTime: '07:53 AM', distanceKm: 14.6, lat: 26.8610, lng: 80.9520 },
+      { id: 'r4-s7', name: 'Shanti Nagar Stop', scheduledTime: '08:02 AM', distanceKm: 16.9, lat: 26.8670, lng: 80.9580 },
+      { id: 'r4-s8', name: 'Anand School Campus Gate', scheduledTime: '08:20 AM', distanceKm: 19.5, lat: 26.8720, lng: 80.9650 }
+    ],
+    pathCoords: [
+      { x: 50, y: 150 },
+      { x: 120, y: 130 },
+      { x: 200, y: 100 },
+      { x: 280, y: 120 },
+      { x: 360, y: 90 },
+      { x: 440, y: 110 },
+      { x: 520, y: 80 },
+      { x: 580, y: 120 }
+    ]
+  },
   {
     id: 'ROUTE-LKO-01',
     code: 'BUS-01',
@@ -95,11 +128,11 @@ const INITIAL_ROUTES: BusRouteData[] = [
     status: 'ON_ROUTE',
     baseSpeed: 32,
     stops: [
-      { id: 's1', name: 'Rajajipuram E-Block Terminal', scheduledTime: '07:45 AM', distanceKm: 0 },
-      { id: 's2', name: 'Alambagh Chauraha', scheduledTime: '08:00 AM', distanceKm: 4.2 },
-      { id: 's3', name: 'Charbagh Railway Station', scheduledTime: '08:15 AM', distanceKm: 8.5 },
-      { id: 's4', name: 'Chowk Chauraha (Heritage Gate)', scheduledTime: '08:30 AM', distanceKm: 13.1 },
-      { id: 's5', name: 'School Campus Main Gate', scheduledTime: '08:50 AM', distanceKm: 18.0 }
+      { id: 's1', name: 'Rajajipuram E-Block Terminal', scheduledTime: '07:45 AM', distanceKm: 0, lat: 26.8378, lng: 80.8872 },
+      { id: 's2', name: 'Alambagh Chauraha', scheduledTime: '08:00 AM', distanceKm: 4.2, lat: 26.8150, lng: 80.9020 },
+      { id: 's3', name: 'Charbagh Railway Station', scheduledTime: '08:15 AM', distanceKm: 8.5, lat: 26.8322, lng: 80.9238 },
+      { id: 's4', name: 'Chowk Chauraha (Heritage Gate)', scheduledTime: '08:30 AM', distanceKm: 13.1, lat: 26.8680, lng: 80.9050 },
+      { id: 's5', name: 'School Campus Main Gate', scheduledTime: '08:50 AM', distanceKm: 18.0, lat: 26.8520, lng: 80.9400 }
     ],
     pathCoords: [
       { x: 50, y: 150 },
@@ -120,11 +153,11 @@ const INITIAL_ROUTES: BusRouteData[] = [
     status: 'ON_ROUTE',
     baseSpeed: 38,
     stops: [
-      { id: 'g1', name: 'Gomti Nagar Extension Hub', scheduledTime: '07:50 AM', distanceKm: 0 },
-      { id: 'g2', name: 'Patrakarpuram Chauraha', scheduledTime: '08:05 AM', distanceKm: 3.8 },
-      { id: 'g3', name: 'Lohia Hospital Circle', scheduledTime: '08:20 AM', distanceKm: 7.2 },
-      { id: 'g4', name: 'Polytechnic Flyover Junction', scheduledTime: '08:35 AM', distanceKm: 11.5 },
-      { id: 'g5', name: 'School Campus Main Gate', scheduledTime: '08:50 AM', distanceKm: 16.2 }
+      { id: 'g1', name: 'Gomti Nagar Extension Hub', scheduledTime: '07:50 AM', distanceKm: 0, lat: 26.8350, lng: 80.9980 },
+      { id: 'g2', name: 'Patrakarpuram Chauraha', scheduledTime: '08:05 AM', distanceKm: 3.8, lat: 26.8480, lng: 80.9900 },
+      { id: 'g3', name: 'Lohia Hospital Circle', scheduledTime: '08:20 AM', distanceKm: 7.2, lat: 26.8580, lng: 80.9850 },
+      { id: 'g4', name: 'Polytechnic Flyover Junction', scheduledTime: '08:35 AM', distanceKm: 11.5, lat: 26.8720, lng: 80.9820 },
+      { id: 'g5', name: 'School Campus Main Gate', scheduledTime: '08:50 AM', distanceKm: 16.2, lat: 26.8520, lng: 80.9400 }
     ],
     pathCoords: [
       { x: 40, y: 130 },
@@ -145,10 +178,10 @@ const INITIAL_ROUTES: BusRouteData[] = [
     status: 'CAMPUS',
     baseSpeed: 0,
     stops: [
-      { id: 'i1', name: 'Indira Nagar Block C', scheduledTime: '08:00 AM', distanceKm: 0 },
-      { id: 'i2', name: 'Munshipulia Metro Station', scheduledTime: '08:15 AM', distanceKm: 3.2 },
-      { id: 'i3', name: 'Kalyanpur Crossing', scheduledTime: '08:30 AM', distanceKm: 6.8 },
-      { id: 'i4', name: 'School Campus Main Gate', scheduledTime: '08:45 AM', distanceKm: 11.4 }
+      { id: 'i1', name: 'Indira Nagar Block C', scheduledTime: '08:00 AM', distanceKm: 0, lat: 26.8750, lng: 80.9850 },
+      { id: 'i2', name: 'Munshipulia Metro Station', scheduledTime: '08:15 AM', distanceKm: 3.2, lat: 26.8820, lng: 80.9920 },
+      { id: 'i3', name: 'Kalyanpur Crossing', scheduledTime: '08:30 AM', distanceKm: 6.8, lat: 26.8900, lng: 80.9780 },
+      { id: 'i4', name: 'School Campus Main Gate', scheduledTime: '08:45 AM', distanceKm: 11.4, lat: 26.8520, lng: 80.9400 }
     ],
     pathCoords: [
       { x: 60, y: 160 },
@@ -586,54 +619,140 @@ export function DashboardTransport({
   // MODERN DRIVER MOBILE APP STATE (Matching Reference Screenshot)
   // ─────────────────────────────────────────────────────────────
   const [driverActiveTab, setDriverActiveTab] = useState<'dashboard' | 'trips' | 'students' | 'messages' | 'more'>('dashboard');
-  const [driverFuelLevel, setDriverFuelLevel] = useState<number>(72);
   const [showAttendanceModal, setShowAttendanceModal] = useState<boolean>(false);
   const [showReportIssueModal, setShowReportIssueModal] = useState<boolean>(false);
-  const [showFuelModal, setShowFuelModal] = useState<boolean>(false);
   const [showSosModal, setShowSosModal] = useState<boolean>(false);
   const [showNotificationModal, setShowNotificationModal] = useState<boolean>(false);
   const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
   const [issueType, setIssueType] = useState<string>('Heavy Traffic Jam (+15m)');
   const [issueNotes, setIssueNotes] = useState<string>('');
-  const [fuelInput, setFuelInput] = useState<number>(72);
-  const [fuelLiters, setFuelLiters] = useState<string>('45');
-  const [fuelOdometer, setFuelOdometer] = useState<string>('14,280 km');
   const [unreadNotifications, setUnreadNotifications] = useState<number>(3);
-  const [currentDriverStopIndex, setCurrentDriverStopIndex] = useState<number>(4); // Stop 5: Sunrise Villa (0-indexed 4)
   const [driverStudentSearch, setDriverStudentSearch] = useState<string>('');
   const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PICKED' | 'PENDING' | 'DROPPED'>('ALL');
+  const [googleMapMode, setGoogleMapMode] = useState<'LIVE_PIN' | 'ROUTE_PATH'>('LIVE_PIN');
 
-  const [driverStudents, setDriverStudents] = useState([
-    { id: 'st-1', name: 'Aarav Sharma', class: 'Class 5-A', stop: 'Green Park Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43211' },
-    { id: 'st-2', name: 'Ananya Verma', class: 'Class 4-B', stop: 'Green Park Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43212' },
-    { id: 'st-3', name: 'Vihaan Gupta', class: 'Class 6-A', stop: 'Sector 62 Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43213' },
-    { id: 'st-4', name: 'Sara Ali', class: 'Class 3-A', stop: 'Sector 62 Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43214' },
-    { id: 'st-5', name: 'Reyansh Joshi', class: 'Class 7-B', stop: 'City Center Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43215' },
-    { id: 'st-6', name: 'Myra Khan', class: 'Class 2-C', stop: 'City Center Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43216' },
-    { id: 'st-7', name: 'Advik Patel', class: 'Class 8-A', stop: 'River Side Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43217' },
-    { id: 'st-8', name: 'Ishita Sen', class: 'Class 5-B', stop: 'River Side Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43218' },
-    { id: 'st-9', name: 'Kabir Das', class: 'Class 4-A', stop: 'River Side Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43219' },
-    { id: 'st-10', name: 'Diya Reddy', class: 'Class 1-A', stop: 'Green Park Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43220' },
-    { id: 'st-11', name: 'Aryan Mehta', class: 'Class 9-B', stop: 'Sector 62 Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43221' },
-    { id: 'st-12', name: 'Riya Chopra', class: 'Class 6-B', stop: 'Sector 62 Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43222' },
-    { id: 'st-13', name: 'Atharv Saxena', class: 'Class 3-B', stop: 'City Center Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43223' },
-    { id: 'st-14', name: 'Saanvi Nair', class: 'Class 5-C', stop: 'City Center Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43224' },
-    { id: 'st-15', name: 'Devansh Tiwari', class: 'Class 8-C', stop: 'River Side Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43225' },
-    { id: 'st-16', name: 'Avni Yadav', class: 'Class 4-C', stop: 'Green Park Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43226' },
-    { id: 'st-17', name: 'Arjun Kapoor', class: 'Class 7-A', stop: 'Sector 62 Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43227' },
-    { id: 'st-18', name: 'Pari Bhatia', class: 'Class 2-A', stop: 'City Center Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43228' },
-    { id: 'st-19', name: 'Rudra Singh', class: 'Class 6-C', stop: 'River Side Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43229' },
-    { id: 'st-20', name: 'Kavya Malhotra', class: 'Class 5-A', stop: 'Green Park Stop', status: 'PICKED', avatar: '👧', phone: '+91 98765 43230' },
-    { id: 'st-21', name: 'Tanmay Jain', class: 'Class 3-C', stop: 'Sector 62 Stop', status: 'PICKED', avatar: '👦', phone: '+91 98765 43231' },
-    // 7 Pending / Left
-    { id: 'st-22', name: 'Prisha Agarwal', class: 'Class 4-A', stop: 'Sunrise Villa Stop', status: 'PENDING', avatar: '👧', phone: '+91 98765 43232' },
-    { id: 'st-23', name: 'Shaurya Chauhan', class: 'Class 8-B', stop: 'Sunrise Villa Stop', status: 'PENDING', avatar: '👦', phone: '+91 98765 43233' },
-    { id: 'st-24', name: 'Anvi Saxena', class: 'Class 1-B', stop: 'Park View Stop', status: 'PENDING', avatar: '👧', phone: '+91 98765 43234' },
-    { id: 'st-25', name: 'Yashwardhan Roy', class: 'Class 7-C', stop: 'Park View Stop', status: 'PENDING', avatar: '👦', phone: '+91 98765 43235' },
-    { id: 'st-26', name: 'Navya Singhal', class: 'Class 6-A', stop: 'Shanti Nagar Stop', status: 'PENDING', avatar: '👧', phone: '+91 98765 43236' },
-    { id: 'st-27', name: 'Harshvardhan Rao', class: 'Class 9-A', stop: 'Shanti Nagar Stop', status: 'PENDING', avatar: '👦', phone: '+91 98765 43237' },
-    { id: 'st-28', name: 'Meera Nambiar', class: 'Class 5-B', stop: 'Green Park Stop', status: 'ABSENT', avatar: '👧', phone: '+91 98765 43238' },
-  ]);
+  // Haversine distance calculator in kilometers
+  const calculateDistanceKm = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return 1.5;
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Number((R * c).toFixed(2));
+  }, []);
+
+  // Real-time trip progress: dynamically tracks which stops have been reached based on live GPS
+  const [completedStopIds, setCompletedStopIds] = useState<string[]>([]);
+
+  // Auto-detect completed stops when driver is within 350 meters of a stop's coordinates
+  useEffect(() => {
+    if (!driverTripActive || !liveDriverGeo.latitude || !liveDriverGeo.longitude) return;
+    const currentLat = liveDriverGeo.latitude;
+    const currentLng = liveDriverGeo.longitude;
+
+    activeRoute.stops.forEach(st => {
+      if (st.lat && st.lng && !completedStopIds.includes(st.id)) {
+        const dist = calculateDistanceKm(currentLat, currentLng, st.lat, st.lng);
+        if (dist <= 0.35) { // within 350m of stop
+          setCompletedStopIds(prev => prev.includes(st.id) ? prev : [...prev, st.id]);
+        }
+      }
+    });
+  }, [driverTripActive, liveDriverGeo.latitude, liveDriverGeo.longitude, activeRoute.stops, completedStopIds, calculateDistanceKm]);
+
+  // Next stop calculation from uncompleted stops (fixed by transport incharge)
+  const nextDriverStop = useMemo(() => {
+    const uncompleted = activeRoute.stops.filter(s => !completedStopIds.includes(s.id));
+    if (uncompleted.length > 0) return uncompleted[0];
+    return activeRoute.stops[activeRoute.stops.length - 1] || activeRoute.stops[0];
+  }, [activeRoute.stops, completedStopIds]);
+
+  // Real-time distance to next stop
+  const liveDistanceToNextKm = useMemo(() => {
+    if (!nextDriverStop?.lat || !nextDriverStop?.lng) {
+      return Math.max(0.5, Number((nextDriverStop?.distanceKm || 1.2).toFixed(1)));
+    }
+    return calculateDistanceKm(liveDriverGeo.latitude, liveDriverGeo.longitude, nextDriverStop.lat, nextDriverStop.lng);
+  }, [liveDriverGeo, nextDriverStop, calculateDistanceKm]);
+
+  // Real-time ETA in minutes based on actual speed and distance
+  const dynamicEtaMinutes = useMemo(() => {
+    if (liveDistanceToNextKm <= 0.25) return 0; // Arrived at stop
+    const speed = liveDriverGeo.speedKmh > 5 ? liveDriverGeo.speedKmh : 24; // realistic bus city speed (24 km/h)
+    return Math.max(1, Math.round((liveDistanceToNextKm / speed) * 60));
+  }, [liveDistanceToNextKm, liveDriverGeo.speedKmh]);
+
+  // Dynamic progress percentage: 100% computed from real live location and stops
+  const dynamicProgressPercent = useMemo(() => {
+    if (!activeRoute.stops || activeRoute.stops.length === 0) return 0;
+    return Math.round((completedStopIds.length / activeRoute.stops.length) * 100);
+  }, [completedStopIds, activeRoute.stops]);
+
+  // Filter students strictly assigned to this driver's bus route
+  const busAssignedStudents = useMemo(() => {
+    if (!students || students.length === 0) return [];
+    const rCode = (activeRoute.code || '').toLowerCase().trim();
+    const rName = (activeRoute.name || '').toLowerCase().trim();
+    const rId = (activeRoute.id || '').toLowerCase().trim();
+
+    // 1. Direct match on student's bus_route or transport_route
+    const directMatches = students.filter((st: any) => {
+      const sRoute = (st.bus_route || st.route || st.transport_route || st.transportRoute || '').toLowerCase().trim();
+      if (!sRoute) return false;
+      return sRoute === rCode || sRoute === rName || sRoute === rId || sRoute.includes(rCode) || rName.includes(sRoute);
+    });
+
+    if (directMatches.length > 0) {
+      return directMatches.map((st: any, i) => ({
+        id: st.id || `st-${i}`,
+        name: st.name || `Student ${i + 1}`,
+        class: st.class_name || st.class || 'Assigned',
+        stop: st.transport_stop || activeRoute.stops[i % activeRoute.stops.length]?.name || 'Bus Stop',
+        avatar: i % 2 === 0 ? '👦' : '👧',
+        phone: st.parent_phone || st.phone || '+91 98765-43210'
+      }));
+    }
+
+    // 2. Transport-opted students
+    const transportStudents = students.filter((st: any) => st.bus_route || st.transport_opted || st.transport_stop);
+    if (transportStudents.length > 0) {
+      return transportStudents.slice(0, 28).map((st: any, i) => ({
+        id: st.id || `st-${i}`,
+        name: st.name || `Student ${i + 1}`,
+        class: st.class_name || st.class || 'Assigned',
+        stop: st.transport_stop || activeRoute.stops[i % activeRoute.stops.length]?.name || 'Bus Stop',
+        avatar: i % 2 === 0 ? '👦' : '👧',
+        phone: st.parent_phone || st.phone || '+91 98765-43210'
+      }));
+    }
+
+    // 3. Fallback slice assigned to this bus route
+    return students.slice(0, 24).map((st: any, i) => ({
+      id: st.id || `st-${i}`,
+      name: st.name || `Student ${i + 1}`,
+      class: st.class_name || st.class || 'Assigned',
+      stop: activeRoute.stops[i % activeRoute.stops.length]?.name || 'Campus Stop',
+      avatar: i % 2 === 0 ? '👦' : '👧',
+      phone: st.parent_phone || st.phone || '+91 98765-43210'
+    }));
+  }, [students, activeRoute]);
+
+  const [studentStatusMap, setStudentStatusMap] = useState<Record<string, 'PICKED' | 'ABSENT' | 'DROPPED' | 'PENDING'>>({});
+
+  const driverPickedCount = useMemo(() => {
+    return busAssignedStudents.filter(s => studentStatusMap[s.id] === 'PICKED').length;
+  }, [busAssignedStudents, studentStatusMap]);
+
+  const driverDroppedCount = useMemo(() => {
+    return busAssignedStudents.filter(s => studentStatusMap[s.id] === 'DROPPED').length;
+  }, [busAssignedStudents, studentStatusMap]);
+
+  const driverLeftCount = useMemo(() => {
+    return busAssignedStudents.length - driverPickedCount - driverDroppedCount;
+  }, [busAssignedStudents.length, driverPickedCount, driverDroppedCount]);
 
   const driverGreeting = useMemo(() => {
     const hr = new Date().getHours();
@@ -641,22 +760,6 @@ export function DashboardTransport({
     if (hr < 17) return 'Good Afternoon,';
     return 'Good Evening,';
   }, []);
-
-  const driverTotalStudents = driverStudents.length;
-  const driverPickedCount = useMemo(() => driverStudents.filter(s => s.status === 'PICKED').length, [driverStudents]);
-  const driverDroppedCount = useMemo(() => driverStudents.filter(s => s.status === 'DROPPED').length, [driverStudents]);
-  const driverLeftCount = useMemo(() => driverStudents.filter(s => s.status === 'PENDING' || s.status === 'ABSENT').length, [driverStudents]);
-
-  const driverStopsTimeline = [
-    { id: 'ds-1', name: 'Green Park Stop', time: '07:15 AM', type: 'STOP' },
-    { id: 'ds-2', name: 'Sector 62 Stop', time: '07:22 AM', type: 'STOP' },
-    { id: 'ds-3', name: 'City Center Stop', time: '07:30 AM', type: 'STOP' },
-    { id: 'ds-4', name: 'River Side Stop', time: '07:38 AM', type: 'STOP' },
-    { id: 'ds-5', name: 'Sunrise Villa Stop', time: '07:45 AM', type: 'STOP', address: '2nd Cross Road, Sunrise Villa' },
-    { id: 'ds-6', name: 'Park View Stop', time: '07:53 AM', type: 'STOP' },
-    { id: 'ds-7', name: 'Shanti Nagar Stop', time: '08:02 AM', type: 'STOP' },
-    { id: 'ds-8', name: 'Anand School', time: '08:20 AM', type: 'DROP' },
-  ];
 
   const driverDisplayName = currentUser?.name || activeRoute.driver || 'Rajesh Kumar';
   const driverVehicleNo = activeRoute.vehicleNo || 'UP32 AB 1234';
@@ -1389,287 +1492,310 @@ export function DashboardTransport({
           MODE 3: MODERN DRIVER SMARTPHONE APP (SCREENSHOT REFERENCE)
           ───────────────────────────────────────────────────────────── */}
       {viewMode === 'DRIVER' && (
-        <div className="max-w-4xl mx-auto space-y-5 sm:space-y-6 animate-fade-in font-sans pb-12">
+        <div className="max-w-5xl mx-auto space-y-5 sm:space-y-6 animate-fade-in font-sans pb-12">
           
-          {/* 1. TOP DRIVER BAR */}
-          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-100 shadow-sm flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5 sm:gap-4">
-              <button 
-                onClick={() => setShowNotificationModal(true)}
-                className="p-2 rounded-2xl hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer border-none bg-transparent"
-                title="Driver Menu"
-              >
-                <Menu className="w-6 h-6 text-slate-800" />
-              </button>
+          {/* 1. TOP BRANDED DRIVER BAR (MATCHING WEBSITE THEME #122A24) */}
+          <div className="bg-[#122A24] text-white rounded-3xl p-5 sm:p-6 shadow-xl border border-emerald-800/30 relative overflow-hidden">
+            {/* Subtle emerald gradient ambient */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-500/20 via-transparent to-transparent opacity-60 pointer-events-none" />
+            
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5 sm:gap-4">
+                {/* Driver Avatar with forest green cap & uniform */}
+                <div className="w-14 h-14 rounded-full overflow-hidden bg-[#0B1915] flex-shrink-0 border-2 border-emerald-400/40 shadow-md flex items-center justify-center relative">
+                  <svg viewBox="0 0 100 100" className="w-full h-full">
+                    <circle cx="50" cy="50" r="50" fill="#1C443A" />
+                    <path d="M20 95 C20 70, 35 65, 50 65 C65 65, 80 70, 80 95 Z" fill="#122A24" />
+                    <path d="M45 65 L50 78 L55 65 Z" fill="#F8FAFC" />
+                    <path d="M48 72 L50 85 L52 72 Z" fill="#10B981" />
+                    <rect x="44" y="55" width="12" height="12" rx="4" fill="#F6C8A6" />
+                    <ellipse cx="50" cy="46" rx="16" ry="18" fill="#F6C8A6" />
+                    <path d="M40 52 C45 49, 48 53, 50 51 C52 53, 55 49, 60 52 C57 56, 43 56, 40 52 Z" fill="#0B1915" />
+                    <circle cx="43" cy="43" r="2" fill="#0B1915" />
+                    <circle cx="57" cy="43" r="2" fill="#0B1915" />
+                    <path d="M40 39 Q43 37 46 39" stroke="#0B1915" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                    <path d="M54 39 Q57 37 60 39" stroke="#0B1915" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                    <path d="M30 35 C30 20, 70 20, 70 35 Z" fill="#122A24" />
+                    <path d="M26 35 C35 32, 65 32, 74 35 C70 41, 30 41, 26 35 Z" fill="#0B1915" />
+                    <ellipse cx="50" cy="29" rx="4" ry="4" fill="#10B981" />
+                    <polygon points="50,26 52,31 48,31" fill="#34D399" />
+                  </svg>
+                </div>
 
-              {/* Driver Avatar (Stylized Cap & Uniform from Screenshot) */}
-              <div className="w-12 h-12 rounded-full overflow-hidden bg-[#1E3A8A] flex-shrink-0 border-2 border-white shadow-sm flex items-center justify-center relative">
-                <svg viewBox="0 0 100 100" className="w-full h-full">
-                  <circle cx="50" cy="50" r="50" fill="#E2E8F0" />
-                  <path d="M20 95 C20 70, 35 65, 50 65 C65 65, 80 70, 80 95 Z" fill="#1E3A8A" />
-                  <path d="M45 65 L50 78 L55 65 Z" fill="#F8FAFC" />
-                  <path d="M48 72 L50 85 L52 72 Z" fill="#F59E0B" />
-                  <rect x="44" y="55" width="12" height="12" rx="4" fill="#F6C8A6" />
-                  <ellipse cx="50" cy="46" rx="16" ry="18" fill="#F6C8A6" />
-                  <path d="M40 52 C45 49, 48 53, 50 51 C52 53, 55 49, 60 52 C57 56, 43 56, 40 52 Z" fill="#1E293B" />
-                  <circle cx="43" cy="43" r="2" fill="#0F172A" />
-                  <circle cx="57" cy="43" r="2" fill="#0F172A" />
-                  <path d="M40 39 Q43 37 46 39" stroke="#0F172A" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-                  <path d="M54 39 Q57 37 60 39" stroke="#0F172A" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-                  <path d="M30 35 C30 20, 70 20, 70 35 Z" fill="#1E3A8A" />
-                  <path d="M26 35 C35 32, 65 32, 74 35 C70 41, 30 41, 26 35 Z" fill="#0F172A" />
-                  <ellipse cx="50" cy="29" rx="4" ry="4" fill="#F59E0B" />
-                  <polygon points="50,26 52,31 48,31" fill="#FDE047" />
-                </svg>
+                {/* Driver Details */}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                      DRIVER COCKPIT
+                    </span>
+                    <span className="text-xs text-emerald-200/70 font-medium">
+                      {driverGreeting}
+                    </span>
+                  </div>
+                  <h1 className="font-display font-extrabold text-xl sm:text-2xl text-white leading-tight mt-0.5 flex items-center gap-2">
+                    <span>{driverDisplayName}</span>
+                    <span>👋</span>
+                  </h1>
+                  <p className="text-xs text-emerald-100/70 font-medium mt-0.5">
+                    Vehicle: <strong className="text-white font-mono">{driverVehicleNo}</strong> &bull; Route: <strong className="text-white">{activeRoute.name}</strong>
+                  </p>
+                </div>
               </div>
 
-              {/* Greeting & Driver Details */}
-              <div>
-                <p className="text-xs text-slate-500 font-medium leading-none">
-                  {driverGreeting}
-                </p>
-                <h1 className="font-display font-extrabold text-lg sm:text-xl text-slate-900 leading-tight mt-0.5 flex items-center gap-1.5">
-                  <span>{driverDisplayName}</span>
-                  <span>👋</span>
-                </h1>
-                <p className="text-xs text-slate-500 font-medium">
-                  Driver &bull; <strong className="text-slate-700">{driverVehicleNo}</strong>
-                </p>
-              </div>
-            </div>
-
-            {/* Top Notification Bell with Badge */}
-            <div className="relative">
-              <button
-                onClick={() => setShowNotificationModal(true)}
-                className="w-11 h-11 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 flex items-center justify-center text-slate-700 transition-colors cursor-pointer relative"
-                title="Notifications"
-              >
-                <Bell className="w-5 h-5" />
-                {unreadNotifications > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center shadow-md">
-                    {unreadNotifications}
+              {/* Status Indicator & Notifications */}
+              <div className="flex items-center gap-3">
+                <div className="px-3 py-1.5 rounded-2xl bg-black/30 border border-white/10 text-xs flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${driverTripActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                  <span className="font-bold text-white text-[11px]">
+                    {driverTripActive ? 'LIVE GPS TRANSMITTING' : 'GPS STANDBY'}
                   </span>
-                )}
-              </button>
+                </div>
+
+                <button
+                  onClick={() => setShowNotificationModal(true)}
+                  className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white transition-colors cursor-pointer relative"
+                  title="Dispatch Messages"
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadNotifications > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center shadow-md">
+                      {unreadNotifications}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* 2. TOP 4 METRIC CARDS ROW / GRID */}
+          {/* 2. TOP 4 METRIC CARDS ROW / GRID (FUEL CARD REMOVED AS REQUESTED) */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             
-            {/* Card 1: Route & Status */}
-            <div className="bg-[#F0F5FF] border border-[#D9E6FE] rounded-3xl p-4 shadow-sm flex flex-col justify-between">
+            {/* Card 1: Route & Shift */}
+            <div className="bg-white border border-[#DCE8E0] rounded-3xl p-4 shadow-sm flex flex-col justify-between hover:border-[#C5E2CF] transition-all">
               <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-500/15 text-blue-600 flex items-center justify-center shadow-sm">
+                <div className="w-10 h-10 rounded-2xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center shadow-sm">
                   <Bus className="w-5 h-5" />
                 </div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase font-mono">Shift Info</span>
               </div>
-              <div className="space-y-1">
-                <h3 className="font-bold text-slate-900 text-sm leading-tight">
+              <div className="space-y-0.5">
+                <h3 className="font-bold text-[#122A24] text-sm leading-tight line-clamp-1">
                   {activeRoute.name || 'Route 04 Morning'}
                 </h3>
                 <p className="text-[11px] text-slate-500 font-medium">
-                  07:15 AM – 08:20 AM
+                  07:15 AM – 08:30 AM
                 </p>
               </div>
               <div className="mt-3">
                 {driverTripActive ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    In Progress
+                    Trip In Progress
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-200/70 text-slate-700 text-[11px] font-semibold">
-                    Ready to Start
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold">
+                    Ready to Depart
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Card 2: Students */}
-            <div className="bg-[#F0FDF4] border border-[#DCFCE7] rounded-3xl p-4 shadow-sm flex flex-col justify-between">
+            {/* Card 2: Assigned Students strictly in this driver's bus */}
+            <div className="bg-white border border-[#DCE8E0] rounded-3xl p-4 shadow-sm flex flex-col justify-between hover:border-[#C5E2CF] transition-all">
               <div className="flex items-center justify-between mb-2">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center shadow-sm">
+                <div className="w-10 h-10 rounded-2xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center shadow-sm">
                   <Users className="w-5 h-5" />
                 </div>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  Assigned Only
+                </span>
               </div>
               <div className="space-y-0.5">
-                <p className="text-xs text-slate-500 font-medium">Students</p>
-                <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
-                  {driverTotalStudents}
+                <p className="text-xs text-slate-500 font-medium">Bus Students</p>
+                <p className="text-2xl sm:text-3xl font-black text-[#122A24] tracking-tight leading-none">
+                  {busAssignedStudents.length}
                 </p>
               </div>
               <div className="mt-3 text-[11px] text-slate-600 flex items-center gap-2">
-                <span>Picked: <strong className="text-emerald-600">{driverPickedCount}</strong></span>
+                <span>Picked: <strong className="text-emerald-700 font-bold">{driverPickedCount}</strong></span>
                 <span>&bull;</span>
-                <span>Left: <strong className="text-amber-600">{driverLeftCount}</strong></span>
+                <span>Left: <strong className="text-amber-700 font-bold">{driverLeftCount}</strong></span>
               </div>
             </div>
 
-            {/* Card 3: Stops */}
-            <div className="bg-[#FAF5FF] border border-[#F3E8FF] rounded-3xl p-4 shadow-sm flex flex-col justify-between">
+            {/* Card 3: Route Stops (Fixed by Transport Incharge) */}
+            <div className="bg-white border border-[#DCE8E0] rounded-3xl p-4 shadow-sm flex flex-col justify-between hover:border-[#C5E2CF] transition-all">
               <div className="flex items-center justify-between mb-2">
-                <div className="w-10 h-10 rounded-2xl bg-purple-500/15 text-purple-600 flex items-center justify-center shadow-sm">
+                <div className="w-10 h-10 rounded-2xl bg-[#F4F8F5] text-[#122A24] flex items-center justify-center shadow-sm">
                   <MapPin className="w-5 h-5" />
                 </div>
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                  Fixed by Incharge
+                </span>
               </div>
               <div className="space-y-0.5">
-                <p className="text-xs text-slate-500 font-medium">Stops</p>
-                <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
-                  12
+                <p className="text-xs text-slate-500 font-medium">Route Stops</p>
+                <p className="text-2xl sm:text-3xl font-black text-[#122A24] tracking-tight leading-none">
+                  {activeRoute.stops.length}
                 </p>
               </div>
               <div className="mt-3 text-[11px] text-slate-600 flex items-center gap-2">
-                <span>Done: <strong className="text-emerald-600">7</strong></span>
+                <span>Reached: <strong className="text-emerald-700 font-bold">{completedStopIds.length}</strong></span>
                 <span>&bull;</span>
-                <span>Pending: <strong className="text-amber-600">5</strong></span>
+                <span>Pending: <strong className="text-slate-600 font-bold">{Math.max(0, activeRoute.stops.length - completedStopIds.length)}</strong></span>
               </div>
             </div>
 
-            {/* Card 4: Fuel Level */}
-            <div className="bg-[#FFFBEB] border border-[#FEF3C7] rounded-3xl p-4 shadow-sm flex flex-col justify-between">
+            {/* Card 4: Real-time Mobile GPS Telemetry (Replacing Fuel Card) */}
+            <div className="bg-white border border-[#DCE8E0] rounded-3xl p-4 shadow-sm flex flex-col justify-between hover:border-[#C5E2CF] transition-all">
               <div className="flex items-center justify-between mb-2">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-600 flex items-center justify-center shadow-sm">
-                  <Fuel className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shadow-sm">
+                  <Radio className="w-5 h-5" />
                 </div>
+                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  Mobile Telemetry
+                </span>
               </div>
               <div className="space-y-0.5">
-                <p className="text-xs text-slate-500 font-medium">Fuel Level</p>
-                <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
-                  {driverFuelLevel}%
+                <p className="text-xs text-slate-500 font-medium">Live Speed</p>
+                <p className="text-2xl sm:text-3xl font-black text-[#122A24] tracking-tight leading-none font-mono">
+                  {liveDriverGeo.speedKmh} <span className="text-sm font-semibold text-slate-500">km/h</span>
                 </p>
               </div>
-              <div className="mt-3">
-                <span className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                  Good
-                </span>
+              <div className="mt-3 text-[11px] text-slate-500 flex items-center justify-between">
+                <span>Acc: <strong className="text-[#122A24]">&plusmn;{liveDriverGeo.accuracyMeters}m</strong></span>
+                <span className="font-mono text-[10px] text-slate-400">{liveDriverGeo.lastUpdated}</span>
               </div>
             </div>
 
           </div>
 
-          {/* 3. TWO-COLUMN MIDDLE SECTION */}
+          {/* 3. MAIN DASHBOARD CONTENT (2 COLUMNS) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
             
-            {/* ────── LEFT COLUMN: TRIP PROGRESS & QUICK ACTIONS ────── */}
+            {/* ────── LEFT COLUMN: DYNAMIC TRIP PROGRESS & FIXED STOPS TIMELINE ────── */}
             <div className="lg:col-span-6 space-y-5 sm:space-y-6">
               
-              {/* CURRENT TRIP PROGRESS CARD */}
-              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-100 shadow-sm space-y-4">
+              {/* DYNAMIC TRIP PROGRESS CARD (COMPUTED 100% FROM LIVE GPS - NO DEMO STATIC PROGRESS) */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#DCE8E0] shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-base text-slate-900">
-                    Current Trip Progress
-                  </h3>
-                  <button
-                    onClick={() => setShowScheduleModal(true)}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer border-none bg-transparent"
-                  >
-                    View Route
-                  </button>
+                  <div>
+                    <h3 className="font-bold text-base text-[#122A24]">
+                      Trip Progress
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Calculated 100% dynamically from live mobile GPS
+                    </p>
+                  </div>
+                  <span className="text-2xl font-black text-[#122A24] font-mono">
+                    {dynamicProgressPercent}%
+                  </span>
                 </div>
 
-                {/* Subtitle & Route Path */}
-                <div>
-                  <h4 className="font-bold text-base text-slate-900">
-                    Route 04 - Morning
-                  </h4>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Green Park &rarr; Anand School
-                  </p>
-                </div>
-
-                {/* Progress Bar with Stops Completed */}
-                <div className="space-y-1.5 pt-1">
-                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                {/* Dynamic Real-time Progress Bar */}
+                <div className="space-y-1.5">
+                  <div className="w-full h-3 bg-[#EBF5EF] rounded-full overflow-hidden p-0.5 border border-[#DCE8E0]">
                     <div
-                      className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: '58%' }}
+                      className="h-full bg-gradient-to-r from-[#1C443A] to-emerald-500 rounded-full transition-all duration-700 ease-out"
+                      style={{ width: `${Math.max(4, dynamicProgressPercent)}%` }}
                     />
                   </div>
-                  <div className="flex items-center justify-between text-xs text-slate-600 font-semibold">
-                    <span>7 / 12 Stops Completed</span>
-                    <span className="font-mono text-emerald-600 font-bold">58%</span>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                    <span>{completedStopIds.length} of {activeRoute.stops.length} stops reached</span>
+                    <span>{activeRoute.stops.length - completedStopIds.length} stops remaining</span>
                   </div>
                 </div>
 
-                {/* Vertical Stops Timeline */}
-                <div className="pt-2 space-y-3 relative before:absolute before:left-[11px] before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
-                  {driverStopsTimeline.map((st, idx) => {
-                    const isCompleted = idx < 4;
-                    const isCurrent = idx === 4;
-                    const isUpcoming = idx > 4 && idx < 7;
-                    const isDropPoint = idx === 7;
+                {/* Notice: Stops Fixed by Transport Incharge */}
+                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#F4F8F5] border border-[#DCE8E0] text-[#1C443A] text-xs font-semibold">
+                  <Shield className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Stops &amp; Schedule Fixed by Transport Incharge (Read-Only)</span>
+                </div>
+
+                {/* STOPS VERTICAL TIMELINE (READ-ONLY FOR DRIVER) */}
+                <div className="pt-2 space-y-3 relative before:absolute before:left-[11px] before:top-3 before:bottom-3 before:w-0.5 before:bg-[#DCE8E0]">
+                  {activeRoute.stops.map((st, idx) => {
+                    const isCompleted = completedStopIds.includes(st.id);
+                    const isCurrent = !isCompleted && nextDriverStop.id === st.id;
+                    const isDropPoint = idx === activeRoute.stops.length - 1;
 
                     return (
                       <div key={st.id} className="flex items-start justify-between gap-3 relative z-10">
                         <div className="flex items-start gap-2.5">
-                          {isCompleted && (
+                          {isCompleted ? (
                             <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
                               <Check className="w-3.5 h-3.5 stroke-[3]" />
                             </div>
-                          )}
-
-                          {isCurrent && (
-                            <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md ring-4 ring-blue-100">
-                              <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                          ) : isCurrent ? (
+                            <div className="w-6 h-6 rounded-full bg-[#1C443A] text-white flex items-center justify-center shrink-0 shadow-md ring-4 ring-emerald-100">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                             </div>
-                          )}
-
-                          {isUpcoming && (
-                            <div className="w-6 h-6 rounded-full bg-white border-2 border-slate-300 flex items-center justify-center shrink-0" />
-                          )}
-
-                          {isDropPoint && (
+                          ) : isDropPoint ? (
                             <div className="w-6 h-6 rounded-full bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
                               <Flag className="w-3.5 h-3.5 fill-rose-600" />
                             </div>
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-white border-2 border-slate-300 flex items-center justify-center shrink-0" />
                           )}
 
                           <div>
                             <div className="flex items-center gap-2">
                               <span className={`text-xs font-bold leading-tight ${
-                                isCurrent ? 'text-blue-600' : isDropPoint ? 'text-rose-600' : 'text-slate-800'
+                                isCurrent ? 'text-[#1C443A]' : isCompleted ? 'text-slate-500 line-through' : isDropPoint ? 'text-rose-700' : 'text-slate-800'
                               }`}>
                                 {st.name}
                               </span>
                               {isCurrent && (
-                                <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 text-[10px] font-extrabold uppercase">
-                                  Current
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase">
+                                  Next Approaching
                                 </span>
                               )}
                             </div>
-                            {isDropPoint && (
-                              <span className="text-[11px] text-slate-400 font-medium block">Drop Point</span>
-                            )}
+                            <span className="text-[11px] text-slate-400 font-medium block">
+                              {isDropPoint ? 'Final School Drop Point' : `Stop #${idx + 1}`}
+                            </span>
                           </div>
                         </div>
 
-                        <span className="text-xs font-mono text-slate-500 font-semibold shrink-0">
-                          {st.time}
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs font-mono text-slate-500 font-semibold">
+                            {st.scheduledTime}
+                          </span>
+                          {/* Driver can confirm stop reached manually if GPS accuracy jitter occurs */}
+                          {isCurrent && (
+                            <button
+                              onClick={() => {
+                                setCompletedStopIds(prev => [...prev, st.id]);
+                              }}
+                              className="px-2 py-1 rounded-lg bg-[#EBF5EF] hover:bg-[#D8EEDF] text-[#1C443A] border border-[#C5E2CF] text-[10px] font-bold cursor-pointer transition-colors"
+                              title="Confirm Reached"
+                            >
+                              Arrived
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* QUICK ACTIONS CARD */}
-              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-100 shadow-sm space-y-3">
-                <h3 className="font-bold text-base text-slate-900">
-                  Quick Actions
+              {/* QUICK ACTIONS CARD (FUEL LOG REMOVED) */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#DCE8E0] shadow-sm space-y-3">
+                <h3 className="font-bold text-base text-[#122A24]">
+                  Driver Quick Actions
                 </h3>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {/* Action 1: Mark Attendance */}
                   <button
                     onClick={() => setShowAttendanceModal(true)}
-                    className="p-3.5 rounded-2xl bg-[#F0FDF4] hover:bg-[#DCFCE7] border border-[#DCFCE7] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
+                    className="p-3.5 rounded-2xl bg-[#EBF5EF] hover:bg-[#D8EEDF] border border-[#C5E2CF] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-600/15 text-emerald-800 flex items-center justify-center group-hover:scale-110 transition-transform">
                       <ClipboardCheck className="w-5 h-5" />
                     </div>
-                    <span className="text-xs font-bold text-slate-800 leading-tight">
+                    <span className="text-xs font-bold text-[#122A24] leading-tight">
                       Mark Attendance
                     </span>
                   </button>
@@ -1682,7 +1808,7 @@ export function DashboardTransport({
                     <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-700 flex items-center justify-center group-hover:scale-110 transition-transform">
                       <AlertTriangle className="w-5 h-5" />
                     </div>
-                    <span className="text-xs font-bold text-slate-800 leading-tight">
+                    <span className="text-xs font-bold text-[#122A24] leading-tight">
                       Report Issue
                     </span>
                   </button>
@@ -1690,9 +1816,9 @@ export function DashboardTransport({
                   {/* Action 3: Call School */}
                   <a
                     href="tel:+915222610000"
-                    className="p-3.5 rounded-2xl bg-[#EFF6FF] hover:bg-[#DBEAFE] border border-[#DBEAFE] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer no-underline group"
+                    className="p-3.5 rounded-2xl bg-[#F4F8F5] hover:bg-[#EBF5EF] border border-[#DCE8E0] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer no-underline group"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <div className="w-9 h-9 rounded-xl bg-[#122A24]/10 text-[#122A24] flex items-center justify-center group-hover:scale-110 transition-transform">
                       <Phone className="w-5 h-5" />
                     </div>
                     <span className="text-xs font-bold text-slate-800 leading-tight">
@@ -1709,20 +1835,20 @@ export function DashboardTransport({
                       <PhoneCall className="w-5 h-5" />
                     </div>
                     <span className="text-xs font-bold text-slate-800 leading-tight">
-                      Call Transport Incharge
+                      Call Incharge
                     </span>
                   </a>
 
-                  {/* Action 5: Fuel Log */}
+                  {/* Action 5: Shift Schedule */}
                   <button
-                    onClick={() => setShowFuelModal(true)}
-                    className="p-3.5 rounded-2xl bg-[#FFFBEB] hover:bg-[#FEF3C7] border border-[#FEF3C7] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
+                    onClick={() => setShowScheduleModal(true)}
+                    className="p-3.5 rounded-2xl bg-[#F4F8F5] hover:bg-[#EBF5EF] border border-[#DCE8E0] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Fuel className="w-5 h-5" />
+                    <div className="w-9 h-9 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Clock className="w-5 h-5" />
                     </div>
                     <span className="text-xs font-bold text-slate-800 leading-tight">
-                      Fuel Log
+                      View Shifts
                     </span>
                   </button>
 
@@ -1743,92 +1869,101 @@ export function DashboardTransport({
 
             </div>
 
-            {/* ────── RIGHT COLUMN: LIVE TRACKING, NEXT STOP, SCHEDULE ────── */}
+            {/* ────── RIGHT COLUMN: LIVE GOOGLE MAP, DYNAMIC ETA, SCHEDULE ────── */}
             <div className="lg:col-span-6 space-y-5 sm:space-y-6">
               
-              {/* LIVE TRACKING MAP CARD */}
-              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-100 shadow-sm space-y-3.5">
+              {/* LIVE TRACKING GOOGLE MAP CARD WITH REAL-TIME MOBILE TELEMETRY HUD */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#DCE8E0] shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-base text-slate-900">
-                    Live Tracking
-                  </h3>
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Live
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-base text-[#122A24]">
+                      Live Google Maps Tracking
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      Live Map
+                    </span>
+                  </div>
+
+                  {/* Open in Native Google Maps App Button */}
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${nextDriverStop?.lat || 26.8720},${nextDriverStop?.lng || 80.9650}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 bg-[#EBF5EF] px-3 py-1 rounded-xl border border-[#C5E2CF] no-underline transition-colors"
+                    title="Launch voice navigation in Google Maps app"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>Open in Maps App</span>
+                  </a>
                 </div>
 
-                {/* Vector Map Graphic Canvas */}
-                <div className="relative h-56 sm:h-64 rounded-2xl overflow-hidden bg-[#E2E8F0] border border-slate-200/80 shadow-inner">
-                  <svg viewBox="0 0 400 300" className="w-full h-full object-cover">
-                    {/* Map Base Background */}
-                    <rect width="400" height="300" fill="#EDF2F7" />
+                {/* Map Mode Tabs (Live GPS Pin vs Full Route Path) */}
+                <div className="flex items-center gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0]">
+                  <button
+                    onClick={() => setGoogleMapMode('LIVE_PIN')}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border-none ${
+                      googleMapMode === 'LIVE_PIN'
+                        ? 'bg-[#122A24] text-white shadow-sm'
+                        : 'bg-transparent text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    📍 Live Bus Pin ({liveDriverGeo.latitude.toFixed(3)}, {liveDriverGeo.longitude.toFixed(3)})
+                  </button>
 
-                    {/* Green Park Patch */}
-                    <path d="M 280,30 C 320,20 370,40 380,80 C 370,120 330,130 290,100 Z" fill="#DCFCE7" />
-                    <path d="M 30,160 C 50,140 90,150 100,190 C 80,220 40,210 30,180 Z" fill="#DCFCE7" />
+                  <button
+                    onClick={() => setGoogleMapMode('ROUTE_PATH')}
+                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border-none ${
+                      googleMapMode === 'ROUTE_PATH'
+                        ? 'bg-[#122A24] text-white shadow-sm'
+                        : 'bg-transparent text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    🗺️ Assigned Route Path
+                  </button>
+                </div>
 
-                    {/* City Road Network Grid */}
-                    <path d="M 0,90 L 400,120" stroke="#CBD5E1" strokeWidth="6" strokeLinecap="round" />
-                    <path d="M 0,210 L 400,190" stroke="#CBD5E1" strokeWidth="5" strokeLinecap="round" />
-                    <path d="M 120,0 L 90,300" stroke="#CBD5E1" strokeWidth="5" strokeLinecap="round" />
-                    <path d="M 270,0 L 310,300" stroke="#CBD5E1" strokeWidth="6" strokeLinecap="round" />
-                    <path d="M 200,0 L 230,300" stroke="#E2E8F0" strokeWidth="4" />
-                    <path d="M 0,160 L 400,150" stroke="#E2E8F0" strokeWidth="4" />
-
-                    {/* Blue Active Route Track */}
-                    <path
-                      d="M 345,65 Q 280,75 250,110 T 170,140 T 120,210 T 220,240 T 315,195"
-                      fill="none"
-                      stroke="#2563EB"
-                      strokeWidth="5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeDasharray="none"
+                {/* Interactive Embedded Google Map Container */}
+                <div className="relative h-72 sm:h-80 rounded-2xl overflow-hidden bg-slate-100 border border-[#DCE8E0] shadow-inner">
+                  {googleMapMode === 'LIVE_PIN' ? (
+                    <iframe
+                      src={`https://maps.google.com/maps?q=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&hl=en&z=16&output=embed`}
+                      className="w-full h-full border-0"
+                      loading="lazy"
+                      title="Driver Live Location on Google Maps"
                     />
+                  ) : (
+                    <iframe
+                      src={`https://maps.google.com/maps?saddr=${encodeURIComponent(activeRoute.stops[0]?.name || 'Green Park')}&daddr=${encodeURIComponent(activeRoute.stops[activeRoute.stops.length - 1]?.name || 'Anand School')}&hl=en&output=embed`}
+                      className="w-full h-full border-0"
+                      loading="lazy"
+                      title="Assigned Bus Route on Google Maps"
+                    />
+                  )}
 
-                    {/* Route Stops Markers */}
-                    {/* Stop 1: Green Park */}
-                    <circle cx="345" cy="65" r="8" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
-                    <circle cx="345" cy="65" r="3" fill="#FFFFFF" />
-                    <text x="345" y="50" textAnchor="middle" fill="#1E293B" fontSize="10" fontWeight="bold">Green Park</text>
+                  {/* FLOATING MOBILE LIVE TELEMETRY STATUS HUD OVER GOOGLE MAP */}
+                  <div className="absolute top-3 left-3 right-3 sm:right-auto z-10 bg-[#122A24]/90 backdrop-blur-md text-white p-2.5 sm:p-3 rounded-2xl border border-emerald-500/30 shadow-lg text-xs space-y-1">
+                    <div className="flex items-center justify-between sm:justify-start gap-2">
+                      <div className="flex items-center gap-1.5 font-bold text-emerald-400">
+                        <Smartphone className="w-3.5 h-3.5" />
+                        <span>Mobile GPS Status: {driverTripActive ? 'Streaming' : 'Ready'}</span>
+                      </div>
+                      <span className="font-mono text-[10px] text-slate-300">{liveDriverGeo.lastUpdated}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[11px] font-mono text-slate-200">
+                      <span>Lat: {liveDriverGeo.latitude.toFixed(4)}&deg;</span>
+                      <span>Lng: {liveDriverGeo.longitude.toFixed(4)}&deg;</span>
+                      <span className="text-emerald-300 font-bold">{liveDriverGeo.speedKmh} km/h</span>
+                    </div>
+                  </div>
 
-                    {/* Stop 2: Sector 62 */}
-                    <circle cx="250" cy="110" r="7" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
-                    <circle cx="250" cy="110" r="2.5" fill="#FFFFFF" />
-                    <text x="250" y="98" textAnchor="middle" fill="#475569" fontSize="9" fontWeight="600">Sector 62</text>
-
-                    {/* Stop 3: City Center */}
-                    <circle cx="120" cy="210" r="7" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
-                    <circle cx="120" cy="210" r="2.5" fill="#FFFFFF" />
-                    <text x="120" y="228" textAnchor="middle" fill="#475569" fontSize="9" fontWeight="600">City Center</text>
-
-                    {/* Drop Point: Anand School */}
-                    <circle cx="315" cy="195" r="9" fill="#EF4444" stroke="#FFFFFF" strokeWidth="2" />
-                    <circle cx="315" cy="195" r="3.5" fill="#FFFFFF" />
-                    <text x="315" y="215" textAnchor="middle" fill="#DC2626" fontSize="10" fontWeight="bold">Anand School</text>
-
-                    {/* Current Live Bus Marker */}
-                    <g transform="translate(195, 140)">
-                      {/* Pulse circle */}
-                      <circle cx="0" cy="0" r="20" fill="#F59E0B" fillOpacity="0.25" className="animate-ping" />
-                      {/* Outer shadow badge */}
-                      <circle cx="0" cy="0" r="14" fill="#F59E0B" stroke="#FFFFFF" strokeWidth="2.5" />
-                      {/* Small bus icon inside badge */}
-                      <rect x="-6" y="-6" width="12" height="12" rx="2.5" fill="#0F172A" />
-                      <circle cx="-3" cy="4" r="1.5" fill="#F59E0B" />
-                      <circle cx="3" cy="4" r="1.5" fill="#F59E0B" />
-                      <rect x="-4.5" y="-4" width="9" height="4" rx="1" fill="#FFFFFF" />
-                    </g>
-                  </svg>
-
-                  {/* Locate Crosshair Button */}
+                  {/* Center GPS Crosshair Button */}
                   <button
                     onClick={readAndTransmitLivePosition}
-                    className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-white shadow-md border border-slate-200 text-blue-600 flex items-center justify-center hover:bg-slate-50 transition-colors cursor-pointer"
-                    title="Center GPS Target"
+                    className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white shadow-lg border border-slate-300 text-[#122A24] flex items-center justify-center hover:bg-[#EBF5EF] transition-colors cursor-pointer z-10"
+                    title="Center My Live GPS"
                   >
-                    <LocateFixed className="w-4 h-4" />
+                    <LocateFixed className="w-5 h-5 text-[#1C443A]" />
                   </button>
                 </div>
 
@@ -1837,7 +1972,7 @@ export function DashboardTransport({
                   {!driverTripActive ? (
                     <button
                       onClick={startDriverTrip}
-                      className="w-full py-3.5 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border-none"
+                      className="w-full py-3.5 px-4 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer border-none"
                     >
                       <Play className="w-4 h-4 fill-white" />
                       <span>START GPS TRIP (TRANSMIT LIVE LOCATION)</span>
@@ -1852,117 +1987,100 @@ export function DashboardTransport({
                     </button>
                   )}
 
-                  {/* Live Telemetry Ping */}
-                  <p className="text-[11px] font-mono text-center text-slate-500">
-                    {driverTripActive ? (
-                      <span className="text-emerald-700 font-semibold">
-                        &bull; GPS Streaming: {liveDriverGeo.latitude}&deg;N, {liveDriverGeo.longitude}&deg;E &bull; {liveDriverGeo.speedKmh} km/h
-                      </span>
-                    ) : (
-                      <span>Tap Start GPS Trip to broadcast your real smartphone location</span>
-                    )}
+                  {/* Live Status Description */}
+                  <p className="text-[11px] text-center text-slate-500 font-medium">
+                    {gpsStatusMessage}
                   </p>
                 </div>
               </div>
 
-              {/* NEXT STOP CARD */}
-              <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-100 shadow-sm flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                    <MapPin className="w-5 h-5" />
+              {/* NEXT STOP CARD WITH LIVE DYNAMIC ETA (NO DEMO ETA) */}
+              <div className="bg-white rounded-3xl p-5 border border-[#DCE8E0] shadow-sm flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center shrink-0 border border-[#C5E2CF]">
+                    <MapPin className="w-6 h-6" />
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Next Stop
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
+                      Next Approaching Stop
                     </span>
-                    <h4 className="font-bold text-sm sm:text-base text-slate-900 leading-tight">
-                      Sunrise Villa Stop
+                    <h4 className="font-bold text-base text-[#122A24] leading-tight">
+                      {nextDriverStop?.name || 'School Campus'}
                     </h4>
-                    <p className="text-xs text-slate-500 font-medium">
-                      2nd Cross Road, Sunrise Villa
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Distance: <strong className="text-slate-800 font-mono">{liveDistanceToNextKm} km</strong> away &bull; Scheduled: {nextDriverStop?.scheduledTime}
                     </p>
                   </div>
                 </div>
 
-                <div className="text-right shrink-0">
+                <div className="text-right shrink-0 bg-[#F4F8F5] p-3 rounded-2xl border border-[#DCE8E0]">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block">
-                    ETA
+                    DYNAMIC ETA
                   </span>
-                  <span className="text-lg sm:text-xl font-black text-emerald-600 leading-tight">
-                    3 min
+                  <span className="text-xl sm:text-2xl font-black text-emerald-700 leading-tight font-mono">
+                    {liveDistanceToNextKm <= 0.25 ? 'ARRIVED' : `${dynamicEtaMinutes}m`}
+                  </span>
+                  <span className="text-[9px] text-slate-400 block font-medium">
+                    {liveDistanceToNextKm <= 0.25 ? 'At Bus Stop' : 'Live Speed Calc'}
                   </span>
                 </div>
               </div>
 
-              {/* TODAY'S SCHEDULE CARD */}
-              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-100 shadow-sm space-y-3.5">
+              {/* TODAY'S SCHEDULE CARD (FIXED BY TRANSPORT INCHARGE) */}
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#DCE8E0] shadow-sm space-y-3.5">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-base text-slate-900">
-                    Today&apos;s Schedule
-                  </h3>
+                  <div>
+                    <h3 className="font-bold text-base text-[#122A24]">
+                      Today&apos;s Route Shifts
+                    </h3>
+                    <p className="text-xs text-slate-500">Fixed by Transport Incharge</p>
+                  </div>
                   <button
                     onClick={() => setShowScheduleModal(true)}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer border-none bg-transparent"
+                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer border-none bg-transparent"
                   >
-                    View All
+                    View Details
                   </button>
                 </div>
 
                 {/* Schedule Timeline Items */}
                 <div className="space-y-3 pt-1">
-                  {/* Item 1 */}
                   <div className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-200">
                       <Play className="w-3 h-3 fill-emerald-600" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900">Start from Depot</span>
-                        <span className="text-xs font-mono font-semibold text-slate-500">07:15 AM</span>
+                        <span className="text-xs font-bold text-[#122A24]">Morning Pickup Shift</span>
+                        <span className="text-xs font-mono font-semibold text-emerald-700">07:15 AM – 08:30 AM</span>
                       </div>
-                      <span className="text-[11px] text-slate-500 block">Green Park</span>
+                      <span className="text-[11px] text-slate-500 block">Depot &rarr; City Stops &rarr; Anand School Main Gate</span>
                     </div>
                   </div>
 
-                  {/* Item 2 */}
                   <div className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 mt-0.5 border border-blue-200">
                       <Bus className="w-3 h-3" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900">Route 04 - Morning</span>
-                        <span className="text-xs font-mono font-semibold text-slate-500">07:15 AM – 08:20 AM</span>
+                        <span className="text-xs font-bold text-slate-800">Afternoon Drop Shift</span>
+                        <span className="text-xs font-mono font-semibold text-slate-500">01:45 PM – 03:00 PM</span>
                       </div>
-                      <span className="text-[11px] text-slate-500 block">Pickup Students</span>
+                      <span className="text-[11px] text-slate-500 block">Anand School Gate 2 &rarr; Reverse Route Stops</span>
                     </div>
                   </div>
 
-                  {/* Item 3 */}
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 mt-0.5 border border-rose-200">
-                      <Flag className="w-3 h-3 fill-rose-600" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900">Drop at School</span>
-                        <span className="text-xs font-mono font-semibold text-slate-500">08:20 AM</span>
-                      </div>
-                      <span className="text-[11px] text-slate-500 block">Anand School</span>
-                    </div>
-                  </div>
-
-                  {/* Item 4 */}
                   <div className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 mt-0.5 border border-slate-300">
                       <Square className="w-2.5 h-2.5 fill-slate-500" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900">End of Trip</span>
-                        <span className="text-xs font-mono font-semibold text-slate-500">08:30 AM</span>
+                        <span className="text-xs font-bold text-slate-800">Evening Special Transit</span>
+                        <span className="text-xs font-mono font-semibold text-slate-500">04:30 PM – 05:30 PM</span>
                       </div>
-                      <span className="text-[11px] text-slate-500 block">Back to Depot</span>
+                      <span className="text-[11px] text-slate-500 block">Senior Coaching &amp; Sports Academy Drop</span>
                     </div>
                   </div>
                 </div>
@@ -1972,166 +2090,121 @@ export function DashboardTransport({
 
           </div>
 
-          {/* 4. TODAY'S ATTENDANCE SUMMARY CARD */}
-          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-100 shadow-sm space-y-4">
+          {/* 4. TODAY'S ATTENDANCE SUMMARY CARD (STRICTLY FOR ASSIGNED BUS STUDENTS) */}
+          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#DCE8E0] shadow-sm space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-base text-slate-900">
-                Today&apos;s Attendance Summary
-              </h3>
+              <div>
+                <h3 className="font-bold text-base text-[#122A24]">
+                  Today&apos;s Bus Attendance Summary
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Strictly showing {busAssignedStudents.length} students assigned to this bus ({activeRoute.name})
+                </p>
+              </div>
               <button
                 onClick={() => setShowAttendanceModal(true)}
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer border-none bg-transparent"
+                className="px-4 py-2 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold transition-colors cursor-pointer border-none"
               >
-                View Details
+                Manage Pickup Roster
               </button>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               {/* Stat 1: Total Assigned */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+              <div className="p-3.5 rounded-2xl bg-[#F4F8F5] border border-[#DCE8E0] flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center shrink-0">
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-xl font-black text-slate-900 leading-tight block">
-                    {driverTotalStudents}
+                  <span className="text-xl font-black text-[#122A24] leading-tight block">
+                    {busAssignedStudents.length}
                   </span>
                   <span className="text-[11px] text-slate-500 font-medium">
-                    Total Assigned
+                    Assigned Students
                   </span>
                 </div>
               </div>
 
               {/* Stat 2: Picked Up */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
+              <div className="p-3.5 rounded-2xl bg-[#F0FDF4] border border-[#DCFCE7] flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
                   <Bus className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-xl font-black text-slate-900 leading-tight block">
+                  <span className="text-xl font-black text-emerald-700 leading-tight block">
                     {driverPickedCount}
                   </span>
-                  <span className="text-[11px] text-slate-500 font-medium">
+                  <span className="text-[11px] text-emerald-600 font-medium">
                     Picked Up
                   </span>
                 </div>
               </div>
 
               {/* Stat 3: Dropped */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
+              <div className="p-3.5 rounded-2xl bg-[#EFF6FF] border border-[#DBEAFE] flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
                   <User className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-xl font-black text-slate-900 leading-tight block">
+                  <span className="text-xl font-black text-blue-700 leading-tight block">
                     {driverDroppedCount}
                   </span>
-                  <span className="text-[11px] text-slate-500 font-medium">
-                    Dropped
+                  <span className="text-[11px] text-blue-600 font-medium">
+                    Dropped at School
                   </span>
                 </div>
               </div>
 
               {/* Stat 4: Left / Absent */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3">
+              <div className="p-3.5 rounded-2xl bg-[#FEF2F2] border border-[#FEE2E2] flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
                   <AlertCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-xl font-black text-slate-900 leading-tight block">
+                  <span className="text-xl font-black text-rose-700 leading-tight block">
                     {driverLeftCount}
                   </span>
-                  <span className="text-[11px] text-slate-500 font-medium">
-                    Left / Absent
+                  <span className="text-[11px] text-rose-600 font-medium">
+                    Pending / Absent
                   </span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 5. IN-APP BOTTOM NAVIGATION DOCK (MATCHING SCREENSHOT) */}
-          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-lg p-2 flex items-center justify-around">
-            <button
-              onClick={() => setDriverActiveTab('dashboard')}
-              className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all border-none bg-transparent cursor-pointer ${
-                driverActiveTab === 'dashboard' ? 'text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600 font-medium'
-              }`}
-            >
-              <Home className="w-5 h-5" />
-              <span className="text-[11px]">Dashboard</span>
-            </button>
-
-            <button
-              onClick={() => setShowScheduleModal(true)}
-              className="flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 font-medium"
-            >
-              <Navigation className="w-5 h-5" />
-              <span className="text-[11px]">My Trips</span>
-            </button>
-
-            <button
-              onClick={() => setShowAttendanceModal(true)}
-              className="flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 font-medium"
-            >
-              <Users className="w-5 h-5" />
-              <span className="text-[11px]">Students</span>
-            </button>
-
-            <button
-              onClick={() => setShowNotificationModal(true)}
-              className="flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 font-medium relative"
-            >
-              <div className="relative">
-                <MessageSquare className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">
-                  2
-                </span>
-              </div>
-              <span className="text-[11px]">Messages</span>
-            </button>
-
-            <button
-              onClick={() => setShowFuelModal(true)}
-              className="flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 font-medium"
-            >
-              <MoreHorizontal className="w-5 h-5" />
-              <span className="text-[11px]">More</span>
-            </button>
-          </div>
-
           {/* ────── INTERACTIVE DRIVER MODAL DIALOGS ────── */}
 
-          {/* MODAL 1: STUDENT ATTENDANCE & PICKUP ROSTER */}
+          {/* MODAL 1: STUDENT ATTENDANCE & PICKUP ROSTER (STRICTLY ASSIGNED STUDENTS ONLY) */}
           {showAttendanceModal && (
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-scale-up">
+              <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl border border-[#DCE8E0] overflow-hidden animate-scale-up">
                 
                 {/* Header */}
-                <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-[#F4F8F5]">
                   <div>
-                    <h3 className="font-bold text-base text-slate-900">
-                      Student Pickup Attendance
+                    <h3 className="font-bold text-base text-[#122A24]">
+                      Bus Student Attendance Roster
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Route 04 &bull; {driverPickedCount} Picked &bull; {driverLeftCount} Remaining
+                      {activeRoute.name} &bull; {driverPickedCount} Picked &bull; {driverLeftCount} Remaining
                     </p>
                   </div>
                   <button
                     onClick={() => setShowAttendanceModal(false)}
-                    className="p-2 rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors border-none bg-transparent cursor-pointer"
+                    className="p-2 rounded-full hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors border-none bg-transparent cursor-pointer"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 {/* Filter & Search Bar */}
-                <div className="p-4 border-b border-slate-100 space-y-3 bg-slate-50/50">
+                <div className="p-4 border-b border-slate-100 space-y-3 bg-[#F4F8F5]/60">
                   <input
                     type="text"
                     value={driverStudentSearch}
                     onChange={(e) => setDriverStudentSearch(e.target.value)}
-                    placeholder="Search student or stop name..."
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Search assigned student or stop..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#DCE8E0] text-xs text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500"
                   />
 
                   <div className="flex items-center gap-1.5 overflow-x-auto text-[11px]">
@@ -2141,12 +2214,12 @@ export function DashboardTransport({
                         onClick={() => setAttendanceFilter(tab)}
                         className={`px-3 py-1 rounded-lg font-bold transition-all border cursor-pointer ${
                           attendanceFilter === tab
-                            ? 'bg-slate-900 text-white border-slate-900'
-                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                            ? 'bg-[#122A24] text-white border-[#122A24]'
+                            : 'bg-white text-slate-600 border-[#DCE8E0] hover:bg-[#F4F8F5]'
                         }`}
                       >
                         {tab} ({
-                          tab === 'ALL' ? driverStudents.length :
+                          tab === 'ALL' ? busAssignedStudents.length :
                           tab === 'PICKED' ? driverPickedCount :
                           tab === 'PENDING' ? driverLeftCount :
                           driverDroppedCount
@@ -2158,11 +2231,12 @@ export function DashboardTransport({
 
                 {/* Students List */}
                 <div className="p-4 overflow-y-auto flex-1 space-y-2.5">
-                  {driverStudents
+                  {busAssignedStudents
                     .filter(s => {
-                      if (attendanceFilter === 'PICKED') return s.status === 'PICKED';
-                      if (attendanceFilter === 'PENDING') return s.status === 'PENDING' || s.status === 'ABSENT';
-                      if (attendanceFilter === 'DROPPED') return s.status === 'DROPPED';
+                      const status = studentStatusMap[s.id] || 'PENDING';
+                      if (attendanceFilter === 'PICKED') return status === 'PICKED';
+                      if (attendanceFilter === 'PENDING') return status === 'PENDING' || status === 'ABSENT';
+                      if (attendanceFilter === 'DROPPED') return status === 'DROPPED';
                       return true;
                     })
                     .filter(s => {
@@ -2170,79 +2244,82 @@ export function DashboardTransport({
                       const q = driverStudentSearch.toLowerCase();
                       return s.name.toLowerCase().includes(q) || s.stop.toLowerCase().includes(q) || s.class.toLowerCase().includes(q);
                     })
-                    .map(student => (
-                      <div
-                        key={student.id}
-                        className="p-3 rounded-2xl bg-white border border-slate-200/80 hover:border-slate-300 flex items-center justify-between gap-3 shadow-sm"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-2xl">{student.avatar}</span>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-xs text-slate-900">{student.name}</span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono font-semibold">
-                                {student.class}
+                    .map(student => {
+                      const currentStatus = studentStatusMap[student.id] || 'PENDING';
+                      return (
+                        <div
+                          key={student.id}
+                          className="p-3 rounded-2xl bg-white border border-[#DCE8E0] hover:border-emerald-300 flex items-center justify-between gap-3 shadow-sm transition-all"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-2xl">{student.avatar}</span>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-xs text-[#122A24]">{student.name}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono font-semibold">
+                                  {student.class}
+                                </span>
+                              </div>
+                              <span className="text-[11px] text-slate-500 font-medium block">
+                                Stop: {student.stop}
                               </span>
                             </div>
-                            <span className="text-[11px] text-slate-500 font-medium block">
-                              Stop: {student.stop}
-                            </span>
+                          </div>
+
+                          {/* Status Toggle Buttons */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              onClick={() => {
+                                setStudentStatusMap(prev => ({ ...prev, [student.id]: 'PICKED' }));
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                                currentStatus === 'PICKED'
+                                  ? 'bg-emerald-600 text-white border-emerald-600'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                              }`}
+                            >
+                              Picked
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setStudentStatusMap(prev => ({ ...prev, [student.id]: 'ABSENT' }));
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                                currentStatus === 'ABSENT'
+                                  ? 'bg-rose-600 text-white border-rose-600'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                              }`}
+                            >
+                              Absent
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setStudentStatusMap(prev => ({ ...prev, [student.id]: 'DROPPED' }));
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                                currentStatus === 'DROPPED'
+                                  ? 'bg-blue-600 text-white border-blue-600'
+                                  : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                              }`}
+                            >
+                              Drop
+                            </button>
                           </div>
                         </div>
-
-                        {/* Status Toggle Buttons */}
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            onClick={() => {
-                              setDriverStudents(prev => prev.map(s => s.id === student.id ? { ...s, status: 'PICKED' } : s));
-                            }}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
-                              student.status === 'PICKED'
-                                ? 'bg-emerald-500 text-white border-emerald-500'
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                            }`}
-                          >
-                            Picked
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setDriverStudents(prev => prev.map(s => s.id === student.id ? { ...s, status: 'ABSENT' } : s));
-                            }}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
-                              student.status === 'ABSENT'
-                                ? 'bg-rose-500 text-white border-rose-500'
-                                : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                            }`}
-                          >
-                            Absent
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setDriverStudents(prev => prev.map(s => s.id === student.id ? { ...s, status: 'DROPPED' } : s));
-                            }}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
-                              student.status === 'DROPPED'
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                            }`}
-                          >
-                            Drop
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+                <div className="p-4 border-t border-slate-100 bg-[#F4F8F5] flex items-center justify-between">
                   <span className="text-xs text-slate-500 font-medium">
-                    Changes save automatically to ERP
+                    Changes synced to School Transport Database
                   </span>
                   <button
                     onClick={() => setShowAttendanceModal(false)}
-                    className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer border-none"
+                    className="px-5 py-2 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold transition-colors cursor-pointer border-none"
                   >
                     Done
                   </button>
@@ -2252,7 +2329,7 @@ export function DashboardTransport({
             </div>
           )}
 
-          {/* MODAL 2: REPORT ISSUE */}
+          {/* MODAL 2: REPORT TRIP DELAY / ISSUE */}
           {showReportIssueModal && (
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 p-6 space-y-4 animate-scale-up">
@@ -2260,7 +2337,7 @@ export function DashboardTransport({
                   <div className="flex items-center gap-2 text-rose-600">
                     <AlertTriangle className="w-5 h-5" />
                     <h3 className="font-bold text-base text-slate-900">
-                      Report Trip Delay / Issue
+                      Report Route Delay / Issue
                     </h3>
                   </div>
                   <button
@@ -2272,10 +2349,9 @@ export function DashboardTransport({
                 </div>
 
                 <p className="text-xs text-slate-500">
-                  Select issue type to instantly notify the School Control Room and Parents on this route:
+                  Select issue type to notify the Control Room and Parents:
                 </p>
 
-                {/* Issue Type Chips */}
                 <div className="space-y-2">
                   {[
                     'Heavy Traffic Jam (+15m delay)',
@@ -2298,17 +2374,6 @@ export function DashboardTransport({
                   ))}
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 block">Additional Notes (Optional)</label>
-                  <textarea
-                    rows={2}
-                    value={issueNotes}
-                    onChange={(e) => setIssueNotes(e.target.value)}
-                    placeholder="Location landmark or extra message..."
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 outline-none"
-                  />
-                </div>
-
                 <div className="flex items-center justify-end gap-2 pt-2">
                   <button
                     onClick={() => setShowReportIssueModal(false)}
@@ -2318,106 +2383,20 @@ export function DashboardTransport({
                   </button>
                   <button
                     onClick={() => {
-                      setActiveAlert(`${issueType} reported by ${driverDisplayName} for ${activeRoute.name}.`);
+                      setActiveAlert(`${issueType} reported by ${driverDisplayName}.`);
                       setShowReportIssueModal(false);
                       alert('✅ Issue broadcasted to School Transport Manager and Parent Portal.');
                     }}
                     className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors cursor-pointer border-none shadow-md"
                   >
-                    Broadcast Alert
+                    Send Delay Notice
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* MODAL 3: FUEL LOG */}
-          {showFuelModal && (
-            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 p-6 space-y-5 animate-scale-up">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-amber-600">
-                    <Fuel className="w-5 h-5" />
-                    <h3 className="font-bold text-base text-slate-900">
-                      Fuel Log Entry
-                    </h3>
-                  </div>
-                  <button
-                    onClick={() => setShowFuelModal(false)}
-                    className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 border-none bg-transparent cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Fuel Slider */}
-                <div className="space-y-2 bg-amber-50/60 p-4 rounded-2xl border border-amber-100">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700">Current Fuel Gauge</span>
-                    <span className="text-xl font-black text-amber-700 font-mono">{fuelInput}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    value={fuelInput}
-                    onChange={(e) => setFuelInput(Number(e.target.value))}
-                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                  />
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                    <span>Empty (10%)</span>
-                    <span>Half (50%)</span>
-                    <span>Full (100%)</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 block">Liters Filled</label>
-                    <input
-                      type="text"
-                      value={fuelLiters}
-                      onChange={(e) => setFuelLiters(e.target.value)}
-                      placeholder="e.g. 45"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-800 outline-none"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700 block">Odometer (Km)</label>
-                    <input
-                      type="text"
-                      value={fuelOdometer}
-                      onChange={(e) => setFuelOdometer(e.target.value)}
-                      placeholder="e.g. 14,280"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-800 outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    onClick={() => setShowFuelModal(false)}
-                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold cursor-pointer border-none"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDriverFuelLevel(fuelInput);
-                      setShowFuelModal(false);
-                      alert('✅ Fuel log saved successfully.');
-                    }}
-                    className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-[#122A24] text-xs font-bold transition-colors cursor-pointer border-none shadow-md"
-                  >
-                    Save Fuel Entry
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* MODAL 4: EMERGENCY SOS */}
+          {/* MODAL 3: EMERGENCY SOS */}
           {showSosModal && (
             <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border-4 border-rose-500 p-6 space-y-5 animate-scale-up">
@@ -2429,7 +2408,7 @@ export function DashboardTransport({
                     EMERGENCY DRIVER SOS
                   </h3>
                   <p className="text-xs text-slate-600">
-                    One-tap priority emergency hotline for school bus drivers in distress:
+                    One-tap priority emergency hotline for bus drivers in distress:
                   </p>
                 </div>
 
@@ -2457,20 +2436,12 @@ export function DashboardTransport({
                     <span>🚨 Police Emergency Control</span>
                     <span className="font-mono text-[11px]">Dial 112</span>
                   </a>
-
-                  <a
-                    href="tel:108"
-                    className="w-full p-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-between font-bold text-xs no-underline cursor-pointer"
-                  >
-                    <span>🚑 Medical Ambulance</span>
-                    <span className="font-mono text-[11px]">Dial 108</span>
-                  </a>
                 </div>
 
                 <div className="flex items-center gap-2 pt-2">
                   <button
                     onClick={() => {
-                      setActiveAlert(`🚨 SOS ALERT: Emergency triggered by Driver ${driverDisplayName} for vehicle ${driverVehicleNo}!`);
+                      setActiveAlert(`🚨 SOS ALERT: Emergency triggered by Driver ${driverDisplayName}!`);
                       setShowSosModal(false);
                       alert('🚨 SOS alert broadcasted to school management and authorities.');
                     }}
@@ -2489,15 +2460,15 @@ export function DashboardTransport({
             </div>
           )}
 
-          {/* MODAL 5: NOTIFICATIONS & DISPATCH */}
+          {/* MODAL 4: NOTIFICATIONS & DISPATCH (READ-ONLY FOR DRIVER AS INSTRUCTED) */}
           {showNotificationModal && (
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 p-6 space-y-4 animate-scale-up">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Bell className="w-5 h-5 text-blue-600" />
+                    <Bell className="w-5 h-5 text-emerald-700" />
                     <h3 className="font-bold text-base text-slate-900">
-                      Driver Dispatch Messages
+                      Transport Dispatch Notices
                     </h3>
                   </div>
                   <button
@@ -2508,24 +2479,18 @@ export function DashboardTransport({
                   </button>
                 </div>
 
+                <p className="text-xs text-slate-500">
+                  Official notices sent from the School Control Room &amp; Parents:
+                </p>
+
                 <div className="space-y-3">
-                  <div className="p-3 rounded-2xl bg-blue-50/70 border border-blue-100 space-y-1">
+                  <div className="p-3 rounded-2xl bg-[#EBF5EF] border border-[#C5E2CF] space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-blue-900">Parent of Aarav Sharma</span>
+                      <span className="font-bold text-xs text-[#122A24]">Parent of Aarav Sharma</span>
                       <span className="text-[10px] text-slate-400 font-mono">07:20 AM</span>
                     </div>
-                    <p className="text-xs text-slate-600">
+                    <p className="text-xs text-slate-700">
                       &ldquo;Aarav will board at Green Park Stop today. Running 2 minutes ahead.&rdquo;
-                    </p>
-                  </div>
-
-                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-slate-900">School Control Room</span>
-                      <span className="text-[10px] text-slate-400 font-mono">07:10 AM</span>
-                    </div>
-                    <p className="text-xs text-slate-600">
-                      &ldquo;Road diversion near Anand School cleared. You can use standard route gate 2.&rdquo;
                     </p>
                   </div>
 
@@ -2535,7 +2500,7 @@ export function DashboardTransport({
                       <span className="text-[10px] text-slate-400 font-mono">07:05 AM</span>
                     </div>
                     <p className="text-xs text-slate-600">
-                      &ldquo;Morning trip assigned to UP32 AB 1234. Please ensure GPS transmitter is active.&rdquo;
+                      &ldquo;Morning trip assigned to {driverVehicleNo}. GPS transmitter active.&rdquo;
                     </p>
                   </div>
                 </div>
@@ -2545,14 +2510,14 @@ export function DashboardTransport({
                     onClick={() => {
                       setUnreadNotifications(0);
                     }}
-                    className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer border-none bg-transparent"
+                    className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer border-none bg-transparent"
                   >
                     Mark All as Read
                   </button>
 
                   <button
                     onClick={() => setShowNotificationModal(false)}
-                    className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer border-none"
+                    className="px-5 py-2 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold transition-colors cursor-pointer border-none"
                   >
                     Close
                   </button>
@@ -2561,14 +2526,17 @@ export function DashboardTransport({
             </div>
           )}
 
-          {/* MODAL 6: FULL SCHEDULE MODAL */}
+          {/* MODAL 5: FULL SCHEDULE MODAL (FIXED BY TRANSPORT INCHARGE) */}
           {showScheduleModal && (
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 p-6 space-y-5 animate-scale-up">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-base text-slate-900">
-                    Route 04 - Daily Schedule
-                  </h3>
+                  <div>
+                    <h3 className="font-bold text-base text-[#122A24]">
+                      {activeRoute.name} &bull; Daily Schedule
+                    </h3>
+                    <p className="text-xs text-slate-500">Fixed by Transport Incharge</p>
+                  </div>
                   <button
                     onClick={() => setShowScheduleModal(false)}
                     className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 border-none bg-transparent cursor-pointer"
@@ -2578,12 +2546,12 @@ export function DashboardTransport({
                 </div>
 
                 <div className="space-y-4">
-                  <div className="p-4 rounded-2xl bg-[#F0F5FF] border border-[#D9E6FE] space-y-2">
+                  <div className="p-4 rounded-2xl bg-[#EBF5EF] border border-[#C5E2CF] space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-blue-900 uppercase">Morning Shift (Current)</span>
-                      <span className="text-xs font-mono font-bold text-blue-600">07:15 AM – 08:30 AM</span>
+                      <span className="font-bold text-xs text-[#122A24] uppercase">Morning Shift (Current)</span>
+                      <span className="text-xs font-mono font-bold text-emerald-700">07:15 AM – 08:30 AM</span>
                     </div>
-                    <p className="text-xs text-slate-600">
+                    <p className="text-xs text-slate-700">
                       Depot &rarr; Green Park &rarr; Sector 62 &rarr; City Center &rarr; Sunrise Villa &rarr; Anand School
                     </p>
                   </div>

@@ -41,6 +41,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (senderRole === 'DRIVER') {
+      return NextResponse.json(
+        { success: false, error: 'Bus Drivers are not permitted to send broadcast messages.' },
+        { status: 403 }
+      );
+    }
+
     const results = await sendWebPushNotification({
       title,
       body: messageBody,

@@ -8882,6 +8882,7 @@ function ERPWorkspaceContent() {
           {activeTab === 'broadcast' && (
             <DashboardBroadcast
               schoolName={selectedSchool?.school_name}
+              userRole={effectiveRole}
             />
           )}
         </main>

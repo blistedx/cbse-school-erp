@@ -25,9 +25,11 @@ import { recordAudit } from '@/lib/client-audit';
 
 export interface DashboardBroadcastProps {
   schoolName?: string;
+  userRole?: string;
 }
 
-export function DashboardBroadcast({ schoolName = 'DPS International — CBSE' }: DashboardBroadcastProps) {
+export function DashboardBroadcast({ schoolName = 'DPS International — CBSE', userRole }: DashboardBroadcastProps) {
+  const isDriver = userRole === 'DRIVER';
   const [targetAudience, setTargetAudience] = useState<'ALL' | 'PARENTS' | 'FACULTY' | 'BUS_PARENTS'>('ALL');
   const [broadcastTitle, setBroadcastTitle] = useState('Heavy Rain Alert: School Dispersal Schedule Adjusted');
   const [broadcastBody, setBroadcastBody] = useState('Due to city meteorological forecast of torrential rain, school will disperse at 01:00 PM today. School buses will depart accordingly.');
@@ -482,103 +484,119 @@ export function DashboardBroadcast({ schoolName = 'DPS International — CBSE' }
       {/* MAIN CONTENT GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         
-        {/* Left (2 Cols): Broadcast Composer */}
+        {/* Left (2 Cols): Broadcast Composer (Admins/Principals) or Read-Only Info (Drivers) */}
         <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">
-            <h3 className="font-display font-bold text-base text-[#122A24] flex items-center gap-2">
-              <span>📢</span>
-              <span>Compose Announcement / Web Push Alert</span>
-            </h3>
-            <span className="px-2.5 py-0.5 bg-[#EBF5EF] text-[#1C443A] rounded-full font-mono text-[10.5px] font-bold border border-[#C5E2CF]">
-              BROADCAST ENGINE
-            </span>
-          </div>
-
-          <form onSubmit={handleSendBroadcast} className="space-y-4 text-xs">
-            {/* Target Audience Tabs */}
-            <div>
-              <label className="font-bold text-[#122A24] block mb-1.5 font-sans">Select Target Audience</label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  { id: 'ALL', label: 'All 1,200 Families' },
-                  { id: 'PARENTS', label: 'Parents Only' },
-                  { id: 'FACULTY', label: 'All 49 Faculty' },
-                  { id: 'BUS_PARENTS', label: 'Transport Bus Users' },
-                ].map((aud) => (
-                  <button
-                    key={aud.id}
-                    type="button"
-                    onClick={() => setTargetAudience(aud.id as any)}
-                    className={`py-2 px-3 rounded-xl font-bold border transition-all text-center cursor-pointer ${
-                      targetAudience === aud.id
-                        ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
-                        : 'bg-[#F8FAF9] text-slate-700 border-[#DCE8E0] hover:bg-white'
-                    }`}
-                  >
-                    {aud.label}
-                  </button>
-                ))}
+          {isDriver ? (
+            <div className="py-8 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#EBF5EF] text-[#122A24] flex items-center justify-center mx-auto border border-[#C5E2CF]">
+                <Radio className="w-6 h-6 text-emerald-700" />
+              </div>
+              <h3 className="font-display font-bold text-base text-[#122A24]">
+                Notice Board &amp; Official School Broadcasts
+              </h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Bus Drivers have read-only access to broadcast notices. You can view all school-wide announcements, route advisories, and weather alerts in the live feed.
+              </p>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EBF5EF] text-[#1C443A] text-xs font-mono font-bold border border-[#C5E2CF]">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Read-Only Notice Feed &bull; Driver Panel</span>
               </div>
             </div>
-
-            {/* Announcement Headline */}
-            <div>
-              <label className="font-bold text-[#122A24] block mb-1.5 font-sans">
-                Announcement Headline / Title <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={broadcastTitle}
-                onChange={(e) => setBroadcastTitle(e.target.value)}
-                placeholder="e.g. Heavy Rain Alert: School Dispersal Schedule Adjusted"
-                className="w-full p-3 border border-[#DCE8E0] bg-[#F8FAF9] focus:bg-white rounded-xl text-xs font-medium text-[#122A24] outline-none focus:ring-2 focus:ring-emerald-600 transition-all"
-              />
-            </div>
-
-            {/* Message Body */}
-            <div>
-              <label className="font-bold text-[#122A24] block mb-1.5 font-sans">
-                Broadcast Message Content <span className="text-rose-500">*</span>
-              </label>
-              <textarea
-                rows={4}
-                required
-                value={broadcastBody}
-                onChange={(e) => setBroadcastBody(e.target.value)}
-                placeholder="Type complete notice or emergency instructions..."
-                className="w-full p-3 border border-[#DCE8E0] bg-[#F8FAF9] focus:bg-white rounded-xl text-xs font-medium text-[#122A24] outline-none focus:ring-2 focus:ring-emerald-600 resize-none leading-relaxed transition-all"
-              />
-            </div>
-
-            {/* Urgent / Siren Checkbox */}
-            <label className="flex items-center gap-2.5 cursor-pointer p-3.5 bg-rose-50 rounded-2xl border border-rose-200">
-              <input
-                type="checkbox"
-                checked={isUrgent}
-                onChange={(e) => setIsUrgent(e.target.checked)}
-                className="w-4 h-4 accent-rose-600 rounded cursor-pointer"
-              />
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-rose-900 block">
-                  🚨 Flag as High Priority / Siren Alert (Requires user interaction &amp; vibrates device)
-                </span>
-                <span className="text-[11px] text-rose-700 block font-mono">
-                  Bypasses silent mode &amp; dispatches immediate OS notification banner
+          ) : (
+            <>
+              <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">
+                <h3 className="font-display font-bold text-base text-[#122A24] flex items-center gap-2">
+                  <span>📢</span>
+                  <span>Compose Announcement / Web Push Alert</span>
+                </h3>
+                <span className="px-2.5 py-0.5 bg-[#EBF5EF] text-[#1C443A] rounded-full font-mono text-[10.5px] font-bold border border-[#C5E2CF]">
+                  BROADCAST ENGINE
                 </span>
               </div>
-            </label>
 
-            {/* Submit Action Button */}
-            <button
-              type="submit"
-              disabled={isSending}
-              className="w-full py-3.5 bg-[#122A24] hover:bg-[#1C443A] disabled:opacity-50 text-white rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
-            >
-              <Send className="h-4 w-4 text-emerald-400" />
-              <span>{isSending ? 'Dispatching Push Notifications...' : '🚀 Dispatch Web Push Broadcast to All Devices'}</span>
-            </button>
-          </form>
+              <form onSubmit={handleSendBroadcast} className="space-y-4 text-xs">
+                {/* Target Audience Tabs */}
+                <div>
+                  <label className="font-bold text-[#122A24] block mb-1.5 font-sans">Select Target Audience</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { id: 'ALL', label: 'All 1,200 Families' },
+                      { id: 'PARENTS', label: 'Parents Only' },
+                      { id: 'FACULTY', label: 'All 49 Faculty' },
+                      { id: 'BUS_PARENTS', label: 'Transport Bus Users' },
+                    ].map((aud) => (
+                      <button
+                        key={aud.id}
+                        type="button"
+                        onClick={() => setTargetAudience(aud.id as any)}
+                        className={`py-2 px-3 rounded-xl font-bold border transition-all text-center cursor-pointer ${
+                          targetAudience === aud.id
+                            ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
+                            : 'bg-[#F8FAF9] text-slate-700 border-[#DCE8E0] hover:bg-white'
+                        }`}
+                      >
+                        {aud.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Broadcast Title */}
+                <div>
+                  <label className="font-bold text-[#122A24] block mb-1.5 font-sans">Notification Headline / Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={broadcastTitle}
+                    onChange={(e) => setBroadcastTitle(e.target.value)}
+                    placeholder="e.g. CBSE Mid-Term Exam Timing Shift"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#DCE8E0] bg-[#FAFCFA] focus:bg-white focus:border-[#122A24] outline-hidden text-xs font-semibold text-[#122A24] transition-all"
+                  />
+                </div>
+
+                {/* Message Body */}
+                <div>
+                  <label className="font-bold text-[#122A24] block mb-1.5 font-sans">Detailed Push Notification Body</label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={broadcastBody}
+                    onChange={(e) => setBroadcastBody(e.target.value)}
+                    placeholder="Full announcement details sent to lock screen..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#DCE8E0] bg-[#FAFCFA] focus:bg-white focus:border-[#122A24] outline-hidden text-xs font-medium text-slate-700 transition-all resize-none"
+                  />
+                </div>
+
+                {/* High-Priority Siren Toggle */}
+                <label className="flex items-center gap-3 p-3.5 rounded-2xl bg-rose-50/70 border border-rose-200 cursor-pointer hover:bg-rose-50 transition-all">
+                  <input
+                    type="checkbox"
+                    checked={isUrgent}
+                    onChange={(e) => setIsUrgent(e.target.checked)}
+                    className="w-4 h-4 accent-rose-600 rounded cursor-pointer"
+                  />
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-rose-900 block">
+                      🚨 Flag as High Priority / Siren Alert (Requires user interaction &amp; vibrates device)
+                    </span>
+                    <span className="text-[11px] text-rose-700 block font-mono">
+                      Bypasses silent mode &amp; dispatches immediate OS notification banner
+                    </span>
+                  </div>
+                </label>
+
+                {/* Submit Action Button */}
+                <button
+                  type="submit"
+                  disabled={isSending}
+                  className="w-full py-3.5 bg-[#122A24] hover:bg-[#1C443A] disabled:opacity-50 text-white rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+                >
+                  <Send className="h-4 w-4 text-emerald-400" />
+                  <span>{isSending ? 'Dispatching Push Notifications...' : '🚀 Dispatch Web Push Broadcast to All Devices'}</span>
+                </button>
+              </form>
+            </>
+          )}
         </div>
 
         {/* Right (1 Col): Broadcast Dispatch History */}
