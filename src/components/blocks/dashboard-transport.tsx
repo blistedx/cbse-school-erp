@@ -548,6 +548,22 @@ export function DashboardTransport({
     broadcastTelemetry(liveDriverGeo, false);
   };
 
+  // Auto-request location permission on login for Driver
+  useEffect(() => {
+    if (isDriverUser && typeof window !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        () => {
+          startDriverTrip();
+        },
+        (err) => {
+          setDriverTripActive(false);
+          setGpsStatusMessage('❌ Location permission not allowed. Tap "START GPS TRIP" to retry and allow live bus tracking.');
+        },
+        { enableHighAccuracy: true, timeout: 6000 }
+      );
+    }
+  }, [isDriverUser]);
+
   // ─────────────────────────────────────────────────────────────
   // PARENT LIVE BUS TRACKER STATE
   // ─────────────────────────────────────────────────────────────
@@ -588,55 +604,57 @@ export function DashboardTransport({
           </div>
 
           {/* Mode Navigation Tabs */}
-          <div className="flex items-center bg-black/40 p-1.5 rounded-2xl border border-white/10 gap-1 overflow-x-auto shrink-0">
-            <button
-              onClick={() => setViewMode('FLEET')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
-                viewMode === 'FLEET'
-                  ? 'bg-emerald-500 text-[#122A24] shadow-md font-extrabold'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Radio className="w-3.5 h-3.5" />
-              <span>Live Fleet Radar</span>
-            </button>
+          {!isDriverUser && (
+            <div className="flex items-center bg-black/40 p-1.5 rounded-2xl border border-white/10 gap-1 overflow-x-auto shrink-0">
+              <button
+                onClick={() => setViewMode('FLEET')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
+                  viewMode === 'FLEET'
+                    ? 'bg-emerald-500 text-[#122A24] shadow-md font-extrabold'
+                    : 'text-slate-300 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Radio className="w-3.5 h-3.5" />
+                <span>Live Fleet Radar</span>
+              </button>
 
-            <button
-              onClick={() => setViewMode('ROUTES')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
-                viewMode === 'ROUTES'
-                  ? 'bg-emerald-500 text-[#122A24] shadow-md font-extrabold'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Navigation className="w-3.5 h-3.5" />
-              <span>Route Management</span>
-            </button>
+              <button
+                onClick={() => setViewMode('ROUTES')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
+                  viewMode === 'ROUTES'
+                    ? 'bg-emerald-500 text-[#122A24] shadow-md font-extrabold'
+                    : 'text-slate-300 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Route Management</span>
+              </button>
 
-            <button
-              onClick={() => setViewMode('DRIVER')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
-                viewMode === 'DRIVER'
-                  ? 'bg-emerald-500 text-[#122A24] shadow-md font-extrabold'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>Driver Mobile App</span>
-            </button>
+              <button
+                onClick={() => setViewMode('DRIVER')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
+                  viewMode === 'DRIVER'
+                    ? 'bg-emerald-500 text-[#122A24] shadow-md font-extrabold'
+                    : 'text-slate-300 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>Driver Mobile App</span>
+              </button>
 
-            <button
-              onClick={() => setViewMode('PARENT')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
-                viewMode === 'PARENT'
-                  ? 'bg-emerald-500 text-[#122A24] shadow-md font-extrabold'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <MapPin className="w-3.5 h-3.5" />
-              <span>Parent Bus Radar</span>
-            </button>
-          </div>
+              <button
+                onClick={() => setViewMode('PARENT')}
+                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
+                  viewMode === 'PARENT'
+                    ? 'bg-emerald-500 text-[#122A24] shadow-md font-extrabold'
+                    : 'text-slate-300 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                <span>Parent Bus Radar</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Live SOS alert ticker if active */}
