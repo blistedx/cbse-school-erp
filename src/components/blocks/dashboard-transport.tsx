@@ -398,25 +398,36 @@ export function DashboardTransport({
     lastUpdated: 'Ready'
   });
   const [geoWatchId, setGeoWatchId] = useState<number | null>(null);
+  const [gpsPollTimer, setGpsPollTimer] = useState<any>(null);
   const [serverTelemetry, setServerTelemetry] = useState<any>(null);
   const [isLivePhoneStreaming, setIsLivePhoneStreaming] = useState(false);
+  const [gpsStatusMessage, setGpsStatusMessage] = useState<string>('Ready to Transmit');
 
   // Poll live telemetry from server to check if driver's mobile is actively transmitting
   useEffect(() => {
     let timer: any;
     const pollTelemetry = async () => {
       try {
-        const res = await fetch(`/api/transport/telemetry?routeId=${encodeURIComponent(selectedRouteId)}&t=${Date.now()}`);
+        const res = await fetch(`/api/transport/telemetry?t=${Date.now()}`);
         const data = await res.json();
         if (data && data.success) {
-          if (data.isOnline && data.telemetry) {
-            setServerTelemetry(data.telemetry);
-            setIsLivePhoneStreaming(true);
-            if (data.telemetry.speedKmh !== undefined) {
-              setCurrentSpeed(data.telemetry.speedKmh);
+          // Check all active telemetries or current route
+          let activeTele: any = null;
+          if (data.telemetries) {
+            if (data.telemetries[selectedRouteId]?.isOnline) {
+              activeTele = data.telemetries[selectedRouteId];
+            } else {
+              activeTele = Object.values(data.telemetries).find((t: any) => t.isOnline);
             }
-            if (data.telemetry.heading !== undefined) {
-              setHeadingDegrees(data.telemetry.heading);
+          }
+          if (activeTele && activeTele.isOnline) {
+            setServerTelemetry(activeTele);
+            setIsLivePhoneStreaming(true);
+            if (activeTele.speedKmh !== undefined) {
+              setCurrentSpeed(activeTele.speedKmh);
+            }
+            if (activeTele.heading !== undefined) {
+              setHeadingDegrees(activeTele.heading);
             }
           } else {
             setIsLivePhoneStreaming(false);
@@ -426,7 +437,7 @@ export function DashboardTransport({
     };
 
     pollTelemetry();
-    timer = setInterval(pollTelemetry, 2500);
+    timer = setInterval(pollTelemetry, 2000);
     return () => clearInterval(timer);
   }, [selectedRouteId]);
 
@@ -454,30 +465,69 @@ export function DashboardTransport({
     } catch (e) {}
   };
 
+  // Actively fetch real smartphone GPS even when stationary
+  const readAndTransmitLivePosition = () => {
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
+      setGpsStatusMessage('Geolocation not supported in this browser');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const speedKmh = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
+        const newGeo = {
+          latitude: Number(pos.coords.latitude.toFixed(6)),
+          longitude: Number(pos.coords.longitude.toFixed(6)),
+          speedKmh: speedKmh,
+          heading: pos.coords.heading || 0,
+          accuracyMeters: Math.round(pos.coords.accuracy || 3),
+          lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        };
+        setLiveDriverGeo(newGeo);
+        setGpsStatusMessage(`🟢 Streaming live GPS: ${newGeo.latitude}, ${newGeo.longitude}`);
+        broadcastTelemetry(newGeo, true);
+      },
+      (err) => {
+        if (err.code === 1) {
+          setGpsStatusMessage('❌ Location permission denied. Please allow location in browser.');
+        } else {
+          setGpsStatusMessage(`Searching GPS satellite signal... (${err.message})`);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+    );
+  };
+
   const startDriverTrip = () => {
     setDriverTripActive(true);
-    broadcastTelemetry(liveDriverGeo, true);
+    setGpsStatusMessage('Connecting to smartphone GPS sensor...');
 
+    // 1. Fetch immediately
+    readAndTransmitLivePosition();
+
+    // 2. Continuous interval every 2 seconds so stationary phone streams live coordinates
+    const intervalId = setInterval(readAndTransmitLivePosition, 2000);
+    setGpsPollTimer(intervalId);
+
+    // 3. Native watch position for movement tracking
     if (typeof window !== 'undefined' && 'geolocation' in navigator) {
       try {
         const id = navigator.geolocation.watchPosition(
           (pos) => {
-            const speedKmh = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : Math.floor(25 + Math.random() * 15);
+            const speedKmh = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
             const newGeo = {
               latitude: Number(pos.coords.latitude.toFixed(6)),
               longitude: Number(pos.coords.longitude.toFixed(6)),
               speedKmh: speedKmh,
-              heading: pos.coords.heading || 45,
-              accuracyMeters: Math.round(pos.coords.accuracy || 5),
+              heading: pos.coords.heading || 0,
+              accuracyMeters: Math.round(pos.coords.accuracy || 3),
               lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
             };
             setLiveDriverGeo(newGeo);
             broadcastTelemetry(newGeo, true);
           },
-          (err) => {
-            console.warn('[Driver Phone GPS Notice]', err.message);
-          },
-          { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 }
         );
         setGeoWatchId(id);
       } catch (e) {}
@@ -486,11 +536,16 @@ export function DashboardTransport({
 
   const stopDriverTrip = () => {
     setDriverTripActive(false);
-    broadcastTelemetry(liveDriverGeo, false);
+    setGpsStatusMessage('Trip Ended. GPS Transmitter Stopped.');
+    if (gpsPollTimer) {
+      clearInterval(gpsPollTimer);
+      setGpsPollTimer(null);
+    }
     if (geoWatchId !== null && typeof window !== 'undefined' && 'geolocation' in navigator) {
       navigator.geolocation.clearWatch(geoWatchId);
       setGeoWatchId(null);
     }
+    broadcastTelemetry(liveDriverGeo, false);
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -837,6 +892,75 @@ export function DashboardTransport({
               </div>
 
             </div>
+
+            {/* Live Real-Time Driver Smartphone GPS Pinpoint Card */}
+            {serverTelemetry && serverTelemetry.latitude ? (
+              <div className="bg-white rounded-3xl p-6 border-2 border-emerald-500 shadow-xl space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                      <MapPin className="w-5 h-5 text-emerald-600 animate-bounce" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-base text-[#122A24] flex items-center gap-2">
+                        <span>Driver Smartphone Live GPS</span>
+                        <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-mono font-bold ${isLivePhoneStreaming ? 'bg-emerald-100 text-emerald-700 animate-pulse' : 'bg-slate-100 text-slate-500'}`}>
+                          {isLivePhoneStreaming ? '● LIVE MOBILE STREAMING' : 'IDLE / RECENT'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 font-mono">
+                        {serverTelemetry.driver} &bull; Vehicle: {serverTelemetry.vehicleNo} &bull; Last ping: {serverTelemetry.lastUpdatedText || 'Just now'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <a
+                    href={`https://www.google.com/maps?q=${serverTelemetry.latitude},${serverTelemetry.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold flex items-center gap-1.5 transition-colors no-underline shadow-sm"
+                  >
+                    <Navigation className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Open in Google Maps &rarr;</span>
+                  </a>
+                </div>
+
+                {/* Live Coordinates Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Latitude</span>
+                    <span className="font-bold text-slate-800 text-sm">{serverTelemetry.latitude}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Longitude</span>
+                    <span className="font-bold text-slate-800 text-sm">{serverTelemetry.longitude}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Mobile Speed</span>
+                    <span className="font-bold text-emerald-600 text-sm">{serverTelemetry.speedKmh} km/h</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">GPS Accuracy</span>
+                    <span className="font-bold text-blue-600 text-sm">&plusmn;{serverTelemetry.accuracyMeters}m</span>
+                  </div>
+                </div>
+
+                {/* Real OpenStreetMap View of Driver's Exact Location */}
+                <div className="w-full h-64 rounded-2xl overflow-hidden border border-slate-200 relative bg-slate-100">
+                  <iframe
+                    title="Live Driver GPS Map"
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    scrolling="no"
+                    marginHeight={0}
+                    marginWidth={0}
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(serverTelemetry.longitude) - 0.008}%2C${Number(serverTelemetry.latitude) - 0.008}%2C${Number(serverTelemetry.longitude) + 0.008}%2C${Number(serverTelemetry.latitude) + 0.008}&layer=mapnik&marker=${serverTelemetry.latitude}%2C${serverTelemetry.longitude}`}
+                    className="w-full h-full"
+                  />
+                </div>
+              </div>
+            ) : null}
 
             {/* Route Stops Sequence Progression */}
             <div className="bg-[#EBF5EF] rounded-3xl p-6 border border-[#C5E2CF] shadow-sm">
@@ -1227,6 +1351,17 @@ export function DashboardTransport({
               <div className="text-xs text-amber-300 font-mono">
                 Scheduled Time: {nextStop.scheduledTime}
               </div>
+            </div>
+
+            {/* GPS Live Status Notice */}
+            <div className={`p-3 rounded-2xl text-xs font-mono text-center border transition-all ${
+              gpsStatusMessage.includes('❌')
+                ? 'bg-rose-950/70 border-rose-500/50 text-rose-300'
+                : driverTripActive
+                ? 'bg-emerald-950/70 border-emerald-400/50 text-emerald-300 animate-pulse'
+                : 'bg-white/5 border-white/10 text-slate-400'
+            }`}>
+              {gpsStatusMessage}
             </div>
 
             {/* Start / Stop GPS Button */}
