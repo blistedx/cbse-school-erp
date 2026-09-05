@@ -978,4 +978,60 @@ a {
     background: white !important;
     page-break-inside: avoid !important;
   }
+
+  /* Universal Multi-Page Layout Flow Override */
+  html, body, #__next, [suppressHydrationWarning], main {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+  }
+
+  #report-modal-backdrop,
+  #report-modal-dialog,
+  #report-modal-scroll {
+    position: static !important;
+    display: block !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  #printable-report-sheet {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  #printable-report-sheet table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+  }
+
+  #printable-report-sheet thead {
+    display: table-header-group !important;
+  }
+
+  #printable-report-sheet tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
 }
+

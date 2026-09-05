@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import { Printer, Download, X, Building2, CheckCircle2 } from 'lucide-react';
+import { Printer, Download, X, Building2 } from 'lucide-react';
 import { School } from '@/lib/types';
 
 export interface ReportColumn {
@@ -44,7 +44,7 @@ export function InstitutionalReportModal({
 
   const schoolName = (school as any)?.name || school?.school_name || 'Delhi Public School, Sector 12';
   const schoolCode = school?.school_code || school?.id || 'DPS2026';
-  const affNo = school?.affiliation_no || (school as any)?.affiliation_number || 'CBSE/AFF/2026/0894';
+  const affNo = school?.affiliation_no || (school as any)?.affiliation_number || 'AFF/2026/0894';
   const schoolAddress = school?.address || 'Pocket 4, Institutional Area, City Campus, Delhi NCR - 110075';
   const schoolPhone = school?.phone || (school as any)?.contact_phone || '+91 11 2805 1200';
   const schoolEmail = school?.email || (school as any)?.contact_email || 'info@dps2026.edu.in';
@@ -62,164 +62,145 @@ export function InstitutionalReportModal({
 
   const refNo = `REF: ${schoolCode}/RPT/${session}/${Math.floor(1000 + Math.random() * 9000)}`;
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const cleanReportTitle = (reportTitle || 'REPORT').replace(/CBSE\s*/gi, '').trim() || 'REPORT';
   const cleanReportSubtitle = reportSubtitle ? reportSubtitle.replace(/CBSE\s*/gi, '').trim() : '';
+
+  const handlePrint = () => {
+    const sheet = document.getElementById('printable-report-sheet');
+    if (!sheet) {
+      window.print();
+      return;
+    }
+
+    try {
+      const existingFrame = document.getElementById('report-print-iframe');
+      if (existingFrame) existingFrame.remove();
+
+      const iframe = document.createElement('iframe');
+      iframe.id = 'report-print-iframe';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.opacity = '0';
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentWindow?.document;
+      if (!doc) {
+        window.print();
+        return;
+      }
+
+      let stylesHtml = '';
+      document.querySelectorAll('style, link[rel="stylesheet"]').forEach((el) => {
+        stylesHtml += el.outerHTML;
+      });
+
+      doc.open();
+      doc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <title>${cleanReportTitle}</title>
+            ${stylesHtml}
+            <style>
+              @page {
+                size: A4 portrait;
+                margin: 12mm 10mm 12mm 10mm;
+              }
+              *, *::before, *::after {
+                box-sizing: border-box;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                height: auto !important;
+                min-height: 100% !important;
+                overflow: visible !important;
+                background: #ffffff !important;
+                color: #122A24 !important;
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              }
+              #printable-report-sheet {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                border: none !important;
+                background: transparent !important;
+              }
+              table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                page-break-inside: auto !important;
+              }
+              thead {
+                display: table-header-group !important;
+              }
+              tbody {
+                display: table-row-group !important;
+              }
+              tr {
+                page-break-inside: avoid !important;
+                page-break-after: auto !important;
+              }
+              .report-signature-block {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+              }
+              .no-print {
+                display: none !important;
+              }
+            </style>
+          </head>
+          <body>
+            <div id="printable-report-sheet">
+              ${sheet.innerHTML}
+            </div>
+          </body>
+        </html>
+      `);
+      doc.close();
+
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (e) {
+          window.print();
+        } finally {
+          setTimeout(() => {
+            iframe.remove();
+          }, 3000);
+        }
+      }, 300);
+    } catch (err) {
+      window.print();
+    }
+  };
 
   return (
     <div
       id="report-modal-backdrop"
       className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
     >
-      
-      {/* ─────────────────────────────────────────────────────────────
-          PRINT-SPECIFIC CSS INJECTION (MULTI-PAGE PAGINATION FIX)
-          ───────────────────────────────────────────────────────────── */}
-      <style jsx global>{`
-        @media print {
-          /* 1. Ensure HTML & body flow continuously with no height or overflow bounds */
-          html, body {
-            height: auto !important;
-            min-height: 100% !important;
-            overflow: visible !important;
-            background: white !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-
-          /* 2. Hide non-modal UI */
-          body * {
-            visibility: hidden !important;
-          }
-
-          /* 3. Strip all modal wrappers of fixed/absolute positioning and overflow constraints */
-          #report-modal-backdrop,
-          #report-modal-dialog,
-          #report-modal-scroll,
-          #printable-report-sheet,
-          #printable-report-sheet * {
-            visibility: visible !important;
-          }
-
-          #report-modal-backdrop {
-            position: static !important;
-            display: block !important;
-            inset: auto !important;
-            width: 100% !important;
-            height: auto !important;
-            min-height: auto !important;
-            max-height: none !important;
-            overflow: visible !important;
-            background: transparent !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            border: none !important;
-            box-shadow: none !important;
-            backdrop-filter: none !important;
-            z-index: auto !important;
-          }
-
-          #report-modal-dialog {
-            position: static !important;
-            display: block !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            height: auto !important;
-            min-height: auto !important;
-            max-height: none !important;
-            overflow: visible !important;
-            background: transparent !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            border: none !important;
-            box-shadow: none !important;
-            border-radius: 0 !important;
-            transform: none !important;
-            animation: none !important;
-          }
-
-          #report-modal-scroll {
-            position: static !important;
-            display: block !important;
-            width: 100% !important;
-            height: auto !important;
-            min-height: auto !important;
-            max-height: none !important;
-            overflow: visible !important;
-            background: transparent !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-
-          /* 4. The report sheet itself: standard relative block flowing across pages */
-          #printable-report-sheet {
-            position: relative !important;
-            display: block !important;
-            left: auto !important;
-            top: auto !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            height: auto !important;
-            min-height: auto !important;
-            overflow: visible !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            box-shadow: none !important;
-            border: none !important;
-            border-radius: 0 !important;
-          }
-
-          /* 5. Clean multi-page table formatting */
-          table {
-            width: 100% !important;
-            page-break-inside: auto !important;
-            border-collapse: collapse !important;
-          }
-
-          thead {
-            display: table-header-group !important; /* Repeats table header at top of every printed page */
-          }
-
-          tbody {
-            display: table-row-group !important;
-          }
-
-          tr {
-            page-break-inside: avoid !important; /* Prevents individual rows from being severed */
-            page-break-after: auto !important;
-          }
-
-          .report-signature-block {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
-
-          .no-print {
-            display: none !important;
-          }
-
-          @page {
-            size: A4 portrait;
-            margin: 12mm 10mm 12mm 10mm;
-          }
-        }
-      `}</style>
-
       {/* Modal Container */}
       <div
         id="report-modal-dialog"
-        className="bg-[#EBF5EF] rounded-3xl w-full max-w-6xl max-h-[94vh] flex flex-col shadow-2xl border border-[#C5E2CF] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="bg-[#EBF5EF] rounded-3xl w-full max-w-5xl max-h-[94vh] flex flex-col shadow-2xl border border-[#C5E2CF] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
       >
         
         {/* Top Control Bar (Hidden in Print) */}
         <div className="no-print bg-[#122A24] text-white p-4 px-6 flex items-center justify-between gap-3 shrink-0 flex-wrap">
           <div>
             <div className="text-[11px] font-mono text-emerald-300 uppercase font-bold tracking-wider">
-              Official Document Engine
+              Institutional Document Engine
             </div>
             <h2 className="font-display font-bold text-base text-white">
               {cleanReportTitle}
@@ -262,20 +243,20 @@ export function InstitutionalReportModal({
         >
           
           {/* ─────────────────────────────────────────────────────────
-              THE OFFICIAL PRINTABLE A4 REPORT SHEET
+              THE OFFICIAL PRINTABLE A4 REPORT SHEET (Classic Format)
               ───────────────────────────────────────────────────────── */}
           <div
             id="printable-report-sheet"
-            className="w-full max-w-[950px] bg-white text-[#122A24] p-6 sm:p-8 rounded-2xl shadow-lg border border-[#DCE8E0] space-y-5 font-sans text-xs"
+            className="w-full max-w-[850px] bg-white text-[#122A24] p-8 sm:p-10 rounded-2xl shadow-lg border border-[#DCE8E0] space-y-6 font-sans text-xs"
           >
             
             {/* 1. INSTITUTIONAL LETTERHEAD */}
-            <div className="border-b-2 border-[#122A24] pb-4 space-y-2">
+            <div className="border-b-2 border-[#122A24] pb-5 space-y-2">
               <div className="flex items-start justify-between gap-4">
                 
                 {/* School Logo / Crest Placeholder */}
-                <div className="w-14 h-14 rounded-2xl bg-[#122A24] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <Building2 className="w-8 h-8 text-emerald-400" />
+                <div className="w-16 h-16 rounded-2xl bg-[#122A24] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Building2 className="w-9 h-9 text-emerald-400" />
                 </div>
 
                 {/* Central School Identity */}
@@ -283,11 +264,14 @@ export function InstitutionalReportModal({
                   <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#122A24] tracking-tight uppercase">
                     {schoolName}
                   </h1>
-                  <p className="text-[11px] font-bold text-[#1C443A] uppercase tracking-wider">
-                    OFFICIAL REPORT
+                  <p className="text-[11px] font-semibold text-[#2D5A4E]">
+                    Recognized Senior Secondary Institution &bull; New Delhi
+                  </p>
+                  <p className="text-[10.5px] font-mono text-slate-600">
+                    Affiliation No: <strong>{affNo}</strong> &bull; School Code: <strong>{schoolCode}</strong>
                   </p>
                   <p className="text-[10px] text-slate-500">
-                    School Code: <strong>{schoolCode}</strong> &bull; {schoolAddress} &bull; Ph: {schoolPhone}
+                    {schoolAddress} &bull; Ph: {schoolPhone} &bull; Email: {schoolEmail}
                   </p>
                 </div>
 
@@ -303,7 +287,7 @@ export function InstitutionalReportModal({
             </div>
 
             {/* 2. REPORT TITLE & BANNER */}
-            <div className="bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="font-display font-bold text-sm sm:text-base text-[#122A24] uppercase tracking-wide">
                   {cleanReportTitle}
@@ -405,7 +389,7 @@ export function InstitutionalReportModal({
                   * This is an official institutional report generated from School ERP Core.
                 </div>
                 <div>
-                  Status: <strong>OFFICIAL &amp; VERIFIED</strong>
+                  Status: <strong>VERIFIED &amp; LOCKED</strong>
                 </div>
               </div>
 

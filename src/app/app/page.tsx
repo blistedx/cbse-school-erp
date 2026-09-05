@@ -3203,6 +3203,24 @@ function ERPWorkspaceContent() {
     const totalSiblings = siblingGroups.reduce((acc, g) => acc + g.students.length, 0);
     const fullySettled = siblingGroups.filter(g => g.allFeesPaid).length;
 
+    // Flatten into individual scholar rows with clear sibling linkage
+    const siblingRows: any[] = [];
+    siblingGroups.forEach(g => {
+      g.students.forEach((s, sIdx) => {
+        siblingRows.push({
+          ...s,
+          family_name: g.familyName,
+          sibling_tag: `Sibling ${sIdx + 1} of ${g.students.length}`,
+          father_name_resolved: g.fatherName || s.father_name || '—',
+          mother_name_resolved: g.motherName || s.mother_name || '—',
+          phone_resolved: g.phone || s.guardian_phone || s.father_phone || '—',
+          address_resolved: g.address || s.address || '—',
+          family_dues: g.totalDues,
+          family_settled: g.allFeesPaid
+        });
+      });
+    });
+
     const stats = [
       { label: 'Total Family Units', value: `${siblingGroups.length} Households` },
       { label: 'Co-Enrolled Siblings', value: `${totalSiblings} Scholars` },
@@ -3211,62 +3229,31 @@ function ERPWorkspaceContent() {
     ];
 
     const cols: ReportColumn[] = [
-      {
-        header: 'SIBLING STUDENTS (ENROLLED)',
-        render: (g: any) => (
-          <div className="space-y-1.5 py-1">
-            <div className="font-bold text-[#122A24] text-[11px] flex items-center gap-1.5">
-              <span>{g.familyName}</span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold">
-                {g.students.length} Siblings
-              </span>
-            </div>
-            <div className="space-y-1 pl-1">
-              {g.students.map((s: any, sIdx: number) => (
-                <div key={s.id || sIdx} className="flex items-center gap-1 text-[10px] text-slate-800">
-                  <span className="w-3.5 h-3.5 rounded-full bg-[#122A24] text-white text-[8.5px] font-bold flex items-center justify-center shrink-0">
-                    {sIdx + 1}
-                  </span>
-                  <span className="font-bold text-[#122A24]">{s.full_name}</span>
-                  <span className="text-slate-500 font-mono text-[9px]">
-                    (Class: {s.class_name}-{s.section || 'A'} | Adm: {s.admission_no})
-                  </span>
-                </div>
-              ))}
-            </div>
+      { header: 'ADM NO', key: 'admission_no', width: '10%' },
+      { 
+        header: 'STUDENT NAME', 
+        render: (r: any) => (
+          <div>
+            <span className="font-bold text-[#122A24] text-[11px]">{r.full_name}</span>
+            <span className="block text-[9px] text-[#1C443A] font-semibold">{r.sibling_tag} &bull; {r.family_name}</span>
           </div>
-        ),
-        width: '32%'
+        ), 
+        width: '20%' 
       },
-      {
-        header: 'FATHER NAME',
-        render: (g: any) => <span className="font-semibold text-slate-800 text-[10.5px]">{g.fatherName || '—'}</span>,
-        width: '15%'
-      },
-      {
-        header: 'MOTHER NAME',
-        render: (g: any) => <span className="font-semibold text-slate-800 text-[10.5px]">{g.motherName || '—'}</span>,
-        width: '15%'
-      },
-      {
-        header: 'MOBILE NUMBER',
-        render: (g: any) => <span className="font-mono text-slate-700 font-bold text-[10.5px]">{g.phone || '—'}</span>,
-        width: '13%'
-      },
-      {
-        header: 'RESIDENTIAL ADDRESS',
-        render: (g: any) => <span className="text-slate-600 text-[10px] leading-tight block">{g.address || '—'}</span>,
-        width: '15%'
-      },
-      {
-        header: 'STATUS',
-        render: (g: any) => (
-          <span className={`px-2 py-0.5 rounded text-[9.5px] font-bold whitespace-nowrap ${g.allFeesPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-            {g.allFeesPaid ? 'ALL CLEAR' : `DUE ₹${g.totalDues.toLocaleString()}`}
+      { header: 'CLASS & SEC', render: (r: any) => `${r.class_name || 'N/A'} (${r.section || 'A'})`, width: '10%', align: 'center' },
+      { header: 'FATHER NAME', render: (r: any) => <span className="font-medium text-slate-800">{r.father_name_resolved}</span>, width: '14%' },
+      { header: 'MOTHER NAME', render: (r: any) => <span className="font-medium text-slate-800">{r.mother_name_resolved}</span>, width: '14%' },
+      { header: 'MOBILE NO', render: (r: any) => <span className="font-mono text-slate-700 font-semibold">{r.phone_resolved}</span>, width: '12%', align: 'center' },
+      { header: 'RESIDENTIAL ADDRESS', render: (r: any) => <span className="text-slate-600 text-[10px] leading-tight block">{r.address_resolved}</span>, width: '12%' },
+      { 
+        header: 'STATUS', 
+        render: (r: any) => (
+          <span className={`px-2 py-0.5 rounded text-[9px] font-bold whitespace-nowrap ${r.family_settled ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+            {r.family_settled ? 'CLEAR' : `DUE ₹${r.family_dues}`}
           </span>
-        ),
-        width: '10%',
-        align: 'right'
+        ), 
+        width: '8%', 
+        align: 'right' 
       }
     ];
 
@@ -3282,7 +3269,7 @@ function ERPWorkspaceContent() {
       ],
       statsSummary: stats,
       columns: cols,
-      data: siblingGroups,
+      data: siblingRows,
       onDownloadCSV: handleExportSiblingsCSV
     });
   };
