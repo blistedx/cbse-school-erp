@@ -130,11 +130,51 @@ export interface Student {
   bus_route_no?: string;
   pickup_point?: string;
 
+  // RTE (Right to Education) Quota - Section 12(1)(c)
+  is_rte?: 'YES' | 'NO';
+  rte_allotment_no?: string;
+  rte_category?: string;
+  rte_income_cert_no?: string;
+
+  // Hostel Accommodation Facility
+  hostel_opted?: 'NO' | 'WITHOUT_AC' | 'WITH_AC';
+  hostel_wing?: string;
+  hostel_room_no?: string;
+  hostel_bed_no?: string;
+
   // Medical / Emergency
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
   medical_conditions?: string;
 }
+
+export interface HostelRoom {
+  id: string;
+  roomNumber: string;
+  wing: 'BOYS_SENIOR' | 'BOYS_JUNIOR' | 'GIRLS_WING' | string;
+  type: 'WITHOUT_AC' | 'WITH_AC';
+  capacity: number;
+  occupied: number;
+  beds: {
+    bedNumber: string;
+    studentId?: string;
+    studentName?: string;
+    className?: string;
+    allocatedDate?: string;
+  }[];
+  floor: number;
+  amenities: string[];
+}
+
+export interface HostelFeeHead {
+  id: string;
+  particulars: string;
+  annualFee: number;
+  monthlyFee: number;
+  refundable?: boolean;
+  type: 'WITHOUT_AC' | 'WITH_AC' | 'SECURITY';
+}
+
 
 // Comprehensive CBSE Affiliation & OASIS Compliant Teacher / Staff Record
 export interface Teacher {
@@ -315,6 +355,8 @@ export interface FeeInvoice {
   transport_fee?: number;
   admission_fee?: number;
   annual_fee?: number;
+  hostel_fee?: number;
+  hostel_security?: number;
   exam_fee?: number;
   concession_amount?: number;
   concession_reason?: string;

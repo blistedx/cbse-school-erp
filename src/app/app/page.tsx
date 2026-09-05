@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Building2,
+  Bed,
+  Hotel,
   GraduationCap,
   Users,
   CreditCard,
@@ -166,6 +168,10 @@ const DashboardVisitorGate = dynamic(
   () => import('@/components/blocks/dashboard-visitor-gate').then((m) => m.DashboardVisitorGate),
   { ssr: false }
 );
+const DashboardHostel = dynamic(
+  () => import('@/components/blocks/dashboard-hostel').then((m) => m.DashboardHostel),
+  { ssr: false }
+);
 import { sendTestNotification, getNotificationPermissionStatus } from '@/lib/push-notifications';
 import BroadcastInboxModal, { getReadBroadcastIds } from '@/components/broadcast-inbox-modal';
 
@@ -307,6 +313,12 @@ const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code:
     subtitle: 'VISITOR LOG & STUDENT EARLY DISPERSAL',
     code: 'MOD-23 // SECURITY_GATE',
     highlight: 'CBSE CHILD SAFETY PROTOCOL',
+  },
+  hostel: {
+    title: 'HOSTEL & BOARDING',
+    subtitle: 'ROOM & BED MATRIX, WARDEN DESK & MESS',
+    code: 'MOD-24 // RESIDENTIAL',
+    highlight: 'CBSE BOARDING INFRASTRUCTURE & DUES',
   },
 };
 
@@ -547,14 +559,14 @@ function ERPWorkspaceContent() {
     if (!currentUser || isPrincipalMaster) {
       return [
         'overview', 'students', 'siblings', 'teachers', 'classes', 'subjects',
-        'attendance', 'fees', 'reports', 'certificates', 'transport', 'exams',
+        'attendance', 'fees', 'reports', 'certificates', 'transport', 'hostel', 'exams',
         'library', 'visitors', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs',
         'settings', 'permissions', 'profile'
       ];
     }
 
     if (effectiveRole === 'ACCOUNTANT') {
-      return ['fees', 'students', 'siblings', 'reports', 'certificates', 'data_hub', 'notices', 'profile'];
+      return ['fees', 'students', 'siblings', 'hostel', 'reports', 'certificates', 'data_hub', 'notices', 'profile'];
     }
     if (effectiveRole === 'DRIVER') {
       return ['transport', 'notices', 'broadcast', 'profile'];
@@ -1061,7 +1073,17 @@ function ERPWorkspaceContent() {
     pickup_point: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
-    medical_conditions: ''
+    medical_conditions: '',
+    // CBSE RTE 25% Free Quota
+    is_rte: 'NO',
+    rte_allotment_no: '',
+    rte_category: 'EWS',
+    rte_income_cert_no: '',
+    // Residential Hostel Facility
+    hostel_opted: 'NO',
+    hostel_wing: 'BOYS_WING',
+    hostel_room_no: '',
+    hostel_bed_no: ''
   };
   const [studentForm, setStudentForm] = useState<Partial<Student>>(initialStudentForm);
   const [collectFeeNow, setCollectFeeNow] = useState(false);
@@ -1076,6 +1098,8 @@ function ERPWorkspaceContent() {
       academicSession: studentForm.academic_session || selectedSession,
       transportOpted: studentForm.transport_opted || 'NO',
       transportSlabId: studentForm.transport_slab_id || '1',
+      isRte: studentForm.is_rte || 'NO',
+      hostelOpted: studentForm.hostel_opted || 'NO'
     });
   }, [
     studentForm.class_name,
@@ -1084,6 +1108,8 @@ function ERPWorkspaceContent() {
     studentForm.academic_session,
     studentForm.transport_opted,
     studentForm.transport_slab_id,
+    studentForm.is_rte,
+    studentForm.hostel_opted,
     selectedSession
   ]);
 
@@ -1772,6 +1798,8 @@ function ERPWorkspaceContent() {
               transport_fee: registrationFeeBreakdown.transportFeeTotal,
               admission_fee: registrationFeeBreakdown.admissionFee,
               annual_fee: registrationFeeBreakdown.annualFee,
+              hostel_fee: registrationFeeBreakdown.hostelFeeTotal,
+              hostel_security: registrationFeeBreakdown.hostelSecurityMoney,
               status: collectFeeNow ? 'PAID' : 'PENDING',
               payment_mode: collectFeeNow ? initialFeePaymentMode : 'Pending Settlement',
               paid_date: collectFeeNow ? new Date().toISOString().split('T')[0] : undefined,
@@ -1821,6 +1849,8 @@ function ERPWorkspaceContent() {
         admission_type: 'NEW',
         transport_opted: 'NO',
         transport_slab_id: '1',
+        is_rte: 'NO',
+        hostel_opted: 'NO',
         passcode: '123456'
       });
       setCollectFeeNow(false);
@@ -4008,6 +4038,17 @@ function ERPWorkspaceContent() {
               </button>
             )}
 
+            {allowedTabs.includes('hostel') && (
+              <button
+                onClick={() => { setActiveTab('hostel'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
+                  activeTab === 'hostel' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Bed className="h-4 w-4 shrink-0 text-emerald-300" /> Hostel &amp; Boarding
+              </button>
+            )}
+
             {allowedTabs.includes('library') && (
               <button
                 onClick={() => { setActiveTab('library'); setMobileMenuOpen(false); }}
@@ -4496,6 +4537,17 @@ function ERPWorkspaceContent() {
               }`}
             >
               <Bus className="h-4 w-4 shrink-0 text-blue-300" /> Transport &amp; GPS Fleet
+            </button>
+          )}
+
+          {allowedTabs.includes('hostel') && (
+            <button
+              onClick={() => setActiveTab('hostel')}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
+                activeTab === 'hostel' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <Bed className="h-4 w-4 shrink-0 text-emerald-300" /> Hostel &amp; Boarding
             </button>
           )}
 
@@ -8832,6 +8884,15 @@ function ERPWorkspaceContent() {
             />
           )}
 
+          {/* TAB: RESIDENTIAL HOSTEL & BOARDING MANAGEMENT */}
+          {activeTab === 'hostel' && (
+            <DashboardHostel
+              students={students}
+              currentUser={currentUser}
+              userRole={effectiveRole}
+            />
+          )}
+
           {/* TAB: CBSE EXAMINATIONS & DIGITAL MARKSHEETS */}
           {activeTab === 'exams' && (
             effectiveRole === 'STUDENT' ? (
@@ -9147,6 +9208,74 @@ function ERPWorkspaceContent() {
                       <option value="OVERDUE">OVERDUE</option>
                     </select>
                   </div>
+                </div>
+
+                {/* CBSE RTE 25% Free Quota Clause (RTE Act 2009 Sec 12(1)(c)) */}
+                <div className="pt-3 border-t border-emerald-200/80 bg-white/70 p-3 rounded-lg border border-dashed border-emerald-300">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+                    <div>
+                      <span className="font-semibold text-emerald-950 flex items-center gap-1.5 text-xs">
+                        <Award className="w-3.5 h-3.5 text-emerald-700" />
+                        RTE Quota Admission (Right to Education Act — 25% Free Seat)
+                      </span>
+                      <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                        Exempts 100% tuition/academic fee as per government mandate for EWS / Disadvantaged groups.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={studentForm.is_rte || 'NO'}
+                        onChange={(e) => setStudentForm({ ...studentForm, is_rte: e.target.value as any })}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${
+                          studentForm.is_rte === 'YES'
+                            ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        <option value="NO">NO — Regular General Enrolment</option>
+                        <option value="YES">YES — 25% RTE Free Quota Allotment</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {studentForm.is_rte === 'YES' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-emerald-100 animate-in fade-in duration-200">
+                      <div>
+                        <label className="block font-semibold text-emerald-950 mb-1 text-[11px]">RTE Portal Allotment No *</label>
+                        <input
+                          type="text"
+                          value={studentForm.rte_allotment_no || ''}
+                          onChange={(e) => setStudentForm({ ...studentForm, rte_allotment_no: e.target.value })}
+                          placeholder="e.g. RTE-UP-2026-98124"
+                          className="w-full px-2.5 py-1.5 border border-emerald-300 rounded-lg text-xs bg-white font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-emerald-950 mb-1 text-[11px]">RTE Beneficiary Category</label>
+                        <select
+                          value={studentForm.rte_category || 'EWS'}
+                          onChange={(e) => setStudentForm({ ...studentForm, rte_category: e.target.value as any })}
+                          className="w-full px-2.5 py-1.5 border border-emerald-300 rounded-lg text-xs bg-white"
+                        >
+                          <option value="EWS">Economically Weaker Section (EWS)</option>
+                          <option value="DISADVANTAGED_GROUP">Disadvantaged Group (SC/ST/OBC-NCL)</option>
+                          <option value="ORPHAN">Orphan / Destitute Child</option>
+                          <option value="HIV_AFFECTED">HIV Affected / Vulnerable Child</option>
+                          <option value="TRANSGENDER">Transgender / Special Protection</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-emerald-950 mb-1 text-[11px]">Income / Caste Cert No</label>
+                        <input
+                          type="text"
+                          value={studentForm.rte_income_cert_no || ''}
+                          onChange={(e) => setStudentForm({ ...studentForm, rte_income_cert_no: e.target.value })}
+                          placeholder="Tehsildar Cert #78219"
+                          className="w-full px-2.5 py-1.5 border border-emerald-300 rounded-lg text-xs bg-white font-mono"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -9502,6 +9631,84 @@ function ERPWorkspaceContent() {
                     />
                   </div>
                 </div>
+
+                {/* RESIDENTIAL HOSTEL & BOARDING FACILITY SELECTION */}
+                <div className="pt-3 border-t border-slate-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+                    <div>
+                      <span className="font-semibold text-[var(--ink-navy)] flex items-center gap-1.5 text-xs">
+                        <Bed className="w-3.5 h-3.5 text-emerald-700" />
+                        Hostel &amp; Boarding Facility (Resident Inmate)
+                      </span>
+                      <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                        Includes furnished room accommodation, 4-time mess, laundry &amp; 24/7 security. Fee automatically adds to breakdown.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={studentForm.hostel_opted || 'NO'}
+                        onChange={(e) => setStudentForm({ ...studentForm, hostel_opted: e.target.value as any })}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${
+                          studentForm.hostel_opted && studentForm.hostel_opted !== 'NO'
+                            ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        <option value="NO">NO — Day Scholar (No Boarding)</option>
+                        <option value="WITHOUT_AC">YES — Standard Room (Non-AC • ₹72,000/yr)</option>
+                        <option value="WITH_AC">YES — Air Conditioned (AC • ₹94,000/yr)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {studentForm.hostel_opted && studentForm.hostel_opted !== 'NO' && (
+                    <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-300/70 space-y-2.5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between text-[11px] font-mono text-emerald-900 border-b border-emerald-200 pb-1.5">
+                        <span className="flex items-center gap-1 font-semibold">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                          Hostel Fee Schedule Active: {studentForm.hostel_opted === 'WITH_AC' ? '₹94,000/yr (₹7,833/mo)' : '₹72,000/yr (₹6,000/mo)'}
+                        </span>
+                        <span className="font-bold text-emerald-800 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                          + ₹10,000 Refundable Caution Deposit
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block font-semibold text-emerald-950 mb-1 text-[11px]">Hostel Wing / Block *</label>
+                          <select
+                            value={studentForm.hostel_wing || 'BOYS_WING'}
+                            onChange={(e) => setStudentForm({ ...studentForm, hostel_wing: e.target.value as any })}
+                            className="w-full px-2.5 py-1.5 border border-emerald-300 rounded-lg text-xs bg-white font-medium"
+                          >
+                            <option value="BOYS_WING">Senior Boys Wing (Tagore Hostel)</option>
+                            <option value="GIRLS_WING">Girls Residence (Gargi Hostel)</option>
+                            <option value="JUNIOR_WING">Junior Cadets Block (Subhash Wing)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block font-semibold text-emerald-950 mb-1 text-[11px]">Allocated Room No (Optional)</label>
+                          <input
+                            type="text"
+                            value={studentForm.hostel_room_no || ''}
+                            onChange={(e) => setStudentForm({ ...studentForm, hostel_room_no: e.target.value })}
+                            placeholder="e.g. B-204"
+                            className="w-full px-2.5 py-1.5 border border-emerald-300 rounded-lg text-xs bg-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-semibold text-emerald-950 mb-1 text-[11px]">Allocated Bed / Berth No</label>
+                          <input
+                            type="text"
+                            value={studentForm.hostel_bed_no || ''}
+                            onChange={(e) => setStudentForm({ ...studentForm, hostel_bed_no: e.target.value })}
+                            placeholder="e.g. Bed #2"
+                            className="w-full px-2.5 py-1.5 border border-emerald-300 rounded-lg text-xs bg-white font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* SECTION 6: AUTO-CALCULATED INSTITUTIONAL FEE SCHEDULE & DUES BREAKDOWN */}
@@ -9528,7 +9735,7 @@ function ERPWorkspaceContent() {
                 </div>
 
                 {/* Calculation Summary Key Metrics */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-xs">
                   <div className="p-3 bg-white/90 rounded-xl border border-emerald-200/70 shadow-2xs">
                     <span className="text-[10.5px] text-slate-500 block">Class Rate</span>
                     <strong className="text-sm text-slate-800 font-display">
@@ -9557,9 +9764,19 @@ function ERPWorkspaceContent() {
                     </span>
                   </div>
 
-                  <div className="p-3 bg-emerald-700 text-white rounded-xl shadow-2xs">
+                  <div className="p-3 bg-white/90 rounded-xl border border-emerald-200/70 shadow-2xs">
+                    <span className="text-[10.5px] text-slate-500 block">Hostel Facility</span>
+                    <strong className="text-sm text-slate-800 font-display">
+                      {registrationFeeBreakdown.isHostelOpted ? `₹${registrationFeeBreakdown.monthlyHostelRate.toLocaleString('en-IN')}/mo` : 'Day Scholar'}
+                    </strong>
+                    <span className="text-[10px] text-slate-400 block font-mono mt-0.5">
+                      {registrationFeeBreakdown.isHostelOpted ? (registrationFeeBreakdown.hostelRoomType === 'WITH_AC' ? 'AC Boarding' : 'Standard Non-AC') : 'No Boarding'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-[#122A24] text-white rounded-xl shadow-2xs col-span-2 sm:col-span-1">
                     <span className="text-[10.5px] text-emerald-200 block">Total Initial Payable</span>
-                    <strong className="text-base font-bold font-mono block mt-0.5">
+                    <strong className="text-base font-bold font-mono block mt-0.5 text-emerald-300">
                       ₹{registrationFeeBreakdown.totalPayable.toLocaleString('en-IN')}
                     </strong>
                   </div>
@@ -9619,10 +9836,12 @@ function ERPWorkspaceContent() {
                           Tuition Fee ({registrationFeeBreakdown.monthCount} {registrationFeeBreakdown.monthCount === 1 ? 'Month' : 'Months'} from April)
                         </td>
                         <td className="p-2.5 text-slate-500 font-mono text-[11px]">
-                          {registrationFeeBreakdown.monthCount} × ₹{registrationFeeBreakdown.monthlyTuitionRate.toLocaleString('en-IN')} ({registrationFeeBreakdown.periodLabel})
+                          {registrationFeeBreakdown.isRte
+                            ? '100% Academic Fee Exemption (RTE Act 2009 Sec 12(1)(c) Mandate)'
+                            : `${registrationFeeBreakdown.monthCount} × ₹${registrationFeeBreakdown.monthlyTuitionRate.toLocaleString('en-IN')} (${registrationFeeBreakdown.periodLabel})`}
                         </td>
-                        <td className="p-2.5 pr-3.5 text-right font-mono font-bold text-slate-900">
-                          ₹{registrationFeeBreakdown.tuitionFeeTotal.toLocaleString('en-IN')}
+                        <td className={`p-2.5 pr-3.5 text-right font-mono font-bold ${registrationFeeBreakdown.isRte ? 'text-emerald-600' : 'text-slate-900'}`}>
+                          {registrationFeeBreakdown.isRte ? '₹0 (RTE Waived)' : `₹${registrationFeeBreakdown.tuitionFeeTotal.toLocaleString('en-IN')}`}
                         </td>
                       </tr>
 
@@ -9650,6 +9869,35 @@ function ERPWorkspaceContent() {
                             ₹0
                           </td>
                         </tr>
+                      )}
+
+                      {/* Hostel Fee Heads */}
+                      {registrationFeeBreakdown.isHostelOpted && (
+                        <>
+                          <tr className="bg-emerald-50/40">
+                            <td className="p-2.5 pl-3.5 font-semibold text-emerald-950 flex items-center gap-1.5">
+                              <Bed className="w-3.5 h-3.5 text-emerald-700" />
+                              Hostel Security Deposit (Refundable)
+                            </td>
+                            <td className="p-2.5 text-slate-500 font-mono text-[11px]">
+                              One-time refundable caution deposit upon hostel admission
+                            </td>
+                            <td className="p-2.5 pr-3.5 text-right font-mono font-bold text-emerald-900">
+                              ₹{registrationFeeBreakdown.hostelSecurityMoney.toLocaleString('en-IN')}
+                            </td>
+                          </tr>
+                          <tr className="bg-emerald-50/30">
+                            <td className="p-2.5 pl-3.5 font-semibold text-emerald-950">
+                              Hostel Boarding Fee ({registrationFeeBreakdown.monthCount} {registrationFeeBreakdown.monthCount === 1 ? 'Month' : 'Months'})
+                            </td>
+                            <td className="p-2.5 text-slate-500 font-mono text-[11px]">
+                              {registrationFeeBreakdown.hostelRoomType === 'WITH_AC' ? 'AC Room Accommodation' : 'Standard Room (Non-AC)'} • {registrationFeeBreakdown.monthCount} × ₹{registrationFeeBreakdown.monthlyHostelRate.toLocaleString('en-IN')}/mo
+                            </td>
+                            <td className="p-2.5 pr-3.5 text-right font-mono font-bold text-emerald-900">
+                              ₹{registrationFeeBreakdown.hostelFeeTotal.toLocaleString('en-IN')}
+                            </td>
+                          </tr>
+                        </>
                       )}
 
                       <tr className="bg-emerald-50/80 font-bold border-t-2 border-emerald-300">

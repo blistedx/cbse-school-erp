@@ -19,6 +19,22 @@ export interface TransportFeeHead {
   monthlyFee: number;
 }
 
+export interface HostelFeeStructure {
+  securityMoney: number; // ₹10,000 (Refundable)
+  withoutAcAnnual: number; // ₹72,000 (₹6,000/mo)
+  withoutAcMonthly: number; // ₹6,000
+  withAcAnnual: number; // ₹94,000 (~₹7,833/mo)
+  withAcMonthly: number; // 7833
+}
+
+export const DEFAULT_HOSTEL_FEES: HostelFeeStructure = {
+  securityMoney: 10000,
+  withoutAcAnnual: 72000,
+  withoutAcMonthly: 6000,
+  withAcAnnual: 94000,
+  withAcMonthly: 7833,
+};
+
 export const DEFAULT_ONE_TIME_FEES: OneTimeFeeHead[] = [
   { id: '1', particulars: 'Prospectus + Registration Fees', amount: 1000 },
   { id: '2', particulars: 'Admission Fee (Non-Refundable)', amount: 5000 },
@@ -52,6 +68,7 @@ export function getEstablishedFeeStructure() {
   let oneTime = DEFAULT_ONE_TIME_FEES;
   let tuition = DEFAULT_TUITION_FEES;
   let transport = DEFAULT_TRANSPORT_FEES;
+  let hostel = DEFAULT_HOSTEL_FEES;
 
   if (typeof window !== 'undefined') {
     try {
@@ -68,9 +85,14 @@ export function getEstablishedFeeStructure() {
       const savedTransport = localStorage.getItem('cbse_transport_fees');
       if (savedTransport) transport = JSON.parse(savedTransport);
     } catch (_) {}
+
+    try {
+      const savedHostel = localStorage.getItem('cbse_hostel_fees');
+      if (savedHostel) hostel = JSON.parse(savedHostel);
+    } catch (_) {}
   }
 
-  return { oneTime, tuition, transport };
+  return { oneTime, tuition, transport, hostel };
 }
 
 /**
@@ -242,6 +264,8 @@ export interface FeeCalculationParams {
   academicSession?: string;
   transportOpted?: 'YES' | 'NO' | string;
   transportSlabId?: string;
+  isRte?: 'YES' | 'NO' | boolean | string;
+  hostelOpted?: 'NO' | 'WITHOUT_AC' | 'WITH_AC' | 'YES' | 'YES_AC' | 'YES_NON_AC' | string;
 }
 
 export interface FeeCalculationResult {
@@ -258,6 +282,15 @@ export interface FeeCalculationResult {
   selectedTransportSlab: TransportFeeHead | null;
   monthlyTransportRate: number;
   transportFeeTotal: number;
+  // RTE
+  isRte: boolean;
+  rteTuitionWaiver: number;
+  // Hostel
+  isHostelOpted: boolean;
+  hostelRoomType: 'WITHOUT_AC' | 'WITH_AC' | 'NO';
+  monthlyHostelRate: number;
+  hostelFeeTotal: number;
+  hostelSecurityMoney: number;
   totalPayable: number;
 }
 
@@ -267,23 +300,33 @@ export interface FeeCalculationResult {
  * 2. Admission Type head inclusion (New = Admission Fee + Annual + Tuition; Old = Annual + Tuition)
  * 3. Months calculated from April up to admission month (e.g. July = 4 months)
  * 4. Transport fee payable monthly (multiplied by months enrolled)
+ * 5. RTE (Right to Education) 100% academic fee waiver
+ * 6. Hostel Security Money (₹10,000 Refundable) + Monthly Hostel Fee (Without AC @ ₹6,000/mo or With AC @ ₹7,833/mo)
  */
 export function calculateRegistrationFees(params: FeeCalculationParams): FeeCalculationResult {
-  const { oneTime, transport } = getEstablishedFeeStructure();
+  const { oneTime, transport, hostel } = getEstablishedFeeStructure();
   const classRates = getFeeRatesForClass(params.className);
   const monthsInfo = calculateMonthsFromApril(params.admissionDate, params.academicSession);
 
   const isNewAdmission = (params.admissionType || 'NEW').toUpperCase() !== 'OLD';
   const isTransportOpted = (params.transportOpted || 'NO').toUpperCase() === 'YES';
+  const isRte = (params.isRte === true || params.isRte === 'YES');
+  
+  const hostelOpt = (params.hostelOpted || 'NO').toUpperCase();
+  const isHostelOpted = hostelOpt === 'WITHOUT_AC' || hostelOpt === 'WITH_AC' || hostelOpt === 'YES' || hostelOpt === 'YES_AC' || hostelOpt === 'YES_NON_AC';
+  const hostelRoomType: 'WITHOUT_AC' | 'WITH_AC' | 'NO' = 
+    (hostelOpt === 'WITH_AC' || hostelOpt === 'YES_AC') ? 'WITH_AC' : isHostelOpted ? 'WITHOUT_AC' : 'NO';
 
-  // Admission Fee: Only for NEW admissions
-  const admissionFee = isNewAdmission ? classRates.admissionFee : 0;
+  // Admission Fee: Only for NEW admissions (waived for RTE)
+  const admissionFee = isNewAdmission ? (isRte ? 0 : classRates.admissionFee) : 0;
 
-  // Annual Fee: Charged once per session for both New and Old admissions
-  const annualFee = classRates.annualFee;
+  // Annual Fee: Charged once per session for both New and Old admissions (waived for RTE)
+  const annualFee = isRte ? 0 : classRates.annualFee;
 
-  // Tuition Fee: Monthly rate * months elapsed from April
-  const monthlyTuitionRate = classRates.monthlyTuition;
+  // Tuition Fee: Monthly rate * months elapsed from April (100% waived for RTE)
+  const regularMonthlyTuition = classRates.monthlyTuition;
+  const rteTuitionWaiver = isRte ? (regularMonthlyTuition * monthsInfo.monthCount) : 0;
+  const monthlyTuitionRate = isRte ? 0 : regularMonthlyTuition;
   const tuitionFeeTotal = monthlyTuitionRate * monthsInfo.monthCount;
 
   // Transport Fee: Slab rate * months elapsed from April
@@ -298,7 +341,19 @@ export function calculateRegistrationFees(params: FeeCalculationParams): FeeCalc
     transportFeeTotal = monthlyTransportRate * monthsInfo.monthCount;
   }
 
-  const totalPayable = admissionFee + annualFee + tuitionFeeTotal + transportFeeTotal;
+  // Hostel Fee: Monthly rate * months elapsed from April + Refundable Security Deposit
+  let monthlyHostelRate = 0;
+  let hostelFeeTotal = 0;
+  let hostelSecurityMoney = 0;
+
+  if (isHostelOpted) {
+    monthlyHostelRate = hostelRoomType === 'WITH_AC' ? (hostel.withAcMonthly || 7833) : (hostel.withoutAcMonthly || 6000);
+    hostelFeeTotal = monthlyHostelRate * monthsInfo.monthCount;
+    // Security Money is one-time upon admission
+    hostelSecurityMoney = isNewAdmission ? (hostel.securityMoney || 10000) : 0;
+  }
+
+  const totalPayable = admissionFee + annualFee + tuitionFeeTotal + transportFeeTotal + hostelFeeTotal + hostelSecurityMoney;
 
   const periodLabel = monthsInfo.monthCount === 1
     ? `${monthsInfo.startMonth} (1 Month)`
@@ -318,6 +373,13 @@ export function calculateRegistrationFees(params: FeeCalculationParams): FeeCalc
     selectedTransportSlab,
     monthlyTransportRate,
     transportFeeTotal,
+    isRte,
+    rteTuitionWaiver,
+    isHostelOpted,
+    hostelRoomType,
+    monthlyHostelRate,
+    hostelFeeTotal,
+    hostelSecurityMoney,
     totalPayable,
   };
 }

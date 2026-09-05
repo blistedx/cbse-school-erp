@@ -670,28 +670,125 @@ export function DashboardTransport({
     return () => clearInterval(timer);
   }, [fetchTelemetry]);
 
-  // Broadcast driver's mobile coordinates to cloud API
+  // ─────────────────────────────────────────────────────────────
+  // OFFLINE CORRIDORS AUTO-SYNC ENGINE (Local buffer + Auto Burst Sync)
+  // ─────────────────────────────────────────────────────────────
+  const [offlineQueue, setOfflineQueue] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('school_erp_transport_offline_queue');
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    return typeof navigator !== 'undefined' && 'onLine' in navigator ? navigator.onLine : true;
+  });
+  const [lastSyncStatus, setLastSyncStatus] = useState<string>('Online Sync Ready');
+
+  // Flush buffered telemetry when cell signal returns
+  const flushOfflineQueue = useCallback(async () => {
+    if (typeof window === 'undefined') return;
+    let queue: any[] = [];
+    try {
+      const saved = localStorage.getItem('school_erp_transport_offline_queue');
+      if (saved) queue = JSON.parse(saved);
+    } catch (e) {}
+
+    if (!queue || queue.length === 0) return;
+
+    try {
+      const latestFix = queue[queue.length - 1];
+      if (latestFix) {
+        await fetch('/api/transport/telemetry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...latestFix,
+            offlineBurstCount: queue.length
+          })
+        });
+      }
+      localStorage.removeItem('school_erp_transport_offline_queue');
+      setOfflineQueue([]);
+      setIsOnline(true);
+      setLastSyncStatus(`🟢 Synced ${queue.length} offline corridor pings to Control Room`);
+    } catch (e) {
+      setLastSyncStatus(`⚠️ Offline queue retained (${queue.length} fixes pending sync)`);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOnline = () => {
+      setIsOnline(true);
+      flushOfflineQueue();
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setLastSyncStatus('Offline corridor active — local buffer recording');
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [flushOfflineQueue]);
+
+  // Broadcast driver's mobile coordinates to cloud API with offline resilience
   const broadcastTelemetry = async (
     coords: { latitude: number; longitude: number; speedKmh: number; heading: number; accuracyMeters: number },
     active: boolean = true
   ) => {
+    const payload = {
+      routeId: activeRoute.id,
+      vehicleNo: activeRoute.vehicleNo,
+      driver: activeRoute.driver,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      speedKmh: coords.speedKmh,
+      heading: coords.heading,
+      accuracyMeters: coords.accuracyMeters,
+      active,
+      timestamp: Date.now()
+    };
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setIsOnline(false);
+      setOfflineQueue(prev => {
+        const next = [...prev.slice(-40), payload];
+        try { localStorage.setItem('school_erp_transport_offline_queue', JSON.stringify(next)); } catch (e) {}
+        return next;
+      });
+      setLastSyncStatus(`📴 Offline corridor: ${offlineQueue.length + 1} pings buffered`);
+      return;
+    }
+
     try {
-      await fetch('/api/transport/telemetry', {
+      const res = await fetch('/api/transport/telemetry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          routeId: activeRoute.id,
-          vehicleNo: activeRoute.vehicleNo,
-          driver: activeRoute.driver,
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-          speedKmh: coords.speedKmh,
-          heading: coords.heading,
-          accuracyMeters: coords.accuracyMeters,
-          active
-        })
+        body: JSON.stringify(payload)
       });
-    } catch (e) {}
+      if (res.ok) {
+        setIsOnline(true);
+        if (offlineQueue.length > 0) {
+          flushOfflineQueue();
+        }
+      } else {
+        throw new Error('Server non-200');
+      }
+    } catch (e) {
+      setIsOnline(false);
+      setOfflineQueue(prev => {
+        const next = [...prev.slice(-40), payload];
+        try { localStorage.setItem('school_erp_transport_offline_queue', JSON.stringify(next)); } catch (err) {}
+        return next;
+      });
+      setLastSyncStatus(`📴 Buffered offline GPS fix (${offlineQueue.length + 1} in queue)`);
+    }
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -2064,6 +2161,31 @@ export function DashboardTransport({
                         🟢 ON DUTY
                       </span>
                     )}
+
+                    {/* Offline / Online Cloud Sync Status Badge */}
+                    {isOnline ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1.5 font-mono">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>4G CLOUD LIVE</span>
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/30 text-amber-200 border border-amber-400/50 flex items-center gap-1.5 font-mono">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                        <span>📴 OFFLINE CORRIDOR ({offlineQueue.length})</span>
+                      </span>
+                    )}
+
+                    {offlineQueue.length > 0 && isOnline && (
+                      <button
+                        onClick={flushOfflineQueue}
+                        className="px-2 py-0.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold font-mono cursor-pointer border-none flex items-center gap-1"
+                        title="Sync offline queue now"
+                      >
+                        <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                        <span>Sync {offlineQueue.length} Pings</span>
+                      </button>
+                    )}
+
                     <span className="text-xs text-emerald-200/70 font-medium">
                       {driverGreeting}
                     </span>
