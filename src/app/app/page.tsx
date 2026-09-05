@@ -3135,8 +3135,8 @@ function ERPWorkspaceContent() {
     ];
     setActiveReportModal({
       isOpen: true,
-      title: 'Student Master Enrollment & Demographic Register',
-      subtitle: 'CBSE Statutory Class-wise Scholar Registry & 360° Identity Dossier',
+      title: 'STUDENT ENROLLMENT REPORT',
+      subtitle: 'Official Class-wise Scholar Registry & Identity Directory',
       filterSummary: [
         { label: 'Session', value: selectedSession || '2026-27' },
         { label: 'Class', value: studentClassFilter || 'ALL' },
@@ -3148,7 +3148,7 @@ function ERPWorkspaceContent() {
       data: filteredStudents,
       onDownloadCSV: () => {
         exportToCSV(
-          'CBSE_Students_List',
+          'Students_List',
           ['Admission No', 'Roll No', 'Name', 'Class', 'Section', 'Gender', 'Status', 'Date of Join', 'DOB', 'Guardian Phone'],
           filteredStudents.map(s => [
             s.admission_no,
@@ -3172,29 +3172,29 @@ function ERPWorkspaceContent() {
     const siblingGroups = getAllSiblingGroups(students, invoices);
     const headers = [
       'Household ID',
-      'Household Name',
+      'Household / Family Name',
+      'Enrolled Sibling Students (Name, Class, Section, Adm No)',
       'Father Name',
       'Mother Name',
-      'Guardian Phone',
-      'Address',
-      'Total Siblings',
-      'Enrolled Siblings Details',
-      'Total Family Dues (INR)',
+      'Mobile Number',
+      'Residential Address',
+      'Total Siblings Count',
+      'Consolidated Family Dues (INR)',
       'Fee Settlement Status'
     ];
     const rows = siblingGroups.map(g => [
       g.id,
       g.familyName,
+      g.students.map(s => `${s.full_name} (${s.class_name}-${s.section || 'A'}, Adm: ${s.admission_no})`).join(' | '),
       g.fatherName,
       g.motherName || 'N/A',
       g.phone,
       g.address,
       g.students.length,
-      g.students.map(s => `${s.full_name} (${s.class_name}-${s.section || 'A'}, Adm: ${s.admission_no}, Att: ${s.attendance_percent || 94}%, Fee: ${s.fee_status || 'PAID'})`).join('; '),
       g.totalDues,
       g.allFeesPaid ? 'ALL DUES CLEAR' : `DUE: INR ${g.totalDues}`
     ]);
-    exportToCSV('CBSE_Siblings_and_Families_Register', headers, rows);
+    exportToCSV('Siblings_and_Families_Report', headers, rows);
   };
 
   const handlePrintSiblingsReport = () => {
@@ -3205,27 +3205,79 @@ function ERPWorkspaceContent() {
 
     const stats = [
       { label: 'Total Family Units', value: `${siblingGroups.length} Households` },
-      { label: 'Co-Enrolled Scholars', value: `${totalSiblings} Siblings` },
+      { label: 'Co-Enrolled Siblings', value: `${totalSiblings} Scholars` },
       { label: 'Fee Compliance', value: `${siblingGroups.length > 0 ? Math.round((fullySettled / siblingGroups.length) * 100) : 100}%` },
       { label: 'Settled Families', value: `${fullySettled} Households` },
     ];
 
     const cols: ReportColumn[] = [
-      { header: 'HOUSEHOLD NAME', render: (g: any) => g.familyName, width: '22%' },
-      { header: 'PARENTS', render: (g: any) => `${g.fatherName}${g.motherName ? ` / ${g.motherName}` : ''}`, width: '22%' },
-      { header: 'CONTACT PHONE', render: (g: any) => g.phone, width: '14%' },
-      { header: 'ENROLLED SIBLINGS', render: (g: any) => g.students.map((s: any) => `${s.full_name} (${s.class_name}-${s.section || 'A'})`).join(', '), width: '28%' },
-      { header: 'STATUS', render: (g: any) => g.allFeesPaid ? 'ALL CLEAR' : `DUE ₹${g.totalDues.toLocaleString()}`, width: '14%', align: 'right' },
+      {
+        header: 'SIBLING STUDENTS (ENROLLED)',
+        render: (g: any) => (
+          <div className="space-y-1.5 py-1">
+            <div className="font-bold text-[#122A24] text-[11px] flex items-center gap-1.5">
+              <span>{g.familyName}</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold">
+                {g.students.length} Siblings
+              </span>
+            </div>
+            <div className="space-y-1 pl-1">
+              {g.students.map((s: any, sIdx: number) => (
+                <div key={s.id || sIdx} className="flex items-center gap-1 text-[10px] text-slate-800">
+                  <span className="w-3.5 h-3.5 rounded-full bg-[#122A24] text-white text-[8.5px] font-bold flex items-center justify-center shrink-0">
+                    {sIdx + 1}
+                  </span>
+                  <span className="font-bold text-[#122A24]">{s.full_name}</span>
+                  <span className="text-slate-500 font-mono text-[9px]">
+                    (Class: {s.class_name}-{s.section || 'A'} | Adm: {s.admission_no})
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ),
+        width: '32%'
+      },
+      {
+        header: 'FATHER NAME',
+        render: (g: any) => <span className="font-semibold text-slate-800 text-[10.5px]">{g.fatherName || '—'}</span>,
+        width: '15%'
+      },
+      {
+        header: 'MOTHER NAME',
+        render: (g: any) => <span className="font-semibold text-slate-800 text-[10.5px]">{g.motherName || '—'}</span>,
+        width: '15%'
+      },
+      {
+        header: 'MOBILE NUMBER',
+        render: (g: any) => <span className="font-mono text-slate-700 font-bold text-[10.5px]">{g.phone || '—'}</span>,
+        width: '13%'
+      },
+      {
+        header: 'RESIDENTIAL ADDRESS',
+        render: (g: any) => <span className="text-slate-600 text-[10px] leading-tight block">{g.address || '—'}</span>,
+        width: '15%'
+      },
+      {
+        header: 'STATUS',
+        render: (g: any) => (
+          <span className={`px-2 py-0.5 rounded text-[9.5px] font-bold whitespace-nowrap ${g.allFeesPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+            {g.allFeesPaid ? 'ALL CLEAR' : `DUE ₹${g.totalDues.toLocaleString()}`}
+          </span>
+        ),
+        width: '10%',
+        align: 'right'
+      }
     ];
 
     setActiveReportModal({
       isOpen: true,
-      title: 'CBSE Siblings & Household Family Registry',
-      subtitle: 'Official Automated Multi-Child Linkage & Consolidated Family Roster',
+      title: 'SIBLINGS & HOUSEHOLD FAMILY REPORT',
+      subtitle: 'Official Multi-Child Household Verification & Family Directory',
       filterSummary: [
         { label: 'Session', value: selectedSession || '2026-27' },
-        { label: 'Module', value: 'Siblings Hub' },
-        { label: 'Households', value: `${siblingGroups.length} Families` },
+        { label: 'Report Type', value: 'Siblings & Families' },
+        { label: 'Total Households', value: `${siblingGroups.length} Families` },
         { label: 'Total Sibling Scholars', value: `${totalSiblings} Scholars` }
       ],
       statsSummary: stats,
@@ -4766,7 +4818,7 @@ function ERPWorkspaceContent() {
                     <button
                       onClick={studentSubTab === 'siblings' ? handlePrintSiblingsReport : handlePrintStudentsReport}
                       className="hidden sm:flex w-9 h-9 rounded-full bg-[#F4F8F5] border border-[#DCE8E0] hover:bg-[#EBF5EF] text-[#122A24] transition-colors shadow-2xs items-center justify-center cursor-pointer"
-                      title={studentSubTab === 'siblings' ? 'Print Official CBSE Siblings Register' : 'Print Official CBSE Register'}
+                      title={studentSubTab === 'siblings' ? 'Print Official Siblings & Families Report' : 'Print Official Student Report'}
                     >
                       <Printer className="h-4 w-4" />
                     </button>
@@ -4798,7 +4850,7 @@ function ERPWorkspaceContent() {
                                 className="w-full text-left px-3.5 py-2 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer text-xs font-medium text-[#122A24] flex items-center gap-2"
                               >
                                 <Printer className="h-3.5 w-3.5 text-[#1C443A]" />
-                                <span>Print Siblings Register (PDF)</span>
+                                <span>Print Siblings Report (PDF)</span>
                               </button>
                             </>
                           ) : (
@@ -4807,7 +4859,7 @@ function ERPWorkspaceContent() {
                                 onClick={() => {
                                   setShowExportMenu(null);
                                   exportToCSV(
-                                    'CBSE_Students_List',
+                                    'Students_List',
                                     ['Admission No', 'Roll No', 'Name', 'Class', 'Section', 'Gender', 'Status', 'Date of Join', 'DOB', 'Guardian Phone'],
                                     filteredStudents.map(s => [
                                       s.admission_no,
@@ -4833,7 +4885,7 @@ function ERPWorkspaceContent() {
                                 className="w-full text-left px-3.5 py-2 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer text-xs font-medium text-[#122A24] flex items-center gap-2"
                               >
                                 <Printer className="h-3.5 w-3.5 text-[#1C443A]" />
-                                <span>Print Official CBSE PDF</span>
+                                <span>Print Official Student PDF</span>
                               </button>
                             </>
                           )}

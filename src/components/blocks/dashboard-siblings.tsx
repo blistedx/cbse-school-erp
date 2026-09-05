@@ -99,13 +99,13 @@ export function DashboardSiblings({
 
     const headers = [
       'Household ID',
-      'Household Name',
+      'Household / Family Name',
+      'Enrolled Sibling Students (Name, Class, Section, Adm No)',
       'Father Name',
       'Mother Name',
-      'Contact Phone',
+      'Mobile Number',
       'Residential Address',
-      'Enrolled Siblings Count',
-      'Siblings Breakdown (Name, Class, Adm No, Fee Status)',
+      'Total Siblings Count',
       'Consolidated Family Dues (INR)',
       'Fee Settlement Status'
     ];
@@ -113,12 +113,12 @@ export function DashboardSiblings({
     const rows = filteredGroups.map(g => [
       g.id,
       g.familyName,
+      g.students.map(s => `${s.full_name} (${s.class_name}-${s.section || 'A'}, Adm: ${s.admission_no})`).join(' | '),
       g.fatherName,
       g.motherName || 'N/A',
       g.phone,
       g.address,
       g.students.length,
-      g.students.map(s => `${s.full_name} (${s.class_name}-${s.section || 'A'}, Adm: ${s.admission_no}, Fee: ${s.fee_status || 'PAID'})`).join('; '),
       g.totalDues,
       g.allFeesPaid ? 'ALL DUES CLEAR' : `DUE: INR ${g.totalDues}`
     ]);
@@ -128,7 +128,7 @@ export function DashboardSiblings({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `CBSE_Siblings_and_Families_Register_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `Siblings_and_Families_Report_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -178,7 +178,7 @@ export function DashboardSiblings({
           </div>
           <div className="text-xs text-slate-500 border-t border-slate-100 pt-2.5 flex items-center justify-between">
             <span>Indexed Registry</span>
-            <span className="font-semibold text-emerald-800 text-[11px]">CBSE Standard</span>
+            <span className="font-semibold text-emerald-800 text-[11px]">Verified Standard</span>
           </div>
         </div>
 

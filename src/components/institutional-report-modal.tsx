@@ -66,6 +66,9 @@ export function InstitutionalReportModal({
     window.print();
   };
 
+  const cleanReportTitle = (reportTitle || 'REPORT').replace(/CBSE\s*/gi, '').trim() || 'REPORT';
+  const cleanReportSubtitle = reportSubtitle ? reportSubtitle.replace(/CBSE\s*/gi, '').trim() : '';
+
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       
@@ -87,7 +90,7 @@ export function InstitutionalReportModal({
             top: 0 !important;
             width: 100% !important;
             margin: 0 !important;
-            padding: 15mm !important;
+            padding: 8mm !important;
             background: white !important;
             box-shadow: none !important;
             border: none !important;
@@ -97,22 +100,22 @@ export function InstitutionalReportModal({
           }
           @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 8mm;
           }
         }
       `}</style>
 
       {/* Modal Container */}
-      <div className="bg-[#EBF5EF] rounded-3xl w-full max-w-5xl max-h-[94vh] flex flex-col shadow-2xl border border-[#C5E2CF] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-[#EBF5EF] rounded-3xl w-full max-w-6xl max-h-[94vh] flex flex-col shadow-2xl border border-[#C5E2CF] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Top Control Bar (Hidden in Print) */}
         <div className="no-print bg-[#122A24] text-white p-4 px-6 flex items-center justify-between gap-3 shrink-0 flex-wrap">
           <div>
             <div className="text-[11px] font-mono text-emerald-300 uppercase font-bold tracking-wider">
-              Institutional Document Engine
+              Official Document Engine
             </div>
             <h2 className="font-display font-bold text-base text-white">
-              {reportTitle}
+              {cleanReportTitle}
             </h2>
           </div>
 
@@ -153,16 +156,16 @@ export function InstitutionalReportModal({
               ───────────────────────────────────────────────────────── */}
           <div
             id="printable-report-sheet"
-            className="w-full max-w-[850px] bg-white text-[#122A24] p-8 sm:p-10 rounded-2xl shadow-lg border border-[#DCE8E0] space-y-6 font-sans text-xs"
+            className="w-full max-w-[950px] bg-white text-[#122A24] p-6 sm:p-8 rounded-2xl shadow-lg border border-[#DCE8E0] space-y-5 font-sans text-xs"
           >
             
             {/* 1. INSTITUTIONAL LETTERHEAD */}
-            <div className="border-b-2 border-[#122A24] pb-5 space-y-2">
+            <div className="border-b-2 border-[#122A24] pb-4 space-y-2">
               <div className="flex items-start justify-between gap-4">
                 
                 {/* School Logo / Crest Placeholder */}
-                <div className="w-16 h-16 rounded-2xl bg-[#122A24] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <Building2 className="w-9 h-9 text-emerald-400" />
+                <div className="w-14 h-14 rounded-2xl bg-[#122A24] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Building2 className="w-8 h-8 text-emerald-400" />
                 </div>
 
                 {/* Central School Identity */}
@@ -170,14 +173,11 @@ export function InstitutionalReportModal({
                   <h1 className="font-display font-extrabold text-xl sm:text-2xl text-[#122A24] tracking-tight uppercase">
                     {schoolName}
                   </h1>
-                  <p className="text-[11px] font-semibold text-[#2D5A4E]">
-                    Affiliated to Central Board of Secondary Education (CBSE), New Delhi
-                  </p>
-                  <p className="text-[10.5px] font-mono text-slate-600">
-                    Affiliation No: <strong>{affNo}</strong> &bull; School Code: <strong>{schoolCode}</strong>
+                  <p className="text-[11px] font-bold text-[#1C443A] uppercase tracking-wider">
+                    OFFICIAL REPORT
                   </p>
                   <p className="text-[10px] text-slate-500">
-                    {schoolAddress} &bull; Ph: {schoolPhone} &bull; Email: {schoolEmail}
+                    School Code: <strong>{schoolCode}</strong> &bull; {schoolAddress} &bull; Ph: {schoolPhone}
                   </p>
                 </div>
 
@@ -193,14 +193,14 @@ export function InstitutionalReportModal({
             </div>
 
             {/* 2. REPORT TITLE & BANNER */}
-            <div className="bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h2 className="font-display font-bold text-sm sm:text-base text-[#122A24] uppercase tracking-wide">
-                  {reportTitle}
+                  {cleanReportTitle}
                 </h2>
-                {reportSubtitle && (
+                {cleanReportSubtitle && (
                   <p className="text-[11px] text-[#2D5A4E] mt-0.5 font-medium">
-                    {reportSubtitle}
+                    {cleanReportSubtitle}
                   </p>
                 )}
               </div>
