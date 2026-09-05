@@ -98,40 +98,45 @@ export function DashboardSiblings({
     }
 
     const headers = [
-      'Household ID',
-      'Household / Family Name',
-      'Enrolled Sibling Students (Name, Class, Section, Adm No)',
+      'S.No',
+      'Family / Household',
+      'Student Names',
       'Father Name',
       'Mother Name',
       'Mobile Number',
       'Residential Address',
-      'Total Siblings Count',
-      'Consolidated Family Dues (INR)',
+      'Total Siblings',
+      'Consolidated Dues (INR)',
       'Fee Settlement Status'
     ];
 
-    const rows = filteredGroups.map(g => [
-      g.id,
+    const rows = filteredGroups.map((g, idx) => [
+      idx + 1,
       g.familyName,
-      g.students.map(s => `${s.full_name} (${s.class_name}-${s.section || 'A'}, Adm: ${s.admission_no})`).join(' | '),
-      g.fatherName,
+      g.students.map((s, sIdx) => `${sIdx + 1}. ${s.full_name} (Class: ${s.class_name}-${s.section || 'A'}, Adm: ${s.admission_no})`).join('\n'),
+      g.fatherName || 'N/A',
       g.motherName || 'N/A',
-      g.phone,
-      g.address,
+      g.phone || 'N/A',
+      g.address || 'N/A',
       g.students.length,
       g.totalDues,
-      g.allFeesPaid ? 'ALL DUES CLEAR' : `DUE: INR ${g.totalDues}`
+      g.allFeesPaid ? 'ALL CLEAR' : `DUE: INR ${g.totalDues}`
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,'
-      + [headers.join(','), ...rows.map(e => e.map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvLines = [
+      headers.map(h => `"${String(h).replace(/"/g, '""')}"`).join(','),
+      ...rows.map(row => row.map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(','))
+    ];
+    const csvContent = csvLines.join('\r\n');
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', url);
     link.setAttribute('download', `Siblings_and_Families_Report_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const handleDirectPrint = () => {
