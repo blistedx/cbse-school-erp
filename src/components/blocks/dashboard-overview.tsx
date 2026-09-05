@@ -519,43 +519,46 @@ export function DashboardOverview({
       {/* ─────────────────────────────────────────────────────────────
           ROW 1: WELCOME HERO BANNER (FULL WIDTH & SPACIOUS)
           ───────────────────────────────────────────────────────────── */}
-      <div className="rounded-3xl p-5 sm:p-7 bg-gradient-to-br from-[#EBF5EF] via-[#E2F1E8] to-[#D5EBDC] border border-[#C5E2CF] flex flex-col xl:flex-row items-start xl:items-center justify-between gap-5 sm:gap-6 relative overflow-hidden shadow-xs">
+      <div className="rounded-3xl p-5 sm:p-7 hero-gradient-glass border border-[#C5E2CF]/90 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-5 sm:gap-6 relative overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
+        {/* Ambient Glowing Orbs */}
+        <div className="hero-ambient-orb-1" />
+        <div className="hero-ambient-orb-2" />
+
         {/* Background Watermark Behind Header Text */}
         <div 
           aria-hidden="true" 
-          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.05] sm:text-[#122A24]/[0.07] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.05] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[135px] leading-none z-0 tracking-tight"
         >
           OVERVIEW
         </div>
-        <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
         
-        <div className="relative z-10 min-w-0 flex-1 w-full space-y-1.5">
+        <div className="relative z-10 min-w-0 flex-1 w-full space-y-2">
           {/* Institutional Compliance & Location Badges */}
           <div className="flex items-center gap-1.5 sm:gap-2 mb-2 font-mono text-[10.5px] sm:text-[11px] font-semibold text-[#1C443A] uppercase tracking-wider flex-wrap">
-            <span className="inline-flex items-center gap-1.5 whitespace-nowrap bg-white/70 px-2.5 py-0.5 rounded-md border border-[#C5E2CF] shrink-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse shrink-0" />
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-[#C5E2CF] shadow-2xs shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
               <span className="font-bold text-[#122A24]">
                 {selectedSchool?.school_name || 'Delhi Public International School'}
               </span>
             </span>
-            <span className="inline-flex items-center whitespace-nowrap bg-[#122A24]/10 px-2 py-0.5 rounded-md text-[#122A24] font-bold shrink-0">
+            <span className="inline-flex items-center whitespace-nowrap bg-[#122A24] text-white px-2.5 py-1 rounded-lg font-bold shadow-2xs shrink-0">
               {selectedSchool?.school_code || 'DPS2026'}
             </span>
-            <span className="inline-flex items-center whitespace-nowrap bg-white/90 px-2 py-0.5 rounded-md text-[#1C443A] font-bold border border-[#C5E2CF] shadow-2xs shrink-0" title="UDISE+ School Registry Code">
+            <span className="inline-flex items-center whitespace-nowrap bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg text-[#1C443A] font-bold border border-[#C5E2CF] shadow-2xs shrink-0" title="UDISE+ School Registry Code">
               UDISE: {selectedSchool?.udise_code || '07010100101'}
             </span>
-            <span className="inline-flex items-center whitespace-nowrap bg-white/90 px-2 py-0.5 rounded-md text-[#1C443A] font-bold border border-[#C5E2CF] shadow-2xs shrink-0" title="CBSE Online Affiliated Schools Information System Code">
+            <span className="inline-flex items-center whitespace-nowrap bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg text-[#1C443A] font-bold border border-[#C5E2CF] shadow-2xs shrink-0" title="CBSE Online Affiliated Schools Information System Code">
               OASIS: {selectedSchool?.oasis_code || '84001'}
             </span>
-            <span className="inline-flex items-center whitespace-nowrap bg-white/90 px-2 py-0.5 rounded-md text-[#1C443A] font-bold border border-[#C5E2CF] shadow-2xs shrink-0" title="CBSE Board Affiliation Number">
+            <span className="inline-flex items-center whitespace-nowrap bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg text-[#1C443A] font-bold border border-[#C5E2CF] shadow-2xs shrink-0" title="CBSE Board Affiliation Number">
               CBSE AFFIL: {selectedSchool?.affiliation_no || '2130042'}
             </span>
-            <span className="inline-flex items-center whitespace-nowrap text-[#2D5A4E] text-[10.5px] font-sans font-medium shrink-0" title="Campus Address">
+            <span className="inline-flex items-center whitespace-nowrap bg-white/80 backdrop-blur-md px-2 py-1 rounded-lg text-[#2D5A4E] text-[10.5px] font-sans font-medium border border-[#C5E2CF]/70 shadow-2xs shrink-0" title="Campus Address">
               📍 {selectedSchool?.address || `${selectedSchool?.city || 'New Delhi'}, ${selectedSchool?.state || 'Delhi'}`}
             </span>
           </div>
           
-          <h2 className="font-display font-bold text-2xl sm:text-[28px] leading-tight text-[#122A24] tracking-tight">
+          <h2 className="font-display font-bold text-2xl sm:text-[30px] leading-tight text-[#122A24] tracking-tight">
             {userRole === 'TEACHER'
               ? `Welcome back, ${currentUser?.full_name || 'Faculty Member'}!`
               : userRole === 'STUDENT'
@@ -595,20 +598,20 @@ export function DashboardOverview({
             <>
               <button
                 onClick={() => setActiveTab('attendance')}
-                className="whitespace-nowrap px-4 py-2.5 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer border-none shrink-0"
+                className="whitespace-nowrap px-4.5 py-2.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold shadow-sm hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer border-none shrink-0 active:scale-95"
               >
                 <CalendarCheck className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Take Attendance</span>
               </button>
               <button
                 onClick={() => setActiveTab('homework')}
-                className="whitespace-nowrap px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
+                className="whitespace-nowrap px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer shrink-0 active:scale-95"
               >
                 Assign Homework
               </button>
               <button
                 onClick={() => setActiveTab('exams')}
-                className="whitespace-nowrap px-4 py-2.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs transition-colors cursor-pointer shrink-0"
+                className="whitespace-nowrap px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs hover:shadow-xs transition-all cursor-pointer shrink-0 active:scale-95"
               >
                 Marks Ledger
               </button>
@@ -617,20 +620,20 @@ export function DashboardOverview({
             <>
               <button
                 onClick={() => setActiveTab('exams')}
-                className="whitespace-nowrap px-4 py-2.5 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer border-none shrink-0"
+                className="whitespace-nowrap px-4.5 py-2.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold shadow-sm hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer border-none shrink-0 active:scale-95"
               >
                 <Award className="w-3.5 h-3.5 text-emerald-400" />
                 <span>My Report Card</span>
               </button>
               <button
                 onClick={() => setActiveTab('homework')}
-                className="whitespace-nowrap px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
+                className="whitespace-nowrap px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer shrink-0 active:scale-95"
               >
                 Homework Diary
               </button>
               <button
                 onClick={() => setActiveTab('fees')}
-                className="whitespace-nowrap px-4 py-2.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs transition-colors cursor-pointer shrink-0"
+                className="whitespace-nowrap px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs hover:shadow-xs transition-all cursor-pointer shrink-0 active:scale-95"
               >
                 Fee Receipt
               </button>
@@ -639,20 +642,20 @@ export function DashboardOverview({
             <>
               <button
                 onClick={() => setActiveTab('fees')}
-                className="whitespace-nowrap px-4 py-2.5 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer border-none shrink-0"
+                className="whitespace-nowrap px-4.5 py-2.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold shadow-sm hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer border-none shrink-0 active:scale-95"
               >
                 <Coins className="w-3.5 h-3.5 text-amber-400" />
                 <span>Pay Term Fees</span>
               </button>
               <button
                 onClick={() => setActiveTab('exams')}
-                className="whitespace-nowrap px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
+                className="whitespace-nowrap px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer shrink-0 active:scale-95"
               >
                 Report Card PDF
               </button>
               <button
                 onClick={() => setActiveTab('attendance')}
-                className="whitespace-nowrap px-4 py-2.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs transition-colors cursor-pointer shrink-0"
+                className="whitespace-nowrap px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold shadow-2xs hover:shadow-xs transition-all cursor-pointer shrink-0 active:scale-95"
               >
                 Ward Attendance
               </button>
@@ -661,20 +664,20 @@ export function DashboardOverview({
             <>
               <button
                 onClick={() => setActiveTab('attendance')}
-                className="whitespace-nowrap px-4 py-2.5 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer border-none shrink-0"
+                className="whitespace-nowrap px-4.5 py-2.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold shadow-sm hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer border-none shrink-0 active:scale-95 hover:scale-[1.02]"
               >
                 <CalendarCheck className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Mark Attendance</span>
               </button>
               <button
                 onClick={() => openStudentModal()}
-                className="whitespace-nowrap px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
+                className="whitespace-nowrap px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer shrink-0 active:scale-95 hover:scale-[1.02]"
               >
                 Enroll Student
               </button>
               <button
                 onClick={() => setActiveTab('data_hub')}
-                className="whitespace-nowrap px-4 py-2.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-bold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+                className="whitespace-nowrap px-4 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-bold shadow-2xs hover:shadow-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0 active:scale-95 hover:scale-[1.02]"
                 title="Open Data Hub"
               >
                 <FolderDown className="w-3.5 h-3.5 text-amber-700" />
@@ -683,7 +686,7 @@ export function DashboardOverview({
               {setShowAddNotice && (
                 <button
                   onClick={() => setShowAddNotice(true)}
-                  className="whitespace-nowrap px-3.5 py-2.5 rounded-full bg-white/80 hover:bg-white text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs transition-colors cursor-pointer hidden sm:flex items-center gap-1 shrink-0"
+                  className="whitespace-nowrap px-3.5 py-2.5 rounded-xl bg-white/80 hover:bg-white text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer hidden sm:flex items-center gap-1 shrink-0 active:scale-95 hover:scale-[1.02]"
                 >
                   <Plus className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Post Notice</span>
@@ -697,7 +700,7 @@ export function DashboardOverview({
       {/* ─────────────────────────────────────────────────────────────
           ROW 2: 4 SPACIOUS CORE KPI STAT CARDS (ROLE ADAPTIVE)
           ───────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4 sm:gap-5 items-stretch min-w-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 items-stretch min-w-0">
         
         {userRole === 'TEACHER' ? (
           <>
@@ -1011,25 +1014,33 @@ export function DashboardOverview({
             {/* 1. Stat Card 1: Student Attendance (Today) */}
             <div 
               onClick={() => setActiveTab('attendance')}
-              className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group cursor-pointer"
+              className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs kpi-card-glow group cursor-pointer relative overflow-hidden"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">Student Attendance (Today)</span>
-                <div className={`w-9 h-9 rounded-2xl ${isStudentAttendanceMarkedToday ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70' : 'bg-amber-50 text-amber-700 border-amber-200/70'} border flex items-center justify-center shadow-xs group-hover:scale-110 group-hover:rotate-6 transition-all duration-300`}>
-                  <UserCheck className="w-4.5 h-4.5" />
+              {/* Subtle Ambient Color Splash */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 rounded-full blur-xl pointer-events-none group-hover:bg-emerald-400/10 transition-colors" />
+
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-900 transition-colors">
+                    Student Attendance (Today)
+                  </span>
+                </div>
+                <div className={`w-10 h-10 rounded-2xl ${isStudentAttendanceMarkedToday ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70' : 'bg-amber-50 text-amber-700 border-amber-200/70'} border flex items-center justify-center shadow-xs group-hover:scale-110 group-hover:rotate-6 transition-all duration-300`}>
+                  <UserCheck className="w-5 h-5" />
                 </div>
               </div>
 
-              <div className="my-3">
-                <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight flex items-baseline gap-1.5 group-hover:text-emerald-950 transition-colors">
+              <div className="my-3 relative z-10">
+                <div className="font-display font-extrabold text-3xl sm:text-4xl text-[#122A24] tracking-tight flex items-baseline gap-2 group-hover:text-emerald-950 transition-colors">
                   <span>{isStudentAttendanceMarkedToday ? studentAttendanceRate : 0}%</span>
                   <span className="text-sm font-mono font-medium text-slate-400">
                     ({isStudentAttendanceMarkedToday ? studentPresentCount : 0}/{totalStudentsCount})
                   </span>
                 </div>
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 mt-2.5">
                   {isStudentAttendanceMarkedToday ? (
-                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 whitespace-nowrap group-hover:bg-emerald-100 transition-colors">
+                    <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50/90 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5 whitespace-nowrap group-hover:bg-emerald-100 transition-colors shadow-2xs">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>
                         {studentTodayRecords.length >= (classes.length || 1)
@@ -1038,7 +1049,7 @@ export function DashboardOverview({
                       </span>
                     </span>
                   ) : (
-                    <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 flex items-center gap-1 whitespace-nowrap group-hover:bg-amber-100 transition-colors">
+                    <span className="text-[11px] font-semibold text-amber-800 bg-amber-50/90 px-3 py-1 rounded-full border border-amber-200 flex items-center gap-1.5 whitespace-nowrap group-hover:bg-amber-100 transition-colors shadow-2xs">
                       <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <span>Not Marked Today (0%)</span>
                     </span>
@@ -1046,9 +1057,9 @@ export function DashboardOverview({
                 </div>
               </div>
 
-              <div className="text-xs text-slate-500 font-mono border-t border-slate-100 pt-2.5 flex items-center justify-between">
+              <div className="text-xs text-slate-500 font-mono border-t border-slate-100 pt-3 flex items-center justify-between relative z-10">
                 <span>{isStudentAttendanceMarkedToday ? 'Absent Today' : 'Status'}</span>
-                <span className={`font-semibold px-2 py-0.5 rounded-md text-[11px] ${isStudentAttendanceMarkedToday ? 'text-rose-700 bg-rose-50 border border-rose-200/60' : 'text-amber-800 bg-amber-50 border border-amber-200/60'}`}>
+                <span className={`font-semibold px-2.5 py-0.5 rounded-lg text-[11px] ${isStudentAttendanceMarkedToday ? 'text-rose-700 bg-rose-50 border border-rose-200/60' : 'text-amber-800 bg-amber-50 border border-amber-200/60'}`}>
                   {isStudentAttendanceMarkedToday ? `${studentAbsentCount} students` : 'Pending Roll Call'}
                 </span>
               </div>
@@ -1057,30 +1068,38 @@ export function DashboardOverview({
             {/* 2. Stat Card 2: Faculty Attendance (Today) */}
             <div 
               onClick={() => setActiveTab('attendance')}
-              className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group cursor-pointer"
+              className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs kpi-card-glow group cursor-pointer relative overflow-hidden"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">Faculty Attendance (Today)</span>
-                <div className={`w-9 h-9 rounded-2xl ${isFacultyAttendanceMarkedToday ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70' : 'bg-amber-50 text-amber-700 border-amber-200/70'} border flex items-center justify-center shadow-xs group-hover:scale-110 group-hover:-rotate-6 transition-all duration-300`}>
-                  <GraduationCap className="w-4.5 h-4.5" />
+              {/* Subtle Ambient Color Splash */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-teal-400/5 rounded-full blur-xl pointer-events-none group-hover:bg-teal-400/10 transition-colors" />
+
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+                  <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-900 transition-colors">
+                    Faculty Attendance (Today)
+                  </span>
+                </div>
+                <div className={`w-10 h-10 rounded-2xl ${isFacultyAttendanceMarkedToday ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70' : 'bg-amber-50 text-amber-700 border-amber-200/70'} border flex items-center justify-center shadow-xs group-hover:scale-110 group-hover:-rotate-6 transition-all duration-300`}>
+                  <GraduationCap className="w-5 h-5" />
                 </div>
               </div>
 
-              <div className="my-3">
-                <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight flex items-baseline gap-1.5 group-hover:text-emerald-950 transition-colors">
+              <div className="my-3 relative z-10">
+                <div className="font-display font-extrabold text-3xl sm:text-4xl text-[#122A24] tracking-tight flex items-baseline gap-2 group-hover:text-emerald-950 transition-colors">
                   <span>{isFacultyAttendanceMarkedToday ? facultyAttendanceRate : 0}%</span>
                   <span className="text-sm font-mono font-medium text-slate-400">
                     ({isFacultyAttendanceMarkedToday ? facultyPresentCount : 0}/{totalTeachersCount})
                   </span>
                 </div>
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 mt-2.5">
                   {isFacultyAttendanceMarkedToday ? (
-                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 whitespace-nowrap group-hover:bg-emerald-100 transition-colors">
+                    <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50/90 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5 whitespace-nowrap group-hover:bg-emerald-100 transition-colors shadow-2xs">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>Biometric Logged ({facultyAttendanceRate}%)</span>
                     </span>
                   ) : (
-                    <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 flex items-center gap-1 whitespace-nowrap group-hover:bg-amber-100 transition-colors">
+                    <span className="text-[11px] font-semibold text-amber-800 bg-amber-50/90 px-3 py-1 rounded-full border border-amber-200 flex items-center gap-1.5 whitespace-nowrap group-hover:bg-amber-100 transition-colors shadow-2xs">
                       <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <span>Not Marked Today (0%)</span>
                     </span>
@@ -1088,9 +1107,9 @@ export function DashboardOverview({
                 </div>
               </div>
 
-              <div className="text-xs text-slate-500 font-mono border-t border-slate-100 pt-2.5 flex items-center justify-between">
+              <div className="text-xs text-slate-500 font-mono border-t border-slate-100 pt-3 flex items-center justify-between relative z-10">
                 <span>{isFacultyAttendanceMarkedToday ? 'On Leave' : 'Status'}</span>
-                <span className={`font-semibold px-2 py-0.5 rounded-md text-[11px] ${isFacultyAttendanceMarkedToday ? 'text-amber-700 bg-amber-50 border border-amber-200/60' : 'text-amber-800 bg-amber-50 border border-amber-200/60'}`}>
+                <span className={`font-semibold px-2.5 py-0.5 rounded-lg text-[11px] ${isFacultyAttendanceMarkedToday ? 'text-amber-800 bg-amber-50 border border-amber-200/60' : 'text-amber-800 bg-amber-50 border border-amber-200/60'}`}>
                   {isFacultyAttendanceMarkedToday ? `${facultyOnLeave} sanctioned` : 'Pending Punch Logs'}
                 </span>
               </div>
@@ -1099,30 +1118,38 @@ export function DashboardOverview({
             {/* 3. Stat Card 3: Total Fee Revenue & Recovery */}
             <div 
               onClick={() => setActiveTab('fees')}
-              className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group cursor-pointer"
+              className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs kpi-card-glow group cursor-pointer relative overflow-hidden"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">Fee Revenue</span>
-                <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shadow-xs group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
-                  <CreditCard className="w-4.5 h-4.5 text-emerald-700" />
+              {/* Subtle Ambient Color Splash */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-xl pointer-events-none group-hover:bg-emerald-500/10 transition-colors" />
+
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                  <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-900 transition-colors">
+                    Fee Revenue
+                  </span>
+                </div>
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shadow-xs group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
+                  <CreditCard className="w-5 h-5 text-emerald-700" />
                 </div>
               </div>
 
-              <div className="my-3">
-                <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight group-hover:text-emerald-950 transition-colors">
+              <div className="my-3 relative z-10">
+                <div className="font-display font-extrabold text-3xl sm:text-4xl text-[#122A24] tracking-tight group-hover:text-emerald-950 transition-colors">
                   {totalPaid > 0 ? (totalPaid >= 100000 ? `₹${(totalPaid / 100000).toFixed(2)}L` : `₹${totalPaid.toLocaleString()}`) : '₹0'}
                 </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 group-hover:bg-emerald-100 transition-colors">
+                <div className="flex items-center gap-2 mt-2.5">
+                  <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50/90 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5 group-hover:bg-emerald-100 transition-colors shadow-2xs">
                     <TrendingUp className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>{collectionRate}% Realization Rate</span>
                   </span>
                 </div>
               </div>
 
-              <div className="text-xs text-slate-500 font-mono border-t border-slate-100 pt-2.5 flex items-center justify-between">
+              <div className="text-xs text-slate-500 font-mono border-t border-slate-100 pt-3 flex items-center justify-between relative z-10">
                 <span>Pending Due</span>
-                <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md text-[11px]">
+                <span className="font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-lg text-[11px]">
                   {totalPending > 0 ? (totalPending >= 100000 ? `₹${(totalPending / 100000).toFixed(2)}L` : `₹${totalPending.toLocaleString()}`) : '₹0'}
                 </span>
               </div>
@@ -1131,11 +1158,19 @@ export function DashboardOverview({
             {/* 4. Stat Card 4: Total Campus Strength & CBSE Student-Teacher Ratio */}
             <div 
               onClick={() => setActiveTab('students')}
-              className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group cursor-pointer"
+              className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs kpi-card-glow group cursor-pointer relative overflow-hidden"
             >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-800 transition-colors">Total Campus Strength</span>
-                <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full whitespace-nowrap group-hover:bg-emerald-100 transition-colors">
+              {/* Subtle Ambient Color Splash */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/5 rounded-full blur-xl pointer-events-none group-hover:bg-emerald-400/10 transition-colors" />
+
+              <div className="flex items-center justify-between mb-1 relative z-10">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-xs font-semibold text-slate-500 font-mono uppercase tracking-wider group-hover:text-emerald-900 transition-colors">
+                    Total Campus Strength
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono font-bold px-2.5 py-1 bg-emerald-50 text-emerald-850 border border-emerald-200 rounded-full whitespace-nowrap group-hover:bg-emerald-100 transition-colors shadow-2xs">
                   STR 1 : {Math.round(totalStudentsCount / (totalTeachersCount || 1))}
                 </span>
               </div>
@@ -1148,12 +1183,12 @@ export function DashboardOverview({
                   <path d="M 82 36 A 40 40 0 0 1 90 50" fill="none" stroke="#122A24" strokeWidth="9" strokeDasharray="10 100" strokeLinecap="round" />
                 </svg>
                 <div className="text-center -mt-6">
-                  <div className="font-display font-bold text-xl text-[#122A24]">{totalStudentsCount + totalTeachersCount}</div>
-                  <div className="text-[9px] text-slate-400 font-mono uppercase tracking-wider">Total Members</div>
+                  <div className="font-display font-extrabold text-2xl text-[#122A24]">{totalStudentsCount + totalTeachersCount}</div>
+                  <div className="text-[9.5px] text-slate-400 font-mono uppercase tracking-wider font-semibold">Total Members</div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono pt-2 text-slate-600 border-t border-slate-100">
+              <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono pt-2 text-slate-600 border-t border-slate-100 relative z-10">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-[#34D399] shrink-0" />
                   <span>Scholars: <strong>{totalStudentsCount}</strong></span>
