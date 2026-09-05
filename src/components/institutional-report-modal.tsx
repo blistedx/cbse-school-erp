@@ -70,43 +70,150 @@ export function InstitutionalReportModal({
   const cleanReportSubtitle = reportSubtitle ? reportSubtitle.replace(/CBSE\s*/gi, '').trim() : '';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+    <div
+      id="report-modal-backdrop"
+      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
+    >
       
       {/* ─────────────────────────────────────────────────────────────
-          PRINT-SPECIFIC CSS INJECTION
+          PRINT-SPECIFIC CSS INJECTION (MULTI-PAGE PAGINATION FIX)
           ───────────────────────────────────────────────────────────── */}
       <style jsx global>{`
         @media print {
+          /* 1. Ensure HTML & body flow continuously with no height or overflow bounds */
+          html, body {
+            height: auto !important;
+            min-height: 100% !important;
+            overflow: visible !important;
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          /* 2. Hide non-modal UI */
           body * {
             visibility: hidden !important;
           }
+
+          /* 3. Strip all modal wrappers of fixed/absolute positioning and overflow constraints */
+          #report-modal-backdrop,
+          #report-modal-dialog,
+          #report-modal-scroll,
           #printable-report-sheet,
           #printable-report-sheet * {
             visibility: visible !important;
           }
-          #printable-report-sheet {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
+
+          #report-modal-backdrop {
+            position: static !important;
+            display: block !important;
+            inset: auto !important;
             width: 100% !important;
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            background: transparent !important;
+            padding: 0 !important;
             margin: 0 !important;
-            padding: 8mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            z-index: auto !important;
+          }
+
+          #report-modal-dialog {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            transform: none !important;
+            animation: none !important;
+          }
+
+          #report-modal-scroll {
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+
+          /* 4. The report sheet itself: standard relative block flowing across pages */
+          #printable-report-sheet {
+            position: relative !important;
+            display: block !important;
+            left: auto !important;
+            top: auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: auto !important;
+            min-height: auto !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
             background: white !important;
             box-shadow: none !important;
             border: none !important;
+            border-radius: 0 !important;
           }
+
+          /* 5. Clean multi-page table formatting */
+          table {
+            width: 100% !important;
+            page-break-inside: auto !important;
+            border-collapse: collapse !important;
+          }
+
+          thead {
+            display: table-header-group !important; /* Repeats table header at top of every printed page */
+          }
+
+          tbody {
+            display: table-row-group !important;
+          }
+
+          tr {
+            page-break-inside: avoid !important; /* Prevents individual rows from being severed */
+            page-break-after: auto !important;
+          }
+
+          .report-signature-block {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
           .no-print {
             display: none !important;
           }
+
           @page {
             size: A4 portrait;
-            margin: 8mm;
+            margin: 12mm 10mm 12mm 10mm;
           }
         }
       `}</style>
 
       {/* Modal Container */}
-      <div className="bg-[#EBF5EF] rounded-3xl w-full max-w-6xl max-h-[94vh] flex flex-col shadow-2xl border border-[#C5E2CF] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div
+        id="report-modal-dialog"
+        className="bg-[#EBF5EF] rounded-3xl w-full max-w-6xl max-h-[94vh] flex flex-col shadow-2xl border border-[#C5E2CF] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+      >
         
         {/* Top Control Bar (Hidden in Print) */}
         <div className="no-print bg-[#122A24] text-white p-4 px-6 flex items-center justify-between gap-3 shrink-0 flex-wrap">
@@ -149,7 +256,10 @@ export function InstitutionalReportModal({
         </div>
 
         {/* Scrollable Printable Document Container */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex justify-center bg-[#EBF5EF]/60">
+        <div
+          id="report-modal-scroll"
+          className="p-4 sm:p-6 overflow-y-auto flex-1 flex justify-center bg-[#EBF5EF]/60"
+        >
           
           {/* ─────────────────────────────────────────────────────────
               THE OFFICIAL PRINTABLE A4 REPORT SHEET
@@ -289,13 +399,13 @@ export function InstitutionalReportModal({
             </div>
 
             {/* 5. STATUTORY VERIFICATION & SIGNATURE BLOCKS */}
-            <div className="pt-8 border-t border-slate-300 space-y-6">
+            <div className="pt-8 border-t border-slate-300 space-y-6 report-signature-block">
               <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
                 <div>
-                  * This is an official institutional report generated from Giterp Multi-School Enterprise ERP Core.
+                  * This is an official institutional report generated from School ERP Core.
                 </div>
                 <div>
-                  Page 1 of 1 &bull; Status: <strong>VERIFIED &amp; LOCKED</strong>
+                  Status: <strong>OFFICIAL &amp; VERIFIED</strong>
                 </div>
               </div>
 
