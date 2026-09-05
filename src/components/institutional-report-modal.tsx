@@ -79,12 +79,11 @@ export function InstitutionalReportModal({
       const iframe = document.createElement('iframe');
       iframe.id = 'report-print-iframe';
       iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '0';
+      iframe.style.width = '1024px';
+      iframe.style.height = '1000px';
       iframe.style.border = '0';
-      iframe.style.opacity = '0';
       document.body.appendChild(iframe);
 
       const doc = iframe.contentWindow?.document;
@@ -104,6 +103,7 @@ export function InstitutionalReportModal({
         <html>
           <head>
             <meta charset="utf-8" />
+            <base href="${typeof window !== 'undefined' ? window.location.origin : ''}/" />
             <title>${cleanReportTitle}</title>
             ${stylesHtml}
             <style>
@@ -325,7 +325,7 @@ export function InstitutionalReportModal({
             )}
 
             {/* 4. HIGH-CONTRAST STRUCTURED DATA TABLE */}
-            <div className="border border-[#122A24] rounded-lg overflow-hidden">
+            <div className="border border-[#122A24] rounded-lg overflow-visible print:border-none">
               <table className="w-full text-left border-collapse text-[10.5px]">
                 <thead className="bg-[#122A24] text-white font-mono font-bold uppercase text-[10px]">
                   <tr>
