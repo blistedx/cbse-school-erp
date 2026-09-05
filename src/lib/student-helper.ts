@@ -17,7 +17,10 @@ export function getCleanPhone(phone?: string): string {
 
 /**
  * Returns all detected siblings for a given student in the school directory.
- * Matches when Father AND Mother name match, or normalized Father/Guardian name + Phone match.
+ * Strict CBSE matching criteria:
+ * 1. Both Father AND Mother match (and both are non-empty)
+ * 2. Primary 10-digit Guardian Mobile match + (Father match OR Mother match)
+ * 3. Primary 10-digit Guardian Mobile match + Residential Address match
  */
 export function getStudentSiblings(targetStudent: Student, allStudents: Student[]): Student[] {
   if (!targetStudent || !Array.isArray(allStudents)) return [];
@@ -25,45 +28,32 @@ export function getStudentSiblings(targetStudent: Student, allStudents: Student[
   const targetFather = normalizeName(targetStudent.father_name || targetStudent.guardian_name);
   const targetMother = normalizeName(targetStudent.mother_name);
   const targetPhone = getCleanPhone(targetStudent.guardian_phone || targetStudent.phone);
+  const targetAddress = (targetStudent.residential_address || targetStudent.address || '').toLowerCase().trim();
 
   return allStudents.filter(s => {
+    // Exclude self by ID and admission number
     if (s.id === targetStudent.id || s.admission_no === targetStudent.admission_no) return false;
 
     const sFather = normalizeName(s.father_name || s.guardian_name);
     const sMother = normalizeName(s.mother_name);
     const sPhone = getCleanPhone(s.guardian_phone || s.phone);
+    const sAddress = (s.residential_address || s.address || '').toLowerCase().trim();
 
-    // Rule 1: Father AND Mother match
-    if (targetFather && sFather && targetFather === sFather) {
-      if (targetMother && sMother && targetMother === sMother) return true;
-      if (!targetMother || !sMother) return true;
-      if (targetMother === sMother) return true;
+    // Rule 1: Strict match of BOTH Father AND Mother (both must be non-empty and at least 3 chars)
+    if (
+      targetFather && sFather && targetFather.length >= 3 && targetFather === sFather &&
+      targetMother && sMother && targetMother.length >= 3 && targetMother === sMother
+    ) {
+      return true;
     }
 
-    // Rule 2: Father match AND phone match
-    if (targetFather && sFather && targetFather === sFather) {
-      if (targetPhone && sPhone && targetPhone === sPhone) return true;
-    }
+    // Rule 2: Primary 10-digit Guardian Phone matches AND (Father matches OR Mother matches)
+    if (targetPhone && sPhone && targetPhone.length >= 10 && targetPhone === sPhone) {
+      if (targetFather && sFather && targetFather.length >= 3 && targetFather === sFather) return true;
+      if (targetMother && sMother && targetMother.length >= 3 && targetMother === sMother) return true;
 
-    // Rule 3: Mother match AND phone match
-    if (targetMother && sMother && targetMother === sMother) {
-      if (targetPhone && sPhone && targetPhone === sPhone) return true;
-    }
-
-    // Rule 4: Guardian phone matches and last name / surname matches
-    if (targetPhone && sPhone && targetPhone === sPhone && targetPhone.length >= 10) {
-      const targetLast = (targetStudent.full_name || '').trim().split(' ').pop()?.toLowerCase();
-      const sLast = (s.full_name || '').trim().split(' ').pop()?.toLowerCase();
-      if (targetLast && sLast && targetLast === sLast && targetLast.length > 2) {
-        return true;
-      }
-    }
-
-    // Rule 5: Same Father name + Same Surname
-    if (targetFather && sFather && targetFather === sFather && targetFather.length > 3) {
-      const targetLast = (targetStudent.full_name || '').trim().split(' ').pop()?.toLowerCase();
-      const sLast = (s.full_name || '').trim().split(' ').pop()?.toLowerCase();
-      if (targetLast && sLast && targetLast === sLast) {
+      // Rule 3: 10-digit Phone match + Residential Address match (address > 5 chars)
+      if (targetAddress && sAddress && targetAddress.length >= 5 && targetAddress === sAddress) {
         return true;
       }
     }
@@ -99,7 +89,19 @@ export function getAllSiblingGroups(students: Student[], invoices: FeeInvoice[] 
 
     const siblings = getStudentSiblings(student, students);
     if (siblings.length > 0) {
-      const cluster = [student, ...siblings];
+      // Deduplicate cluster by student.id and admission_no
+      const clusterMap = new Map<string, Student>();
+      clusterMap.set(student.id, student);
+      siblings.forEach(s => {
+        if (!clusterMap.has(s.id)) {
+          clusterMap.set(s.id, s);
+        }
+      });
+      const cluster = Array.from(clusterMap.values());
+
+      // Only clusters of 2 or more scholars are sibling groups
+      if (cluster.length < 2) return;
+
       cluster.forEach(s => visitedIds.add(s.id));
 
       const father = student.father_name || student.guardian_name || 'Guardian';

@@ -84,6 +84,7 @@ import { apiFetch } from '@/lib/api-client';
 import { calculateRegistrationFees, DEFAULT_TRANSPORT_FEES } from '@/lib/fee-calculator';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 import { TaskCompletionOverlay, TaskCelebrationData, TaskCelebrationType } from '@/components/task-completion-overlay';
+import { getAllSiblingGroups, SiblingGroup } from '@/lib/student-helper';
 
 const DashboardOverview = dynamic(
   () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
@@ -3166,6 +3167,74 @@ function ERPWorkspaceContent() {
     });
   };
 
+  const handleExportSiblingsCSV = () => {
+    setShowExportMenu(null);
+    const siblingGroups = getAllSiblingGroups(students, invoices);
+    const headers = [
+      'Household ID',
+      'Household Name',
+      'Father Name',
+      'Mother Name',
+      'Guardian Phone',
+      'Address',
+      'Total Siblings',
+      'Enrolled Siblings Details',
+      'Total Family Dues (INR)',
+      'Fee Settlement Status'
+    ];
+    const rows = siblingGroups.map(g => [
+      g.id,
+      g.familyName,
+      g.fatherName,
+      g.motherName || 'N/A',
+      g.phone,
+      g.address,
+      g.students.length,
+      g.students.map(s => `${s.full_name} (${s.class_name}-${s.section || 'A'}, Adm: ${s.admission_no}, Att: ${s.attendance_percent || 94}%, Fee: ${s.fee_status || 'PAID'})`).join('; '),
+      g.totalDues,
+      g.allFeesPaid ? 'ALL DUES CLEAR' : `DUE: INR ${g.totalDues}`
+    ]);
+    exportToCSV('CBSE_Siblings_and_Families_Register', headers, rows);
+  };
+
+  const handlePrintSiblingsReport = () => {
+    setShowExportMenu(null);
+    const siblingGroups = getAllSiblingGroups(students, invoices);
+    const totalSiblings = siblingGroups.reduce((acc, g) => acc + g.students.length, 0);
+    const fullySettled = siblingGroups.filter(g => g.allFeesPaid).length;
+
+    const stats = [
+      { label: 'Total Family Units', value: `${siblingGroups.length} Households` },
+      { label: 'Co-Enrolled Scholars', value: `${totalSiblings} Siblings` },
+      { label: 'Fee Compliance', value: `${siblingGroups.length > 0 ? Math.round((fullySettled / siblingGroups.length) * 100) : 100}%` },
+      { label: 'Settled Families', value: `${fullySettled} Households` },
+    ];
+
+    const cols: ReportColumn[] = [
+      { header: 'HOUSEHOLD NAME', render: (g: any) => g.familyName, width: '22%' },
+      { header: 'PARENTS', render: (g: any) => `${g.fatherName}${g.motherName ? ` / ${g.motherName}` : ''}`, width: '22%' },
+      { header: 'CONTACT PHONE', render: (g: any) => g.phone, width: '14%' },
+      { header: 'ENROLLED SIBLINGS', render: (g: any) => g.students.map((s: any) => `${s.full_name} (${s.class_name}-${s.section || 'A'})`).join(', '), width: '28%' },
+      { header: 'STATUS', render: (g: any) => g.allFeesPaid ? 'ALL CLEAR' : `DUE ₹${g.totalDues.toLocaleString()}`, width: '14%', align: 'right' },
+    ];
+
+    setActiveReportModal({
+      isOpen: true,
+      title: 'CBSE Siblings & Household Family Registry',
+      subtitle: 'Official Automated Multi-Child Linkage & Consolidated Family Roster',
+      filterSummary: [
+        { label: 'Session', value: selectedSession || '2026-27' },
+        { label: 'Module', value: 'Siblings Hub' },
+        { label: 'Households', value: `${siblingGroups.length} Families` },
+        { label: 'Total Sibling Scholars', value: `${totalSiblings} Scholars` }
+      ],
+      statsSummary: stats,
+      columns: cols,
+      data: siblingGroups,
+      onDownloadCSV: handleExportSiblingsCSV
+    });
+  };
+
   const handlePrintTeachersReport = () => {
     setShowExportMenu(null);
     const stats = [
@@ -4695,9 +4764,9 @@ function ERPWorkspaceContent() {
 
                     {/* Print - hidden on mobile */}
                     <button
-                      onClick={handlePrintStudentsReport}
+                      onClick={studentSubTab === 'siblings' ? handlePrintSiblingsReport : handlePrintStudentsReport}
                       className="hidden sm:flex w-9 h-9 rounded-full bg-[#F4F8F5] border border-[#DCE8E0] hover:bg-[#EBF5EF] text-[#122A24] transition-colors shadow-2xs items-center justify-center cursor-pointer"
-                      title="Print Official CBSE Register"
+                      title={studentSubTab === 'siblings' ? 'Print Official CBSE Siblings Register' : 'Print Official CBSE Register'}
                     >
                       <Printer className="h-4 w-4" />
                     </button>
@@ -4714,39 +4783,60 @@ function ERPWorkspaceContent() {
                       </button>
 
                       {showExportMenu === 'students' && (
-                        <div className="absolute right-0 mt-1.5 w-48 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
-                          <button
-                            onClick={() => {
-                              setShowExportMenu(null);
-                              exportToCSV(
-                                'CBSE_Students_List',
-                                ['Admission No', 'Roll No', 'Name', 'Class', 'Section', 'Gender', 'Status', 'Date of Join', 'DOB', 'Guardian Phone'],
-                                filteredStudents.map(s => [
-                                  s.admission_no,
-                                  s.roll_no || '',
-                                  s.full_name,
-                                  s.class_name,
-                                  s.section,
-                                  s.gender || 'Female',
-                                  s.status || 'ACTIVE',
-                                  s.admission_date || '',
-                                  s.dob || '',
-                                  s.guardian_phone || s.father_phone || ''
-                                ])
-                              );
-                            }}
-                            className="w-full text-left px-3.5 py-2 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer text-xs font-medium text-[#122A24] flex items-center gap-2"
-                          >
-                            <FileText className="h-3.5 w-3.5 text-emerald-600" />
-                            <span>Export CSV</span>
-                          </button>
-                          <button
-                            onClick={handlePrintStudentsReport}
-                            className="w-full text-left px-3.5 py-2 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer text-xs font-medium text-[#122A24] flex items-center gap-2"
-                          >
-                            <Printer className="h-3.5 w-3.5 text-[#1C443A]" />
-                            <span>Print Official CBSE PDF</span>
-                          </button>
+                        <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] py-1.5 z-30 text-xs animate-fade-in">
+                          {studentSubTab === 'siblings' ? (
+                            <>
+                              <button
+                                onClick={handleExportSiblingsCSV}
+                                className="w-full text-left px-3.5 py-2 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer text-xs font-medium text-[#122A24] flex items-center gap-2"
+                              >
+                                <FileText className="h-3.5 w-3.5 text-emerald-600" />
+                                <span>Export Siblings CSV</span>
+                              </button>
+                              <button
+                                onClick={handlePrintSiblingsReport}
+                                className="w-full text-left px-3.5 py-2 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer text-xs font-medium text-[#122A24] flex items-center gap-2"
+                              >
+                                <Printer className="h-3.5 w-3.5 text-[#1C443A]" />
+                                <span>Print Siblings Register (PDF)</span>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setShowExportMenu(null);
+                                  exportToCSV(
+                                    'CBSE_Students_List',
+                                    ['Admission No', 'Roll No', 'Name', 'Class', 'Section', 'Gender', 'Status', 'Date of Join', 'DOB', 'Guardian Phone'],
+                                    filteredStudents.map(s => [
+                                      s.admission_no,
+                                      s.roll_no || '',
+                                      s.full_name,
+                                      s.class_name,
+                                      s.section,
+                                      s.gender || 'Female',
+                                      s.status || 'ACTIVE',
+                                      s.admission_date || '',
+                                      s.dob || '',
+                                      s.guardian_phone || s.father_phone || ''
+                                    ])
+                                  );
+                                }}
+                                className="w-full text-left px-3.5 py-2 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer text-xs font-medium text-[#122A24] flex items-center gap-2"
+                              >
+                                <FileText className="h-3.5 w-3.5 text-emerald-600" />
+                                <span>Export Students CSV</span>
+                              </button>
+                              <button
+                                onClick={handlePrintStudentsReport}
+                                className="w-full text-left px-3.5 py-2 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer text-xs font-medium text-[#122A24] flex items-center gap-2"
+                              >
+                                <Printer className="h-3.5 w-3.5 text-[#1C443A]" />
+                                <span>Print Official CBSE PDF</span>
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -5674,6 +5764,8 @@ function ERPWorkspaceContent() {
                       invoices={invoices}
                       onSelectStudent={(s) => setSummaryStudent(s)}
                       onCollectFee={(s) => handleQuickCollectFee(s)}
+                      onExportReport={handleExportSiblingsCSV}
+                      onPrintReport={handlePrintSiblingsReport}
                     />
                   </div>
                 )}
@@ -5714,6 +5806,8 @@ function ERPWorkspaceContent() {
                   invoices={invoices}
                   onSelectStudent={(s) => setSummaryStudent(s)}
                   onCollectFee={(s) => handleQuickCollectFee(s)}
+                  onExportReport={handleExportSiblingsCSV}
+                  onPrintReport={handlePrintSiblingsReport}
                 />
               </div>
             </div>

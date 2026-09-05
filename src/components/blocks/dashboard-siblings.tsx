@@ -12,7 +12,9 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Download,
+  Printer
 } from 'lucide-react';
 import { Student, FeeInvoice } from '@/lib/types';
 import { getAllSiblingGroups } from '@/lib/student-helper';
@@ -22,13 +24,17 @@ interface DashboardSiblingsProps {
   invoices?: FeeInvoice[];
   onSelectStudent: (student: Student) => void;
   onCollectFee?: (student: Student) => void;
+  onExportReport?: () => void;
+  onPrintReport?: () => void;
 }
 
 export function DashboardSiblings({
   students = [],
   invoices = [],
   onSelectStudent,
-  onCollectFee
+  onCollectFee,
+  onExportReport,
+  onPrintReport
 }: DashboardSiblingsProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMode, setFilterMode] = useState<'ALL' | 'MULTI_CHILD' | 'FEES_DUE' | 'ALL_PAID'>('ALL');
@@ -83,6 +89,58 @@ export function DashboardSiblings({
       );
     });
   }, [siblingGroups, searchQuery, filterMode]);
+
+  // Built-in direct CSV export for siblings
+  const handleDirectExportCSV = () => {
+    if (onExportReport) {
+      onExportReport();
+      return;
+    }
+
+    const headers = [
+      'Household ID',
+      'Household Name',
+      'Father Name',
+      'Mother Name',
+      'Contact Phone',
+      'Residential Address',
+      'Enrolled Siblings Count',
+      'Siblings Breakdown (Name, Class, Adm No, Fee Status)',
+      'Consolidated Family Dues (INR)',
+      'Fee Settlement Status'
+    ];
+
+    const rows = filteredGroups.map(g => [
+      g.id,
+      g.familyName,
+      g.fatherName,
+      g.motherName || 'N/A',
+      g.phone,
+      g.address,
+      g.students.length,
+      g.students.map(s => `${s.full_name} (${s.class_name}-${s.section || 'A'}, Adm: ${s.admission_no}, Fee: ${s.fee_status || 'PAID'})`).join('; '),
+      g.totalDues,
+      g.allFeesPaid ? 'ALL DUES CLEAR' : `DUE: INR ${g.totalDues}`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,'
+      + [headers.join(','), ...rows.map(e => e.map(val => `"${String(val || '').replace(/"/g, '""')}"`).join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `CBSE_Siblings_and_Families_Register_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDirectPrint = () => {
+    if (onPrintReport) {
+      onPrintReport();
+      return;
+    }
+    window.print();
+  };
 
   // Helper to extract clean initial for household avatar
   const getFamilyInitial = (name: string, fatherName: string) => {
@@ -210,9 +268,9 @@ export function DashboardSiblings({
         </div>
       </div>
 
-      {/* Search & Filter Toolbar */}
-      <div className="p-4 rounded-3xl bg-white border border-[#DCE8E0] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
-        <div className="relative w-full sm:w-80">
+      {/* Search, Filters & Direct Action Toolbar */}
+      <div className="p-4 rounded-3xl bg-white border border-[#DCE8E0] flex flex-col md:flex-row items-center justify-between gap-3 shadow-xs">
+        <div className="relative w-full md:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -223,26 +281,48 @@ export function DashboardSiblings({
           />
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex items-center bg-[#F4F8F5] p-1 rounded-full border border-[#DCE8E0] shadow-2xs overflow-x-auto w-full sm:w-auto no-scrollbar">
-          {[
-            { id: 'ALL', label: `All Families (${siblingGroups.length})` },
-            { id: 'MULTI_CHILD', label: `Multi-Child (${multiChildCount})` },
-            { id: 'ALL_PAID', label: 'Fees Paid' },
-            { id: 'FEES_DUE', label: 'Fees Due' },
-          ].map(f => (
+        <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end flex-wrap">
+          {/* Filter Pills */}
+          <div className="flex items-center bg-[#F4F8F5] p-1 rounded-full border border-[#DCE8E0] shadow-2xs overflow-x-auto no-scrollbar">
+            {[
+              { id: 'ALL', label: `All Families (${siblingGroups.length})` },
+              { id: 'MULTI_CHILD', label: `Multi-Child (${multiChildCount})` },
+              { id: 'ALL_PAID', label: 'Fees Paid' },
+              { id: 'FEES_DUE', label: 'Fees Due' },
+            ].map(f => (
+              <button
+                key={f.id}
+                onClick={() => setFilterMode(f.id as any)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-full border-none cursor-pointer whitespace-nowrap transition-all ${
+                  filterMode === f.id
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24]'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Quick Actions: Export CSV & Print */}
+          <div className="flex items-center gap-2">
             <button
-              key={f.id}
-              onClick={() => setFilterMode(f.id as any)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-full border-none cursor-pointer whitespace-nowrap transition-all ${
-                filterMode === f.id
-                  ? 'bg-[#122A24] text-white shadow-xs'
-                  : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24]'
-              }`}
+              onClick={handleDirectExportCSV}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#EBF5EF] hover:bg-[#DCE8E0] text-[#122A24] border border-[#C5E2CF] shadow-2xs transition-all cursor-pointer"
+              title="Export Siblings & Families Register to CSV"
             >
-              {f.label}
+              <Download className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Export CSV</span>
             </button>
-          ))}
+            <button
+              onClick={handleDirectPrint}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] shadow-2xs transition-all cursor-pointer"
+              title="Print Official Siblings & Household Dossier"
+            >
+              <Printer className="w-3.5 h-3.5 text-[#1C443A]" />
+              <span className="hidden sm:inline">Print Roster</span>
+            </button>
+          </div>
         </div>
       </div>
 
