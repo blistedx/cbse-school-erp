@@ -8483,7 +8483,17 @@ function ERPWorkspaceContent() {
                       </span>
                     </div>
                     <div className="text-xs text-slate-300 font-mono mt-1 flex items-center justify-center sm:justify-start gap-3 flex-wrap">
-                      <span>{currentUser?.role === 'TEACHER' ? 'Staff Code:' : 'Admin ID:'} <strong>{currentUser?.username || profileForm.username || 'EMP01'}</strong></span>
+                      <span>
+                        {currentUser?.role === 'TEACHER'
+                          ? 'Staff Code:'
+                          : currentUser?.role === 'DRIVER'
+                          ? 'Driver ID:'
+                          : currentUser?.role === 'STUDENT'
+                          ? 'Admission No:'
+                          : currentUser?.role === 'PARENT'
+                          ? 'Parent ID:'
+                          : 'Admin ID:'} <strong>{currentUser?.username || profileForm.username || 'EMP01'}</strong>
+                      </span>
                       <span>•</span>
                       <span>School: <strong>{selectedSchool?.school_name || 'Delhi Public School'}</strong></span>
                       <span>•</span>
@@ -8501,6 +8511,8 @@ function ERPWorkspaceContent() {
                       ? 'Faculty Tier-2 Access'
                       : currentUser?.role === 'PARENT'
                       ? 'Parent Ward Access'
+                      : currentUser?.role === 'DRIVER'
+                      ? 'Driver Field Operations'
                       : 'Tier-1 Full Access'}
                   </div>
                   <div className="text-[9.5px] text-slate-300 font-mono mt-0.5">
@@ -8510,6 +8522,8 @@ function ERPWorkspaceContent() {
                       ? 'CBSE Educator Console'
                       : currentUser?.role === 'PARENT'
                       ? 'CBSE Parent Connect'
+                      : currentUser?.role === 'DRIVER'
+                      ? 'Fleet Transport Cockpit'
                       : 'CBSE Master Console'}
                   </div>
                 </div>

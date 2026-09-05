@@ -1,7 +1,7 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Bus,
   MapPin,
@@ -50,7 +50,12 @@ import {
   Circle,
   Menu,
   CheckCircle,
-  Home
+  Home,
+  UserCheck,
+  UserX,
+  Repeat,
+  Layers,
+  ExternalLink
 } from 'lucide-react';
 import { Student } from '@/lib/types';
 
@@ -79,13 +84,52 @@ export interface BusRouteData {
   vehicleNo: string;
   capacity: string;
   status: 'ON_ROUTE' | 'CAMPUS' | 'MAINTENANCE';
+  driverStatus?: 'PRESENT' | 'ABSENT' | 'RELIEF_ASSIGNED';
+  substituteDriver?: string;
+  substitutePhone?: string;
+  reliefReason?: string;
+  reliefNote?: string;
+  onboardGpsTracking?: boolean;
   baseSpeed: number;
   stops: RouteStop[];
   pathCoords: { x: number; y: number }[];
 }
 
+// Standby Reserve Relief Drivers Pool for absence replacement
+export const STANDBY_RELIEF_DRIVERS = [
+  { id: 'rel-1', name: 'Mohan Lal', phone: '+91 98765-43220', badge: 'Depot Standby #1', license: 'DL-UP32-2018-9921', vehicleNo: 'UP-32-AB-9876' },
+  { id: 'rel-2', name: 'Suresh Verma', phone: '+91 98765-43221', badge: 'Reserve Pool #2', license: 'DL-UP32-2020-4412', vehicleNo: 'UP-32-AB-9876' },
+  { id: 'rel-3', name: 'Deepak Singh', phone: '+91 98765-43222', badge: 'Senior Standby #3', license: 'DL-UP32-2015-8833', vehicleNo: 'UP-32-AB-9876' },
+];
+
 // Initial realistic default routes featuring Rajajipuram to Chowk Express & Route 04
 const INITIAL_ROUTES: BusRouteData[] = [
+  {
+    id: 'ROUTE-LKO-01',
+    code: 'BUS-01',
+    name: 'Rajajipuram to Chowk Express',
+    driver: 'Ramesh Yadav',
+    driverPhone: '+91 98765-43210',
+    vehicleNo: 'UP-32-AB-9876',
+    capacity: '34 Seats',
+    status: 'ON_ROUTE',
+    driverStatus: 'PRESENT',
+    baseSpeed: 32,
+    stops: [
+      { id: 's1', name: 'Rajajipuram E-Block Terminal', scheduledTime: '07:45 AM', distanceKm: 0, lat: 26.8378, lng: 80.8872 },
+      { id: 's2', name: 'Alambagh Chauraha', scheduledTime: '08:00 AM', distanceKm: 4.2, lat: 26.8150, lng: 80.9020 },
+      { id: 's3', name: 'Charbagh Railway Station', scheduledTime: '08:15 AM', distanceKm: 8.5, lat: 26.8322, lng: 80.9238 },
+      { id: 's4', name: 'Chowk Chauraha (Heritage Gate)', scheduledTime: '08:30 AM', distanceKm: 13.1, lat: 26.8680, lng: 80.9050 },
+      { id: 's5', name: 'School Campus Main Gate', scheduledTime: '08:50 AM', distanceKm: 18.0, lat: 26.8520, lng: 80.9400 }
+    ],
+    pathCoords: [
+      { x: 50, y: 150 },
+      { x: 160, y: 110 },
+      { x: 280, y: 140 },
+      { x: 400, y: 90 },
+      { x: 540, y: 120 }
+    ]
+  },
   {
     id: 'ROUTE-04',
     code: 'BUS-04',
@@ -95,6 +139,7 @@ const INITIAL_ROUTES: BusRouteData[] = [
     vehicleNo: 'UP32 AB 1234',
     capacity: '36 Seats',
     status: 'ON_ROUTE',
+    driverStatus: 'PRESENT',
     baseSpeed: 34,
     stops: [
       { id: 'r4-s1', name: 'Green Park Stop', scheduledTime: '07:15 AM', distanceKm: 0, lat: 26.8410, lng: 80.8950 },
@@ -115,31 +160,6 @@ const INITIAL_ROUTES: BusRouteData[] = [
       { x: 440, y: 110 },
       { x: 520, y: 80 },
       { x: 580, y: 120 }
-    ]
-  },
-  {
-    id: 'ROUTE-LKO-01',
-    code: 'BUS-01',
-    name: 'Rajajipuram to Chowk Express',
-    driver: 'Ramesh Yadav',
-    driverPhone: '+91 98765-43210',
-    vehicleNo: 'UP-32-AB-9876',
-    capacity: '34 Seats',
-    status: 'ON_ROUTE',
-    baseSpeed: 32,
-    stops: [
-      { id: 's1', name: 'Rajajipuram E-Block Terminal', scheduledTime: '07:45 AM', distanceKm: 0, lat: 26.8378, lng: 80.8872 },
-      { id: 's2', name: 'Alambagh Chauraha', scheduledTime: '08:00 AM', distanceKm: 4.2, lat: 26.8150, lng: 80.9020 },
-      { id: 's3', name: 'Charbagh Railway Station', scheduledTime: '08:15 AM', distanceKm: 8.5, lat: 26.8322, lng: 80.9238 },
-      { id: 's4', name: 'Chowk Chauraha (Heritage Gate)', scheduledTime: '08:30 AM', distanceKm: 13.1, lat: 26.8680, lng: 80.9050 },
-      { id: 's5', name: 'School Campus Main Gate', scheduledTime: '08:50 AM', distanceKm: 18.0, lat: 26.8520, lng: 80.9400 }
-    ],
-    pathCoords: [
-      { x: 50, y: 150 },
-      { x: 160, y: 110 },
-      { x: 280, y: 140 },
-      { x: 400, y: 90 },
-      { x: 540, y: 120 }
     ]
   },
   {
@@ -230,7 +250,20 @@ export function DashboardTransport({
     }
   }, [routes]);
 
-  const [selectedRouteId, setSelectedRouteId] = useState<string>(routes[0]?.id || 'ROUTE-LKO-01');
+  const [selectedRouteId, setSelectedRouteId] = useState<string>(() => {
+    if (isDriverUser && currentUser) {
+      const cName = (currentUser.name || '').toLowerCase();
+      const cUser = (currentUser.username || '').toLowerCase();
+      const matched = INITIAL_ROUTES.find(r => 
+        (cName && r.driver.toLowerCase().includes(cName)) ||
+        (cName && cName.includes(r.driver.toLowerCase())) ||
+        (cName.includes('01') && r.code === 'BUS-01') ||
+        (cUser === 'driver' && r.code === 'BUS-01')
+      );
+      if (matched) return matched.id;
+    }
+    return INITIAL_ROUTES[0]?.id || 'ROUTE-LKO-01';
+  });
   const activeRoute = useMemo(() => {
     return routes.find(r => r.id === selectedRouteId) || routes[0] || INITIAL_ROUTES[0];
   }, [routes, selectedRouteId]);
@@ -516,7 +549,21 @@ export function DashboardTransport({
     } catch (e) {}
   };
 
-  // Actively fetch real smartphone GPS even when stationary
+  // ─────────────────────────────────────────────────────────────
+  // HIGH-FREQUENCY SUB-SECOND GPS ACQUISITION ENGINE
+  // ─────────────────────────────────────────────────────────────
+  const lastGpsFixRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
+  const [manualSpeedSim, setManualSpeedSim] = useState<number | null>(null);
+
+  // Absence & Relief Driver Management States
+  const [showAbsenceModal, setShowAbsenceModal] = useState<boolean>(false);
+  const [showReliefModal, setShowReliefModal] = useState<boolean>(false);
+  const [showRouteSelectModal, setShowRouteSelectModal] = useState<boolean>(false);
+  const [absenceReason, setAbsenceReason] = useState<string>('Medical / Sick Leave');
+  const [absenceNotes, setAbsenceNotes] = useState<string>('');
+  const [selectedReliefDriverId, setSelectedReliefDriverId] = useState<string>('rel-1');
+
+  // Actively fetch real smartphone GPS with instant sub-second delta speed calculation
   const readAndTransmitLivePosition = () => {
     if (typeof window === 'undefined' || !('geolocation' in navigator)) {
       setGpsStatusMessage('Geolocation not supported in this browser');
@@ -525,7 +572,40 @@ export function DashboardTransport({
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const speedKmh = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
+        const now = Date.now();
+        let speedKmh = 0;
+
+        // 1. Manual testing speed simulation override (for desk/stationary testing)
+        if (manualSpeedSim !== null) {
+          speedKmh = manualSpeedSim;
+        }
+        // 2. Hardware GPS native speed if valid (>0)
+        else if (pos.coords.speed !== null && pos.coords.speed !== undefined && !isNaN(pos.coords.speed) && pos.coords.speed > 0) {
+          speedKmh = Math.round(pos.coords.speed * 3.6);
+        }
+        // 3. Ultra-responsive GPS Delta Distance over Delta Time calculation (works when phone speed API is null)
+        else if (lastGpsFixRef.current) {
+          const distKm = calculateDistanceKm(
+            lastGpsFixRef.current.lat,
+            lastGpsFixRef.current.lng,
+            pos.coords.latitude,
+            pos.coords.longitude
+          );
+          const deltaSec = (now - lastGpsFixRef.current.time) / 1000;
+          if (deltaSec > 0.4 && distKm > 0.0015) { // moved > 1.5 meters
+            const calcSpeed = Math.round(distKm / (deltaSec / 3600));
+            speedKmh = Math.min(85, Math.max(0, calcSpeed));
+          } else {
+            speedKmh = 0; // Stationary
+          }
+        }
+
+        lastGpsFixRef.current = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          time: now
+        };
+
         const newGeo = {
           latitude: Number(pos.coords.latitude.toFixed(6)),
           longitude: Number(pos.coords.longitude.toFixed(6)),
@@ -535,7 +615,7 @@ export function DashboardTransport({
           lastUpdated: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         };
         setLiveDriverGeo(newGeo);
-        setGpsStatusMessage(`🟢 Streaming live GPS: ${newGeo.latitude}, ${newGeo.longitude}`);
+        setGpsStatusMessage(`🟢 Live GPS Active: ${newGeo.latitude.toFixed(4)}°N, ${newGeo.longitude.toFixed(4)}°E (${speedKmh} km/h)`);
         broadcastTelemetry(newGeo, true);
       },
       (err) => {
@@ -545,27 +625,42 @@ export function DashboardTransport({
           setGpsStatusMessage(`Searching GPS satellite signal... (${err.message})`);
         }
       },
-      { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 4000, maximumAge: 1000 } // 1000ms cache eliminates cold start 6-second lag
     );
   };
 
   const startDriverTrip = () => {
     setDriverTripActive(true);
-    setGpsStatusMessage('Connecting to smartphone GPS sensor...');
+    setGpsStatusMessage('Connecting to smartphone GPS sensor with sub-second tracking...');
 
     // 1. Fetch immediately
     readAndTransmitLivePosition();
 
-    // 2. Continuous interval every 2 seconds so stationary phone streams live coordinates
-    const intervalId = setInterval(readAndTransmitLivePosition, 2000);
+    // 2. Continuous interval every 1 second (1000ms) for high-frequency telemetry
+    const intervalId = setInterval(readAndTransmitLivePosition, 1000);
     setGpsPollTimer(intervalId);
 
-    // 3. Native watch position for movement tracking
+    // 3. Native watch position for immediate movement delta
     if (typeof window !== 'undefined' && 'geolocation' in navigator) {
       try {
         const id = navigator.geolocation.watchPosition(
           (pos) => {
-            const speedKmh = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
+            const now = Date.now();
+            let speedKmh = 0;
+            if (manualSpeedSim !== null) {
+              speedKmh = manualSpeedSim;
+            } else if (pos.coords.speed !== null && pos.coords.speed !== undefined && !isNaN(pos.coords.speed) && pos.coords.speed > 0) {
+              speedKmh = Math.round(pos.coords.speed * 3.6);
+            } else if (lastGpsFixRef.current) {
+              const distKm = calculateDistanceKm(lastGpsFixRef.current.lat, lastGpsFixRef.current.lng, pos.coords.latitude, pos.coords.longitude);
+              const deltaSec = (now - lastGpsFixRef.current.time) / 1000;
+              if (deltaSec > 0.4 && distKm > 0.0015) {
+                speedKmh = Math.min(85, Math.max(0, Math.round(distKm / (deltaSec / 3600))));
+              }
+            }
+
+            lastGpsFixRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude, time: now };
+
             const newGeo = {
               latitude: Number(pos.coords.latitude.toFixed(6)),
               longitude: Number(pos.coords.longitude.toFixed(6)),
@@ -578,7 +673,7 @@ export function DashboardTransport({
             broadcastTelemetry(newGeo, true);
           },
           () => {},
-          { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 }
+          { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
         );
         setGeoWatchId(id);
       } catch (e) {}
@@ -610,7 +705,7 @@ export function DashboardTransport({
           setDriverTripActive(false);
           setGpsStatusMessage('❌ Location permission not allowed. Tap "START GPS TRIP" to retry and allow live bus tracking.');
         },
-        { enableHighAccuracy: true, timeout: 6000 }
+        { enableHighAccuracy: true, timeout: 4000, maximumAge: 1000 }
       );
     }
   }, [isDriverUser]);
@@ -629,7 +724,8 @@ export function DashboardTransport({
   const [unreadNotifications, setUnreadNotifications] = useState<number>(3);
   const [driverStudentSearch, setDriverStudentSearch] = useState<string>('');
   const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PICKED' | 'PENDING' | 'DROPPED'>('ALL');
-  const [googleMapMode, setGoogleMapMode] = useState<'LIVE_PIN' | 'ROUTE_PATH'>('LIVE_PIN');
+  // Default to ROUTE_PATH so marked route directions display immediately on load
+  const [googleMapMode, setGoogleMapMode] = useState<'ROUTE_PATH' | 'LIVE_PIN' | 'LIVE_NAV' | 'RADAR_CANVAS'>('ROUTE_PATH');
 
   // Haversine distance calculator in kilometers
   const calculateDistanceKm = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -1442,9 +1538,9 @@ export function DashboardTransport({
                     Pick-up Sequence ({r.stops.length} Stops)
                   </span>
                   <div className="space-y-1.5">
-                    {r.stops.map((s, idx) => (
-                      <div key={s.id} className="flex items-center justify-between text-xs p-2 rounded-xl bg-[#FAFCFA] border border-[#E8F0EA]">
-                        <span className="font-medium text-slate-800 flex items-center gap-1.5">
+                    {r.stops.slice(0, 3).map((s, idx) => (
+                      <div key={s.id} className="flex items-center justify-between text-xs py-1 px-2.5 rounded-lg bg-emerald-50/60 border border-emerald-100/60">
+                        <span className="flex items-center gap-2 font-medium text-slate-700">
                           <span className="w-4 h-4 rounded-full bg-[#122A24] text-white text-[9px] font-bold flex items-center justify-center font-mono">
                             {idx + 1}
                           </span>
@@ -1524,36 +1620,80 @@ export function DashboardTransport({
 
                 {/* Driver Details */}
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
                       DRIVER COCKPIT
                     </span>
+                    {/* Driver Duty Status Badge */}
+                    {activeRoute.driverStatus === 'ABSENT' ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/25 text-rose-300 border border-rose-400/40 animate-pulse">
+                        🔴 DRIVER ABSENT
+                      </span>
+                    ) : activeRoute.driverStatus === 'RELIEF_ASSIGNED' ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/25 text-amber-300 border border-amber-400/40">
+                        🟡 RELIEF DRIVER COVERAGE
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                        🟢 ON DUTY
+                      </span>
+                    )}
                     <span className="text-xs text-emerald-200/70 font-medium">
                       {driverGreeting}
                     </span>
                   </div>
+
                   <h1 className="font-display font-extrabold text-xl sm:text-2xl text-white leading-tight mt-0.5 flex items-center gap-2">
                     <span>{driverDisplayName}</span>
                     <span>👋</span>
                   </h1>
-                  <p className="text-xs text-emerald-100/70 font-medium mt-0.5">
-                    Vehicle: <strong className="text-white font-mono">{driverVehicleNo}</strong> &bull; Route: <strong className="text-white">{activeRoute.name}</strong>
-                  </p>
+
+                  <div className="flex items-center gap-2 flex-wrap mt-0.5 text-xs text-emerald-100/70 font-medium">
+                    <span>Vehicle: <strong className="text-white font-mono">{driverVehicleNo}</strong></span>
+                    <span>&bull;</span>
+                    <span>Route: <strong className="text-white">{activeRoute.name} ({activeRoute.code})</strong></span>
+                    <button
+                      onClick={() => setShowRouteSelectModal(true)}
+                      className="ml-1 px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-emerald-200 text-[10px] font-bold border border-white/20 transition-all cursor-pointer flex items-center gap-1"
+                      title="Switch bus route"
+                    >
+                      <Repeat className="w-3 h-3" />
+                      <span>Switch Bus</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Status Indicator & Notifications */}
-              <div className="flex items-center gap-3">
+              {/* Action Buttons & Status Indicators */}
+              <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
+                {/* Driver Absence / Leave Action Button */}
+                <button
+                  onClick={() => setShowAbsenceModal(true)}
+                  className={`px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm ${
+                    activeRoute.driverStatus === 'ABSENT'
+                      ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border-rose-400/40'
+                      : activeRoute.driverStatus === 'RELIEF_ASSIGNED'
+                      ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-400/40'
+                      : 'bg-white/10 hover:bg-white/20 text-white border-white/15'
+                  }`}
+                  title="Report Driver Absence / Manage Relief Driver"
+                >
+                  <UserX className="w-4 h-4 text-rose-400" />
+                  <span>{activeRoute.driverStatus === 'ABSENT' ? 'Relief Needed' : 'Report Leave'}</span>
+                </button>
+
+                {/* Live GPS State Pill */}
                 <div className="px-3 py-1.5 rounded-2xl bg-black/30 border border-white/10 text-xs flex items-center gap-2">
                   <span className={`w-2.5 h-2.5 rounded-full ${driverTripActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
                   <span className="font-bold text-white text-[11px]">
-                    {driverTripActive ? 'LIVE GPS TRANSMITTING' : 'GPS STANDBY'}
+                    {driverTripActive ? 'LIVE GPS ACTIVE' : 'GPS STANDBY'}
                   </span>
                 </div>
 
+                {/* Dispatch Notifications Bell */}
                 <button
                   onClick={() => setShowNotificationModal(true)}
-                  className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white transition-colors cursor-pointer relative"
+                  className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white transition-colors cursor-pointer relative shrink-0"
                   title="Dispatch Messages"
                 >
                   <Bell className="w-5 h-5" />
@@ -1567,7 +1707,95 @@ export function DashboardTransport({
             </div>
           </div>
 
-          {/* 2. TOP 4 METRIC CARDS ROW / GRID (FUEL CARD REMOVED AS REQUESTED) */}
+          {/* ────── DRIVER ABSENCE & RELIEF HANDOVER ALERT BANNER ────── */}
+          {activeRoute.driverStatus === 'ABSENT' && (
+            <div className="bg-[#FFF5F5] border-2 border-rose-300 rounded-3xl p-5 sm:p-6 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4 animate-scale-up">
+              <div className="flex items-start gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-sm">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2.5 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider">
+                      ASSIGNED DRIVER ABSENT TODAY
+                    </span>
+                    <span className="text-xs font-semibold text-rose-700 font-mono">
+                      Reason: {activeRoute.reliefReason || 'Medical / Sick Leave'}
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-base text-rose-950 mt-1">
+                    Regular driver {activeRoute.driver} is unavailable for {activeRoute.name} ({activeRoute.code})
+                  </h3>
+                  <p className="text-xs text-rose-700 mt-0.5 leading-relaxed">
+                    {activeRoute.onboardGpsTracking
+                      ? '✅ Automated Vehicle Hardware GPS Mode is active. Bus location and ETAs are transmitting automatically.'
+                      : '⚠️ Assign a Standby Relief Driver below, or activate Automated Vehicle Onboard GPS so parents can still track the bus.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
+                <button
+                  onClick={() => setShowReliefModal(true)}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md cursor-pointer border-none flex items-center gap-1.5"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span>Assign Relief Driver</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setRoutes(prev => prev.map(r => r.id === activeRoute.id ? { ...r, onboardGpsTracking: !r.onboardGpsTracking } : r));
+                    alert(activeRoute.onboardGpsTracking ? 'Automated Vehicle GPS mode deactivated.' : '✅ Automated Onboard Vehicle IoT GPS Mode activated for Route ' + activeRoute.code);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold transition-all shadow-md cursor-pointer border-none flex items-center gap-1.5"
+                >
+                  <Radio className="w-4 h-4 text-emerald-400" />
+                  <span>{activeRoute.onboardGpsTracking ? 'Stop Onboard GPS' : 'Activate Onboard GPS'}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setRoutes(prev => prev.map(r => r.id === activeRoute.id ? { ...r, driverStatus: 'PRESENT', substituteDriver: undefined } : r));
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-300 cursor-pointer"
+                >
+                  Cancel Absence
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeRoute.driverStatus === 'RELIEF_ASSIGNED' && (
+            <div className="bg-[#EBF5EF] border border-[#C5E2CF] rounded-3xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 shadow-xs">
+                  <UserCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-700 text-white text-[10px] font-black uppercase">
+                      RELIEF DRIVER ACTIVE
+                    </span>
+                    <span className="text-xs text-emerald-800 font-medium">Covering for regular driver {activeRoute.driver}</span>
+                  </div>
+                  <h4 className="font-bold text-sm sm:text-base text-[#122A24] mt-0.5">
+                    Substitute Driver: {activeRoute.substituteDriver} &bull; <span className="font-mono text-xs">{activeRoute.substitutePhone}</span>
+                  </h4>
+                  <p className="text-xs text-slate-600">Bus attendance, route navigation, and live GPS streaming are fully active.</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowReliefModal(true)}
+                className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-[#1C443A] border border-[#C5E2CF] text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0"
+              >
+                Change Relief Driver
+              </button>
+            </div>
+          )}
+
+          {/* 2. TOP 4 METRIC CARDS ROW / GRID */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             
             {/* Card 1: Route & Shift */}
@@ -1580,7 +1808,7 @@ export function DashboardTransport({
               </div>
               <div className="space-y-0.5">
                 <h3 className="font-bold text-[#122A24] text-sm leading-tight line-clamp-1">
-                  {activeRoute.name || 'Route 04 Morning'}
+                  {activeRoute.name}
                 </h3>
                 <p className="text-[11px] text-slate-500 font-medium">
                   07:15 AM – 08:30 AM
@@ -1646,25 +1874,62 @@ export function DashboardTransport({
               </div>
             </div>
 
-            {/* Card 4: Real-time Mobile GPS Telemetry (Replacing Fuel Card) */}
+            {/* Card 4: Real-time Mobile GPS Telemetry with Instant Speed Testing Controls */}
             <div className="bg-white border border-[#DCE8E0] rounded-3xl p-4 shadow-sm flex flex-col justify-between hover:border-[#C5E2CF] transition-all">
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shadow-sm">
-                  <Radio className="w-5 h-5" />
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shadow-xs">
+                  <Radio className="w-4 h-4" />
                 </div>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                  Mobile Telemetry
+                <span className="text-[9.5px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  Sub-Second GPS
                 </span>
               </div>
               <div className="space-y-0.5">
-                <p className="text-xs text-slate-500 font-medium">Live Speed</p>
+                <div className="flex items-baseline justify-between">
+                  <p className="text-xs text-slate-500 font-medium">Live Speed</p>
+                  <span className="text-[10px] font-mono text-slate-400">{liveDriverGeo.lastUpdated}</span>
+                </div>
                 <p className="text-2xl sm:text-3xl font-black text-[#122A24] tracking-tight leading-none font-mono">
-                  {liveDriverGeo.speedKmh} <span className="text-sm font-semibold text-slate-500">km/h</span>
+                  {liveDriverGeo.speedKmh} <span className="text-xs font-semibold text-slate-500">km/h</span>
                 </p>
               </div>
-              <div className="mt-3 text-[11px] text-slate-500 flex items-center justify-between">
-                <span>Acc: <strong className="text-[#122A24]">&plusmn;{liveDriverGeo.accuracyMeters}m</strong></span>
-                <span className="font-mono text-[10px] text-slate-400">{liveDriverGeo.lastUpdated}</span>
+
+              {/* Speed Testing Stepper Controls (for testing live speed & ETA reaction when stationary) */}
+              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-1 text-[10px]">
+                <span className="text-slate-400 font-medium">Test Speed:</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      const newSpeed = Math.min(80, (manualSpeedSim ?? liveDriverGeo.speedKmh) + 10);
+                      setManualSpeedSim(newSpeed);
+                      setLiveDriverGeo(prev => ({ ...prev, speedKmh: newSpeed }));
+                    }}
+                    className="px-1.5 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold border border-emerald-200 cursor-pointer"
+                    title="Simulate +10 km/h"
+                  >
+                    +10
+                  </button>
+                  <button
+                    onClick={() => {
+                      const newSpeed = Math.max(0, (manualSpeedSim ?? liveDriverGeo.speedKmh) - 10);
+                      setManualSpeedSim(newSpeed);
+                      setLiveDriverGeo(prev => ({ ...prev, speedKmh: newSpeed }));
+                    }}
+                    className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-200 cursor-pointer"
+                    title="Simulate -10 km/h"
+                  >
+                    -10
+                  </button>
+                  {manualSpeedSim !== null && (
+                    <button
+                      onClick={() => setManualSpeedSim(null)}
+                      className="px-1.5 py-0.5 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold border border-rose-200 cursor-pointer"
+                      title="Reset to real GPS hardware"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1780,7 +2045,7 @@ export function DashboardTransport({
                 </div>
               </div>
 
-              {/* QUICK ACTIONS CARD (FUEL LOG REMOVED) */}
+              {/* QUICK ACTIONS CARD */}
               <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#DCE8E0] shadow-sm space-y-3">
                 <h3 className="font-bold text-base text-[#122A24]">
                   Driver Quick Actions
@@ -1809,11 +2074,24 @@ export function DashboardTransport({
                       <AlertTriangle className="w-5 h-5" />
                     </div>
                     <span className="text-xs font-bold text-[#122A24] leading-tight">
-                      Report Issue
+                      Report Delay
                     </span>
                   </button>
 
-                  {/* Action 3: Call School */}
+                  {/* Action 3: Report Leave / Absence */}
+                  <button
+                    onClick={() => setShowAbsenceModal(true)}
+                    className="p-3.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-800 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <UserX className="w-5 h-5" />
+                    </div>
+                    <span className="text-xs font-bold text-amber-900 leading-tight">
+                      Driver Leave / Relief
+                    </span>
+                  </button>
+
+                  {/* Action 4: Call School */}
                   <a
                     href="tel:+915222610000"
                     className="p-3.5 rounded-2xl bg-[#F4F8F5] hover:bg-[#EBF5EF] border border-[#DCE8E0] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer no-underline group"
@@ -1826,7 +2104,7 @@ export function DashboardTransport({
                     </span>
                   </a>
 
-                  {/* Action 4: Call Transport Incharge */}
+                  {/* Action 5: Call Transport Incharge */}
                   <a
                     href="tel:+919876543210"
                     className="p-3.5 rounded-2xl bg-[#FAF5FF] hover:bg-[#F3E8FF] border border-[#F3E8FF] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer no-underline group"
@@ -1838,19 +2116,6 @@ export function DashboardTransport({
                       Call Incharge
                     </span>
                   </a>
-
-                  {/* Action 5: Shift Schedule */}
-                  <button
-                    onClick={() => setShowScheduleModal(true)}
-                    className="p-3.5 rounded-2xl bg-[#F4F8F5] hover:bg-[#EBF5EF] border border-[#DCE8E0] text-center flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Clock className="w-5 h-5" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-800 leading-tight">
-                      View Shifts
-                    </span>
-                  </button>
 
                   {/* Action 6: Emergency SOS */}
                   <button
@@ -1872,12 +2137,12 @@ export function DashboardTransport({
             {/* ────── RIGHT COLUMN: LIVE GOOGLE MAP, DYNAMIC ETA, SCHEDULE ────── */}
             <div className="lg:col-span-6 space-y-5 sm:space-y-6">
               
-              {/* LIVE TRACKING GOOGLE MAP CARD WITH REAL-TIME MOBILE TELEMETRY HUD */}
+              {/* LIVE TRACKING GOOGLE MAP & MARKED ROUTE CARD WITH REAL-TIME MOBILE TELEMETRY HUD */}
               <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#DCE8E0] shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-base text-[#122A24]">
-                      Live Google Maps Tracking
+                      Live Google Maps &amp; Route Radar
                     </h3>
                     <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -1885,60 +2150,159 @@ export function DashboardTransport({
                     </span>
                   </div>
 
-                  {/* Open in Native Google Maps App Button */}
+                  {/* Open in Native Google Maps App Button for Turn-by-Turn Voice Navigation */}
                   <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${nextDriverStop?.lat || 26.8720},${nextDriverStop?.lng || 80.9650}`}
+                    href={`https://www.google.com/maps/dir/?api=1&origin=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&destination=${nextDriverStop?.lat || activeRoute.stops[activeRoute.stops.length - 1]?.lat || 26.8520},${nextDriverStop?.lng || activeRoute.stops[activeRoute.stops.length - 1]?.lng || 80.9400}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 bg-[#EBF5EF] px-3 py-1 rounded-xl border border-[#C5E2CF] no-underline transition-colors"
+                    className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1.5 bg-[#EBF5EF] hover:bg-[#D8EEDF] px-3 py-1.5 rounded-xl border border-[#C5E2CF] no-underline transition-all shadow-xs"
                     title="Launch voice navigation in Google Maps app"
                   >
-                    <Navigation className="w-3.5 h-3.5" />
+                    <Navigation className="w-3.5 h-3.5 text-emerald-700" />
                     <span>Open in Maps App</span>
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
                   </a>
                 </div>
 
-                {/* Map Mode Tabs (Live GPS Pin vs Full Route Path) */}
-                <div className="flex items-center gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0]">
-                  <button
-                    onClick={() => setGoogleMapMode('LIVE_PIN')}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border-none ${
-                      googleMapMode === 'LIVE_PIN'
-                        ? 'bg-[#122A24] text-white shadow-sm'
-                        : 'bg-transparent text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    📍 Live Bus Pin ({liveDriverGeo.latitude.toFixed(3)}, {liveDriverGeo.longitude.toFixed(3)})
-                  </button>
-
+                {/* 4 Interactive Map Mode Tabs */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] text-[11px]">
                   <button
                     onClick={() => setGoogleMapMode('ROUTE_PATH')}
-                    className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer border-none ${
+                    className={`py-1.5 px-2 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
                       googleMapMode === 'ROUTE_PATH'
                         ? 'bg-[#122A24] text-white shadow-sm'
                         : 'bg-transparent text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    🗺️ Assigned Route Path
+                    🗺️ Marked Route
+                  </button>
+
+                  <button
+                    onClick={() => setGoogleMapMode('LIVE_NAV')}
+                    className={`py-1.5 px-2 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                      googleMapMode === 'LIVE_NAV'
+                        ? 'bg-[#122A24] text-white shadow-sm'
+                        : 'bg-transparent text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    🎯 Nav to Next Stop
+                  </button>
+
+                  <button
+                    onClick={() => setGoogleMapMode('LIVE_PIN')}
+                    className={`py-1.5 px-2 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                      googleMapMode === 'LIVE_PIN'
+                        ? 'bg-[#122A24] text-white shadow-sm'
+                        : 'bg-transparent text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    📍 Live Bus Pin
+                  </button>
+
+                  <button
+                    onClick={() => setGoogleMapMode('RADAR_CANVAS')}
+                    className={`py-1.5 px-2 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                      googleMapMode === 'RADAR_CANVAS'
+                        ? 'bg-[#122A24] text-white shadow-sm'
+                        : 'bg-transparent text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    🧭 Stops Radar
                   </button>
                 </div>
 
-                {/* Interactive Embedded Google Map Container */}
+                {/* Interactive Embedded Map Container */}
                 <div className="relative h-72 sm:h-80 rounded-2xl overflow-hidden bg-slate-100 border border-[#DCE8E0] shadow-inner">
-                  {googleMapMode === 'LIVE_PIN' ? (
+                  {/* Mode 1: Marked Route Driving Directions with exact start & end coordinates */}
+                  {googleMapMode === 'ROUTE_PATH' && (
+                    <iframe
+                      src={`https://maps.google.com/maps?saddr=${activeRoute.stops[0]?.lat || 26.8378},${activeRoute.stops[0]?.lng || 80.8872}&daddr=${activeRoute.stops[activeRoute.stops.length - 1]?.lat || 26.8520},${activeRoute.stops[activeRoute.stops.length - 1]?.lng || 80.9400}&hl=en&z=13&output=embed`}
+                      className="w-full h-full border-0"
+                      loading="lazy"
+                      title="Assigned Bus Route Driving Directions on Google Maps"
+                    />
+                  )}
+
+                  {/* Mode 2: Live Navigation from Driver's Phone to Approaching Next Stop */}
+                  {googleMapMode === 'LIVE_NAV' && (
+                    <iframe
+                      src={`https://maps.google.com/maps?saddr=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&daddr=${nextDriverStop?.lat || activeRoute.stops[activeRoute.stops.length - 1]?.lat || 26.8520},${nextDriverStop?.lng || activeRoute.stops[activeRoute.stops.length - 1]?.lng || 80.9400}&hl=en&z=14&output=embed`}
+                      className="w-full h-full border-0"
+                      loading="lazy"
+                      title="Live Turn-by-Turn to Next Bus Stop"
+                    />
+                  )}
+
+                  {/* Mode 3: Live Driver GPS High-Zoom Pin */}
+                  {googleMapMode === 'LIVE_PIN' && (
                     <iframe
                       src={`https://maps.google.com/maps?q=${liveDriverGeo.latitude},${liveDriverGeo.longitude}&hl=en&z=16&output=embed`}
                       className="w-full h-full border-0"
                       loading="lazy"
                       title="Driver Live Location on Google Maps"
                     />
-                  ) : (
-                    <iframe
-                      src={`https://maps.google.com/maps?saddr=${encodeURIComponent(activeRoute.stops[0]?.name || 'Green Park')}&daddr=${encodeURIComponent(activeRoute.stops[activeRoute.stops.length - 1]?.name || 'Anand School')}&hl=en&output=embed`}
-                      className="w-full h-full border-0"
-                      loading="lazy"
-                      title="Assigned Bus Route on Google Maps"
-                    />
+                  )}
+
+                  {/* Mode 4: Interactive Route & Stops Radar Canvas */}
+                  {googleMapMode === 'RADAR_CANVAS' && (
+                    <div className="w-full h-full bg-[#122A24] p-4 flex flex-col justify-between relative overflow-hidden text-white">
+                      {/* Subtle radar sweep grid background */}
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-600/20 via-transparent to-transparent opacity-80 pointer-events-none" />
+
+                      {/* Header radar status */}
+                      <div className="relative z-10 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                          <span className="font-bold text-emerald-300 font-mono uppercase tracking-wider">{activeRoute.code} &bull; Radar Path</span>
+                        </div>
+                        <span className="font-mono text-[11px] text-slate-300">{activeRoute.stops.length} Stops Marked</span>
+                      </div>
+
+                      {/* Route Path Track Visualization */}
+                      <div className="relative z-10 my-auto py-4">
+                        <div className="relative flex items-center justify-between">
+                          {/* Connecting track line */}
+                          <div className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-1.5 bg-emerald-950 rounded-full border border-emerald-500/30 overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-emerald-400 to-emerald-200 transition-all duration-500"
+                              style={{ width: `${Math.max(10, dynamicProgressPercent)}%` }}
+                            />
+                          </div>
+
+                          {/* Stops Pointers */}
+                          {activeRoute.stops.map((st, i) => {
+                            const isPast = completedStopIds.includes(st.id);
+                            const isCurrent = !isPast && nextDriverStop.id === st.id;
+                            return (
+                              <div key={st.id} className="relative z-10 flex flex-col items-center">
+                                <div
+                                  className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-[10px] font-bold transition-all shadow-md ${
+                                    isPast
+                                      ? 'bg-emerald-500 text-white'
+                                      : isCurrent
+                                      ? 'bg-emerald-300 text-[#122A24] ring-4 ring-emerald-500/50 scale-125'
+                                      : 'bg-[#1C443A] text-slate-300 border border-emerald-500/40'
+                                  }`}
+                                >
+                                  {isPast ? '✓' : i + 1}
+                                </div>
+                                <span className={`text-[9px] font-bold mt-1 text-center max-w-[55px] truncate block ${
+                                  isCurrent ? 'text-emerald-300 font-extrabold' : 'text-slate-400'
+                                }`}>
+                                  {st.name.replace('Stop', '').trim()}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Radar Footer Info */}
+                      <div className="relative z-10 flex items-center justify-between text-[11px] font-mono bg-black/40 p-2.5 rounded-xl border border-white/10">
+                        <span className="text-slate-300">Next: <strong className="text-emerald-300">{nextDriverStop?.name}</strong></span>
+                        <span className="text-emerald-400 font-bold">{liveDistanceToNextKm} km &bull; {dynamicEtaMinutes}m ETA</span>
+                      </div>
+                    </div>
                   )}
 
                   {/* FLOATING MOBILE LIVE TELEMETRY STATUS HUD OVER GOOGLE MAP */}
@@ -1954,6 +2318,7 @@ export function DashboardTransport({
                       <span>Lat: {liveDriverGeo.latitude.toFixed(4)}&deg;</span>
                       <span>Lng: {liveDriverGeo.longitude.toFixed(4)}&deg;</span>
                       <span className="text-emerald-300 font-bold">{liveDriverGeo.speedKmh} km/h</span>
+                      <span className="text-slate-400">&plusmn;{liveDriverGeo.accuracyMeters}m</span>
                     </div>
                   </div>
 
@@ -2054,7 +2419,7 @@ export function DashboardTransport({
                         <span className="text-xs font-bold text-[#122A24]">Morning Pickup Shift</span>
                         <span className="text-xs font-mono font-semibold text-emerald-700">07:15 AM – 08:30 AM</span>
                       </div>
-                      <span className="text-[11px] text-slate-500 block">Depot &rarr; City Stops &rarr; Anand School Main Gate</span>
+                      <span className="text-[11px] text-slate-500 block">Depot &rarr; City Stops &rarr; School Main Gate</span>
                     </div>
                   </div>
 
@@ -2067,7 +2432,7 @@ export function DashboardTransport({
                         <span className="text-xs font-bold text-slate-800">Afternoon Drop Shift</span>
                         <span className="text-xs font-mono font-semibold text-slate-500">01:45 PM – 03:00 PM</span>
                       </div>
-                      <span className="text-[11px] text-slate-500 block">Anand School Gate 2 &rarr; Reverse Route Stops</span>
+                      <span className="text-[11px] text-slate-500 block">School Main Gate &rarr; Reverse Route Terminals</span>
                     </div>
                   </div>
 
@@ -2080,7 +2445,7 @@ export function DashboardTransport({
                         <span className="text-xs font-bold text-slate-800">Evening Special Transit</span>
                         <span className="text-xs font-mono font-semibold text-slate-500">04:30 PM – 05:30 PM</span>
                       </div>
-                      <span className="text-[11px] text-slate-500 block">Senior Coaching &amp; Sports Academy Drop</span>
+                      <span className="text-[11px] text-slate-500 block">Campus Special Transit &bull; Senior Class 9-12 Evening Drop</span>
                     </div>
                   </div>
                 </div>
@@ -2174,7 +2539,7 @@ export function DashboardTransport({
 
           {/* ────── INTERACTIVE DRIVER MODAL DIALOGS ────── */}
 
-          {/* MODAL 1: STUDENT ATTENDANCE & PICKUP ROSTER (STRICTLY ASSIGNED STUDENTS ONLY) */}
+          {/* MODAL 1: STUDENT ATTENDANCE & PICKUP ROSTER */}
           {showAttendanceModal && (
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
               <div className="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl border border-[#DCE8E0] overflow-hidden animate-scale-up">
@@ -2349,9 +2714,10 @@ export function DashboardTransport({
                 </div>
 
                 <p className="text-xs text-slate-500">
-                  Select issue type to notify the Control Room and Parents:
+                  Select issue type to instantly notify the School Control Room and Parents on this route:
                 </p>
 
+                {/* Issue Type Chips */}
                 <div className="space-y-2">
                   {[
                     'Heavy Traffic Jam (+15m delay)',
@@ -2374,6 +2740,17 @@ export function DashboardTransport({
                   ))}
                 </div>
 
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 block">Additional Notes (Optional)</label>
+                  <textarea
+                    rows={2}
+                    value={issueNotes}
+                    onChange={(e) => setIssueNotes(e.target.value)}
+                    placeholder="Location landmark or extra message..."
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 outline-none"
+                  />
+                </div>
+
                 <div className="flex items-center justify-end gap-2 pt-2">
                   <button
                     onClick={() => setShowReportIssueModal(false)}
@@ -2383,7 +2760,7 @@ export function DashboardTransport({
                   </button>
                   <button
                     onClick={() => {
-                      setActiveAlert(`${issueType} reported by ${driverDisplayName}.`);
+                      setActiveAlert(`${issueType} reported by ${driverDisplayName} for ${activeRoute.name}.`);
                       setShowReportIssueModal(false);
                       alert('✅ Issue broadcasted to School Transport Manager and Parent Portal.');
                     }}
@@ -2408,7 +2785,7 @@ export function DashboardTransport({
                     EMERGENCY DRIVER SOS
                   </h3>
                   <p className="text-xs text-slate-600">
-                    One-tap priority emergency hotline for bus drivers in distress:
+                    One-tap priority emergency hotline for school bus drivers in distress:
                   </p>
                 </div>
 
@@ -2436,12 +2813,20 @@ export function DashboardTransport({
                     <span>🚨 Police Emergency Control</span>
                     <span className="font-mono text-[11px]">Dial 112</span>
                   </a>
+
+                  <a
+                    href="tel:108"
+                    className="w-full p-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-between font-bold text-xs no-underline cursor-pointer"
+                  >
+                    <span>🚑 Medical Ambulance</span>
+                    <span className="font-mono text-[11px]">Dial 108</span>
+                  </a>
                 </div>
 
                 <div className="flex items-center gap-2 pt-2">
                   <button
                     onClick={() => {
-                      setActiveAlert(`🚨 SOS ALERT: Emergency triggered by Driver ${driverDisplayName}!`);
+                      setActiveAlert(`🚨 SOS ALERT: Emergency triggered by Driver ${driverDisplayName} for vehicle ${driverVehicleNo}!`);
                       setShowSosModal(false);
                       alert('🚨 SOS alert broadcasted to school management and authorities.');
                     }}
@@ -2491,6 +2876,16 @@ export function DashboardTransport({
                     </div>
                     <p className="text-xs text-slate-700">
                       &ldquo;Aarav will board at Green Park Stop today. Running 2 minutes ahead.&rdquo;
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-900">School Control Room</span>
+                      <span className="text-[10px] text-slate-400 font-mono">07:10 AM</span>
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      &ldquo;Road diversion near Anand School cleared. You can use standard route gate 2.&rdquo;
                     </p>
                   </div>
 
@@ -2552,7 +2947,7 @@ export function DashboardTransport({
                       <span className="text-xs font-mono font-bold text-emerald-700">07:15 AM – 08:30 AM</span>
                     </div>
                     <p className="text-xs text-slate-700">
-                      Depot &rarr; Green Park &rarr; Sector 62 &rarr; City Center &rarr; Sunrise Villa &rarr; Anand School
+                      Depot &rarr; City Stops &rarr; Campus Main Gate
                     </p>
                   </div>
 
