@@ -119,6 +119,7 @@ export interface BusRouteData {
   id: string;
   code: string;
   name: string;
+  shift?: ShiftType;
   driver: string;
   driverPhone: string;
   vehicleNo: string;
@@ -147,7 +148,8 @@ const INITIAL_ROUTES: BusRouteData[] = [
   {
     id: 'ROUTE-LKO-01',
     code: 'BUS-01',
-    name: 'Rajajipuram to Chowk Express',
+    name: 'Rajajipuram to Chowk Express (Morning Pickup)',
+    shift: 'MORNING',
     driver: 'Ramesh Yadav',
     driverPhone: '+91 98765-43210',
     vehicleNo: 'UP-32-AB-9876',
@@ -171,9 +173,37 @@ const INITIAL_ROUTES: BusRouteData[] = [
     ]
   },
   {
+    id: 'ROUTE-LKO-01-AFT',
+    code: 'BUS-01',
+    name: 'Chowk to Rajajipuram (Afternoon Drop Return)',
+    shift: 'AFTERNOON',
+    driver: 'Ramesh Yadav',
+    driverPhone: '+91 98765-43210',
+    vehicleNo: 'UP-32-AB-9876',
+    capacity: '34 Seats',
+    status: 'ON_ROUTE',
+    driverStatus: 'PRESENT',
+    baseSpeed: 30,
+    stops: [
+      { id: 's-aft-1', name: 'School Campus Main Gate (Departure)', scheduledTime: '01:45 PM', distanceKm: 0, lat: 26.8520, lng: 80.9400 },
+      { id: 's-aft-2', name: 'Chowk Chauraha (Heritage Gate)', scheduledTime: '02:05 PM', distanceKm: 4.8, lat: 26.8680, lng: 80.9050 },
+      { id: 's-aft-3', name: 'Charbagh Railway Station', scheduledTime: '02:20 PM', distanceKm: 9.5, lat: 26.8322, lng: 80.9238 },
+      { id: 's-aft-4', name: 'Alambagh Chauraha', scheduledTime: '02:35 PM', distanceKm: 13.8, lat: 26.8150, lng: 80.9020 },
+      { id: 's-aft-5', name: 'Rajajipuram E-Block Terminal', scheduledTime: '02:50 PM', distanceKm: 18.0, lat: 26.8378, lng: 80.8872 }
+    ],
+    pathCoords: [
+      { x: 540, y: 120 },
+      { x: 400, y: 90 },
+      { x: 280, y: 140 },
+      { x: 160, y: 110 },
+      { x: 50, y: 150 }
+    ]
+  },
+  {
     id: 'ROUTE-04',
     code: 'BUS-04',
     name: 'Route 04 - Morning Express',
+    shift: 'MORNING',
     driver: 'Rajesh Kumar',
     driverPhone: '+91 98765-43214',
     vehicleNo: 'UP32 AB 1234',
@@ -206,6 +236,7 @@ const INITIAL_ROUTES: BusRouteData[] = [
     id: 'ROUTE-LKO-02',
     code: 'BUS-02',
     name: 'Gomti Nagar to Polytechnic Bypass',
+    shift: 'MORNING',
     driver: 'Mukesh Sharma',
     driverPhone: '+91 98765-43211',
     vehicleNo: 'UP-32-AB-1102',
@@ -231,6 +262,7 @@ const INITIAL_ROUTES: BusRouteData[] = [
     id: 'ROUTE-LKO-03',
     code: 'BUS-03',
     name: 'Indira Nagar & Munshipulia Radial',
+    shift: 'MORNING',
     driver: 'Jagdish Singh',
     driverPhone: '+91 98765-43212',
     vehicleNo: 'UP-32-AB-4450',
@@ -367,14 +399,26 @@ export function DashboardTransport({
   // ─────────────────────────────────────────────────────────────
   const [showRouteModal, setShowRouteModal] = useState(false);
   const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
-  const [routeForm, setRouteForm] = useState({
+  const [routeFilterShift, setRouteFilterShift] = useState<'ALL' | ShiftType>('ALL');
+  const [routeForm, setRouteForm] = useState<{
+    code: string;
+    name: string;
+    shift: ShiftType;
+    vehicleNo: string;
+    driver: string;
+    driverPhone: string;
+    capacity: string;
+    status: 'ON_ROUTE' | 'CAMPUS' | 'MAINTENANCE';
+    stops: RouteStop[];
+  }>({
     code: '',
     name: '',
+    shift: 'MORNING',
     vehicleNo: '',
     driver: '',
     driverPhone: '',
     capacity: '34 Seats',
-    status: 'ON_ROUTE' as 'ON_ROUTE' | 'CAMPUS' | 'MAINTENANCE',
+    status: 'ON_ROUTE',
     stops: [
       { id: '1', name: '', scheduledTime: '07:30 AM', distanceKm: 0 },
       { id: '2', name: '', scheduledTime: '08:00 AM', distanceKm: 5 },
@@ -382,23 +426,78 @@ export function DashboardTransport({
     ]
   });
 
-  const openNewRouteModal = () => {
+  const filteredRoutes = useMemo(() => {
+    if (routeFilterShift === 'ALL') return routes;
+    return routes.filter(r => (r.shift || 'MORNING') === routeFilterShift);
+  }, [routes, routeFilterShift]);
+
+  const openNewRouteModal = (presetShift?: ShiftType, existingRoute?: BusRouteData) => {
     setEditingRouteId(null);
+    const targetShift: ShiftType = presetShift || activeShift || 'MORNING';
+    const baseBus = existingRoute || routes[0];
+
+    // Default stops based on selected shift
+    let initialStops: RouteStop[] = [];
+    if (existingRoute && targetShift === 'AFTERNOON') {
+      // Invert existing morning stops for afternoon drop return
+      const baseStops = existingRoute.stops || [];
+      const schoolStop = baseStops[baseStops.length - 1];
+      const otherStops = baseStops.slice(0, baseStops.length - 1).reverse();
+      initialStops = [
+        {
+          id: `s-aft-start-${Date.now()}`,
+          name: schoolStop?.name ? `${schoolStop.name} (Departure)` : 'School Campus Main Gate',
+          scheduledTime: '01:45 PM',
+          distanceKm: 0,
+          lat: schoolStop?.lat || 26.8520,
+          lng: schoolStop?.lng || 80.9400
+        },
+        ...otherStops.map((s, idx) => ({
+          id: `s-aft-${idx}-${Date.now()}`,
+          name: s.name,
+          scheduledTime: `02:${String(10 + idx * 12).padStart(2, '0')} PM`,
+          distanceKm: Number((4.5 + idx * 4.2).toFixed(1)),
+          lat: s.lat,
+          lng: s.lng
+        }))
+      ];
+    } else if (targetShift === 'AFTERNOON') {
+      initialStops = [
+        { id: 's-aft-1', name: 'School Campus Main Gate (Departure)', scheduledTime: '01:45 PM', distanceKm: 0, lat: 26.8520, lng: 80.9400 },
+        { id: 's-aft-2', name: 'Chowk Chauraha (Heritage Gate)', scheduledTime: '02:05 PM', distanceKm: 4.8, lat: 26.8680, lng: 80.9050 },
+        { id: 's-aft-3', name: 'Charbagh Railway Station', scheduledTime: '02:20 PM', distanceKm: 9.5, lat: 26.8322, lng: 80.9238 },
+        { id: 's-aft-4', name: 'Alambagh Chauraha', scheduledTime: '02:35 PM', distanceKm: 13.8, lat: 26.8150, lng: 80.9020 },
+        { id: 's-aft-5', name: 'Rajajipuram E-Block Terminal', scheduledTime: '02:50 PM', distanceKm: 18.0, lat: 26.8378, lng: 80.8872 }
+      ];
+    } else if (targetShift === 'EVENING') {
+      initialStops = [
+        { id: 's-eve-1', name: 'School Campus Main Gate (Campus Gate)', scheduledTime: '04:30 PM', distanceKm: 0, lat: 26.8520, lng: 80.9400 },
+        { id: 's-eve-2', name: 'Polytechnic Flyover Express Hub', scheduledTime: '04:50 PM', distanceKm: 5.5, lat: 26.8720, lng: 80.9820 },
+        { id: 's-eve-3', name: 'Gomti Nagar Extension Arterial Hub', scheduledTime: '05:10 PM', distanceKm: 11.2, lat: 26.8350, lng: 80.9980 },
+        { id: 's-eve-4', name: 'City Terminal Junction', scheduledTime: '05:30 PM', distanceKm: 16.5, lat: 26.8378, lng: 80.8872 }
+      ];
+    } else {
+      initialStops = [
+        { id: '1', name: 'Rajajipuram E-Block Terminal', scheduledTime: '07:45 AM', distanceKm: 0, lat: 26.8378, lng: 80.8872 },
+        { id: '2', name: 'Alambagh Chauraha', scheduledTime: '08:00 AM', distanceKm: 4.5, lat: 26.8150, lng: 80.9020 },
+        { id: '3', name: 'Charbagh Station', scheduledTime: '08:15 AM', distanceKm: 8.5, lat: 26.8322, lng: 80.9238 },
+        { id: '4', name: 'Chowk Chauraha', scheduledTime: '08:30 AM', distanceKm: 13.0, lat: 26.8680, lng: 80.9050 },
+        { id: '5', name: 'School Campus Main Gate', scheduledTime: '08:50 AM', distanceKm: 18.0, lat: 26.8520, lng: 80.9400 }
+      ];
+    }
+
     setRouteForm({
-      code: `BUS-${String(routes.length + 1).padStart(2, '0')}`,
-      name: 'Rajajipuram to Chowk Express',
-      vehicleNo: 'UP-32-AB-1234',
-      driver: 'New Assigned Driver',
-      driverPhone: '+91 98765-00000',
-      capacity: '34 Seats',
+      code: baseBus?.code || `BUS-${String(routes.length + 1).padStart(2, '0')}`,
+      name: existingRoute
+        ? `${baseBus.code} - ${ROUTE_SHIFTS_METADATA[targetShift].name}`
+        : `${targetShift === 'MORNING' ? 'Pickup to School' : targetShift === 'AFTERNOON' ? 'Junior Return Drop' : 'Senior Evening Express'}`,
+      shift: targetShift,
+      vehicleNo: baseBus?.vehicleNo || 'UP-32-AB-1234',
+      driver: baseBus?.driver || 'New Assigned Driver',
+      driverPhone: baseBus?.driverPhone || '+91 98765-00000',
+      capacity: baseBus?.capacity || '34 Seats',
       status: 'ON_ROUTE',
-      stops: [
-        { id: '1', name: 'Rajajipuram E-Block Terminal', scheduledTime: '07:45 AM', distanceKm: 0 },
-        { id: '2', name: 'Alambagh Chauraha', scheduledTime: '08:00 AM', distanceKm: 4.5 },
-        { id: '3', name: 'Charbagh Station', scheduledTime: '08:15 AM', distanceKm: 8.5 },
-        { id: '4', name: 'Chowk Chauraha', scheduledTime: '08:30 AM', distanceKm: 13.0 },
-        { id: '5', name: 'School Campus Main Gate', scheduledTime: '08:50 AM', distanceKm: 18.0 }
-      ]
+      stops: initialStops
     });
     setShowRouteModal(true);
   };
@@ -408,6 +507,7 @@ export function DashboardTransport({
     setRouteForm({
       code: r.code,
       name: r.name,
+      shift: r.shift || 'MORNING',
       vehicleNo: r.vehicleNo,
       driver: r.driver,
       driverPhone: r.driverPhone,
@@ -421,6 +521,7 @@ export function DashboardTransport({
   const handleAddStopToForm = () => {
     const lastStop = routeForm.stops[routeForm.stops.length - 1];
     const newDist = (lastStop?.distanceKm || 0) + 3.5;
+    const defaultTime = routeForm.shift === 'AFTERNOON' ? '02:15 PM' : routeForm.shift === 'EVENING' ? '05:00 PM' : '08:15 AM';
     setRouteForm(prev => ({
       ...prev,
       stops: [
@@ -428,7 +529,7 @@ export function DashboardTransport({
         {
           id: String(Date.now()),
           name: '',
-          scheduledTime: '08:15 AM',
+          scheduledTime: defaultTime,
           distanceKm: Number(newDist.toFixed(1))
         }
       ]
@@ -447,13 +548,14 @@ export function DashboardTransport({
     if (!routeForm.name.trim()) return;
 
     if (editingRouteId) {
-      // Update existing
+      // Update existing route
       setRoutes(prev => prev.map(r => {
         if (r.id !== editingRouteId) return r;
         return {
           ...r,
           code: routeForm.code || r.code,
           name: routeForm.name,
+          shift: routeForm.shift,
           vehicleNo: routeForm.vehicleNo,
           driver: routeForm.driver,
           driverPhone: routeForm.driverPhone,
@@ -465,7 +567,6 @@ export function DashboardTransport({
     } else {
       // Create new route
       const newId = `ROUTE-${Date.now()}`;
-      // Generate synthetic SVG path coordinates based on stops
       const stepX = Math.floor(480 / Math.max(1, routeForm.stops.length - 1));
       const generatedCoords = routeForm.stops.map((_, i) => ({
         x: 40 + i * stepX,
@@ -476,6 +577,7 @@ export function DashboardTransport({
         id: newId,
         code: routeForm.code || `BUS-${routes.length + 1}`,
         name: routeForm.name,
+        shift: routeForm.shift,
         driver: routeForm.driver || 'Assigned Driver',
         driverPhone: routeForm.driverPhone || '+91 98000-00000',
         vehicleNo: routeForm.vehicleNo || 'UP-32-XX-0000',
@@ -1752,27 +1854,66 @@ export function DashboardTransport({
             </div>
 
             <button
-              onClick={openNewRouteModal}
+              onClick={() => openNewRouteModal()}
               className="px-5 py-3 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold flex items-center gap-2 transition-all shadow-md cursor-pointer border-none"
             >
               <Plus className="w-4 h-4 text-emerald-400" />
-              <span>+ Create New Route (e.g. Rajajipuram to Chowk)</span>
+              <span>+ Create New Route / Shift</span>
             </button>
+          </div>
+
+          {/* Shift Filter Bar */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            {(['ALL', 'MORNING', 'AFTERNOON', 'EVENING'] as const).map((sh) => {
+              const isSelected = routeFilterShift === sh;
+              const label = sh === 'ALL' ? 'All Shifts' : sh === 'MORNING' ? '🌅 Morning Pickup' : sh === 'AFTERNOON' ? '☀️ Afternoon Drop' : '🌙 Evening Transit';
+              const count = sh === 'ALL' ? routes.length : routes.filter(r => (r.shift || 'MORNING') === sh).length;
+              return (
+                <button
+                  key={sh}
+                  type="button"
+                  onClick={() => setRouteFilterShift(sh)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer whitespace-nowrap flex items-center gap-2 ${
+                    isSelected
+                      ? 'bg-[#122A24] text-white border-[#122A24] shadow-sm ring-1 ring-emerald-500/40'
+                      : 'bg-white text-slate-600 hover:text-[#122A24] border-[#DCE8E0] hover:bg-[#F4F8F5]'
+                  }`}
+                >
+                  <span>{label}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-mono ${isSelected ? 'bg-white/20 text-white font-extrabold' : 'bg-slate-100 text-slate-600'}`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* List of Defined Routes */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {routes.map(r => (
+            {filteredRoutes.map(r => (
               <div
                 key={r.id}
                 className="bg-white rounded-3xl p-6 border border-[#DCE8E0] shadow-sm space-y-5 hover:border-[#122A24] transition-all"
               >
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                      {r.code}
-                    </span>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                        {r.code}
+                      </span>
+                      {/* Shift Badge */}
+                      <span className={`text-[10.5px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${
+                        (r.shift || 'MORNING') === 'AFTERNOON'
+                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                          : (r.shift || 'MORNING') === 'EVENING'
+                          ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      }`}>
+                        <span>{(r.shift || 'MORNING') === 'AFTERNOON' ? '☀️' : (r.shift || 'MORNING') === 'EVENING' ? '🌙' : '🌅'}</span>
+                        <span>{ROUTE_SHIFTS_METADATA[r.shift || 'MORNING']?.name || 'Morning Pickup'}</span>
+                      </span>
+                    </div>
                     <h3 className="font-bold text-base text-[#122A24]">
                       {r.name}
                     </h3>
@@ -1780,9 +1921,16 @@ export function DashboardTransport({
 
                   <div className="flex items-center gap-1.5">
                     <button
+                      onClick={() => openNewRouteModal((r.shift || 'MORNING') === 'MORNING' ? 'AFTERNOON' : 'MORNING', r)}
+                      className="p-2 rounded-xl bg-[#EBF5EF] hover:bg-[#D8EEDF] text-[#1C443A] border border-[#C5E2CF] transition-colors cursor-pointer"
+                      title="Setup Return / Alternate Shift for this same bus"
+                    >
+                      <Repeat className="w-3.5 h-3.5 text-emerald-800" />
+                    </button>
+                    <button
                       onClick={() => openEditRouteModal(r)}
                       className="p-2 rounded-xl bg-[#F4F8F5] hover:bg-[#EBF5EF] text-slate-700 hover:text-[#122A24] border border-[#DCE8E0] transition-colors cursor-pointer"
-                      title="Edit Route"
+                      title="Edit Route & Shift"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
@@ -3577,7 +3725,104 @@ export function DashboardTransport({
               </button>
             </div>
 
-            {/* Basic Info Fields */}
+            {/* 1. Quick Vehicle & Driver Reuse Bar for Same Bus Setup */}
+            <div className="bg-white rounded-2xl p-3 sm:p-3.5 border border-[#C5E2CF] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#EBF5EF] flex items-center justify-center text-[#1C443A] shrink-0 border border-[#C5E2CF]">
+                  <Bus className="w-4 h-4 text-emerald-700" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-[#122A24] flex items-center gap-1.5">
+                    <span>Same Bus Setup / Auto-fill</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold font-mono">1-CLICK</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Same vehicle &amp; driver ko alag shift ya return route ke liye reuse karein
+                  </div>
+                </div>
+              </div>
+
+              <select
+                onChange={(e) => {
+                  const selectedBus = routes.find(r => r.code === e.target.value);
+                  if (selectedBus) {
+                    setRouteForm(prev => ({
+                      ...prev,
+                      code: selectedBus.code,
+                      vehicleNo: selectedBus.vehicleNo,
+                      driver: selectedBus.driver,
+                      driverPhone: selectedBus.driverPhone,
+                      capacity: selectedBus.capacity,
+                      name: prev.name.trim() === '' || prev.name.includes('Morning') || prev.name.includes('Express') || prev.name.includes('Drop') || prev.name.includes('Pickup')
+                        ? `${selectedBus.code} - ${ROUTE_SHIFTS_METADATA[prev.shift]?.shortLabel || 'Route'}`
+                        : prev.name
+                    }));
+                  }
+                }}
+                value={routeForm.code}
+                className="px-3 py-1.5 rounded-xl bg-[#F4F8F5] border border-[#C5E2CF] text-xs font-bold text-[#122A24] outline-none cursor-pointer"
+              >
+                <option value="">-- Choose Existing Bus --</option>
+                {Array.from(new Set(routes.map(r => r.code))).map(code => {
+                  const b = routes.find(r => r.code === code);
+                  return (
+                    <option key={code} value={code}>
+                      {code} &bull; {b?.vehicleNo} ({b?.driver})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* 2. Shift Selection Pills */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-[#122A24] uppercase tracking-wider block">
+                  Select Shift (Morning / Afternoon / Evening):
+                </label>
+                <span className="text-[11px] font-mono text-emerald-800 font-semibold">
+                  {ROUTE_SHIFTS_METADATA[routeForm.shift]?.timing}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {(['MORNING', 'AFTERNOON', 'EVENING'] as ShiftType[]).map((sh) => {
+                  const isSelected = routeForm.shift === sh;
+                  const meta = ROUTE_SHIFTS_METADATA[sh];
+                  const icon = sh === 'MORNING' ? '🌅' : sh === 'AFTERNOON' ? '☀️' : '🌙';
+                  return (
+                    <button
+                      key={sh}
+                      type="button"
+                      onClick={() => {
+                        setRouteForm(prev => ({
+                          ...prev,
+                          shift: sh,
+                          name: prev.name.trim() === '' || prev.name.includes('Morning') || prev.name.includes('Afternoon') || prev.name.includes('Evening') || prev.name.includes('Pickup') || prev.name.includes('Drop')
+                            ? `${prev.code || 'Bus'} - ${meta.name.replace(' Shift', '')}`
+                            : prev.name
+                        }));
+                      }}
+                      className={`py-2 px-3 rounded-2xl text-xs font-bold transition-all border cursor-pointer flex items-center justify-center gap-2 ${
+                        isSelected
+                          ? 'bg-[#122A24] text-white border-[#122A24] shadow-sm ring-2 ring-emerald-500/30'
+                          : 'bg-white text-slate-700 hover:text-[#122A24] border-[#DCE8E0] hover:bg-[#F4F8F5]'
+                      }`}
+                    >
+                      <span className="text-base">{icon}</span>
+                      <div className="text-left leading-tight">
+                        <div className="font-bold">{meta.name.replace(' Shift', '')}</div>
+                        <div className={`text-[10px] font-normal ${isSelected ? 'text-emerald-300' : 'text-slate-400'}`}>
+                          {meta.shortLabel}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. Basic Info Fields */}
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -3601,7 +3846,7 @@ export function DashboardTransport({
                     type="text"
                     value={routeForm.code}
                     onChange={(e) => setRouteForm({ ...routeForm, code: e.target.value })}
-                    placeholder="e.g. BUS-05"
+                    placeholder="e.g. BUS-01"
                     className="w-full px-3.5 py-2 rounded-xl bg-white border border-[#DCE8E0] text-xs font-semibold text-[#122A24] outline-none font-mono"
                   />
                 </div>
@@ -3649,20 +3894,55 @@ export function DashboardTransport({
               </div>
             </div>
 
-            {/* Intermediate Stops Builder */}
+            {/* 4. Intermediate Stops Builder with Reverse Sequence */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[#122A24] uppercase tracking-wider block">
                   Route Stops &amp; Timings Sequence ({routeForm.stops.length})
                 </span>
-                <button
-                  type="button"
-                  onClick={handleAddStopToForm}
-                  className="px-3 py-1 rounded-lg bg-[#122A24] text-white text-xs font-bold flex items-center gap-1 cursor-pointer border-none"
-                >
-                  <Plus className="w-3 h-3 text-emerald-400" />
-                  <span>Add Stop</span>
-                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRouteForm(prev => {
+                        const reversed = [...prev.stops].reverse();
+                        const baseHour = prev.shift === 'AFTERNOON' ? 1 : prev.shift === 'EVENING' ? 4 : 7;
+                        const startMin = prev.shift === 'AFTERNOON' ? 45 : 15;
+                        const adjustedStops = reversed.map((st, i) => {
+                          const totalMins = startMin + i * 15;
+                          const h = baseHour + Math.floor(totalMins / 60);
+                          const m = totalMins % 60;
+                          const ampm = prev.shift === 'MORNING' ? 'AM' : 'PM';
+                          const timeStr = `0${h > 12 ? h - 12 : h}:${m < 10 ? '0' : ''}${m} ${ampm}`;
+                          return {
+                            ...st,
+                            distanceKm: Number((i * 4.2).toFixed(1)),
+                            scheduledTime: timeStr
+                          };
+                        });
+                        return {
+                          ...prev,
+                          stops: adjustedStops
+                        };
+                      });
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-white hover:bg-[#D8EEDF] text-[#1C443A] text-xs font-bold flex items-center gap-1 border border-[#C5E2CF] cursor-pointer transition-colors"
+                    title="Reverse stops order and auto-generate timings for return trip"
+                  >
+                    <Repeat className="w-3 h-3 text-emerald-700" />
+                    <span>🔄 Reverse Stops (Return)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAddStopToForm}
+                    className="px-3 py-1 rounded-lg bg-[#122A24] text-white text-xs font-bold flex items-center gap-1 cursor-pointer border-none"
+                  >
+                    <Plus className="w-3 h-3 text-emerald-400" />
+                    <span>Add Stop</span>
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2.5 max-h-56 overflow-y-auto p-1">
