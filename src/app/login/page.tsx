@@ -149,6 +149,14 @@ export default function LoginPage() {
     releaseTag: APP_INFO.releaseTag
   });
 
+  // Forgot Passcode State
+  const [viewMode, setViewMode] = useState<'LOGIN' | 'FORGOT_PASSCODE'>('LOGIN');
+  const [forgotSchoolCode, setForgotSchoolCode] = useState('');
+  const [forgotUserId, setForgotUserId] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState<{ message: string; target_email: string; account_name?: string } | null>(null);
+
   useEffect(() => {
     // Dynamically fetch live server build info to bypass any local service-worker or browser cache
     fetch(`/api/app-info?t=${Date.now()}`, { cache: 'no-store' })
@@ -227,6 +235,57 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  const handleForgotPasscode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    setForgotError('');
+    setForgotSuccess(null);
+
+    const cleanSchoolCode = forgotSchoolCode.trim().toUpperCase();
+    const cleanUserId = forgotUserId.trim();
+
+    if (!cleanSchoolCode) {
+      setForgotError('School Code is required.');
+      setForgotLoading(false);
+      return;
+    }
+    if (!cleanUserId) {
+      setForgotError('User ID / Admission No / Staff Code is required.');
+      setForgotLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/auth/forgot-passcode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          school_code: cleanSchoolCode,
+          username: cleanUserId
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setForgotSuccess({
+          message: data.message || 'New passcode generated and sent to blistedx@gmail.com',
+          target_email: data.target_email || 'blistedx@gmail.com',
+          account_name: data.account_name
+        });
+        // Pre-fill schoolCode and userId for convenient sign in
+        setSchoolCode(cleanSchoolCode);
+        setUserId(cleanUserId);
+      } else {
+        setForgotError(data.error || 'Failed to reset passcode. Please check your credentials.');
+      }
+    } catch (err: any) {
+      setForgotError('Connection error: ' + err.message);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
 
   return (
     <div className="auth-split-layout relative overflow-hidden min-h-screen">
@@ -308,86 +367,248 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <p className="kicker">Hall pass required</p>
-          <h2>Sign in</h2>
-          <p className="sub">Enter your school code, user ID and password to proceed.</p>
+          {viewMode === 'LOGIN' ? (
+            <>
+              <p className="kicker">Hall pass required</p>
+              <h2>Sign in</h2>
+              <p className="sub">Enter your school code, user ID and password to proceed.</p>
 
-          <form onSubmit={handleLogin}>
-            <div className="field">
-              <label htmlFor="schoolCode">School Code</label>
-              <input
-                type="text"
-                id="schoolCode"
-                name="schoolCode"
-                value={schoolCode}
-                onChange={(e) => setSchoolCode(e.target.value)}
-                placeholder="e.g. DPS2026 (Optional)"
-                autoComplete="organization"
-                style={{ textTransform: 'uppercase' }}
-              />
-              <p className="hint">Enter the official School Code provided by your institution</p>
-            </div>
+              <form onSubmit={handleLogin}>
+                <div className="field">
+                  <label htmlFor="schoolCode">School Code</label>
+                  <input
+                    type="text"
+                    id="schoolCode"
+                    name="schoolCode"
+                    value={schoolCode}
+                    onChange={(e) => setSchoolCode(e.target.value)}
+                    placeholder="e.g. DPS2026 (Optional)"
+                    autoComplete="organization"
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                  <p className="hint">Enter the official School Code provided by your institution</p>
+                </div>
 
-            <div className="field">
-              <label htmlFor="userId" id="idLabel">User ID / Staff Code / Admission No</label>
-              <input
-                type="text"
-                id="userId"
-                name="userId"
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                placeholder="e.g. admin, EMP-202601, DPS-2026-0001"
-                autoComplete="username"
-                required
-              />
-              <p className="hint" id="idHint">Your official login ID, Employee Code, or Admission Number</p>
-            </div>
+                <div className="field">
+                  <label htmlFor="userId" id="idLabel">User ID / Staff Code / Admission No</label>
+                  <input
+                    type="text"
+                    id="userId"
+                    name="userId"
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
+                    placeholder="e.g. admin, EMP-202601, DPS-2026-0001"
+                    autoComplete="username"
+                    required
+                  />
+                  <p className="hint" id="idHint">Your official login ID, Employee Code, or Admission Number</p>
+                </div>
 
-            <div className="field">
-              <label htmlFor="password">Passcode / Password</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your security passcode"
-                autoComplete="current-password"
-                required
-              />
-              <p className="hint">Confidential security PIN / passcode</p>
-            </div>
+                <div className="field">
+                  <label htmlFor="password">Passcode / Password</label>
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your security passcode"
+                    autoComplete="current-password"
+                    required
+                  />
+                  <p className="hint">Confidential security PIN / passcode</p>
+                </div>
 
-            <div className="row-between">
-              <label>
-                <input
-                  type="checkbox"
-                  id="remember"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                />{' '}
-                Keep me signed in
-              </label>
-              <a href="#">Forgot passcode?</a>
-            </div>
+                <div className="row-between">
+                  <label>
+                    <input
+                      type="checkbox"
+                      id="remember"
+                      checked={remember}
+                      onChange={(e) => setRemember(e.target.checked)}
+                    />{' '}
+                    Keep me signed in
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotSchoolCode(schoolCode || 'DPS2026');
+                      setForgotUserId(userId || '');
+                      setForgotError('');
+                      setForgotSuccess(null);
+                      setViewMode('FORGOT_PASSCODE');
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#C4432B',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      padding: 0,
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    Forgot passcode?
+                  </button>
+                </div>
 
-            {error && (
-              <p className="status-msg" style={{ color: '#C4432B', marginBottom: '16px' }}>
-                {error}
+                {error && (
+                  <p className="status-msg" style={{ color: '#C4432B', marginBottom: '16px' }}>
+                    {error}
+                  </p>
+                )}
+
+                {success && (
+                  <p className="status-msg" style={{ color: '#1C443A', marginBottom: '16px' }}>
+                    {success}
+                  </p>
+                )}
+
+                <button type="submit" className="submit" disabled={loading}>
+                  <span className="stamp-icon">✓</span>
+                  {loading ? 'Authenticating...' : 'Sign in to ERP'}
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <p className="kicker" style={{ color: '#C4432B' }}>Passcode Recovery</p>
+              <h2>Forgot Passcode</h2>
+              <p className="sub">
+                Enter your School Code and User ID. A new security password will be sent to <strong>blistedx@gmail.com</strong>.
               </p>
-            )}
 
-            {success && (
-              <p className="status-msg" style={{ color: '#1C443A', marginBottom: '16px' }}>
-                {success}
-              </p>
-            )}
+              {forgotSuccess ? (
+                <div style={{
+                  background: '#ECFDF5',
+                  border: '1px solid #A7F3D0',
+                  borderRadius: '10px',
+                  padding: '20px',
+                  margin: '20px 0',
+                  textAlign: 'center'
+                }}>
+                  <div style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '50%',
+                    background: '#10B981',
+                    color: '#FFFFFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '22px',
+                    margin: '0 auto 12px auto'
+                  }}>
+                    ✓
+                  </div>
+                  <h4 style={{ color: '#065F46', margin: '0 0 6px', fontSize: '16px', fontWeight: 'bold' }}>
+                    Passcode Reset Successful!
+                  </h4>
+                  <p style={{ color: '#047857', fontSize: '13px', margin: '0 0 14px', lineHeight: 1.5 }}>
+                    A new security password has been sent to <strong>blistedx@gmail.com</strong>. Please check your inbox and sign in.
+                  </p>
+                  {forgotSuccess.account_name && (
+                    <div style={{ margin: '0 0 16px' }}>
+                      <span style={{ color: '#065F46', fontSize: '12px', background: '#D1FAE5', padding: '6px 12px', borderRadius: '6px', fontWeight: '600' }}>
+                        Account: {forgotSuccess.account_name}
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewMode('LOGIN');
+                      setPassword('');
+                      setError('');
+                      setSuccess('Enter the new passcode sent to blistedx@gmail.com to sign in.');
+                    }}
+                    className="submit"
+                    style={{ width: '100%' }}
+                  >
+                    Sign in with New Passcode →
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPasscode}>
+                  <div className="field">
+                    <label htmlFor="forgotSchoolCode">School Code</label>
+                    <input
+                      type="text"
+                      id="forgotSchoolCode"
+                      name="forgotSchoolCode"
+                      value={forgotSchoolCode}
+                      onChange={(e) => setForgotSchoolCode(e.target.value)}
+                      placeholder="e.g. DPS2026"
+                      autoComplete="organization"
+                      style={{ textTransform: 'uppercase' }}
+                      required
+                    />
+                    <p className="hint">The official code of your school (e.g. DPS2026)</p>
+                  </div>
 
-            <button type="submit" className="submit" disabled={loading}>
-              <span className="stamp-icon">✓</span>
-              {loading ? 'Authenticating...' : 'Sign in to ERP'}
-            </button>
-          </form>
+                  <div className="field">
+                    <label htmlFor="forgotUserId">User ID / Staff Code / Admission No</label>
+                    <input
+                      type="text"
+                      id="forgotUserId"
+                      name="forgotUserId"
+                      value={forgotUserId}
+                      onChange={(e) => setForgotUserId(e.target.value)}
+                      placeholder="e.g. admin, EMP-202601, DPS-2026-0001"
+                      autoComplete="username"
+                      required
+                    />
+                    <p className="hint">Your login ID, employee code, or admission number</p>
+                  </div>
+
+                  <div style={{
+                    background: '#FFFBEB',
+                    border: '1px solid #FDE68A',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    marginBottom: '18px',
+                    fontSize: '12px',
+                    color: '#92400E',
+                    lineHeight: '1.4'
+                  }}>
+                    📧 <strong>Notice:</strong> For security verification, the new password will be dispatched to <strong>blistedx@gmail.com</strong>.
+                  </div>
+
+                  {forgotError && (
+                    <p className="status-msg" style={{ color: '#C4432B', marginBottom: '16px' }}>
+                      {forgotError}
+                    </p>
+                  )}
+
+                  <button type="submit" className="submit" disabled={forgotLoading} style={{ background: '#C4432B' }}>
+                    <span className="stamp-icon">🔐</span>
+                    {forgotLoading ? 'Generating & Sending Passcode...' : 'Send New Passcode'}
+                  </button>
+
+                  <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewMode('LOGIN');
+                        setForgotError('');
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#1C443A',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      ← Back to Sign In
+                    </button>
+                  </div>
+                </form>
+              )}
+            </>
+          )}
 
           <Link className="back" href="/">← Back to Giterp</Link>
           <Link className="back" href="/request-demo" style={{ marginTop: '8px' }}>

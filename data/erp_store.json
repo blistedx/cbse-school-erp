@@ -5,17 +5,17 @@
       "school_code": "DPS2026",
       "school_name": "Delhi Public School",
       "board": "CBSE",
-      "city": "New Delhi",
-      "state": "Delhi",
-      "address": "Sector 12, R.K. Puram, New Delhi",
-      "pincode": "110022",
+      "city": "Lucknow",
+      "state": "Uttar Pradesh",
+      "address": "Thakurganj",
+      "pincode": "223003",
       "udise_code": "07010100101",
       "oasis_code": "2130001",
       "affiliation_no": "CBSE/AFF/2130001",
       "phone": "+91 11 4987 6543",
       "email": "principal@dpsrkp.edu.in",
       "website": "https://dpsrkp.net",
-      "established_year": "1972",
+      "established_year": "2024",
       "principal_name": "Abhishek Shukla",
       "admin_id": "admin",
       "admin_name": "Abhishek Shukla",
@@ -337,6 +337,98 @@
             "can_add": false,
             "can_delete": false
           }
+        },
+        "ADMIN": {
+          "students": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": true
+          },
+          "siblings": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": true
+          },
+          "teachers": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": true
+          },
+          "classes": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": true
+          },
+          "subjects": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": true
+          },
+          "attendance": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": true
+          },
+          "exams": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": true
+          },
+          "fees": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": false,
+            "can_delete": false
+          },
+          "homework": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "approvals": {
+            "can_view": true,
+            "can_edit": false,
+            "can_add": false,
+            "can_delete": false
+          },
+          "notices": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": false
+          },
+          "broadcast": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": false
+          },
+          "transport": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": false
+          },
+          "reports": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": true
+          },
+          "data_hub": {
+            "can_view": true,
+            "can_edit": true,
+            "can_add": true,
+            "can_delete": true
+          }
         }
       }
     },
@@ -424,7 +516,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T19:16:24.458Z"
     },
     {
