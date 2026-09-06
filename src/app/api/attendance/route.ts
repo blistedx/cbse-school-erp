@@ -1,19 +1,23 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
-import { requireAuth, requireRole, STAFF_ROLES, ADMIN_ROLES } from '@/lib/auth-guard';
+import { requireAuth, requireRole, resolveTenantSchoolId, STAFF_ROLES, ADMIN_ROLES } from '@/lib/auth-guard';
 
 export async function GET(req: Request) {
   try {
     const auth = requireAuth(req);
     if (auth instanceof NextResponse) return auth;
+
     const { searchParams } = new URL(req.url);
-    const schoolId = searchParams.get('school_id') || searchParams.get('schoolId') || undefined;
+    const tenant = resolveTenantSchoolId(auth, searchParams.get('school_id') || searchParams.get('schoolId'));
+    if (tenant instanceof NextResponse) return tenant;
+
     const session = searchParams.get('session') || searchParams.get('academic_session') || undefined;
-    const attendance = await Database.getAttendance(schoolId, session);
+    const attendance = await Database.getAttendance(tenant, session);
     return NextResponse.json({ success: true, count: attendance.length, attendance });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[API_ATTENDANCE_GET_ERROR]', error);
+    return NextResponse.json({ success: false, error: 'Failed to load attendance.' }, { status: 500 });
   }
 }
 
@@ -21,11 +25,12 @@ export async function POST(req: Request) {
   try {
     const auth = requireRole(req, STAFF_ROLES);
     if (auth instanceof NextResponse) return auth;
+
     const body = await req.json();
-    const schoolId = body.school_id || body.schoolId;
-    if (!schoolId) {
-      return NextResponse.json({ success: false, error: 'school_id is required.' }, { status: 400 });
-    }
+    const tenant = resolveTenantSchoolId(auth, body.school_id || body.schoolId);
+    if (tenant instanceof NextResponse) return tenant;
+
+    const schoolId = tenant;
 
     // 🔒 TEACHER ATTENDANCE RESTRICTION:
     // Teachers can ONLY mark student attendance for their designated assigned class.
@@ -77,7 +82,8 @@ export async function POST(req: Request) {
     const record = await Database.recordAttendance({ ...body, school_id: schoolId });
     return NextResponse.json({ success: true, message: 'Attendance recorded!', record });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    console.error('[API_ATTENDANCE_POST_ERROR]', error);
+    return NextResponse.json({ success: false, error: 'Failed to record attendance.' }, { status: 400 });
   }
 }
 
@@ -85,7 +91,11 @@ export async function DELETE(req: Request) {
   try {
     const auth = requireRole(req, ADMIN_ROLES);
     if (auth instanceof NextResponse) return auth;
+
     const { searchParams } = new URL(req.url);
+    const tenant = resolveTenantSchoolId(auth, searchParams.get('school_id') || searchParams.get('schoolId'));
+    if (tenant instanceof NextResponse) return tenant;
+
     const id = searchParams.get('id');
     if (!id) {
       return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 });
@@ -93,6 +103,7 @@ export async function DELETE(req: Request) {
     const success = await Database.deleteAttendance(id);
     return NextResponse.json({ success });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[API_ATTENDANCE_DELETE_ERROR]', error);
+    return NextResponse.json({ success: false, error: 'Failed to delete attendance.' }, { status: 500 });
   }
 }

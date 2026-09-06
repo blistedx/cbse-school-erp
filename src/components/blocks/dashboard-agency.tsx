@@ -442,105 +442,112 @@ export function DashboardAgency() {
       {/* Main Container */}
       <main className="flex-1 max-w-[1160px] w-full mx-auto px-4 sm:px-8 lg:px-10 py-6 sm:py-10 space-y-6 sm:space-y-8">
         {/* Banner & Navigation Switcher */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 font-mono text-[10.5px] sm:text-[11px] tracking-[1.5px] uppercase text-[var(--red-pen)] font-semibold mb-1">
-              <span className="w-2 h-2 rounded-full bg-[var(--red-pen)] inline-block" /> Central Admin Desk
-            </div>
-            <h1 className="font-display font-semibold text-2xl sm:text-3xl lg:text-4xl text-[var(--ink-navy)] tracking-tight">
-              Onboarding & Tenant Approvals
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1">
-              Review incoming school applications, approve credentials, and manage active MongoDB institutional databases.
-            </p>
+        <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 sm:p-7 relative overflow-hidden">
+          {/* Background Watermark Behind Header Text */}
+          <div 
+            aria-hidden="true" 
+            className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+          >
+            AGENCY
           </div>
 
-          {/* Tab Switcher */}
-          <div className="flex items-center gap-1 bg-white border border-slate-300 p-1 rounded-xl self-stretch sm:self-auto font-mono text-xs shadow-xs justify-between sm:justify-start">
-            <button
-              onClick={() => setActiveTab('requests')}
-              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-semibold transition-colors border-none cursor-pointer flex items-center justify-center gap-1.5 text-xs whitespace-nowrap ${
-                activeTab === 'requests'
-                  ? 'bg-[var(--ink-navy)] text-white shadow-xs'
-                  : 'bg-transparent text-[var(--ink-navy)] hover:bg-slate-50'
-              }`}
-            >
-              <Clock className="h-3.5 w-3.5 shrink-0" />
-              <span>Demo Requests ({pendingRequests.length})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('schools')}
-              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-semibold transition-colors border-none cursor-pointer flex items-center justify-center gap-1.5 text-xs whitespace-nowrap ${
-                activeTab === 'schools'
-                  ? 'bg-[var(--ink-navy)] text-white shadow-xs'
-                  : 'bg-transparent text-[var(--ink-navy)] hover:bg-slate-50'
-              }`}
-            >
-              <Building2 className="h-3.5 w-3.5 shrink-0" />
-              <span>Active Tenants ({schools.length})</span>
-            </button>
-          </div>
-        </div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+            <div>
+              <div className="inline-flex items-center gap-2 font-mono text-[10.5px] sm:text-[11px] tracking-[1.5px] uppercase text-[#1C443A] font-semibold mb-1 px-3 py-1 bg-[#EBF5EF] rounded-full border border-[#C5E2CF]">
+                <span className="w-2 h-2 rounded-full bg-[#10B981] inline-block animate-pulse" /> Central Multi-Tenant Desk
+              </div>
+              <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
+                Onboarding &amp; Tenant Approvals
+              </h1>
+              <p className="text-xs sm:text-sm text-[#2D5A4E] mt-1">
+                Review incoming school applications, approve credentials, and manage active MongoDB institutional databases.
+              </p>
+            </div>
 
-        {/* 4 Metric Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          <div className="bg-white p-6 rounded-[10px] border border-[var(--line)] shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-[11px] tracking-wider uppercase text-slate-500 font-semibold">
-                Pending Requests
-              </span>
-              <Clock className="h-4 w-4 text-[var(--red-pen)]" />
-            </div>
-            <div className="font-display font-bold text-3xl text-[var(--red-pen)] mt-3">
-              {pendingRequests.length}
-            </div>
-            <div className="font-mono text-[11px] text-[#7d7a6c] mt-1 font-medium">
-              Awaiting Approval
+            {/* Tab Switcher */}
+            <div className="flex items-center gap-1.5 bg-[#F4F8F5] border border-[#DCE8E0] p-1.5 rounded-2xl self-stretch sm:self-auto font-mono text-xs shadow-2xs justify-between sm:justify-start shrink-0">
+              <button
+                onClick={() => setActiveTab('requests')}
+                className={`flex-1 sm:flex-none px-4 py-2 rounded-xl font-bold transition-all border-none cursor-pointer flex items-center justify-center gap-1.5 text-xs whitespace-nowrap ${
+                  activeTab === 'requests'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60'
+                }`}
+              >
+                <Clock className="h-3.5 w-3.5 shrink-0" />
+                <span>Demo Requests ({pendingRequests.length})</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('schools')}
+                className={`flex-1 sm:flex-none px-4 py-2 rounded-xl font-bold transition-all border-none cursor-pointer flex items-center justify-center gap-1.5 text-xs whitespace-nowrap ${
+                  activeTab === 'schools'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60'
+                }`}
+              >
+                <Building2 className="h-3.5 w-3.5 shrink-0" />
+                <span>Active Tenants ({schools.length})</span>
+              </button>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-[10px] border border-[var(--line)] shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-[11px] tracking-wider uppercase text-slate-500 font-semibold">
-                Active Campuses
-              </span>
-              <Building2 className="h-4 w-4 text-[var(--board-2)]" />
-            </div>
-            <div className="font-display font-bold text-3xl text-[var(--ink-navy)] mt-3">
-              {schools.length}
-            </div>
-            <div className="font-mono text-[11px] text-[var(--board-2)] mt-1 font-medium">
-              Approved & Provisioned
-            </div>
-          </div>
+          {/* Executive #122A24 Dashboard KPI Hero Banner */}
+          <div className="mt-6 bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-[#1C443A]/70">
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300 font-semibold flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  Pending Requests
+                </span>
+                <div className="text-2xl sm:text-3xl font-bold font-display text-amber-300 tracking-tight flex items-center gap-2">
+                  <span>{pendingRequests.length}</span>
+                  {pendingRequests.length > 0 && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />}
+                </div>
+                <p className="text-[11px] text-white/50">
+                  Awaiting Superadmin Action
+                </p>
+              </div>
 
-          <div className="bg-white p-6 rounded-[10px] border border-[var(--line)] shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-[11px] tracking-wider uppercase text-slate-500 font-semibold">
-                Email Dispatch
-              </span>
-              <Mail className="h-4 w-4 text-[var(--board-2)]" />
-            </div>
-            <div className="font-display font-bold text-3xl text-[var(--ink-navy)] mt-3">
-              Gmail SMTP
-            </div>
-            <div className="font-mono text-[11px] text-emerald-600 mt-1 font-medium">
-              ✦ blistedx@gmail.com
-            </div>
-          </div>
+              <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Active Campuses
+                </span>
+                <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                  {schools.length}
+                </div>
+                <p className="text-[11px] text-white/50">
+                  Live Provisioned Tenants
+                </p>
+              </div>
 
-          <div className="bg-white p-6 rounded-[10px] border border-[var(--line)] shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-[11px] tracking-wider uppercase text-slate-500 font-semibold">
-                Security & Isolation
-              </span>
-              <ShieldCheck className="h-4 w-4 text-[var(--ink-navy)]" />
-            </div>
-            <div className="font-display font-bold text-3xl text-[var(--ink-navy)] mt-3">
-              Protected
-            </div>
-            <div className="font-mono text-[11px] text-slate-500 mt-1 font-medium">
-              No Unapproved Access
+              <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-emerald-400" />
+                  Email Relay
+                </span>
+                <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                  Gmail SMTP
+                </div>
+                <p className="text-[11px] text-white/50">
+                  blistedx@gmail.com Live
+                </p>
+              </div>
+
+              <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  Tenant Isolation
+                </span>
+                <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight flex items-center gap-2">
+                  <span>Zero-Leak</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                </div>
+                <p className="text-[11px] text-white/50">
+                  Strict Database Sandboxing
+                </p>
+              </div>
             </div>
           </div>
         </div>

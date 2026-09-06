@@ -709,6 +709,14 @@ export function DashboardDataHub({
           1. HEADER BANNER & PRIMARY MODE SWITCHER
           ───────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-3xl border border-[#DCE8E0] p-6 sm:p-7 relative overflow-hidden shadow-xs">
+        {/* Background Watermark Behind Header Text */}
+        <div 
+          aria-hidden="true" 
+          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+        >
+          DATA HUB
+        </div>
+
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div>
             <div className="inline-flex items-center px-3 py-1 rounded-full bg-[#F4F8F5] text-[#1C443A] text-[11px] font-mono font-bold tracking-wider uppercase border border-[#DCE8E0] mb-2">
@@ -749,6 +757,65 @@ export function DashboardDataHub({
               <Upload className="w-3.5 h-3.5" />
               <span>Bulk Upload Data</span>
             </button>
+          </div>
+        </div>
+
+        {/* Executive #122A24 Dashboard KPI Hero Banner */}
+        <div className="mt-6 bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-[#1C443A]/70">
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-emerald-400" />
+                Master Scholars
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                {students.length}
+              </div>
+              <p className="text-[11px] text-white/50">
+                Demographic &amp; Enrollment Records
+              </p>
+            </div>
+
+            <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                Certified Staff
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                {teachers.length}
+              </div>
+              <p className="text-[11px] text-white/50">
+                Faculty &amp; Operational Roster
+              </p>
+            </div>
+
+            <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
+                Fee Invoices
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                {invoices.length}
+              </div>
+              <p className="text-[11px] text-white/50">
+                Institutional Financial Entries
+              </p>
+            </div>
+
+            <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                <CalendarCheck className="w-3.5 h-3.5 text-emerald-400" />
+                Attendance Logs
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight flex items-center gap-2">
+                <span>{attendance.length}</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              </div>
+              <p className="text-[11px] text-white/50">
+                Daily Roll Call &amp; Register Dockets
+              </p>
+            </div>
           </div>
         </div>
       </div>

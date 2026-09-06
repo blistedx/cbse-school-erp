@@ -225,6 +225,14 @@ export function DashboardStudentPortal({
     <div className="space-y-6 max-w-7xl mx-auto animate-fade-in pb-12">
       {/* Scholar Identity Hero Card */}
       <div className="bg-gradient-to-br from-[#EBF5EF] via-[#E2F1E8] to-[#D5EBDC] rounded-3xl p-5 sm:p-7 border border-[#C5E2CF] shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden">
+        {/* Background Watermark Behind Header Text */}
+        <div 
+          aria-hidden="true" 
+          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+        >
+          PORTAL
+        </div>
+
         <div className="relative z-10 flex items-center gap-4">
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-display font-bold text-2xl shadow-md border-2 border-white shrink-0">
             {(student.full_name || 'S')[0]}

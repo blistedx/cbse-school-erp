@@ -2081,27 +2081,105 @@ export function DashboardExams({
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
           <div>
-            <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight flex items-center gap-2.5">
-              <Award className="h-7 w-7 text-emerald-700 shrink-0" />
-              <span>CBSE Examination &amp; Report Card Studio</span>
-            </h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight flex items-center gap-2.5">
+                <Award className="h-7 w-7 text-emerald-700 shrink-0" />
+                <span>CBSE Examination &amp; Report Card Studio</span>
+              </h1>
+              <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                Session {selectedSession}
+              </span>
+            </div>
             <p className="text-xs text-[#2D5A4E] mt-1 font-mono">
               Whole-school exam scheduler, single class tests, marks ledger &amp; student academic report cards
             </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            <span className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-              Session {selectedSession}
-            </span>
-            <span className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+            <span className="px-3 py-1.5 rounded-full text-xs font-mono font-bold bg-[#F4F8F5] text-[#122A24] border border-[#DCE8E0]">
               CBSE Affil: {selectedSchool?.affiliation_no || '2130042'}
             </span>
+            {userRole !== 'STUDENT' && (
+              <button
+                type="button"
+                onClick={() => setActiveView('broadsheet')}
+                className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 border-none cursor-pointer shadow-xs transition-all"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Annual Broadsheet</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ─────────────────────────────────────────────────────────────
+            2. DASHBOARD KPI HERO BANNER (DEEP FOREST GREEN #122A24)
+            ───────────────────────────────────────────────────────────── */}
+        <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+          <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/70 relative z-10">
+            {/* Tile 1: Registered Scholars */}
+            <div className="sm:pr-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <GraduationCap className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Scholars Assessed</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {students.length} <span className="text-xs font-mono text-emerald-300/70 font-normal">Registered</span>
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300 mt-1 flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>{classes.length} Class Divisions Active</span>
+              </div>
+            </div>
+
+            {/* Tile 2: Evaluation Framework */}
+            <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <Award className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Grading Scheme</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                CBSE 8-Point
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300/80 mt-1 flex items-center gap-1.5">
+                <span>Holistic Progress Card (HPC 360)</span>
+              </div>
+            </div>
+
+            {/* Tile 3: Assessment Cycles */}
+            <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <Layers className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Assessment Cycles</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                PT-1, Mid &amp; Final
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300/70 mt-1 flex items-center gap-1.5">
+                <span>Weekly Unit Tests + Term Exams</span>
+              </div>
+            </div>
+
+            {/* Tile 4: Tabulation & Ledgers */}
+            <div className="pt-4 sm:pt-0 sm:pl-4 group select-none">
+              <div className="flex items-center gap-2 text-amber-300">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-amber-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-amber-200/90">Tabulation &amp; Ledgers</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                CBSE Verified
+              </div>
+              <div className="text-[11px] font-mono text-amber-300 mt-1 flex items-center gap-1.5">
+                <span>Automated Transcripts &amp; Ranks</span>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Navigation Tabs: Adaptive for Student vs Staff */}
-        <div className={`grid ${userRole === 'STUDENT' ? 'grid-cols-2 max-w-md' : 'grid-cols-2 lg:grid-cols-4 max-w-4xl'} gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs`}>
+        <div className={`grid ${userRole === 'STUDENT' ? 'grid-cols-2 max-w-md' : 'grid-cols-2 lg:grid-cols-4 max-w-4xl'} gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10`}>
           <button
             type="button"
             onClick={() => setActiveView('student_dossier')}

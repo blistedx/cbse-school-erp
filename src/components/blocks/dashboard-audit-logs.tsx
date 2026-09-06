@@ -152,7 +152,7 @@ export function DashboardAuditLogs({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-[#DCE8E0] shadow-xs relative overflow-hidden">
         <div 
           aria-hidden="true" 
-          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] text-7xl sm:text-9xl leading-none z-0 tracking-tight"
+          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
         >
           AUDIT
         </div>
@@ -181,61 +181,68 @@ export function DashboardAuditLogs({
         </div>
       </div>
 
-      {/* 4 Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Events */}
-        <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-2xs space-y-2">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-mono">
-            <span>TOTAL LOGGED EVENTS</span>
-            <Database className="h-4 w-4 text-emerald-700" />
-          </div>
-          <div className="font-display font-black text-2xl text-[#122A24]">
-            {metrics.total}
-          </div>
-          <div className="text-[11px] font-mono text-emerald-700 font-semibold">
-            ● 100% Operations Recorded
-          </div>
-        </div>
+      {/* ─────────────────────────────────────────────────────────────
+          2. DASHBOARD KPI HERO BANNER (DEEP FOREST GREEN #122A24)
+          ───────────────────────────────────────────────────────────── */}
+      <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+        <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
 
-        {/* Security & Critical */}
-        <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-2xs space-y-2">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-mono">
-            <span>SECURITY &amp; CRITICAL</span>
-            <ShieldAlert className="h-4 w-4 text-purple-700" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/70 relative z-10">
+          {/* Tile 1: Total Events */}
+          <div className="sm:pr-4 group select-none">
+            <div className="flex items-center gap-2 text-emerald-300">
+              <Database className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Total Logged Events</span>
+            </div>
+            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+              {metrics.total} <span className="text-xs font-mono text-emerald-300/70 font-normal">Records</span>
+            </div>
+            <div className="text-[11px] font-mono text-emerald-300 mt-1 flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <span>100% Operations Recorded</span>
+            </div>
           </div>
-          <div className="font-display font-black text-2xl text-[#122A24]">
-            {metrics.critical}
-          </div>
-          <div className="text-[11px] font-mono text-purple-700 font-semibold">
-            ✓ 0 Unauthorized Breaches
-          </div>
-        </div>
 
-        {/* Active Operators */}
-        <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-2xs space-y-2">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-mono">
-            <span>ACTIVE OPERATORS</span>
-            <User className="h-4 w-4 text-amber-700" />
+          {/* Tile 2: Security & Critical */}
+          <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+            <div className="flex items-center gap-2 text-rose-300">
+              <ShieldAlert className="w-4 h-4 shrink-0 text-rose-400" />
+              <span className="text-xs sm:text-[13px] font-medium text-rose-200/90">Critical Operations</span>
+            </div>
+            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+              {metrics.critical} <span className="text-xs font-mono text-rose-300/80 font-normal">Events</span>
+            </div>
+            <div className="text-[11px] font-mono text-rose-300/80 mt-1 flex items-center gap-1.5">
+              <span>0 Unauthorized Breaches</span>
+            </div>
           </div>
-          <div className="font-display font-black text-2xl text-[#122A24]">
-            {metrics.uniqueActors}
-          </div>
-          <div className="text-[11px] font-mono text-amber-700 font-semibold">
-            Authorized Faculty &amp; Staff
-          </div>
-        </div>
 
-        {/* Compliance Score */}
-        <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-2xs space-y-2">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-mono">
-            <span>IMMUTABILITY STANDARD</span>
-            <Lock className="h-4 w-4 text-emerald-700" />
+          {/* Tile 3: Active Operators */}
+          <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+            <div className="flex items-center gap-2 text-emerald-300">
+              <User className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Active Operators</span>
+            </div>
+            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+              {metrics.uniqueActors} <span className="text-xs font-mono text-emerald-300/70 font-normal">Staff</span>
+            </div>
+            <div className="text-[11px] font-mono text-emerald-300/70 mt-1 flex items-center gap-1.5">
+              <span>Authorized Faculty &amp; Staff</span>
+            </div>
           </div>
-          <div className="font-display font-black text-2xl text-emerald-800">
-            VERIFIED
-          </div>
-          <div className="text-[11px] font-mono text-slate-500">
-            Cryptographic SHA-256 Trail
+
+          {/* Tile 4: Immutability Standard */}
+          <div className="pt-4 sm:pt-0 sm:pl-4 group select-none">
+            <div className="flex items-center gap-2 text-amber-300">
+              <Lock className="w-4 h-4 shrink-0 text-amber-400" />
+              <span className="text-xs sm:text-[13px] font-medium text-amber-200/90">Immutability Standard</span>
+            </div>
+            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+              Verified
+            </div>
+            <div className="text-[11px] font-mono text-amber-300 mt-1 flex items-center gap-1.5">
+              <span>CBSE Rule 24.1 Compliant</span>
+            </div>
           </div>
         </div>
       </div>

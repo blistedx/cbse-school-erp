@@ -1,21 +1,14 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
+import { requireRole, AGENCY_ONLY } from '@/lib/auth-guard';
 
 export async function POST(req: Request) {
   try {
-    const roleHeader = req.headers.get('x-user-role');
+    const auth = requireRole(req, AGENCY_ONLY);
+    if (auth instanceof NextResponse) return auth;
+
     const body = await req.json();
-
-    const isAgencyAdmin = roleHeader === 'AGENCY_SUPERADMIN';
-
-    // 1. Authorization Guard
-    if (!isAgencyAdmin) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden. Only Agency Superadmin can execute whole-school data purges.' },
-        { status: 403 }
-      );
-    }
 
     const { school_id, school_code, captcha_input, expected_captcha, confirmation_text } = body;
 

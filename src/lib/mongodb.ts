@@ -89,3 +89,36 @@ export async function checkMongoStatus(): Promise<{ connected: boolean; error: s
     return { connected: false, error: err.message, uriMasked };
   }
 }
+
+/**
+ * Hard constraint enforcement:
+ * Recursively scans and strips any base64 raw data URLs (e.g. data:image/...;base64,...)
+ * or raw binary Buffers from MongoDB documents.
+ * Strictly guarantees that MongoDB stores only URL references and lightweight metadata.
+ */
+export function sanitizeDocNoBinary<T>(doc: T): T {
+  if (!doc || typeof doc !== 'object') return doc;
+  if (Buffer.isBuffer(doc)) {
+    console.warn('[SECURITY VIOLATION PREVENTED]: Attempted to write raw Buffer to MongoDB. Stripped.');
+    return '' as any;
+  }
+  if (Array.isArray(doc)) {
+    return doc.map(sanitizeDocNoBinary) as any;
+  }
+  const clean: any = {};
+  for (const [key, value] of Object.entries(doc)) {
+    if (Buffer.isBuffer(value)) {
+      console.warn(`[SECURITY VIOLATION PREVENTED]: Stripped raw Buffer in field '${key}' before MongoDB persistence.`);
+      clean[key] = '';
+    } else if (typeof value === 'string' && value.startsWith('data:') && value.includes(';base64,')) {
+      console.warn(`[SECURITY VIOLATION PREVENTED]: Stripped raw base64 data in field '${key}' before MongoDB persistence.`);
+      clean[key] = '';
+    } else if (value && typeof value === 'object' && !(value instanceof Date)) {
+      clean[key] = sanitizeDocNoBinary(value);
+    } else {
+      clean[key] = value;
+    }
+  }
+  return clean as T;
+}
+

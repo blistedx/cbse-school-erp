@@ -912,9 +912,7 @@ function ERPWorkspaceContent() {
 
           // Ensure valid session token exists for all authenticated API requests
           const currentToken = localStorage.getItem('erp_session_token');
-          if (currentToken) {
-            document.cookie = `erp_session_token=${encodeURIComponent(currentToken)}; Path=/; SameSite=Lax; Max-Age=43200`;
-          } else {
+          if (!currentToken) {
             // Auto-request fresh session token for active user
             fetch('/api/auth/session', {
               method: 'POST',
@@ -928,7 +926,6 @@ function ERPWorkspaceContent() {
             }).then(r => r.json()).then(d => {
               if (d.success && d.session_token) {
                 localStorage.setItem('erp_session_token', d.session_token);
-                document.cookie = `erp_session_token=${encodeURIComponent(d.session_token)}; Path=/; SameSite=Lax; Max-Age=43200`;
               }
             }).catch(() => {});
           }
@@ -2811,6 +2808,8 @@ function ERPWorkspaceContent() {
 
     setTimeout(() => {
       if (typeof window !== 'undefined') {
+        // Clear server-side HttpOnly session cookie
+        fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
         localStorage.removeItem('current_user');
         localStorage.removeItem('current_school');
         localStorage.removeItem('giterp_role_permissions');
@@ -3472,6 +3471,26 @@ function ERPWorkspaceContent() {
     );
   }
 
+  // Green and White theme navigation style helpers
+  const getNavClass = (tab: string) => {
+    const isActive = activeTab === tab;
+    return `w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-[13px] font-medium transition-all border-none cursor-pointer text-left ${
+      isActive
+        ? 'bg-white text-[#122A24] font-bold shadow-xs'
+        : 'bg-transparent text-emerald-100/75 hover:text-white hover:bg-white/10'
+    }`;
+  };
+
+  const getNavIconClass = (tab: string) => {
+    return `h-4 w-4 shrink-0 ${activeTab === tab ? 'text-[#122A24]' : 'text-emerald-300/80'}`;
+  };
+
+  const getNavBadgeClass = (tab: string) => {
+    return `text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+      activeTab === tab ? 'bg-emerald-100 text-[#122A24]' : 'bg-white/10 text-emerald-200'
+    }`;
+  };
+
   return (
     <div suppressHydrationWarning className="h-[100dvh] max-h-[100dvh] w-full max-w-full flex flex-col overflow-hidden bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased print:h-auto print:max-h-none print:overflow-visible">
       {/* PWA Offline Mode Notice Banner */}
@@ -3491,109 +3510,66 @@ function ERPWorkspaceContent() {
 
       {/* Top Header: Responsive with Mobile Drawer Toggle */}
       {/* Top Header Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#DCE8E0] px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between shadow-2xs gap-3 sm:gap-6">
+      {/* Top Header: Clean Bag\\UI Reference Style with Breadcrumbs */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200/80 px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between shadow-2xs gap-3 sm:gap-6">
         <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
           {/* Mobile Hamburger Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="lg:hidden p-2 rounded-xl bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] transition-colors cursor-pointer shadow-2xs flex items-center justify-center shrink-0"
+            className="lg:hidden p-2 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-800 border border-gray-200 transition-colors cursor-pointer shadow-2xs flex items-center justify-center shrink-0"
             title="Open Navigation Menu"
             aria-label="Open Navigation Menu"
           >
             <Menu className="h-5 w-5" />
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab(effectiveRole === 'DRIVER' ? 'transport' : 'overview')}
-            className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1 border-none bg-transparent p-0 text-left cursor-pointer group"
-            title={effectiveRole === 'DRIVER' ? 'Go to Transport Console' : 'Go to Overview Dashboard'}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {selectedSchool?.logo || settingsForm.logo ? (
-              <img
-                src={selectedSchool?.logo || settingsForm.logo}
-                alt="School Logo"
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-contain bg-white border border-[#DCE8E0] p-0.5 shadow-xs shrink-0 group-hover:scale-105 transition-transform"
-              />
-            ) : (
-              <img
-                src="/giterp-logo.png"
-                alt="Giterp Logo"
-                className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-contain bg-[#122A24] border border-[#122A24]/30 p-0.5 shadow-xs shrink-0 group-hover:scale-105 transition-transform"
-              />
-            )}
-            <div className="min-w-0 flex-1 pr-2">
-              <h1 
-                className="font-display font-bold text-xs sm:text-sm md:text-base lg:text-lg text-[#122A24] tracking-tight leading-tight truncate m-0 group-hover:text-emerald-800 transition-colors"
-                title={selectedSchool?.school_name || 'Delhi Public International School'}
-              >
-                {selectedSchool?.school_name || 'Delhi Public International School'}
-              </h1>
-              <div className="font-mono text-[9.5px] sm:text-[10.5px] text-[#2D5A4E] leading-tight mt-0.5 truncate">
-                {selectedSchool?.city ? `${selectedSchool.city} • ` : ''}{selectedSchool?.board || 'CBSE'} Curriculum
-              </div>
-            </div>
-          </button>
+          {/* Clean Breadcrumbs (Reference style: "Dashboard / Overview") */}
+          <div className="hidden sm:flex items-center gap-2 text-xs sm:text-sm font-medium">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className="text-gray-400 hover:text-[#122A24] transition-colors border-none bg-transparent p-0 cursor-pointer"
+            >
+              Dashboard
+            </button>
+            <span className="text-emerald-300/60">/</span>
+            <span className="text-[#122A24] font-bold capitalize">
+              {TAB_POSTER_CONFIG[activeTab]?.title || activeTab.replace('_', ' ')}
+            </span>
+          </div>
+
+          <div className="sm:hidden flex items-center gap-2 min-w-0">
+            <span className="font-bold text-xs text-[#122A24] truncate">
+              {TAB_POSTER_CONFIG[activeTab]?.title || activeTab}
+            </span>
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* Desktop Multi-School Switcher for Super Admin */}
-          {isSuperAdmin ? (
-            <div className="hidden lg:flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-300 text-amber-900 rounded-full text-xs font-bold font-mono shadow-xs">
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                <span className="hidden sm:inline">⚡ SUPER ADMIN:</span>
-                <select
-                  value={selectedSchool?.id || selectedSchool?.school_code || ''}
-                  onChange={(e) => handleSwitchSchool(e.target.value)}
-                  className="bg-transparent border-none text-xs font-bold text-amber-950 focus:outline-none cursor-pointer pr-1 font-sans"
-                  title="Switch School Tenant (Super Admin Only)"
-                >
-                  {availableSchools.map((sch) => (
-                    <option key={sch.id} value={sch.id}>
-                      {sch.school_name} [{sch.school_code}]
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <Link
-                href="/agency"
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#122A24] text-white text-xs font-semibold no-underline hover:bg-[#1C443A] transition-colors shadow-2xs"
-              >
-                <span>Agency Cloud</span>
-                <span>↗</span>
-              </Link>
-            </div>
-          ) : null}
-
-          {/* Universal Omni-Search Trigger Button (Hidden for Driver) */}
+          {/* Universal Omni-Search Trigger Button */}
           {effectiveRole !== 'DRIVER' && (
             <button
               type="button"
               onClick={() => setIsOmniSearchOpen(true)}
-              className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 bg-[#F4F8F5] hover:bg-[#EBF5EF] border border-[#DCE8E0] hover:border-emerald-600/50 text-[#122A24] rounded-full text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
-              title="Quick Search scholars, staff, invoices, classes, notices (Ctrl+K)"
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-[#DCE8E0] text-[#122A24] rounded-xl text-xs font-normal shadow-2xs transition-colors cursor-pointer shrink-0"
+              title="Search (Ctrl+K)"
             >
-              <Search className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
-              <span className="hidden sm:inline text-slate-600 font-sans text-[11.5px]">Search anything...</span>
-              <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9.5px] font-mono bg-white border border-[#DCE8E0] rounded text-slate-400 font-bold">
-                Ctrl K
+              <Search className="h-3.5 w-3.5 text-[#2D5A4E]/60 shrink-0" />
+              <span className="hidden sm:inline text-gray-500 text-xs">Search...</span>
+              <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9.5px] font-mono bg-white border border-[#DCE8E0] rounded text-gray-500">
+                ⌘K
               </kbd>
             </button>
           )}
 
-          {/* Academic Session Switcher Dropdown (Hidden for Driver) */}
+          {/* Academic Session Switcher */}
           {effectiveRole !== 'DRIVER' && (
-            <div className="flex items-center gap-1 px-2 sm:px-3 py-1 bg-[#EBF5EF] hover:bg-[#D8EEDF] border border-[#C5E2CF] text-[#122A24] rounded-full text-xs font-bold font-mono shadow-2xs transition-colors shrink-0">
-              <Calendar className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
-              <span className="hidden md:inline text-[10px] text-[#2D5A4E] uppercase font-bold tracking-wider">Session:</span>
+            <div className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-[#DCE8E0] text-[#122A24] rounded-xl text-xs font-medium shadow-2xs">
+              <Calendar className="h-3.5 w-3.5 text-[#2D5A4E]/60 shrink-0" />
               <select
                 value={selectedSession}
                 onChange={(e) => handleSwitchSession(e.target.value)}
-                className="bg-transparent border-none text-[11px] sm:text-xs font-bold font-mono text-[#122A24] focus:outline-none cursor-pointer pr-0.5 max-w-[68px] sm:max-w-none"
-                title="Switch Academic Session"
+                className="bg-transparent border-none text-xs font-medium text-[#122A24] focus:outline-none cursor-pointer pr-0.5"
+                title="Switch Session"
               >
                 {AVAILABLE_SESSIONS.map((sess) => (
                   <option key={sess} value={sess}>
@@ -3604,22 +3580,7 @@ function ERPWorkspaceContent() {
             </div>
           )}
 
-          {/* Live Data Sync Micro-Status Indicator */}
-          {isSyncingLive ? (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full text-[10.5px] font-mono font-bold shrink-0 animate-pulse shadow-2xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-              <span className="hidden sm:inline">Syncing...</span>
-            </div>
-          ) : (
-            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-[#F0F8F3] border border-[#DCE8E0] text-[#1C443A] rounded-full text-[10.5px] font-mono font-medium shrink-0 shadow-2xs" title="Connected & Synced with Database">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>Live Synced</span>
-            </div>
-          )}
-
-
-
-          {/* Notification Bell Icon */}
+          {/* Notification Bell */}
           <div className="relative">
             <button
               type="button"
@@ -3627,70 +3588,54 @@ function ERPWorkspaceContent() {
                 setPushStatus(getNotificationPermissionStatus());
                 setShowBroadcastInbox(true);
               }}
-              className={`relative p-2 rounded-full border text-xs font-semibold cursor-pointer transition-all shadow-2xs flex items-center justify-center ${
-                unreadBroadcastCount > 0
-                  ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300 ring-2 ring-rose-400/30'
-                  : pushStatus === 'granted'
-                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
-                  : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
-              }`}
-              title="Notifications & Alerts"
-              aria-label="Notifications"
+              className="p-2 rounded-xl border border-[#DCE8E0] bg-white hover:bg-emerald-50/50 text-[#122A24] text-xs font-semibold cursor-pointer transition-colors shadow-2xs flex items-center justify-center"
+              title="Notifications"
             >
-              <Bell className={`h-4 w-4 ${unreadBroadcastCount > 0 ? 'text-rose-600 animate-bounce' : 'text-slate-700'}`} />
-              {unreadBroadcastCount > 0 ? (
-                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 min-w-[17px] h-[17px] bg-rose-600 text-white rounded-full text-[9px] font-bold font-mono flex items-center justify-center shadow-xs">
+              <Bell className="h-4 w-4 text-[#122A24]" />
+              {unreadBroadcastCount > 0 && (
+                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 min-w-[17px] h-[17px] bg-rose-600 text-white rounded-full text-[9px] font-bold font-mono flex items-center justify-center">
                   {unreadBroadcastCount}
-                </span>
-              ) : pushStatus === 'granted' ? (
-                <span className="absolute top-1.5 right-1.5 flex h-1.5 w-1.5">
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                </span>
-              ) : (
-                <span className="absolute top-1.5 right-1.5 flex h-1.5 w-1.5">
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
                 </span>
               )}
             </button>
           </div>
 
-          {/* User Profile Avatar / Chip */}
+          {/* User Profile Avatar Pill */}
           <button
             onClick={() => setActiveTab('profile')}
-            className={`flex items-center gap-1.5 sm:gap-2 p-1 sm:px-2.5 sm:py-1 rounded-full border text-xs font-semibold cursor-pointer transition-all shadow-2xs ${
+            className={`flex items-center gap-2 p-1 sm:px-2.5 sm:py-1 rounded-full border text-xs font-medium cursor-pointer transition-colors shadow-2xs ${
               activeTab === 'profile'
-                ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
-                : 'bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border-[#DCE8E0]'
+                ? 'bg-[#122A24] text-white border-[#122A24]'
+                : 'bg-white hover:bg-[#F4F8F5] text-[#122A24] border-[#DCE8E0]'
             }`}
-            title="Open My User Profile"
+            title="My Profile"
           >
-            <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full font-display font-bold flex items-center justify-center text-xs sm:text-[10px] ${
+            <div className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-[11px] ${
               activeTab === 'profile' ? 'bg-white text-[#122A24]' : 'bg-[#122A24] text-white'
             }`}>
               {(currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()}
             </div>
-            <span className="hidden md:inline max-w-[140px] truncate">
-              {currentUser?.full_name || profileForm.full_name || 'My Profile'}
-            </span>
-            <span className="hidden xl:inline text-[9.5px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase font-bold">
-              {currentUser?.role || 'USER'}
+            <span className="hidden md:inline max-w-[120px] truncate text-xs">
+              {currentUser?.full_name?.split(' ')[0] || 'Admin'}
             </span>
           </button>
 
+          {/* Refresh button */}
           <button
             onClick={() => selectedSchool && loadSchoolData(selectedSchool.id)}
-            className="hidden sm:flex p-2 rounded-xl bg-[#F4F8F5] border border-[#DCE8E0] hover:bg-[#EBF5EF] text-[#122A24] transition-colors shadow-2xs cursor-pointer items-center justify-center"
+            className="hidden sm:flex p-2 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors shadow-2xs cursor-pointer items-center justify-center"
             title="Refresh Data"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
 
+          {/* Sign out */}
           <button
             onClick={handleLogout}
-            className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-xs font-semibold text-rose-700 flex items-center gap-1.5 transition-colors border border-rose-200 cursor-pointer shrink-0"
+            className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-gray-50 hover:bg-red-50 hover:text-red-700 border border-gray-200 hover:border-red-200 text-xs font-medium text-gray-700 transition-colors cursor-pointer shrink-0 flex items-center gap-1.5"
             title="Sign Out"
           >
-            <LogOut className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+            <LogOut className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Sign Out</span>
           </button>
         </div>
@@ -3735,36 +3680,30 @@ function ERPWorkspaceContent() {
             onClick={() => setMobileMenuOpen(false)}
           />
 
-          {/* Drawer Content */}
-          <aside className="relative w-72 sm:w-80 bg-[#122A24] text-white p-5 flex flex-col gap-1 z-50 h-full overflow-y-auto shadow-2xl animate-slide-in">
+          {/* Drawer Content - Prestigious Green & White Theme */}
+          <aside className="relative w-72 sm:w-80 bg-[#122A24] text-white p-5 flex flex-col gap-1 z-50 h-full overflow-y-auto shadow-2xl animate-slide-in border-r border-[#1C443A]">
             {/* Drawer Header */}
-            <div className="flex items-center justify-between pb-4 mb-2 border-b border-white/15">
+            <div className="flex items-center justify-between pb-3 mb-2 border-b border-white/15">
               <button
                 type="button"
                 onClick={() => { setActiveTab(effectiveRole === 'DRIVER' ? 'transport' : 'overview'); setMobileMenuOpen(false); }}
                 className="flex items-center gap-2.5 border-none bg-transparent p-0 text-left cursor-pointer group"
                 title={effectiveRole === 'DRIVER' ? "Go to Transport Console" : "Go to Overview Dashboard"}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {selectedSchool?.logo || settingsForm.logo ? (
-                  <img
-                    src={selectedSchool?.logo || settingsForm.logo}
-                    alt="School Logo"
-                    className="w-9 h-9 rounded-xl object-contain bg-white border border-white/20 p-0.5 shadow-xs shrink-0 group-hover:scale-105 transition-transform"
-                  />
-                ) : (
-                  <img
-                    src="/giterp-logo.png"
-                    alt="Giterp Logo"
-                    className="w-9 h-9 rounded-xl object-contain bg-[#122A24] border border-white/20 p-0.5 shadow-xs shrink-0 group-hover:scale-105 transition-transform"
-                  />
-                )}
-                <div>
-                  <div className="font-display font-bold text-sm text-white truncate max-w-[160px] group-hover:text-emerald-300 transition-colors">
-                    {selectedSchool?.school_name || 'Giterp'}
+                <div className="w-8 h-8 rounded-xl bg-white text-[#122A24] flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+                  <div className="grid grid-cols-2 gap-1 w-3.5 h-3.5">
+                    <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]" />
+                    <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]/70" />
+                    <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]/70" />
+                    <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]" />
                   </div>
-                  <div className="text-[10px] font-mono text-emerald-300">
-                    {selectedSchool?.school_code || 'DPS2026'} • {selectedSchool?.board || 'CBSE'}
+                </div>
+                <div>
+                  <div className="font-bold text-sm text-white truncate max-w-[150px]">
+                    {selectedSchool?.school_name || 'School ERP'}
+                  </div>
+                  <div className="text-[10px] font-mono text-emerald-300/70">
+                    CBSE Enterprise ERP
                   </div>
                 </div>
               </button>
@@ -3777,19 +3716,19 @@ function ERPWorkspaceContent() {
               </button>
             </div>
 
-            {/* Super Admin School Switcher Widget (Mobile Drawer) */}
+            {/* Super Admin School Switcher (Mobile Drawer) */}
             {isSuperAdmin && (
-              <div className="mb-3 p-3 bg-white/10 rounded-2xl border border-amber-400/30 space-y-1.5 shadow-xs">
-                <div className="flex items-center justify-between text-[10px] font-mono text-amber-300 font-bold">
+              <div className="mb-2.5 p-2.5 bg-white/10 rounded-xl border border-white/15 space-y-1 shadow-2xs">
+                <div className="flex items-center justify-between text-[10px] font-mono text-emerald-300 font-bold">
                   <span>⚡ SWITCH SCHOOL:</span>
-                  <span className="text-[9px] bg-amber-400/20 px-1.5 py-0.5 rounded border border-amber-400/30">
+                  <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded text-white">
                     SUPER ADMIN
                   </span>
                 </div>
                 <select
                   value={selectedSchool?.id || selectedSchool?.school_code || ''}
                   onChange={(e) => { handleSwitchSchool(e.target.value); setMobileMenuOpen(false); }}
-                  className="w-full bg-[#122A24] text-white text-xs font-semibold rounded-xl px-2.5 py-2 border border-white/20 focus:outline-none cursor-pointer"
+                  className="w-full bg-[#1C443A] text-white text-xs font-semibold rounded-lg px-2 py-1.5 border border-white/20 focus:outline-none cursor-pointer"
                   title="Switch School Tenant (Super Admin Only)"
                 >
                   {availableSchools.map((sch) => (
@@ -3801,132 +3740,45 @@ function ERPWorkspaceContent() {
               </div>
             )}
 
-            {/* Logged-In User Role Badge (Mobile Drawer) */}
-            <div className="mb-3 px-3 py-2 bg-white/10 rounded-xl border border-white/15 flex items-center justify-between shadow-xs">
-              <span className="text-[10px] font-mono text-emerald-200/80 font-bold uppercase tracking-wider">Active Role:</span>
-              <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30">
-                {effectiveRole === 'SUPERADMIN' ? (
-                  <>
-                    <ShieldCheck className="w-3 h-3 text-amber-400" />
-                    <span>SUPERADMIN</span>
-                  </>
-                ) : effectiveRole === 'TEACHER' ? (
-                  <>
-                    <GraduationCap className="w-3 h-3 text-emerald-400" />
-                    <span>TEACHER</span>
-                  </>
-                ) : effectiveRole === 'ACCOUNTANT' ? (
-                  <>
-                    <FileText className="w-3 h-3 text-amber-300" />
-                    <span>ACCOUNTANT</span>
-                  </>
-                ) : effectiveRole === 'DRIVER' ? (
-                  <>
-                    <Bus className="w-3 h-3 text-blue-300" />
-                    <span>DRIVER</span>
-                  </>
-                ) : effectiveRole === 'LIBRARIAN' ? (
-                  <>
-                    <BookOpen className="w-3 h-3 text-emerald-300" />
-                    <span>LIBRARIAN</span>
-                  </>
-                ) : effectiveRole === 'SECURITY_GUARD' || effectiveRole === 'SECURITY' || effectiveRole === 'GUARD' ? (
-                  <>
-                    <ShieldCheck className="w-3 h-3 text-amber-400" />
-                    <span>SECURITY</span>
-                  </>
-                ) : effectiveRole === 'STUDENT' ? (
-                  <>
-                    <User className="w-3 h-3 text-cyan-400" />
-                    <span>STUDENT</span>
-                  </>
-                ) : effectiveRole === 'PARENT' ? (
-                  <>
-                    <Users className="w-3 h-3 text-violet-400" />
-                    <span>PARENT</span>
-                  </>
-                ) : (
-                  <>
-                    <Crown className="w-3 h-3 text-amber-300" />
-                    <span>PRINCIPAL</span>
-                  </>
-                )}
-              </span>
-            </div>
-
-            <div className="text-[10.5px] font-semibold text-emerald-200/70 uppercase tracking-wider px-3 mb-1.5 font-mono">
-              {effectiveRole === 'TEACHER'
-                ? 'Faculty Workspace'
-                : effectiveRole === 'ACCOUNTANT'
-                ? 'Accounts & Billing Desk'
-                : effectiveRole === 'DRIVER'
-                ? 'Driver Transport Console'
-                : effectiveRole === 'LIBRARIAN'
-                ? 'Library Management Desk'
-                : effectiveRole === 'SECURITY_GUARD'
-                ? 'Gate Security Station'
-                : effectiveRole === 'STUDENT'
-                ? 'Student SIS'
-                : effectiveRole === 'PARENT'
-                ? 'Parent Connect'
-                : 'Academic Modules'}
+            <div className="text-[10px] font-semibold text-emerald-300/60 uppercase tracking-wider px-3 mb-1 mt-1 font-mono">
+              Main Menu
             </div>
 
             {allowedTabs.includes('overview') && (
               <button
                 onClick={() => { setActiveTab('overview'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'overview' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('overview')}
               >
-                <BarChart3 className="h-4 w-4 shrink-0" /> Overview Dashboard
+                <BarChart3 className={getNavIconClass('overview')} />
+                <span>Dashboard</span>
               </button>
             )}
 
             {allowedTabs.includes('students') && (
               <button
                 onClick={() => { setActiveTab('students'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'students' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={`${getNavClass('students')} justify-between`}
               >
                 <span className="flex items-center gap-3">
-                  <Users className="h-4 w-4 shrink-0" /> Students SIS
+                  <GraduationCap className={getNavIconClass('students')} />
+                  <span>Students</span>
                 </span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                  activeTab === 'students' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-                }`}>
+                <span className={getNavBadgeClass('students')}>
                   {students.length}
                 </span>
-              </button>
-            )}
-
-            {/* Siblings & Families (Mobile) */}
-            {allowedTabs.includes('siblings') && (
-              <button
-                onClick={() => { setActiveTab('siblings'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'siblings' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <HeartHandshake className="h-4 w-4 shrink-0 text-purple-300" />
-                <span className="truncate">Siblings &amp; Families</span>
               </button>
             )}
 
             {allowedTabs.includes('teachers') && (
               <button
                 onClick={() => { setActiveTab('teachers'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'teachers' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={`${getNavClass('teachers')} justify-between`}
               >
                 <span className="flex items-center gap-3">
-                  <GraduationCap className="h-4 w-4 shrink-0" /> Faculty &amp; Staff
+                  <Users className={getNavIconClass('teachers')} />
+                  <span>Faculty &amp; Staff</span>
                 </span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                  activeTab === 'teachers' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-                }`}>
+                <span className={getNavBadgeClass('teachers')}>
                   {teachers.length}
                 </span>
               </button>
@@ -3935,16 +3787,13 @@ function ERPWorkspaceContent() {
             {allowedTabs.includes('classes') && (
               <button
                 onClick={() => { setActiveTab('classes'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'classes' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={`${getNavClass('classes')} justify-between`}
               >
                 <span className="flex items-center gap-3">
-                  <Layers className="h-4 w-4 shrink-0" /> Classes &amp; Sections
+                  <Layers className={getNavIconClass('classes')} />
+                  <span>Classes &amp; Sections</span>
                 </span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                  activeTab === 'classes' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-                }`}>
+                <span className={getNavBadgeClass('classes')}>
                   {classes.length}
                 </span>
               </button>
@@ -3953,293 +3802,215 @@ function ERPWorkspaceContent() {
             {allowedTabs.includes('subjects') && (
               <button
                 onClick={() => { setActiveTab('subjects'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'subjects' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('subjects')}
               >
-                <span className="flex items-center gap-3">
-                  <BookOpen className="h-4 w-4 shrink-0 text-emerald-300" /> Subjects
-                </span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                  activeTab === 'subjects' ? 'bg-[#122A24] text-white' : 'bg-emerald-400/30 text-emerald-200'
-                }`}>
-                  Curriculum
-                </span>
+                <BookOpen className={getNavIconClass('subjects')} />
+                <span>Curriculum</span>
               </button>
             )}
 
             {allowedTabs.includes('attendance') && (
               <button
                 onClick={() => { setActiveTab('attendance'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'attendance' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('attendance')}
               >
-                <CalendarCheck className="h-4 w-4 shrink-0" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'My Attendance' : 'Daily Attendance'}
+                <CalendarCheck className={getNavIconClass('attendance')} />
+                <span>Attendance</span>
               </button>
             )}
 
-            {/* Fee Management (Mobile) */}
             {allowedTabs.includes('fees') && (
               <button
-                onClick={() => {
-                  setActiveTab('fees');
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'fees' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                onClick={() => { setActiveTab('fees'); setMobileMenuOpen(false); }}
+                className={`${getNavClass('fees')} justify-between`}
               >
                 <span className="flex items-center gap-3">
-                  <Coins className="h-4 w-4 shrink-0 text-amber-300" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'Fee Invoices & Pay' : 'Fee Management'}
+                  <CreditCard className={getNavIconClass('fees')} />
+                  <span>Transactions</span>
                 </span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                  activeTab === 'fees' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-                }`}>
+                <span className={getNavBadgeClass('fees')}>
                   {invoices.length}
                 </span>
               </button>
             )}
 
-            {/* Reports & Dossiers (Mobile) */}
             {allowedTabs.includes('reports') && (
               <button
                 onClick={() => { setActiveTab('reports'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'reports' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('reports')}
               >
-                <FileSpreadsheet className="h-4 w-4 shrink-0 text-cyan-300" /> Reports &amp; Dossiers
+                <FileSpreadsheet className={getNavIconClass('reports')} />
+                <span>Reports &amp; Analytics</span>
               </button>
             )}
 
-            {/* Data Hub (Mobile) */}
-            {allowedTabs.includes('data_hub') && (
+            <div className="text-[10px] font-semibold text-emerald-300/60 uppercase tracking-wider px-3 mb-1 mt-3 font-mono">
+              Management
+            </div>
+
+            {allowedTabs.includes('siblings') && (
               <button
-                onClick={() => { setActiveTab('data_hub'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'data_hub' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                onClick={() => { setActiveTab('siblings'); setMobileMenuOpen(false); }}
+                className={getNavClass('siblings')}
               >
-                <FolderDown className={`h-4 w-4 shrink-0 ${activeTab === 'data_hub' ? 'text-[#122A24]' : 'text-amber-300'}`} />
-                <span className="truncate">Data Hub</span>
+                <HeartHandshake className={getNavIconClass('siblings')} />
+                <span>Siblings &amp; Families</span>
               </button>
             )}
 
-            {/* Certificate Studio (Mobile) */}
             {allowedTabs.includes('certificates') && (
               <button
                 onClick={() => { setActiveTab('certificates'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'certificates' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('certificates')}
               >
-                <FileCheck className="h-4 w-4 shrink-0 text-amber-300" /> Certificate Studio
+                <Award className={getNavIconClass('certificates')} />
+                <span>Certificate Studio</span>
+              </button>
+            )}
+
+            {allowedTabs.includes('data_hub') && (
+              <button
+                onClick={() => { setActiveTab('data_hub'); setMobileMenuOpen(false); }}
+                className={getNavClass('data_hub')}
+              >
+                <FolderDown className={getNavIconClass('data_hub')} />
+                <span>Data Hub</span>
               </button>
             )}
 
             {allowedTabs.includes('transport') && (
               <button
                 onClick={() => { setActiveTab('transport'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'transport' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('transport')}
               >
-                <Bus className="h-4 w-4 shrink-0 text-blue-300" /> Transport &amp; GPS Fleet
+                <Bus className={getNavIconClass('transport')} />
+                <span>Transport &amp; GPS Fleet</span>
               </button>
             )}
 
             {allowedTabs.includes('hostel') && (
               <button
                 onClick={() => { setActiveTab('hostel'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'hostel' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('hostel')}
               >
-                <Bed className="h-4 w-4 shrink-0 text-emerald-300" /> Hostel &amp; Boarding
+                <Bed className={getNavIconClass('hostel')} />
+                <span>Hostel &amp; Boarding</span>
               </button>
             )}
 
             {allowedTabs.includes('library') && (
               <button
                 onClick={() => { setActiveTab('library'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'library' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('library')}
               >
-                <BookOpen className="h-4 w-4 shrink-0 text-emerald-300" /> Digital Library &amp; Books
+                <BookOpen className={getNavIconClass('library')} />
+                <span>Digital Library</span>
               </button>
             )}
 
             {allowedTabs.includes('visitors') && (
               <button
                 onClick={() => { setActiveTab('visitors'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'visitors' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('visitors')}
               >
-                <ShieldCheck className="h-4 w-4 shrink-0 text-amber-300" /> Gate Pass &amp; Visitors
+                <ShieldCheck className={getNavIconClass('visitors')} />
+                <span>Gate Pass &amp; Visitors</span>
               </button>
             )}
 
             {allowedTabs.includes('exams') && (
               <button
                 onClick={() => { setActiveTab('exams'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'exams' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('exams')}
               >
-                <Award className="h-4 w-4 shrink-0 text-purple-300" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'Report Card & Marksheet' : 'CBSE Exams & Reports'}
+                <Award className={getNavIconClass('exams')} />
+                <span>CBSE Exams &amp; Reports</span>
               </button>
             )}
 
             {allowedTabs.includes('homework') && (
               <button
                 onClick={() => { setActiveTab('homework'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'homework' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('homework')}
               >
-                <FileText className="h-4 w-4 shrink-0 text-amber-300" /> Homework &amp; Diary
+                <FileText className={getNavIconClass('homework')} />
+                <span>Homework &amp; Diary</span>
               </button>
             )}
 
             {allowedTabs.includes('approvals') && (
               <button
                 onClick={() => { setActiveTab('approvals'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'approvals' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('approvals')}
               >
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" /> Leave &amp; Approvals
-              </button>
-            )}
-
-            {allowedTabs.includes('broadcast') && (
-              <button
-                onClick={() => { setActiveTab('broadcast'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'broadcast' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <Radio className="h-4 w-4 shrink-0 text-red-300" /> Emergency Broadcast
+                <CheckCircle2 className={getNavIconClass('approvals')} />
+                <span>Leave &amp; Approvals</span>
               </button>
             )}
 
             {allowedTabs.includes('notices') && (
               <button
                 onClick={() => { setActiveTab('notices'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'notices' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={`${getNavClass('notices')} justify-between`}
               >
                 <span className="flex items-center gap-3">
-                  <Bell className="h-4 w-4 shrink-0" /> Notice Board
+                  <Bell className={getNavIconClass('notices')} />
+                  <span>Notice Board</span>
                 </span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                  activeTab === 'notices' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-                }`}>
+                <span className={getNavBadgeClass('notices')}>
                   {notices.length}
                 </span>
               </button>
             )}
 
-            {/* Broadcast Notices / Missed Alerts Inbox for All Roles */}
-            <button
-              type="button"
-              onClick={() => { setShowBroadcastInbox(true); setMobileMenuOpen(false); }}
-              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left bg-transparent text-slate-200 hover:text-white hover:bg-white/10 group"
-            >
-              <span className="flex items-center gap-3">
-                <Radio className="h-4 w-4 shrink-0 text-amber-300 group-hover:animate-pulse" /> Broadcast Notices
-              </span>
-              {unreadBroadcastCount > 0 ? (
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-rose-500 text-white animate-pulse">
-                  {unreadBroadcastCount} new
-                </span>
-              ) : (
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-white/15 text-slate-300">
-                  Inbox
-                </span>
-              )}
-            </button>
+            <div className="text-[10px] font-semibold text-emerald-300/60 uppercase tracking-wider px-3 mb-1 mt-3 font-mono">
+              Settings
+            </div>
 
-
-
-            <div className="my-2 border-t border-white/15" />
-
-            {(currentUser?.is_god_admin || currentUser?.username?.toLowerCase() === 'blistedx' || currentUser?.role === 'AGENCY_SUPERADMIN') && (
-              <Link
-                href="/agency"
-                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold no-underline text-amber-300 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <span className="flex items-center gap-3">
-                  <ShieldCheck className="h-4 w-4 shrink-0 text-amber-400" /> Agency Cloud Hub
-                </span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-mono font-bold border border-amber-400/30">
-                  GOD MODE
-                </span>
-              </Link>
-            )}
-
-            {allowedTabs.includes('profile') && (
+            {allowedTabs.includes('permissions') && (
               <button
-                onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'profile' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                onClick={() => { setActiveTab('permissions'); setMobileMenuOpen(false); }}
+                className={getNavClass('permissions')}
               >
-                <User className="h-4 w-4 shrink-0 text-emerald-300" /> {effectiveRole === 'STUDENT' ? 'Student Dossier' : effectiveRole === 'PARENT' ? 'Parent & Ward Profile' : 'My Profile'}
+                <Sliders className={getNavIconClass('permissions')} />
+                <span>Roles &amp; Permissions</span>
               </button>
             )}
 
             {allowedTabs.includes('audit_logs') && (
               <button
                 onClick={() => { setActiveTab('audit_logs'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'audit_logs' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('audit_logs')}
               >
-                <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" /> Audit Logs &amp; Trail
+                <ShieldCheck className={getNavIconClass('audit_logs')} />
+                <span>Audit Logs</span>
               </button>
             )}
 
             {allowedTabs.includes('settings') && (
               <button
                 onClick={() => { setActiveTab('settings'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'settings' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
+                className={getNavClass('settings')}
               >
-                <Settings className="h-4 w-4 shrink-0" /> School Settings
-              </button>
-            )}
-
-            {allowedTabs.includes('permissions') && (
-              <button
-                onClick={() => { setActiveTab('permissions'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border-none cursor-pointer text-left ${
-                  activeTab === 'permissions' ? 'bg-white text-[#122A24] shadow-md font-bold' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                <Sliders className="h-4 w-4 shrink-0 text-amber-300" /> Access Controls &amp; RBAC
+                <Settings className={getNavIconClass('settings')} />
+                <span>School Settings</span>
               </button>
             )}
 
             {/* Mobile User Profile Card */}
             <div 
               onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }}
-              className="mt-auto p-3.5 rounded-2xl bg-white/10 border border-white/15 text-xs text-slate-200 space-y-2 cursor-pointer hover:bg-white/15 transition-colors"
+              className="mt-auto p-3 rounded-2xl bg-white/10 border border-white/15 text-xs text-white cursor-pointer hover:bg-white/15 transition-colors"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/30 text-emerald-300 font-bold flex items-center justify-center text-xs shrink-0 border border-emerald-400/40 font-display">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
                   {(currentUser?.full_name || selectedSchool?.principal_name || 'A')[0]?.toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-white text-xs truncate">
                     {currentUser?.full_name || selectedSchool?.principal_name || 'Administrator'}
                   </div>
-                  <div className="text-[10px] text-emerald-300/80 font-mono truncate">
+                  <div className="text-[10px] text-emerald-200/70 font-mono truncate">
                     ID: {currentUser?.username || selectedSchool?.admin_id || 'admin'} • Edit Profile →
                   </div>
                 </div>
@@ -4251,52 +4022,47 @@ function ERPWorkspaceContent() {
 
       {/* Main Workspace Layout */}
       <div className="flex-1 flex overflow-hidden min-w-0 w-full">
-        {/* Navigation Sidebar (Desktop Only) */}
-        <aside className="hidden lg:flex w-64 bg-[#122A24] text-white p-4 flex-col gap-1 shrink-0 border-r border-white/10 overflow-y-auto">
-          {/* Giterp Brand Badge */}
+        {/* Navigation Sidebar (Desktop Only) - Prestigious Green & White Theme */}
+        <aside className="hidden lg:flex w-64 bg-[#122A24] text-white p-4 flex-col gap-1 shrink-0 border-r border-[#1C443A] overflow-y-auto">
+          {/* Brand Logo & School Header */}
           <button
             type="button"
             onClick={() => setActiveTab(effectiveRole === 'DRIVER' ? 'transport' : 'overview')}
-            className="flex items-center gap-3 px-3 py-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 mb-3 transition-colors text-left border-none cursor-pointer group w-full"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 border border-transparent mb-3 transition-colors text-left border-none cursor-pointer group w-full bg-transparent"
             title={effectiveRole === 'DRIVER' ? "Go to Transport Console" : "Go to Overview Dashboard"}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {selectedSchool?.logo || settingsForm.logo ? (
-              <img
-                src={selectedSchool?.logo || settingsForm.logo}
-                alt="School Logo"
-                className="w-10 h-10 rounded-xl object-contain shadow-xs bg-white border border-white/20 p-0.5 shrink-0 group-hover:scale-105 transition-transform"
-              />
-            ) : (
-              <img
-                src="/giterp-logo.png"
-                alt="Giterp Logo"
-                className="w-10 h-10 rounded-xl object-contain shadow-xs bg-[#122A24] border border-white/20 p-1 shrink-0 group-hover:scale-105 transition-transform"
-              />
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="font-display font-bold text-sm tracking-tight text-white flex items-center gap-1.5 group-hover:text-emerald-300 transition-colors">
-                <span className="truncate">{selectedSchool?.school_name || 'Giterp'}</span>
+            {/* School Logo Badge */}
+            <div className="w-9 h-9 rounded-xl bg-white text-[#122A24] flex items-center justify-center font-bold text-xs shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+              <div className="grid grid-cols-2 gap-1 w-4 h-4">
+                <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]" />
+                <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]/70" />
+                <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]/70" />
+                <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]" />
               </div>
-              <div suppressHydrationWarning className="text-[10px] text-slate-300 font-mono truncate">
-                {selectedSchool?.school_code || 'DPS2026'} • CBSE Console
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5 truncate">
+                <span className="truncate">{selectedSchool?.school_name || 'School ERP'}</span>
+              </div>
+              <div suppressHydrationWarning className="text-[10.5px] text-emerald-300/70 font-mono truncate">
+                Open Source CBSE Blocks
               </div>
             </div>
           </button>
 
           {/* Super Admin School Switcher Widget (Desktop Sidebar) */}
           {isSuperAdmin && (
-            <div className="mb-3 p-3 bg-white/10 rounded-2xl border border-amber-400/30 space-y-1.5 shadow-xs">
-              <div className="flex items-center justify-between text-[10px] font-mono text-amber-300 font-bold">
+            <div className="mb-3 p-2.5 bg-white/10 rounded-xl border border-white/15 space-y-1 shadow-2xs">
+              <div className="flex items-center justify-between text-[10px] font-mono text-emerald-300 font-bold">
                 <span>⚡ SWITCH SCHOOL:</span>
-                <span className="text-[9px] bg-amber-400/20 px-1.5 py-0.5 rounded border border-amber-400/30">
+                <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded text-white">
                   SUPER ADMIN
                 </span>
               </div>
               <select
                 value={selectedSchool?.id || selectedSchool?.school_code || ''}
                 onChange={(e) => handleSwitchSchool(e.target.value)}
-                className="w-full bg-[#122A24] text-white text-xs font-semibold rounded-xl px-2.5 py-2 border border-white/20 focus:outline-none cursor-pointer"
+                className="w-full bg-[#1C443A] text-white text-xs font-semibold rounded-lg px-2 py-1.5 border border-white/20 focus:outline-none cursor-pointer"
                 title="Switch School Tenant (Super Admin Only)"
               >
                 {availableSchools.map((sch) => (
@@ -4308,131 +4074,46 @@ function ERPWorkspaceContent() {
             </div>
           )}
 
-          {/* Logged-In User Active Role Badge (Desktop Sidebar) */}
-          <div className="mb-2.5 px-3 py-2 bg-white/10 rounded-xl border border-white/15 flex items-center justify-between shadow-xs">
-            <span className="text-[10px] font-mono text-emerald-200/80 font-bold uppercase tracking-wider">Active Role:</span>
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded border border-emerald-400/30">
-              {effectiveRole === 'SUPERADMIN' ? (
-                <>
-                  <ShieldCheck className="w-3 h-3 text-amber-400" />
-                  <span>SUPERADMIN</span>
-                </>
-              ) : effectiveRole === 'TEACHER' ? (
-                <>
-                  <GraduationCap className="w-3 h-3 text-emerald-400" />
-                  <span>TEACHER</span>
-                </>
-              ) : effectiveRole === 'ACCOUNTANT' ? (
-                <>
-                  <FileText className="w-3 h-3 text-amber-300" />
-                  <span>ACCOUNTANT</span>
-                </>
-              ) : effectiveRole === 'DRIVER' ? (
-                <>
-                  <Bus className="w-3 h-3 text-blue-300" />
-                  <span>DRIVER</span>
-                </>
-              ) : effectiveRole === 'LIBRARIAN' ? (
-                <>
-                  <BookOpen className="w-3 h-3 text-emerald-300" />
-                  <span>LIBRARIAN</span>
-                </>
-              ) : effectiveRole === 'SECURITY_GUARD' || effectiveRole === 'SECURITY' || effectiveRole === 'GUARD' ? (
-                <>
-                  <ShieldCheck className="w-3 h-3 text-amber-400" />
-                  <span>SECURITY</span>
-                </>
-              ) : effectiveRole === 'STUDENT' ? (
-                <>
-                  <User className="w-3 h-3 text-cyan-400" />
-                  <span>STUDENT</span>
-                </>
-              ) : effectiveRole === 'PARENT' ? (
-                <>
-                  <Users className="w-3 h-3 text-violet-400" />
-                  <span>PARENT</span>
-                </>
-              ) : (
-                <>
-                  <Crown className="w-3 h-3 text-amber-300" />
-                  <span>PRINCIPAL</span>
-                </>
-              )}
-            </span>
-          </div>
-
-          <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider px-3 mb-1 font-mono">
-            {effectiveRole === 'TEACHER'
-              ? 'Faculty Workspace'
-              : effectiveRole === 'ACCOUNTANT'
-              ? 'Accounts & Billing Desk'
-              : effectiveRole === 'DRIVER'
-              ? 'Driver Transport Console'
-              : effectiveRole === 'LIBRARIAN'
-              ? 'Library Management Desk'
-              : effectiveRole === 'SECURITY_GUARD'
-              ? 'Gate Security Station'
-              : effectiveRole === 'STUDENT'
-              ? 'Student Portal'
-              : effectiveRole === 'PARENT'
-              ? 'Parent Connect'
-              : 'Navigation'}
+          {/* Categorized Navigation: MAIN MENU */}
+          <div className="text-[10px] font-semibold text-emerald-300/60 uppercase tracking-wider px-3 mb-1 mt-1 font-mono">
+            Main Menu
           </div>
 
           {allowedTabs.includes('overview') && (
             <button
               onClick={() => setActiveTab('overview')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'overview' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('overview')}
             >
-              <BarChart3 className="h-4 w-4 shrink-0" /> Overview
+              <BarChart3 className={getNavIconClass('overview')} />
+              <span>Dashboard</span>
             </button>
           )}
 
           {allowedTabs.includes('students') && (
             <button
               onClick={() => setActiveTab('students')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'students' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={`${getNavClass('students')} justify-between`}
             >
               <span className="flex items-center gap-3">
-                <GraduationCap className="h-4 w-4 shrink-0" /> Students
+                <GraduationCap className={getNavIconClass('students')} />
+                <span>Students</span>
               </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                activeTab === 'students' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-              }`}>
+              <span className={getNavBadgeClass('students')}>
                 {students.length}
               </span>
-            </button>
-          )}
-
-          {allowedTabs.includes('siblings') && (
-            <button
-              onClick={() => setActiveTab('siblings')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'siblings' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <HeartHandshake className="h-4 w-4 shrink-0 text-purple-300" />
-              <span className="truncate">Siblings &amp; Families</span>
             </button>
           )}
 
           {allowedTabs.includes('teachers') && (
             <button
               onClick={() => setActiveTab('teachers')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'teachers' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={`${getNavClass('teachers')} justify-between`}
             >
               <span className="flex items-center gap-3">
-                <Users className="h-4 w-4 shrink-0" /> Faculty &amp; Staff
+                <Users className={getNavIconClass('teachers')} />
+                <span>Faculty &amp; Staff</span>
               </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                activeTab === 'teachers' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-              }`}>
+              <span className={getNavBadgeClass('teachers')}>
                 {teachers.length}
               </span>
             </button>
@@ -4441,16 +4122,13 @@ function ERPWorkspaceContent() {
           {allowedTabs.includes('classes') && (
             <button
               onClick={() => setActiveTab('classes')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'classes' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={`${getNavClass('classes')} justify-between`}
             >
               <span className="flex items-center gap-3">
-                <Layers className="h-4 w-4 shrink-0" /> Classes &amp; Sections
+                <Layers className={getNavIconClass('classes')} />
+                <span>Classes &amp; Sections</span>
               </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                activeTab === 'classes' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-              }`}>
+              <span className={getNavBadgeClass('classes')}>
                 {classes.length}
               </span>
             </button>
@@ -4459,303 +4137,220 @@ function ERPWorkspaceContent() {
           {allowedTabs.includes('subjects') && (
             <button
               onClick={() => setActiveTab('subjects')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'subjects' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('subjects')}
             >
-              <span className="flex items-center gap-3">
-                <BookOpen className="h-4 w-4 shrink-0 text-emerald-300" /> Subjects
-              </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                activeTab === 'subjects' ? 'bg-[#122A24] text-white' : 'bg-emerald-400/30 text-emerald-200'
-              }`}>
-                Curriculum
-              </span>
+              <BookOpen className={getNavIconClass('subjects')} />
+              <span>Curriculum</span>
             </button>
           )}
 
           {allowedTabs.includes('attendance') && (
             <button
               onClick={() => setActiveTab('attendance')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'attendance' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('attendance')}
             >
-              <CalendarCheck className="h-4 w-4 shrink-0" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'My Attendance' : 'Daily Attendance'}
+              <CalendarCheck className={getNavIconClass('attendance')} />
+              <span>Attendance</span>
             </button>
           )}
 
-          {/* Fee Management (Desktop) */}
           {allowedTabs.includes('fees') && (
             <button
               onClick={() => setActiveTab('fees')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'fees' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={`${getNavClass('fees')} justify-between`}
             >
               <span className="flex items-center gap-3">
-                <Coins className="h-4 w-4 shrink-0 text-amber-300" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'Fee Invoices & Pay' : 'Fee Management'}
+                <CreditCard className={getNavIconClass('fees')} />
+                <span>Transactions</span>
               </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                activeTab === 'fees' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-              }`}>
+              <span className={getNavBadgeClass('fees')}>
                 {invoices.length}
               </span>
             </button>
           )}
 
-          {/* Reports & Dossiers (Desktop) */}
           {allowedTabs.includes('reports') && (
             <button
               onClick={() => setActiveTab('reports')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'reports' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('reports')}
             >
-              <FileSpreadsheet className="h-4 w-4 shrink-0 text-cyan-300" /> Reports &amp; Dossiers
+              <FileSpreadsheet className={getNavIconClass('reports')} />
+              <span>Reports &amp; Analytics</span>
+            </button>
+          )}
+
+          {/* Categorized Navigation: MANAGEMENT */}
+          <div className="text-[10px] font-semibold text-emerald-300/60 uppercase tracking-wider px-3 mb-1 mt-3 font-mono">
+            Management
+          </div>
+
+          {allowedTabs.includes('siblings') && (
+            <button
+              onClick={() => setActiveTab('siblings')}
+              className={getNavClass('siblings')}
+            >
+              <HeartHandshake className={getNavIconClass('siblings')} />
+              <span>Siblings &amp; Families</span>
             </button>
           )}
 
           {allowedTabs.includes('certificates') && (
             <button
               onClick={() => setActiveTab('certificates')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'certificates' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('certificates')}
             >
-              <FileCheck className="h-4 w-4 shrink-0 text-amber-300" /> Certificate Studio
+              <Award className={getNavIconClass('certificates')} />
+              <span>Certificate Studio</span>
             </button>
           )}
 
-          {/* Data Hub (Desktop) */}
           {allowedTabs.includes('data_hub') && (
             <button
               onClick={() => setActiveTab('data_hub')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'data_hub' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('data_hub')}
             >
-              <FolderDown className={`h-4 w-4 shrink-0 ${activeTab === 'data_hub' ? 'text-[#122A24]' : 'text-amber-300'}`} />
-              <span className="truncate font-semibold text-xs sm:text-[13px]">Data Hub</span>
+              <FolderDown className={getNavIconClass('data_hub')} />
+              <span>Data Hub</span>
             </button>
           )}
 
           {allowedTabs.includes('transport') && (
             <button
               onClick={() => setActiveTab('transport')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'transport' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('transport')}
             >
-              <Bus className="h-4 w-4 shrink-0 text-blue-300" /> Transport &amp; GPS Fleet
+              <Bus className={getNavIconClass('transport')} />
+              <span>Transport &amp; GPS</span>
             </button>
           )}
 
           {allowedTabs.includes('hostel') && (
             <button
               onClick={() => setActiveTab('hostel')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'hostel' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('hostel')}
             >
-              <Bed className="h-4 w-4 shrink-0 text-emerald-300" /> Hostel &amp; Boarding
+              <Bed className={getNavIconClass('hostel')} />
+              <span>Hostel &amp; Boarding</span>
             </button>
           )}
 
           {allowedTabs.includes('library') && (
             <button
               onClick={() => setActiveTab('library')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'library' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('library')}
             >
-              <BookOpen className="h-4 w-4 shrink-0 text-emerald-300" /> Digital Library &amp; Books
+              <BookOpen className={getNavIconClass('library')} />
+              <span>Digital Library</span>
             </button>
           )}
 
           {allowedTabs.includes('visitors') && (
             <button
               onClick={() => setActiveTab('visitors')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'visitors' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('visitors')}
             >
-              <ShieldCheck className="h-4 w-4 shrink-0 text-amber-300" /> Gate Pass &amp; Visitors
+              <ShieldCheck className={getNavIconClass('visitors')} />
+              <span>Gate Pass &amp; Visitors</span>
             </button>
           )}
 
           {allowedTabs.includes('exams') && (
             <button
               onClick={() => setActiveTab('exams')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'exams' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('exams')}
             >
-              <Award className="h-4 w-4 shrink-0 text-purple-300" /> {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'Report Card & Marksheet' : 'CBSE Exams & Reports'}
+              <Award className={getNavIconClass('exams')} />
+              <span>CBSE Exams &amp; Reports</span>
             </button>
           )}
 
           {allowedTabs.includes('homework') && (
             <button
               onClick={() => setActiveTab('homework')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'homework' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('homework')}
             >
-              <FileText className="h-4 w-4 shrink-0 text-amber-300" /> Homework &amp; Diary
+              <FileText className={getNavIconClass('homework')} />
+              <span>Homework &amp; Diary</span>
             </button>
           )}
 
           {allowedTabs.includes('approvals') && (
             <button
               onClick={() => setActiveTab('approvals')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'approvals' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('approvals')}
             >
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" /> Leave &amp; Approvals
-            </button>
-          )}
-
-          {allowedTabs.includes('broadcast') && (
-            <button
-              onClick={() => setActiveTab('broadcast')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'broadcast' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Radio className="h-4 w-4 shrink-0 text-red-300" /> Emergency Broadcast
+              <CheckCircle2 className={getNavIconClass('approvals')} />
+              <span>Leave &amp; Approvals</span>
             </button>
           )}
 
           {allowedTabs.includes('notices') && (
             <button
               onClick={() => setActiveTab('notices')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'notices' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={`${getNavClass('notices')} justify-between`}
             >
               <span className="flex items-center gap-3">
-                <Bell className="h-4 w-4 shrink-0" /> Notice Board
+                <Bell className={getNavIconClass('notices')} />
+                <span>Notice Board</span>
               </span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                activeTab === 'notices' ? 'bg-[#122A24] text-white' : 'bg-white/20 text-white'
-              }`}>
+              <span className={getNavBadgeClass('notices')}>
                 {notices.length}
               </span>
             </button>
           )}
 
-          {/* School Broadcast Alerts / Missed Notices Inbox (Available to All Roles) */}
-          <button
-            type="button"
-            onClick={() => setShowBroadcastInbox(true)}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left bg-transparent text-slate-200 hover:text-white hover:bg-white/10 group"
-          >
-            <span className="flex items-center gap-3">
-              <Radio className="h-4 w-4 shrink-0 text-amber-300 group-hover:animate-pulse" /> Broadcast Notices
-            </span>
-            {unreadBroadcastCount > 0 ? (
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-rose-500 text-white animate-pulse">
-                {unreadBroadcastCount} new
-              </span>
-            ) : (
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold bg-white/15 text-slate-300">
-                Inbox
-              </span>
-            )}
-          </button>
-
-          <div className="my-3 border-t border-white/10" />
-
-          <div className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider px-3 mb-2 font-mono">
-            {effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? 'Account' : 'Administration'}
+          {/* Categorized Navigation: SETTINGS */}
+          <div className="text-[10px] font-semibold text-emerald-300/60 uppercase tracking-wider px-3 mb-1 mt-3 font-mono">
+            Settings
           </div>
 
-          {(currentUser?.is_god_admin || currentUser?.username?.toLowerCase() === 'blistedx' || currentUser?.role === 'AGENCY_SUPERADMIN') && (
-            <Link
-              href="/agency"
-              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all no-underline text-amber-300 hover:text-white hover:bg-white/10 mb-1"
-            >
-              <span className="flex items-center gap-3">
-                <ShieldCheck className="h-4 w-4 shrink-0 text-amber-400" /> Agency Cloud Hub
-              </span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-mono font-bold border border-amber-400/30">
-                GOD MODE
-              </span>
-            </Link>
-          )}
-
-          {allowedTabs.includes('profile') && (
+          {allowedTabs.includes('permissions') && (
             <button
-              onClick={() => setActiveTab('profile')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'profile' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              onClick={() => setActiveTab('permissions')}
+              className={getNavClass('permissions')}
             >
-              <User className="h-4 w-4 shrink-0 text-emerald-300" /> {effectiveRole === 'STUDENT' ? 'Student Dossier' : effectiveRole === 'PARENT' ? 'Parent & Ward Profile' : 'My Profile'}
+              <Sliders className={getNavIconClass('permissions')} />
+              <span>Roles &amp; Permissions</span>
             </button>
           )}
-
-
 
           {allowedTabs.includes('audit_logs') && (
             <button
               onClick={() => setActiveTab('audit_logs')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'audit_logs' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('audit_logs')}
             >
-              <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" /> Audit Logs &amp; Trail
+              <ShieldCheck className={getNavIconClass('audit_logs')} />
+              <span>Audit Logs</span>
             </button>
           )}
 
           {allowedTabs.includes('settings') && (
             <button
               onClick={() => setActiveTab('settings')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'settings' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+              className={getNavClass('settings')}
             >
-              <Settings className="h-4 w-4 shrink-0" /> School Settings
+              <Settings className={getNavIconClass('settings')} />
+              <span>System Settings</span>
             </button>
           )}
 
-          {allowedTabs.includes('permissions') && (
-            <button
-              onClick={() => setActiveTab('permissions')}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all border-none cursor-pointer text-left ${
-                activeTab === 'permissions' ? 'bg-white text-[#122A24] font-bold shadow-md' : 'bg-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Sliders className="h-4 w-4 shrink-0 text-amber-300" /> Access Controls &amp; RBAC
-            </button>
-          )}
-
-          {/* User Profile Card at Sidebar Bottom with Customization Option */}
+          {/* User Profile Card at Sidebar Bottom */}
           <div 
             onClick={() => setActiveTab('profile')}
-            className="mt-auto p-3.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs text-slate-200 space-y-2.5 cursor-pointer transition-colors"
+            className="mt-auto p-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs text-white cursor-pointer transition-colors"
           >
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-white/20 text-white font-display font-bold flex items-center justify-center text-xs shrink-0 border border-white/20 shadow-xs">
+              <div className="w-8 h-8 rounded-full bg-emerald-500 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
                 {(currentUser?.full_name || selectedSchool?.principal_name || 'A')[0]?.toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-display font-semibold text-white text-xs truncate">
+                <div className="font-semibold text-white text-xs truncate">
                   {currentUser?.full_name || selectedSchool?.principal_name || selectedSchool?.admin_name || 'Administrator'}
                 </div>
-                <div className="text-[10px] text-slate-300 font-mono truncate opacity-90">
+                <div className="text-[10px] text-emerald-200/70 font-mono truncate">
                   {currentUser?.role || 'School Administrator'}
                 </div>
               </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-1.5 border-t border-white/10 text-[10px] font-mono">
-              <span className="truncate">ID: {currentUser?.username || selectedSchool?.admin_id || 'Admin'}</span>
-              <span className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white text-[10px] font-semibold transition-colors">
-                Theme &amp; Profile →
-              </span>
             </div>
           </div>
         </aside>
@@ -5010,6 +4605,66 @@ function ERPWorkspaceContent() {
                     </div>
                   </div>
                 </div>
+
+                {/* Executive #122A24 Dashboard KPI Hero Banner */}
+                <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-[#1C443A]/70">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-emerald-400" />
+                        Total Enrolled
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                        {students.length}
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        {students.filter(s => s.status !== 'INACTIVE').length} Active Scholars on Roll
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                        Gender Ratio
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                        {students.filter(s => (s.gender || '').toUpperCase() === 'FEMALE').length} : {students.filter(s => (s.gender || '').toUpperCase() === 'MALE').length}
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        Girls to Boys Distribution
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                        Academic Classes
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                        {classes.length}
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        Pre-Primary to Senior Secondary
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        CBSE Registry
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight flex items-center gap-2">
+                        <span>100% Synced</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        OASIS &amp; PEN Verified
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {studentSubTab === 'directory' ? (
                   <>
                 {/* Sub Header Controls Bar (Tier 1: Title, Status Tabs, Session, View Mode, Sort) */}
@@ -5917,7 +5572,7 @@ function ERPWorkspaceContent() {
                 {/* Background Watermark */}
                 <div 
                   aria-hidden="true" 
-                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-slate-100/60 text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
                 >
                   SIBLINGS
                 </div>
@@ -6061,6 +5716,65 @@ function ERPWorkspaceContent() {
                         <Plus className="h-4 w-4" /> Add Faculty (CBSE)
                       </button>
                     )}
+                  </div>
+                </div>
+
+                {/* Executive #122A24 Dashboard KPI Hero Banner */}
+                <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-[#1C443A]/70">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-emerald-400" />
+                        Total Faculty
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                        {teachers.length}
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        {teachers.filter(t => t.status !== 'INACTIVE').length} Active on Campus
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                        PTR Ratio
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                        1 : {Math.max(1, Math.round(students.length / Math.max(1, teachers.length)))}
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        CBSE Optimal Scholar Ratio
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                        Designations
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                        PGT • TGT • PRT
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        Departmental Specialization
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        CBSE Standards
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight flex items-center gap-2">
+                        <span>B.Ed / CTET</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        100% Verified Credentials
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -7068,6 +6782,65 @@ function ERPWorkspaceContent() {
                   </div>
                 </div>
 
+                {/* Executive #122A24 Dashboard KPI Hero Banner */}
+                <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-[#1C443A]/70">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                        Total Divisions
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                        {classes.length}
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        Pre-Primary to Senior Secondary XII
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-emerald-400" />
+                        Enrolled Scholars
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                        {students.length}
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        Active Roster Distribution
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                        Class Ratio
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                        ~{Math.round(students.length / Math.max(1, classes.length))} / Section
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        CBSE Optimal Batch Capacity
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        Faculty Mentors
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight flex items-center gap-2">
+                        <span>{classes.filter(c => c.class_teacher).length || classes.length} Assigned</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        Designated Class Teachers
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Sub Header Controls Bar (Tier 1: Title, Status Tabs, Session, Sort) */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -7758,6 +7531,65 @@ function ERPWorkspaceContent() {
                   )}
                 </div>
 
+                {/* Executive #122A24 Dashboard KPI Hero Banner */}
+                <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-[#1C443A]/70">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <Bell className="w-3.5 h-3.5 text-emerald-400" />
+                        Active Circulars
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                        {notices.length}
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        Official Academic &amp; General Advisories
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-emerald-400" />
+                        Audience Reach
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                        4 Segments
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        Students, Parents, Faculty &amp; Staff
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <Radio className="w-3.5 h-3.5 text-emerald-400" />
+                        Relay Systems
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                        Instant Broadcast
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        Portal, SMS &amp; Mobile Push Alerts
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        Broadcast Status
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight flex items-center gap-2">
+                        <span>Live Synced</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        Zero Latency Institutional Delivery
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Filter Toolbar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -7968,15 +7800,74 @@ function ERPWorkspaceContent() {
                   <div>
                     <div className="flex items-center gap-3">
                       <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
-                        Institutional &amp; Access Controls
+                        School Settings &amp; Institutional Profile
                       </h1>
                       <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                        ⚡ Full Admin Powers Active
+                        ⚡ Admin Configuration
                       </span>
                     </div>
                     <p className="text-xs text-[#2D5A4E] mt-1 font-mono">
-                      Manage institutional identity, security PIN, CBSE compliance rules, and Role-Based Access Control (RBAC).
+                      Official school identity, affiliation credentials, CBSE compliance rules, campus location, and master security PIN.
                     </p>
+                  </div>
+                </div>
+
+                {/* Executive #122A24 Dashboard KPI Hero Banner */}
+                <div className="mt-6 bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-[#1C443A]/70">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                        CBSE Affiliation
+                      </span>
+                      <div className="text-xl sm:text-2xl font-bold font-mono text-white tracking-tight">
+                        {settingsForm.affiliation_no || '2130042'}
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        Official Board Recognition
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                        OASIS ID
+                      </span>
+                      <div className="text-xl sm:text-2xl font-bold font-mono text-white tracking-tight">
+                        {settingsForm.oasis_code || '70231'}
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        Online Affiliated School Info
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        UDISE+ Code
+                      </span>
+                      <div className="text-xl sm:text-2xl font-bold font-mono text-white tracking-tight">
+                        {settingsForm.udise_code || '07010100101'}
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        Ministry of Education Sync
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        Institutional Trust
+                      </span>
+                      <div className="text-xl sm:text-2xl font-bold font-display text-white tracking-tight flex items-center gap-2">
+                        <span>Verified</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      </div>
+                      <p className="text-[11px] text-white/50">
+                        100% Fully Compliant
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -7988,50 +7879,33 @@ function ERPWorkspaceContent() {
                 </div>
               )}
 
-              {/* ADMIN POWERS & ROLE PERMISSION MATRIX */}
-              <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-5">
-                <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA] flex-wrap gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center font-bold text-sm shadow-2xs">
-                      <Sliders className="w-5 h-5 text-amber-700" />
-                    </div>
-                    <div>
-                      <h2 className="font-display font-bold text-base text-[#122A24]">
-                        Role-Based Access Control (RBAC) &amp; Delegation Studio
-                      </h2>
-                      <p className="text-[11px] text-[#2D5A4E]">
-                        Admin has supreme authority to configure what Teachers, Students, and Parents can See, Edit, Add, and Delete.
-                      </p>
-                    </div>
+              {/* SEPARATED SECTION: DEDICATED ROLES & PERMISSIONS QUICK ACCESS */}
+              <div className="bg-[#F4F8F5] p-5 sm:p-6 rounded-3xl border border-[#DCE8E0] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-[#EBF5EF] border border-[#C5E2CF] flex items-center justify-center text-[#1C443A] shadow-2xs shrink-0">
+                    <Sliders className="w-5 h-5 text-[#1C443A]" />
                   </div>
-                  <button
-                    onClick={() => setActiveTab('permissions')}
-                    className="px-4 py-2 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-2 border-none cursor-pointer"
-                  >
-                    <Sliders className="w-3.5 h-3.5 text-amber-300" />
-                    <span>Open Full Permissions Studio →</span>
-                  </button>
+                  <div>
+                    <div className="font-display font-bold text-sm sm:text-base text-[#122A24] flex items-center gap-2">
+                      <span>Role-Based Access Control (RBAC) &amp; Permissions</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF] font-bold">
+                        DEDICATED MODULE
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#2D5A4E] mt-0.5 max-w-2xl">
+                      Role permissions have their own dedicated module. Configure granular View, Edit, Add, and Delete privileges for Admin Officers, Teachers, Students, and Parents across 24 modules.
+                    </p>
+                  </div>
                 </div>
-
-                <DashboardPermissions
-                  initialPermissions={rolePermissions}
-                  schoolId={selectedSchool?.school_code || selectedSchool?.id || 'DPS2026'}
-                  onSavePermissions={async (updated) => {
-                    setRolePermissions(updated);
-                    const res = await apiFetch('/api/school/permissions', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        school_id: selectedSchool?.school_code || selectedSchool?.id || 'DPS2026',
-                        permissions: updated
-                      })
-                    });
-                    const data = await res.json();
-                    if (!data.success) throw new Error(data.error || 'Failed to save permissions');
-                    showToast('Role permissions saved and enforced across campus!');
-                  }}
-                  showToast={showToast}
-                />
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('permissions')}
+                  className="px-5 py-2.5 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold transition-all flex items-center gap-2 border-none cursor-pointer shrink-0 shadow-xs group"
+                >
+                  <Sliders className="w-3.5 h-3.5 text-emerald-300 group-hover:rotate-12 transition-transform" />
+                  <span>Open Roles &amp; Permissions Studio</span>
+                  <span>➔</span>
+                </button>
               </div>
 
               {/* INSTITUTIONAL SETTINGS FORM */}

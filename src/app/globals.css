@@ -29,6 +29,44 @@
 }
 
 /* ─────────────────────────────────────────────────────────────
+   X-Frame & Viewport Resolution Auto-Adjust Layer
+   Ensures School ERP auto-adapts dynamically to any resolution (1366x768, 1080p, 1440p, 4K, tablets, & iframe xframes)
+   ───────────────────────────────────────────────────────────── */
+html, body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  background-color: var(--parchment);
+  color: var(--text-dark);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(18, 42, 36, 0.22) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(18, 42, 36, 0.22);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(18, 42, 36, 0.4);
+}
+
+/* ─────────────────────────────────────────────────────────────
    Antigravity Dynamic Theme Binding Layer
    Directly maps CSS variables to active theme across all components
    ───────────────────────────────────────────────────────────── */

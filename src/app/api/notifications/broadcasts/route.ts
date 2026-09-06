@@ -1,11 +1,14 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { getBroadcastHistory, sendWebPushNotification } from '@/lib/web-push';
+import { requireAuth, requireRole, ADMIN_ROLES } from '@/lib/auth-guard';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const auth = requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
+
     const broadcasts = await getBroadcastHistory(50);
     return NextResponse.json({
       success: true,
@@ -15,7 +18,7 @@ export async function GET() {
   } catch (error: any) {
     console.error('[API Broadcasts GET Error]:', error);
     return NextResponse.json(
-      { success: false, error: error?.message || 'Failed to fetch broadcasts' },
+      { success: false, error: 'Failed to fetch broadcasts' },
       { status: 500 }
     );
   }
@@ -23,6 +26,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = requireRole(request, ADMIN_ROLES);
+    if (auth instanceof NextResponse) return auth;
+
     const body = await request.json();
     const {
       title,
@@ -66,7 +72,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('[API Broadcasts POST Error]:', error);
     return NextResponse.json(
-      { success: false, error: error?.message || 'Failed to dispatch broadcast' },
+      { success: false, error: 'Failed to dispatch broadcast' },
       { status: 500 }
     );
   }

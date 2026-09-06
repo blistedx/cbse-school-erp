@@ -1,15 +1,26 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
-import { requireRole, ADMIN_ROLES } from '@/lib/auth-guard';
+import { requireRole, resolveTenantSchoolId } from '@/lib/auth-guard';
+import { validateBody, updateSchoolSettingsSchema } from '@/lib/validation-schemas';
 
 export async function POST(req: Request) {
   try {
     const auth = requireRole(req, ['PRINCIPAL', 'AGENCY_SUPERADMIN']);
     if (auth instanceof NextResponse) return auth;
-    const body = await req.json();
+
+    const rawBody = await req.json();
+    const validation = validateBody(updateSchoolSettingsSchema, rawBody);
+    if (!validation.success) return validation.response;
+    const body = validation.data;
+
+    const school_id = resolveTenantSchoolId(auth, body.school_id);
+    if (school_id instanceof NextResponse) return school_id;
+    if (!school_id) {
+      return NextResponse.json({ success: false, error: 'School ID is required' }, { status: 400 });
+    }
+
     const {
-      school_id,
       school_name,
       board,
       city,
@@ -30,14 +41,8 @@ export async function POST(req: Request) {
       full_name,
       admin_pin,
       logo,
-      logo_url,
-      avatar,
-      theme
+      logo_url
     } = body;
-
-    if (!school_id) {
-      return NextResponse.json({ success: false, error: 'School ID is required' }, { status: 400 });
-    }
 
     const updated = await Database.updateSchoolSettings(school_id, {
       school_name,
@@ -63,6 +68,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, school: updated });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[API_SCHOOL_SETTINGS_POST_ERROR]', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

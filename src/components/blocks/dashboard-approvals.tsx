@@ -464,89 +464,64 @@ export function DashboardApprovals({
             <span className="text-xs font-mono font-bold text-emerald-300">Session {selectedSession}</span>
           </div>
         </div>
-      </div>
 
-      {/* ─────────────────────────────────────────────────────────────
-          ROW 2: 4 SUMMARY KPI STAT CARDS
-          ───────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 min-w-0">
-        
-        {/* Card 1: Casual Leave */}
-        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs tile-hover-card relative overflow-hidden flex flex-col justify-between group">
-          <span className="absolute right-3 top-2 text-5xl font-display font-black text-slate-100/90 pointer-events-none select-none">
-            01
-          </span>
-          <div>
-            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
-              CASUAL LEAVE (CL)
-            </span>
-            <div className="font-display font-black text-2xl sm:text-3xl text-[#122A24] mt-1.5 flex items-baseline gap-1.5">
-              <span>{casualDaysUsed} / 12</span>
-              <span className="text-xs font-mono font-normal text-slate-400">Days Used</span>
+        {/* Executive #122A24 Dashboard KPI Hero Banner Strip */}
+        <div className="mt-6 pt-6 border-t border-white/10 relative z-10">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-white/10">
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                Casual Leave (CL)
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                {casualDaysUsed} / 12
+              </div>
+              <p className="text-[11px] text-white/50">
+                Paid Leave Annual Quota
+              </p>
+            </div>
+
+            <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                Medical Leave (ML)
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                {medicalDaysUsed} / 10
+              </div>
+              <p className="text-[11px] text-white/50">
+                Requires Medical Certificate
+              </p>
+            </div>
+
+            <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                Half Days
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                {halfDaysCount}
+              </div>
+              <p className="text-[11px] text-white/50">
+                0.5 Day Deduction Per Slip
+              </p>
+            </div>
+
+            <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300 font-semibold flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                Pending Approvals
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-amber-300 tracking-tight flex items-center gap-2">
+                <span>{pendingCount}</span>
+                {pendingCount > 0 && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />}
+              </div>
+              <p className="text-[11px] text-white/50">
+                Requires Management Review
+              </p>
             </div>
           </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] font-mono text-emerald-700">
-            ✓ 100% Paid Leave Quota
-          </div>
         </div>
-
-        {/* Card 2: Medical Leave */}
-        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs tile-hover-card relative overflow-hidden flex flex-col justify-between group">
-          <span className="absolute right-3 top-2 text-5xl font-display font-black text-slate-100/90 pointer-events-none select-none">
-            02
-          </span>
-          <div>
-            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
-              MEDICAL LEAVE (ML)
-            </span>
-            <div className="font-display font-black text-2xl sm:text-3xl text-[#122A24] mt-1.5 flex items-baseline gap-1.5">
-              <span>{medicalDaysUsed} / 10</span>
-              <span className="text-xs font-mono font-normal text-slate-400">Days Used</span>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] font-mono text-slate-500">
-            Requires Medical Certificate
-          </div>
-        </div>
-
-        {/* Card 3: Half Days */}
-        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs tile-hover-card relative overflow-hidden flex flex-col justify-between group">
-          <span className="absolute right-3 top-2 text-5xl font-display font-black text-slate-100/90 pointer-events-none select-none">
-            03
-          </span>
-          <div>
-            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
-              HALF DAYS
-            </span>
-            <div className="font-display font-black text-2xl sm:text-3xl text-[#122A24] mt-1.5 flex items-baseline gap-1.5">
-              <span>{halfDaysCount}</span>
-              <span className="text-xs font-mono font-normal text-slate-400">Taken</span>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] font-mono text-slate-500">
-            0.5 Day deduction per application
-          </div>
-        </div>
-
-        {/* Card 4: Pending Approvals */}
-        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] shadow-xs tile-hover-card relative overflow-hidden flex flex-col justify-between group">
-          <span className="absolute right-3 top-2 text-5xl font-display font-black text-slate-100/90 pointer-events-none select-none">
-            04
-          </span>
-          <div>
-            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
-              PENDING APPROVALS
-            </span>
-            <div className="font-display font-black text-2xl sm:text-3xl text-amber-700 mt-1.5 flex items-baseline gap-1.5">
-              <span>{pendingCount}</span>
-              <span className="text-xs font-mono font-normal text-slate-400">Applications</span>
-            </div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 text-[11px] font-mono text-amber-700 font-semibold">
-            Requires Management Review
-          </div>
-        </div>
-
       </div>
 
       {/* ─────────────────────────────────────────────────────────────

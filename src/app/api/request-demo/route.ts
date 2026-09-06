@@ -3,18 +3,26 @@ import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
 import { sendDemoRequestEmail } from '@/lib/email';
 import { requireRole, AGENCY_ONLY } from '@/lib/auth-guard';
+import { checkRateLimit } from '@/lib/rate-limiter';
+import { validateBody, demoRequestSchema } from '@/lib/validation-schemas';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { schoolName, city, strength, board, contactName, email, phone, notes } = body;
-
-    if (!schoolName || !contactName || !email) {
-      return NextResponse.json(
-        { success: false, error: 'School name, contact name, and email are required.' },
-        { status: 400 }
-      );
+    // 🔒 RATE LIMIT: 5 demo requests per 15 minutes per IP to prevent spam and email abuse
+    const rateLimit = checkRateLimit(request, {
+      bucketName: 'request_demo',
+      maxAttempts: 5,
+      windowMs: 15 * 60 * 1000
+    });
+    if (!rateLimit.allowed && rateLimit.response) {
+      return rateLimit.response;
     }
+
+    const rawBody = await request.json();
+    const validation = validateBody(demoRequestSchema, rawBody);
+    if (!validation.success) return validation.response;
+
+    const { schoolName, city, strength, board, contactName, email, phone, notes } = validation.data;
 
     // 1. Save as PENDING Demo Request (Lead Queue) immediately
     const demoReq = await Database.createDemoRequest({
@@ -49,9 +57,9 @@ export async function POST(request: Request) {
       message: 'Demo request submitted successfully. Our team will review your request within 2 business days.'
     });
   } catch (error: any) {
-    console.error('Request demo error:', error);
+    console.error('[API_REQUEST_DEMO_POST_ERROR]', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to submit demo request' },
+      { success: false, error: 'Failed to submit demo request' },
       { status: 500 }
     );
   }
@@ -64,6 +72,7 @@ export async function GET(request: Request) {
     const requests = await Database.getDemoRequests();
     return NextResponse.json({ success: true, requests });
   } catch (error: any) {
+    console.error('[API_REQUEST_DEMO_GET_ERROR]', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch demo requests.' }, { status: 500 });
   }
 }

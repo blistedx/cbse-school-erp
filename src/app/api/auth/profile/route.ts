@@ -74,7 +74,7 @@ export async function GET(req: Request) {
         full_name: school?.principal_name || school?.admin_name || 'School Administrator',
         email: school?.email || `admin@${(school?.school_code || 'dps2026').toLowerCase()}.edu`,
         phone: school?.phone || '',
-        admin_pin: school?.admin_pin || '123456'
+        admin_pin_configured: Boolean(school?.admin_pin)
       }
     });
   } catch (error: any) {

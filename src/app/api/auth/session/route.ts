@@ -38,11 +38,13 @@ export async function POST(req: Request) {
       session_token: sessionToken
     });
 
+    const isProd = process.env.NODE_ENV === 'production';
     response.cookies.set('erp_session_token', sessionToken, {
       path: '/',
       maxAge: 43200,
       sameSite: 'lax',
-      httpOnly: false
+      httpOnly: true,
+      secure: isProd
     });
 
     return response;

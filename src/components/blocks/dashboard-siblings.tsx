@@ -158,117 +158,61 @@ export function DashboardSiblings({
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      {/* 4 Summary Stat KPI Cards aligned with website theme */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 items-stretch min-w-0">
-        {/* Card 1: Family Units */}
-        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider group-hover:text-emerald-800 transition-colors">
+      {/* Executive #122A24 Dashboard KPI Hero Banner */}
+      <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-[#1C443A]/70">
+          <div className="space-y-1">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+              <Home className="w-3.5 h-3.5 text-emerald-400" />
               Family Units
             </span>
-            <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shadow-xs group-hover:scale-105 transition-all">
-              <Home className="w-4.5 h-4.5 text-emerald-700" />
-            </div>
-          </div>
-          <div className="my-3">
-            <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight">
+            <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
               {siblingGroups.length}
             </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" />
-                Active Households
-              </span>
-            </div>
+            <p className="text-[11px] text-white/50">
+              Active Registered Households
+            </p>
           </div>
-          <div className="text-xs text-slate-500 border-t border-slate-100 pt-2.5 flex items-center justify-between">
-            <span>Indexed Registry</span>
-            <span className="font-semibold text-emerald-800 text-[11px]">Verified Standard</span>
-          </div>
-        </div>
 
-        {/* Card 2: Co-Enrolled Scholars */}
-        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider group-hover:text-emerald-800 transition-colors">
+          <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-emerald-400" />
               Co-Enrolled Scholars
             </span>
-            <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shadow-xs group-hover:scale-105 transition-all">
-              <Users className="w-4.5 h-4.5 text-emerald-700" />
-            </div>
-          </div>
-          <div className="my-3">
-            <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight">
+            <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
               {totalSiblingStudents}
             </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-[11px] font-semibold text-[#1C443A] bg-[#EBF5EF] px-2.5 py-0.5 rounded-full border border-[#C5E2CF] flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-emerald-600" />
-                Sibling Scholars
-              </span>
-            </div>
+            <p className="text-[11px] text-white/50">
+              {multiChildCount} Multi-Child Families
+            </p>
           </div>
-          <div className="text-xs text-slate-500 border-t border-slate-100 pt-2.5 flex items-center justify-between">
-            <span>Multi-Child Clusters</span>
-            <span className="font-semibold text-[#1C443A] text-[11px]">{multiChildCount} Families</span>
-          </div>
-        </div>
 
-        {/* Card 3: Fee Compliance */}
-        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider group-hover:text-emerald-800 transition-colors">
+          <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+              <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
               Fee Compliance
             </span>
-            <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shadow-xs group-hover:scale-105 transition-all">
-              <CreditCard className="w-4.5 h-4.5 text-emerald-700" />
-            </div>
-          </div>
-          <div className="my-3">
-            <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight">
+            <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
               {feeComplianceRate}%
             </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${
-                feeComplianceRate >= 80
-                  ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                  : 'text-amber-700 bg-amber-50 border-amber-200'
-              }`}>
-                {feeComplianceRate >= 80 ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                {settledFamiliesCount} Fully Settled
-              </span>
-            </div>
+            <p className="text-[11px] text-white/50">
+              {settledFamiliesCount} Fully Settled Accounts
+            </p>
           </div>
-          <div className="text-xs text-slate-500 border-t border-slate-100 pt-2.5 flex items-center justify-between">
-            <span>Settlement Ratio</span>
-            <span className="font-semibold text-emerald-800 text-[11px]">Consolidated Invoices</span>
-          </div>
-        </div>
 
-        {/* Card 4: Parent Linkage */}
-        <div className="rounded-3xl p-5 sm:p-6 bg-white border border-[#E2ECE5] flex flex-col justify-between shadow-xs tile-hover-card group">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider group-hover:text-emerald-800 transition-colors">
+          <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               Parent Linkage
             </span>
-            <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shadow-xs group-hover:scale-105 transition-all">
-              <ShieldCheck className="w-4.5 h-4.5 text-emerald-700" />
+            <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight flex items-center gap-2">
+              <span>100% Synced</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             </div>
-          </div>
-          <div className="my-3">
-            <div className="font-display font-bold text-3xl text-[#122A24] tracking-tight">
-              100%
-            </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" />
-                Auto-Indexed
-              </span>
-            </div>
-          </div>
-          <div className="text-xs text-slate-500 border-t border-slate-100 pt-2.5 flex items-center justify-between">
-            <span>Verification Method</span>
-            <span className="font-semibold text-emerald-800 text-[11px]">Phone &amp; Address</span>
+            <p className="text-[11px] text-white/50">
+              Automated Household Matching
+            </p>
           </div>
         </div>
       </div>

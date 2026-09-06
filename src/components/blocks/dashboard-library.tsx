@@ -20,7 +20,10 @@ import {
   MessageCircle,
   ArrowRightLeft,
   BookMarked,
-  RotateCcw
+  RotateCcw,
+  AlertCircle,
+  CreditCard,
+  FileText
 } from 'lucide-react';
 import { School, Student, BookItem, BookCirculationRecord } from '@/lib/types';
 import { openWhatsAppDirect } from '@/lib/whatsapp';
@@ -337,8 +340,12 @@ export function DashboardLibrary({
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Top Banner & Action Header */}
-      <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
+      <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
+        <div aria-hidden="true" className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight">
+          LIBRARY
+        </div>
+
+        <div className="flex items-center gap-3.5 relative z-10">
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold shadow-2xs">
             <BookOpen className="w-6 h-6 text-emerald-800" />
           </div>
@@ -357,7 +364,7 @@ export function DashboardLibrary({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap relative z-10">
           <button
             type="button"
             onClick={() => setShowPrintRegister(true)}
@@ -387,76 +394,110 @@ export function DashboardLibrary({
         </div>
       </div>
 
-      {/* KPI Tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white border border-[#DCE8E0] shadow-2xs">
-          <span className="text-[11px] font-mono font-bold text-slate-500 uppercase block">Total Catalog Titles</span>
-          <div className="text-2xl font-display font-black text-[#122A24] mt-1">
-            {totalTitles}{' '}
-            <span className="text-xs font-mono font-normal text-slate-500">({totalVolumeCopies} copies)</span>
-          </div>
-        </div>
+      {/* ─────────────────────────────────────────────────────────────
+          2. DASHBOARD KPI HERO BANNER (DEEP FOREST GREEN #122A24)
+          ───────────────────────────────────────────────────────────── */}
+      <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+        <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
 
-        <div className="p-4 rounded-2xl bg-white border border-[#DCE8E0] shadow-2xs">
-          <span className="text-[11px] font-mono font-bold text-slate-500 uppercase block">In Active Circulation</span>
-          <div className="text-2xl font-display font-black text-emerald-800 mt-1">
-            {totalIssued}{' '}
-            <span className="text-xs font-mono font-normal text-slate-500">Issued Books</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/70 relative z-10">
+          {/* Tile 1: Total Catalog Titles */}
+          <div className="sm:pr-4 group select-none">
+            <div className="flex items-center gap-2 text-emerald-300">
+              <BookOpen className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Total Catalog Titles</span>
+            </div>
+            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+              {totalTitles} <span className="text-xs font-mono text-emerald-300/70 font-normal">({totalVolumeCopies} copies)</span>
+            </div>
+            <div className="text-[11px] font-mono text-emerald-300 mt-1 flex items-center gap-1.5">
+              <span>CBSE Standard Library Inventory</span>
+            </div>
           </div>
-        </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-[#DCE8E0] shadow-2xs">
-          <span className="text-[11px] font-mono font-bold text-slate-500 uppercase block">Overdue Books</span>
-          <div className="text-2xl font-display font-black text-rose-700 mt-1">
-            {totalOverdue}{' '}
-            <span className="text-xs font-mono font-normal text-rose-500">Exceeded 14 Days</span>
+          {/* Tile 2: In Active Circulation */}
+          <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+            <div className="flex items-center gap-2 text-emerald-300">
+              <ArrowRightLeft className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Active Circulation</span>
+            </div>
+            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+              {totalIssued} <span className="text-xs font-mono text-emerald-300/70 font-normal">Issued Books</span>
+            </div>
+            <div className="text-[11px] font-mono text-emerald-300/80 mt-1 flex items-center gap-1.5">
+              <span>14-Day Lending Cycles</span>
+            </div>
           </div>
-        </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-[#DCE8E0] shadow-2xs">
-          <span className="text-[11px] font-mono font-bold text-slate-500 uppercase block">Pending Late Fines</span>
-          <div className="text-2xl font-display font-black text-amber-700 mt-1 font-mono">
-            ₹{totalFinePending.toLocaleString('en-IN')}
+          {/* Tile 3: Overdue Books */}
+          <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+            <div className="flex items-center gap-2 text-rose-300">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+              <span className="text-xs sm:text-[13px] font-medium text-rose-200/90">Overdue Returns</span>
+            </div>
+            <div className="text-2xl sm:text-[28px] font-bold text-rose-300 tracking-tight mt-2 font-sans">
+              {totalOverdue} <span className="text-xs font-mono text-rose-300/80 font-normal">Exceeded Due</span>
+            </div>
+            <div className="text-[11px] font-mono text-rose-300/70 mt-1 flex items-center gap-1.5">
+              <span>Automated WhatsApp Reminder</span>
+            </div>
+          </div>
+
+          {/* Tile 4: Pending Late Fines */}
+          <div className="pt-4 sm:pt-0 sm:pl-4 group select-none">
+            <div className="flex items-center gap-2 text-amber-300">
+              <CreditCard className="w-4 h-4 shrink-0 text-amber-400" />
+              <span className="text-xs sm:text-[13px] font-medium text-amber-200/90">Pending Fines</span>
+            </div>
+            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+              ₹{totalFinePending.toLocaleString('en-IN')}
+            </div>
+            <div className="text-[11px] font-mono text-amber-300 mt-1 flex items-center gap-1.5">
+              <span>₹5/Day Overdue Accrual</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Tabs Switcher: Catalog vs Active Circulation vs Return History */}
-      <div className="flex items-center gap-2 border-b border-[#DCE8E0] pb-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs">
         <button
           type="button"
           onClick={() => setActiveTab('catalog')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none ${
+          className={`py-2.5 px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
             activeTab === 'catalog'
-              ? 'bg-[#122A24] text-white shadow-xs'
-              : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+              ? 'bg-[#122A24] text-white shadow-xs font-bold'
+              : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
           }`}
         >
-          📖 Book Catalog Repository ({filteredBooks.length})
+          <BookOpen className="w-4 h-4 shrink-0" />
+          <span>Book Catalog Repository ({filteredBooks.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('circulation')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none ${
+          className={`py-2.5 px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
             activeTab === 'circulation'
-              ? 'bg-[#122A24] text-white shadow-xs'
-              : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+              ? 'bg-[#122A24] text-white shadow-xs font-bold'
+              : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
           }`}
         >
-          🔄 Active Borrowers &amp; Returns ({circulations.filter(c => c.status !== 'RETURNED').length})
+          <ArrowRightLeft className="w-4 h-4 shrink-0" />
+          <span>Active Borrowers &amp; Returns ({circulations.filter(c => c.status !== 'RETURNED').length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('history')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none ${
+          className={`py-2.5 px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
             activeTab === 'history'
-              ? 'bg-[#122A24] text-white shadow-xs'
-              : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+              ? 'bg-[#122A24] text-white shadow-xs font-bold'
+              : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
           }`}
         >
-          📜 Archive / Return Ledger
+          <FileText className="w-4 h-4 shrink-0" />
+          <span>Archive / Return Ledger</span>
         </button>
       </div>
 

@@ -269,8 +269,12 @@ export function DashboardVisitorGate({
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header Banner */}
-      <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
+      <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
+        <div aria-hidden="true" className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight">
+          VISITORS
+        </div>
+
+        <div className="flex items-center gap-3.5 relative z-10">
           <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-800 flex items-center justify-center font-bold shadow-2xs">
             <ShieldCheck className="w-6 h-6 text-amber-700" />
           </div>
@@ -289,7 +293,7 @@ export function DashboardVisitorGate({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap relative z-10">
           <button
             type="button"
             onClick={() => setShowGatePassModal(true)}
@@ -310,56 +314,98 @@ export function DashboardVisitorGate({
         </div>
       </div>
 
-      {/* KPI Tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-white border border-[#DCE8E0] shadow-2xs">
-          <span className="text-[11px] font-mono font-bold text-slate-500 uppercase block">Today's Visitors</span>
-          <div className="text-2xl font-display font-black text-[#122A24] mt-1">{totalVisitorsToday}</div>
-        </div>
+      {/* ─────────────────────────────────────────────────────────────
+          2. DASHBOARD KPI HERO BANNER (DEEP FOREST GREEN #122A24)
+          ───────────────────────────────────────────────────────────── */}
+      <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+        <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
 
-        <div className="p-4 rounded-2xl bg-white border border-[#DCE8E0] shadow-2xs">
-          <span className="text-[11px] font-mono font-bold text-slate-500 uppercase block">Inside Campus</span>
-          <div className="text-2xl font-display font-black text-amber-600 mt-1 flex items-center gap-1.5">
-            <span>{currentlyInside}</span>
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/70 relative z-10">
+          {/* Tile 1: Today's Visitors */}
+          <div className="sm:pr-4 group select-none">
+            <div className="flex items-center gap-2 text-emerald-300">
+              <Users className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Today's Visitors</span>
+            </div>
+            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+              {totalVisitorsToday} <span className="text-xs font-mono text-emerald-300/70 font-normal">Entries</span>
+            </div>
+            <div className="text-[11px] font-mono text-emerald-300 mt-1 flex items-center gap-1.5">
+              <span>CBSE Campus Access Protocols</span>
+            </div>
           </div>
-        </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-[#DCE8E0] shadow-2xs">
-          <span className="text-[11px] font-mono font-bold text-slate-500 uppercase block">Checked Out</span>
-          <div className="text-2xl font-display font-black text-emerald-800 mt-1">{totalCheckedOut}</div>
-        </div>
+          {/* Tile 2: Inside Campus */}
+          <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+            <div className="flex items-center gap-2 text-amber-300">
+              <ShieldCheck className="w-4 h-4 shrink-0 text-amber-400" />
+              <span className="text-xs sm:text-[13px] font-medium text-amber-200/90">Present On Campus</span>
+            </div>
+            <div className="text-2xl sm:text-[28px] font-bold text-amber-300 tracking-tight mt-2 font-sans flex items-center gap-2">
+              <span>{currentlyInside}</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+            </div>
+            <div className="text-[11px] font-mono text-amber-300/80 mt-1 flex items-center gap-1.5">
+              <span>Active Security Badges</span>
+            </div>
+          </div>
 
-        <div className="p-4 rounded-2xl bg-white border border-[#DCE8E0] shadow-2xs">
-          <span className="text-[11px] font-mono font-bold text-slate-500 uppercase block">Early Dispersal Passes</span>
-          <div className="text-2xl font-display font-black text-purple-800 mt-1">{totalEarlyPasses}</div>
+          {/* Tile 3: Checked Out */}
+          <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+            <div className="flex items-center gap-2 text-emerald-300">
+              <UserCheck className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Completed Visits</span>
+            </div>
+            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+              {totalCheckedOut} <span className="text-xs font-mono text-emerald-300/70 font-normal">Departed</span>
+            </div>
+            <div className="text-[11px] font-mono text-emerald-300/70 mt-1 flex items-center gap-1.5">
+              <span>Time-Stamped Exit Logged</span>
+            </div>
+          </div>
+
+          {/* Tile 4: Early Dispersal Passes */}
+          <div className="pt-4 sm:pt-0 sm:pl-4 group select-none">
+            <div className="flex items-center gap-2 text-purple-300">
+              <QrCode className="w-4 h-4 shrink-0 text-purple-400" />
+              <span className="text-xs sm:text-[13px] font-medium text-purple-200/90">Early Gate Passes</span>
+            </div>
+            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+              {totalEarlyPasses} <span className="text-xs font-mono text-slate-300 font-normal">Issued</span>
+            </div>
+            <div className="text-[11px] font-mono text-purple-300 mt-1 flex items-center gap-1.5">
+              <span>Parent Verified Dispersal</span>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Tab Switcher: Visitors vs Early Dispersal Passes */}
-      <div className="flex items-center gap-2 border-b border-[#DCE8E0] pb-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs max-w-xl">
         <button
           type="button"
           onClick={() => setActiveTab('visitors')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none ${
+          className={`py-2.5 px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
             activeTab === 'visitors'
-              ? 'bg-[#122A24] text-white shadow-xs'
-              : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+              ? 'bg-[#122A24] text-white shadow-xs font-bold'
+              : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
           }`}
         >
-          🛡️ Visitor Security Log ({visitors.length})
+          <ShieldCheck className="w-4 h-4 shrink-0" />
+          <span>Visitor Security Log ({visitors.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('gatepass')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none ${
+          className={`py-2.5 px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
             activeTab === 'gatepass'
-              ? 'bg-[#122A24] text-white shadow-xs'
-              : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+              ? 'bg-[#122A24] text-white shadow-xs font-bold'
+              : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
           }`}
         >
-          🎫 Student Early Dispersal Gate Passes ({gatePasses.length})
+          <QrCode className="w-4 h-4 shrink-0" />
+          <span>Student Early Dispersal Passes ({gatePasses.length})</span>
         </button>
       </div>
 

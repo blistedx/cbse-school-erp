@@ -483,12 +483,8 @@ export function DashboardPermissions({
           1. Header Banner — Premium, Clear, Non-Colliding Design
           ───────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 sm:p-7 relative overflow-hidden">
-        {/* Subtle decorative shield glow in background (non-intrusive) */}
-        <div 
-          aria-hidden="true" 
-          className="pointer-events-none select-none absolute right-4 top-1/2 -translate-y-1/2 opacity-[0.035] text-[#122A24]"
-        >
-          <ShieldCheck className="w-64 h-64" />
+        <div aria-hidden="true" className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight">
+          PERMISSIONS
         </div>
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 relative z-10">
@@ -528,6 +524,65 @@ export function DashboardPermissions({
                 </>
               )}
             </button>
+          </div>
+        </div>
+
+        {/* Executive #122A24 Dashboard KPI Hero Banner */}
+        <div className="mt-6 bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-[#1C443A]/70">
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-emerald-400" />
+                Institutional Roles
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                {ROLES_LIST.length}
+              </div>
+              <p className="text-[11px] text-white/50">
+                Principal, Admin, Faculty, Student, Parent
+              </p>
+            </div>
+
+            <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                Governed Modules
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                {MODULE_DEFINITIONS.length}
+              </div>
+              <p className="text-[11px] text-white/50">
+                Academics, Finance, Security & Operations
+              </p>
+            </div>
+
+            <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                Granular Actions
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                4 Matrix Levels
+              </div>
+              <p className="text-[11px] text-white/50">
+                View, Edit, Create &amp; Delete Rights
+              </p>
+            </div>
+
+            <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                Security Standard
+              </span>
+              <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight flex items-center gap-2">
+                <span>CBSE RBAC 2.0</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              </div>
+              <p className="text-[11px] text-white/50">
+                Strict Zero-Trust Role Isolation
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -40,9 +40,14 @@ export default function GlobalError({
           </p>
         </div>
 
-        {error?.message && (
-          <div className="p-3 bg-black/40 rounded-xl border border-white/10 text-[11px] font-mono text-slate-300 text-left overflow-x-auto max-h-24">
+        {process.env.NODE_ENV !== 'production' && error?.message ? (
+          <div className="p-3 bg-black/40 rounded-xl border border-white/10 text-[11px] font-mono text-amber-300/90 text-left overflow-x-auto max-h-24">
+            <span className="text-[10px] uppercase font-bold text-amber-400 block mb-1">Development Error Details:</span>
             {error.message}
+          </div>
+        ) : (
+          <div className="p-3 bg-black/20 rounded-xl border border-white/10 text-[12px] font-sans text-slate-300 text-center">
+            An unexpected error occurred while processing your request. Please reload or contact school IT support if the issue persists.
           </div>
         )}
 

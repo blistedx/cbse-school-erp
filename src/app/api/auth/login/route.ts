@@ -3,42 +3,16 @@ import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
 import { createSessionToken } from '@/lib/auth-guard';
 
-// In-memory rate limiter: generous limits during dev and field operations
-const loginAttempts = new Map<string, { count: number; firstAttempt: number }>();
-const MAX_ATTEMPTS = 25;
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-
-function getClientIp(req: Request): string {
-  return (
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    req.headers.get('x-real-ip') ||
-    'unknown'
-  );
-}
+import { checkRateLimit, resetRateLimit } from '@/lib/rate-limiter';
 
 export async function POST(req: Request) {
   try {
-    const ip = getClientIp(req);
-    const now = Date.now();
-    const isLocal = ip === '127.0.0.1' || ip === '::1' || ip === 'unknown';
-    const record = loginAttempts.get(ip);
-
-    // Check if within rate limit window (skip strict block on localhost/dev)
-    if (!isLocal && record && now - record.firstAttempt < WINDOW_MS) {
-      if (record.count >= MAX_ATTEMPTS) {
-        const retryAfterMs = WINDOW_MS - (now - record.firstAttempt);
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Too many login attempts. Please try again in ${Math.ceil(retryAfterMs / 60000)} minute(s).`
-          },
-          { status: 429 }
-        );
-      }
-    } else if (record && now - record.firstAttempt >= WINDOW_MS) {
-      // Reset window
-      loginAttempts.delete(ip);
-    }
+    const rate = checkRateLimit(req, {
+      bucketName: 'auth-login',
+      maxAttempts: 15,
+      windowMs: 15 * 60 * 1000
+    });
+    if (!rate.allowed) return rate.response!;
 
     const body = await req.json();
     let { school_code, username, password, role } = body;
@@ -47,10 +21,6 @@ export async function POST(req: Request) {
     const auth = await Database.authenticateUser(effectiveSchoolCode, username, password, role);
 
     if (!auth) {
-      // Increment failure count
-      const current = loginAttempts.get(ip) || { count: 0, firstAttempt: now };
-      loginAttempts.set(ip, { count: current.count + 1, firstAttempt: current.firstAttempt });
-
       return NextResponse.json(
         { success: false, error: 'Invalid credentials or unauthorized school access.' },
         { status: 401 }
@@ -58,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     // Successful login — clear rate limit record
-    loginAttempts.delete(ip);
+    resetRateLimit('auth-login', req);
 
     // Issue a signed session token (12h validity)
     const sessionToken = createSessionToken(
@@ -76,11 +46,13 @@ export async function POST(req: Request) {
     });
 
     // Set cookie for browser fetch auto-attachment
+    const isProd = process.env.NODE_ENV === 'production';
     response.cookies.set('erp_session_token', sessionToken, {
       path: '/',
       maxAge: 43200,
       sameSite: 'lax',
-      httpOnly: false
+      httpOnly: true,
+      secure: isProd
     });
 
     return response;

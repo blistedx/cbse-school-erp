@@ -409,6 +409,9 @@ export function DashboardHostel({
           ───────────────────────────────────────────────────────────── */}
       <div className="bg-[#122A24] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-emerald-800/30 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-500/20 via-transparent to-transparent opacity-60 pointer-events-none" />
+        <div aria-hidden="true" className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-white/[0.08] sm:text-white/[0.12] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight">
+          HOSTEL
+        </div>
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">

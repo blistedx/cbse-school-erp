@@ -298,16 +298,36 @@ export function DashboardSubjects({
   const getSubjectTypeBadge = (type?: string) => {
     switch (type) {
       case 'LANGUAGE':
-        return <span className="px-2 py-0.5 rounded-md text-[10.5px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">Language</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-[#EBF3FF] text-[#1D4ED8] border border-[#BFDBFE]">
+            Language
+          </span>
+        );
       case 'SKILL':
-        return <span className="px-2 py-0.5 rounded-md text-[10.5px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">Skill / AI</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]">
+            Skill / AI
+          </span>
+        );
       case 'ELECTIVE':
-        return <span className="px-2 py-0.5 rounded-md text-[10.5px] font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200">Elective</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-[#FAF5FF] text-[#7E22CE] border border-[#E9D5FF]">
+            Elective
+          </span>
+        );
       case 'INTERNAL_ASSESSMENT':
-        return <span className="px-2 py-0.5 rounded-md text-[10.5px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">Assessment / PE</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-[#F4F8F5] text-[#2D5A4E] border border-[#DCE8E0]">
+            Assessment / PE
+          </span>
+        );
       case 'COMPULSORY':
       default:
-        return <span className="px-2 py-0.5 rounded-md text-[10.5px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Compulsory Core</span>;
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF]">
+            Compulsory Core
+          </span>
+        );
     }
   };
 
@@ -315,7 +335,7 @@ export function DashboardSubjects({
     <div className="space-y-6 max-w-7xl mx-auto animate-fade-in text-slate-800">
       
       {/* ─────────────────────────────────────────────────────────────
-          1. HEADER & ACTION TOOLBAR
+          1. MAIN CARD CONTAINER WITH SIGNATURE WATERMARK (MATCHING FACULTY/ERP MODULES)
           ───────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-6 relative overflow-hidden">
         {/* Background Watermark Behind Header Text */}
@@ -325,36 +345,38 @@ export function DashboardSubjects({
         >
           SUBJECTS
         </div>
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-[#E8F0EA] relative z-10">
+
+        {/* Top Header & Action Toolbar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight flex items-center gap-2.5">
-                <BookOpen className="h-7 w-7 text-emerald-700" />
+                <BookOpen className="h-7 w-7 text-emerald-700 shrink-0" />
                 <span>CBSE Curriculum &amp; Subjects Studio</span>
               </h1>
-              <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
                 Session {selectedSession} • CBSE Prescribed
               </span>
             </div>
-            <p className="text-xs text-[#2D5A4E] mt-1.5 font-mono">
+            <p className="text-xs text-[#2D5A4E] mt-1 font-mono">
               Official CBSE subject codes, weekly period quotas, examination max marks, and faculty allocations
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleResetAllToCbse}
               disabled={saving}
-              className="px-3.5 py-2 rounded-full bg-white hover:bg-slate-50 text-[#122A24] border border-[#C5E2CF] text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-full bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
               title="Reset all classes to CBSE defaults"
             >
-              <RotateCcw className={`h-3.5 w-3.5 text-amber-700 ${saving ? 'animate-spin' : ''}`} />
-              <span>Reset All to CBSE Defaults</span>
+              <RotateCcw className={`h-3.5 w-3.5 text-amber-600 ${saving ? 'animate-spin' : ''}`} />
+              <span>Reset to CBSE Defaults</span>
             </button>
 
             <button
               onClick={() => handleOpenAddSubject()}
-              className="px-4 py-2 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer border-none"
+              className="px-4 py-2 rounded-full bg-[#122A24] hover:bg-[#1C443A] active:scale-95 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer border-none"
             >
               <Plus className="h-4 w-4 text-emerald-400" />
               <span>Add Custom Subject</span>
@@ -363,80 +385,103 @@ export function DashboardSubjects({
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
-            2. FOUR CORE METRIC CARDS
+            2. DASHBOARD KPI HERO BANNER (DEEP FOREST GREEN #122A24)
             ───────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="p-4 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5]">
-            <div className="text-[11px] font-mono uppercase text-slate-500 font-bold">Total Subject Allocations</div>
-            <div className="font-display font-bold text-2xl text-[#122A24] mt-1">
-              {metrics.totalAllocations} <span className="text-xs font-mono text-slate-400 font-normal">across {classes.length} classes</span>
-            </div>
-            <div className="text-[11px] font-mono text-emerald-700 mt-1 flex items-center gap-1">
-              <CheckCircle2 className="h-3 w-3" />
-              <span>{metrics.uniqueSubjects} unique CBSE subject codes</span>
-            </div>
-          </div>
+        <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+          {/* Subtle decorative glow in top right */}
+          <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
 
-          <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-200/60">
-            <div className="text-[11px] font-mono uppercase text-blue-800 font-bold">Language Curriculum</div>
-            <div className="font-display font-bold text-2xl text-blue-950 mt-1">
-              {metrics.languageCount} <span className="text-xs font-mono text-blue-700 font-normal">allocations</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/70 relative z-10">
+            
+            {/* Tile 1: Total Subject Allocations */}
+            <div className="sm:pr-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <Layers className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Total Subject Allocations</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {metrics.totalAllocations} <span className="text-xs font-mono text-emerald-300/70 font-normal">/ {classes.length} classes</span>
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300 mt-1 flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>{metrics.uniqueSubjects} unique CBSE subject codes</span>
+              </div>
             </div>
-            <div className="text-[11px] font-mono text-blue-700 mt-1">
-              English (101/184/301), Hindi (102/002), Sanskrit (122)
-            </div>
-          </div>
 
-          <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200/60">
-            <div className="text-[11px] font-mono uppercase text-emerald-800 font-bold">STEM &amp; Core Subjects</div>
-            <div className="font-display font-bold text-2xl text-emerald-950 mt-1">
-              {metrics.stemCoreCount} <span className="text-xs font-mono text-emerald-700 font-normal">allocations</span>
+            {/* Tile 2: Language Curriculum */}
+            <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <GraduationCap className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Language Curriculum</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {metrics.languageCount} <span className="text-xs font-mono text-emerald-300/70 font-normal">allocations</span>
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300/80 mt-1 truncate" title="English (101/184/301), Hindi (102/002), Sanskrit (122)">
+                English (184/301), Hindi, Sanskrit
+              </div>
             </div>
-            <div className="text-[11px] font-mono text-emerald-700 mt-1">
-              Math (041), Science (086), Physics (042), Accounts (055)
-            </div>
-          </div>
 
-          <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200/60">
-            <div className="text-[11px] font-mono uppercase text-amber-900 font-bold">Skill &amp; Internal Assessments</div>
-            <div className="font-display font-bold text-2xl text-amber-950 mt-1">
-              {metrics.skillAssessmentCount} <span className="text-xs font-mono text-amber-800 font-normal">allocations</span>
+            {/* Tile 3: STEM & Core Subjects */}
+            <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <Award className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">STEM &amp; Core Subjects</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {metrics.stemCoreCount} <span className="text-xs font-mono text-emerald-300/70 font-normal">allocations</span>
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300/80 mt-1 truncate" title="Math (041), Science (086), Physics (042), Accounts (055)">
+                Math (041), Science (086), Physics
+              </div>
             </div>
-            <div className="text-[11px] font-mono text-amber-800 mt-1">
-              IT (402), AI (417), Health &amp; PE (506), Art (502)
+
+            {/* Tile 4: Skill & Internal Assessments */}
+            <div className="pt-4 sm:pt-0 sm:pl-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <Sparkles className="w-4 h-4 shrink-0 text-amber-300" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Skill &amp; Assessments</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {metrics.skillAssessmentCount} <span className="text-xs font-mono text-emerald-300/70 font-normal">allocations</span>
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300/80 mt-1 truncate" title="IT (402), AI (417), Health & PE (506), Art (502)">
+                IT (402), AI (417), Health &amp; PE
+              </div>
             </div>
+
           </div>
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
-            3. INTERACTIVE FILTERS & SEARCH
+            3. INTERACTIVE FILTERS & SEARCH TOOLBAR
             ───────────────────────────────────────────────────────────── */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-2">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-2 relative z-10">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[240px]">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#2D5A4E]/60" />
             <input
               type="text"
               placeholder="Search by subject name, CBSE code (e.g. 184, 041, 086), or teacher..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-[#DCE8E0] bg-[#F8FAF9] focus:bg-white text-xs font-medium text-[#122A24] focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs"
+              className="w-full pl-9 pr-8 py-2 rounded-xl border border-[#DCE8E0] bg-[#F4F8F5] focus:bg-white text-xs font-medium text-[#122A24] placeholder:text-[#2D5A4E]/50 focus:outline-none focus:border-[#122A24] transition-colors shadow-2xs"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer p-0"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#122A24] border-none bg-transparent cursor-pointer p-0"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
 
-          {/* Filter Dropdowns */}
+          {/* Filter Dropdowns & View Mode */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Tier Selector */}
-            <div className="flex items-center gap-1 bg-[#F4F8F5] p-1 rounded-xl border border-[#DCE8E0] text-xs">
-              <span className="text-[10px] font-mono font-bold text-slate-500 uppercase px-2">Tier:</span>
+            <div className="flex items-center gap-1 bg-[#F4F8F5] p-1.5 rounded-xl border border-[#DCE8E0] text-xs">
+              <span className="text-[10px] font-mono font-bold text-[#2D5A4E] uppercase px-1.5">Tier:</span>
               <select
                 value={selectedTier}
                 onChange={(e) => {
@@ -455,8 +500,8 @@ export function DashboardSubjects({
             </div>
 
             {/* Specific Class Selector */}
-            <div className="flex items-center gap-1 bg-[#F4F8F5] p-1 rounded-xl border border-[#DCE8E0] text-xs">
-              <span className="text-[10px] font-mono font-bold text-slate-500 uppercase px-2">Class:</span>
+            <div className="flex items-center gap-1 bg-[#F4F8F5] p-1.5 rounded-xl border border-[#DCE8E0] text-xs">
+              <span className="text-[10px] font-mono font-bold text-[#2D5A4E] uppercase px-1.5">Class:</span>
               <select
                 value={selectedClassId}
                 onChange={(e) => setSelectedClassId(e.target.value)}
@@ -472,8 +517,8 @@ export function DashboardSubjects({
             </div>
 
             {/* Subject Type Selector */}
-            <div className="flex items-center gap-1 bg-[#F4F8F5] p-1 rounded-xl border border-[#DCE8E0] text-xs">
-              <span className="text-[10px] font-mono font-bold text-slate-500 uppercase px-2">Type:</span>
+            <div className="flex items-center gap-1 bg-[#F4F8F5] p-1.5 rounded-xl border border-[#DCE8E0] text-xs">
+              <span className="text-[10px] font-mono font-bold text-[#2D5A4E] uppercase px-1.5">Type:</span>
               <select
                 value={selectedTypeFilter}
                 onChange={(e) => setSelectedTypeFilter(e.target.value)}
@@ -492,16 +537,16 @@ export function DashboardSubjects({
             <div className="flex items-center bg-[#F4F8F5] p-1 rounded-xl border border-[#DCE8E0] text-xs">
               <button
                 onClick={() => setViewMode('class_grouped')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border-none cursor-pointer transition-colors ${
-                  viewMode === 'class_grouped' ? 'bg-[#122A24] text-white shadow-2xs' : 'bg-transparent text-slate-600'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer transition-all ${
+                  viewMode === 'class_grouped' ? 'bg-[#122A24] text-white shadow-xs font-bold' : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24]'
                 }`}
               >
                 Class Cards
               </button>
               <button
                 onClick={() => setViewMode('table')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold border-none cursor-pointer transition-colors ${
-                  viewMode === 'table' ? 'bg-[#122A24] text-white shadow-2xs' : 'bg-transparent text-slate-600'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer transition-all ${
+                  viewMode === 'table' ? 'bg-[#122A24] text-white shadow-xs font-bold' : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24]'
                 }`}
               >
                 Master Table
@@ -514,9 +559,9 @@ export function DashboardSubjects({
             4. CLASS-GROUPED STUDIO VIEW
             ───────────────────────────────────────────────────────────── */}
         {viewMode === 'class_grouped' && (
-          <div className="space-y-6 pt-2">
+          <div className="space-y-6 relative z-10">
             {filteredClasses.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 font-mono text-xs">
+              <div className="text-center py-16 bg-[#F8FAF9] rounded-2xl border border-[#DCE8E0] text-slate-400 font-mono text-xs">
                 No classes found matching the selected filters.
               </div>
             ) : (
@@ -546,25 +591,25 @@ export function DashboardSubjects({
                 return (
                   <div
                     key={cls.id}
-                    className="rounded-2xl border border-[#DCE8E0] bg-white overflow-hidden shadow-2xs transition-shadow hover:shadow-xs"
+                    className="rounded-2xl border border-[#DCE8E0] bg-white overflow-hidden shadow-2xs transition-all hover:shadow-xs"
                   >
                     {/* Class Header Banner */}
-                    <div className="bg-[#F8FAF9] px-5 py-3.5 border-b border-[#E2ECE5] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="bg-[#F8FAF9] px-5 py-3.5 border-b border-[#DCE8E0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-[#122A24] text-white font-display font-bold text-xs flex items-center justify-center shadow-2xs">
+                        <div className="w-9 h-9 rounded-xl bg-[#122A24] text-emerald-300 font-display font-bold text-sm flex items-center justify-center shadow-xs border border-[#1C443A]">
                           {cls.class_name.replace(/class/i, '').trim()[0] || 'C'}
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-display font-bold text-sm sm:text-base text-[#122A24]">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-display font-bold text-base text-[#122A24]">
                               {cls.class_name} - Section {cls.section}
                             </h3>
-                            <span className="px-2 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF]">
                               {classSubjects.length} Subjects Prescribed
                             </span>
                           </div>
-                          <div className="text-[11px] font-mono text-slate-500">
-                            Class Teacher: <strong className="text-[#122A24]">{cls.class_teacher || 'Unassigned'}</strong> • Room: {cls.room_no || 'Room 101'}
+                          <div className="text-xs font-mono text-[#2D5A4E]/80 mt-0.5">
+                            Class Teacher: <strong className="text-[#122A24]">{cls.class_teacher || 'Unassigned'}</strong> • Room: <span className="font-semibold text-[#122A24]">{cls.room_no || 'Room 101'}</span>
                           </div>
                         </div>
                       </div>
@@ -574,17 +619,17 @@ export function DashboardSubjects({
                           type="button"
                           onClick={() => handleResetClassSubjects(cls)}
                           disabled={resettingClassId === cls.id}
-                          className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-[#DCE8E0] cursor-pointer flex items-center gap-1 shadow-2xs transition-colors"
+                          className="px-3 py-1.5 rounded-xl text-xs font-mono font-semibold bg-white hover:bg-[#F4F8F5] text-[#122A24] border border-[#DCE8E0] cursor-pointer flex items-center gap-1.5 shadow-2xs transition-colors"
                           title="Restore official CBSE subject list for this class"
                         >
-                          <RotateCcw className={`h-3 w-3 ${resettingClassId === cls.id ? 'animate-spin' : ''}`} />
+                          <RotateCcw className={`h-3 w-3 text-amber-600 ${resettingClassId === cls.id ? 'animate-spin' : ''}`} />
                           <span>Reset to CBSE</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => handleOpenAddSubject(cls.id)}
-                          className="px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold bg-[#122A24] hover:bg-[#1C443A] text-white border-none cursor-pointer flex items-center gap-1 shadow-2xs transition-colors"
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-mono font-semibold bg-[#122A24] hover:bg-[#1C443A] text-white border-none cursor-pointer flex items-center gap-1.5 shadow-xs transition-colors"
                         >
                           <Plus className="h-3 w-3 text-emerald-400" />
                           <span>Add Subject</span>
@@ -596,77 +641,79 @@ export function DashboardSubjects({
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
-                          <tr className="border-b border-[#E8F0EA] text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase bg-white">
-                            <th className="py-2.5 px-4 w-12 text-center">#</th>
-                            <th className="py-2.5 px-4 w-28">CBSE Code</th>
-                            <th className="py-2.5 px-4">Subject Name</th>
-                            <th className="py-2.5 px-4 w-36">Category</th>
-                            <th className="py-2.5 px-4 w-28 text-center">Periods/Wk</th>
-                            <th className="py-2.5 px-4 w-28 text-center">Max Marks</th>
-                            <th className="py-2.5 px-4">Assigned Faculty</th>
-                            <th className="py-2.5 px-4 w-24 text-center">Actions</th>
+                          <tr className="border-b border-[#DCE8E0] text-[11px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider bg-[#F4F8F5]">
+                            <th className="py-3 px-4 w-12 text-center">#</th>
+                            <th className="py-3 px-4 w-28">CBSE Code</th>
+                            <th className="py-3 px-4">Subject Name</th>
+                            <th className="py-3 px-4 w-36">Category</th>
+                            <th className="py-3 px-4 w-28 text-center">Periods/Wk</th>
+                            <th className="py-3 px-4 w-28 text-center">Max Marks</th>
+                            <th className="py-3 px-4">Assigned Faculty</th>
+                            <th className="py-3 px-4 w-24 text-center">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#F0F4F2]">
+                        <tbody className="divide-y divide-[#EBF2ED] font-sans">
                           {classSubjects.map((sub, sIdx) => (
-                            <tr key={sub.id || sIdx} className="hover:bg-[#F9FCFA] transition-colors group">
+                            <tr key={sub.id || sIdx} className="hover:bg-[#EBF5EF]/50 transition-colors group">
                               {/* Serial Number */}
-                              <td className="py-2.5 px-4 text-center font-mono text-slate-400 font-semibold">
+                              <td className="py-3 px-4 text-center font-mono text-slate-400 font-medium">
                                 {sIdx + 1}
                               </td>
 
                               {/* CBSE Code */}
-                              <td className="py-2.5 px-4 font-mono font-bold text-[#122A24]">
+                              <td className="py-3 px-4 font-mono font-bold text-[#122A24]">
                                 {sub.code ? (
-                                  <span className="px-2 py-0.5 rounded-md bg-[#F4F8F5] border border-[#DCE8E0] text-[#122A24] text-[11px]">
+                                  <span className="px-2.5 py-0.5 rounded-md bg-[#EBF5EF] border border-[#C5E2CF] text-[#122A24] text-xs font-mono font-bold shadow-2xs">
                                     {sub.code}
                                   </span>
                                 ) : (
-                                  <span className="text-slate-400 text-[11px]">—</span>
+                                  <span className="text-slate-400 text-xs">—</span>
                                 )}
                               </td>
 
                               {/* Subject Name */}
-                              <td className="py-2.5 px-4 font-semibold text-[#122A24]">
+                              <td className="py-3 px-4 font-semibold text-sm text-[#122A24]">
                                 {sub.name}
                               </td>
 
                               {/* Category Badge */}
-                              <td className="py-2.5 px-4">
+                              <td className="py-3 px-4">
                                 {getSubjectTypeBadge(sub.type)}
                               </td>
 
                               {/* Weekly Periods */}
-                              <td className="py-2.5 px-4 text-center font-mono font-bold text-[#122A24]">
-                                {sub.weekly_periods || 6} / wk
+                              <td className="py-3 px-4 text-center">
+                                <span className="font-mono font-bold text-xs text-[#122A24] bg-[#F4F8F5] px-2.5 py-1 rounded-lg border border-[#DCE8E0] inline-block">
+                                  {sub.weekly_periods || 6} / wk
+                                </span>
                               </td>
 
                               {/* Max Marks */}
-                              <td className="py-2.5 px-4 text-center font-mono font-semibold text-slate-700">
+                              <td className="py-3 px-4 text-center font-mono font-semibold text-xs text-[#2D5A4E]">
                                 {sub.max_marks || 100} M
                               </td>
 
                               {/* Assigned Faculty */}
-                              <td className="py-2.5 px-4 font-mono text-xs">
+                              <td className="py-3 px-4 text-xs">
                                 {sub.assigned_teacher ? (
-                                  <div className="flex items-center gap-1.5 text-[#122A24] font-medium">
-                                    <div className="w-5 h-5 rounded-full bg-[#EBF5EF] border border-[#C5E2CF] flex items-center justify-center text-[9px] font-bold text-emerald-800">
+                                  <div className="flex items-center gap-2 text-[#122A24] font-medium">
+                                    <div className="w-6 h-6 rounded-full bg-[#EBF5EF] border border-[#C5E2CF] flex items-center justify-center text-[10px] font-bold text-[#122A24]">
                                       {sub.assigned_teacher[0]}
                                     </div>
                                     <span className="truncate">{sub.assigned_teacher}</span>
                                   </div>
                                 ) : (
-                                  <span className="text-slate-400 italic text-[11px]">Unassigned</span>
+                                  <span className="text-slate-400 italic text-xs">Unassigned</span>
                                 )}
                               </td>
 
                               {/* Actions */}
-                              <td className="py-2.5 px-4 text-center">
-                                <div className="flex items-center justify-center gap-1">
+                              <td className="py-3 px-4 text-center">
+                                <div className="flex items-center justify-center gap-1.5">
                                   <button
                                     type="button"
                                     onClick={() => handleOpenEditSubject(cls, sub)}
-                                    className="p-1 rounded-lg text-slate-400 hover:text-[#122A24] hover:bg-[#EBF5EF] border-none bg-transparent cursor-pointer transition-colors"
+                                    className="p-1.5 rounded-lg text-[#2D5A4E] hover:text-[#122A24] hover:bg-[#EBF5EF] border border-transparent hover:border-[#C5E2CF] cursor-pointer transition-colors"
                                     title="Edit Subject Name, Code, Periods or Teacher"
                                   >
                                     <Edit3 className="h-3.5 w-3.5" />
@@ -674,7 +721,7 @@ export function DashboardSubjects({
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteSubject(cls.id, sub.id, sub.name)}
-                                    className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border-none bg-transparent cursor-pointer transition-colors"
+                                    className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-transparent hover:border-rose-200 cursor-pointer transition-colors"
                                     title="Delete this subject from class"
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
@@ -697,11 +744,11 @@ export function DashboardSubjects({
             5. MASTER FLAT TABLE VIEW
             ───────────────────────────────────────────────────────────── */}
         {viewMode === 'table' && (
-          <div className="border border-[#DCE8E0] rounded-2xl overflow-hidden shadow-2xs pt-1">
+          <div className="border border-[#DCE8E0] rounded-2xl overflow-hidden bg-white shadow-2xs relative z-10">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-[#E8F0EA] text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase bg-[#F8FAF9]">
+                  <tr className="border-b border-[#DCE8E0] text-[11px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider bg-[#F4F8F5]">
                     <th className="py-3 px-4">Class &amp; Section</th>
                     <th className="py-3 px-4 w-28">CBSE Code</th>
                     <th className="py-3 px-4">Subject Name</th>
@@ -712,7 +759,7 @@ export function DashboardSubjects({
                     <th className="py-3 px-4 w-24 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#F0F4F2]">
+                <tbody className="divide-y divide-[#EBF2ED] font-sans">
                   {filteredClasses.flatMap(cls => {
                     const subs = cls.subjects && cls.subjects.length > 0
                       ? cls.subjects
@@ -730,38 +777,42 @@ export function DashboardSubjects({
                     }
                     return true;
                   }).map((item, idx) => (
-                    <tr key={`${item.parentClass.id}-${item.id || idx}`} className="hover:bg-[#F9FCFA] transition-colors">
+                    <tr key={`${item.parentClass.id}-${item.id || idx}`} className="hover:bg-[#EBF5EF]/50 transition-colors">
                       <td className="py-3 px-4 font-mono font-bold text-[#122A24]">
                         {item.parentClass.class_name} - {item.parentClass.section}
                       </td>
                       <td className="py-3 px-4 font-mono font-bold text-[#122A24]">
                         {item.code ? (
-                          <span className="px-2 py-0.5 rounded-md bg-[#F4F8F5] border border-[#DCE8E0] text-[#122A24] text-[11px]">
+                          <span className="px-2.5 py-0.5 rounded-md bg-[#EBF5EF] border border-[#C5E2CF] text-[#122A24] text-xs font-mono font-bold shadow-2xs">
                             {item.code}
                           </span>
-                        ) : '—'}
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
                       </td>
-                      <td className="py-3 px-4 font-semibold text-[#122A24]">
+                      <td className="py-3 px-4 font-semibold text-sm text-[#122A24]">
                         {item.name}
                       </td>
                       <td className="py-3 px-4">
                         {getSubjectTypeBadge(item.type)}
                       </td>
-                      <td className="py-3 px-4 text-center font-mono font-bold text-[#122A24]">
-                        {item.weekly_periods || 6}
+                      <td className="py-3 px-4 text-center">
+                        <span className="font-mono font-bold text-xs text-[#122A24] bg-[#F4F8F5] px-2.5 py-1 rounded-lg border border-[#DCE8E0] inline-block">
+                          {item.weekly_periods || 6} / wk
+                        </span>
                       </td>
-                      <td className="py-3 px-4 text-center font-mono font-semibold text-slate-700">
+                      <td className="py-3 px-4 text-center font-mono font-semibold text-xs text-[#2D5A4E]">
                         {item.max_marks || 100} M
                       </td>
-                      <td className="py-3 px-4 font-mono text-xs text-slate-700">
+                      <td className="py-3 px-4 text-xs text-[#122A24]">
                         {item.assigned_teacher || <span className="text-slate-400 italic">Unassigned</span>}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleOpenEditSubject(item.parentClass, item)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-[#122A24] hover:bg-[#EBF5EF] border-none bg-transparent cursor-pointer transition-colors"
+                            className="p-1.5 rounded-lg text-[#2D5A4E] hover:text-[#122A24] hover:bg-[#EBF5EF] border border-transparent hover:border-[#C5E2CF] cursor-pointer transition-colors"
                             title="Edit"
                           >
                             <Edit3 className="h-3.5 w-3.5" />
@@ -769,7 +820,7 @@ export function DashboardSubjects({
                           <button
                             type="button"
                             onClick={() => handleDeleteSubject(item.parentClass.id, item.id, item.name)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border-none bg-transparent cursor-pointer transition-colors"
+                            className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-transparent hover:border-rose-200 cursor-pointer transition-colors"
                             title="Delete"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -790,18 +841,18 @@ export function DashboardSubjects({
           6. ADD / EDIT SUBJECT MODAL (STUDIO)
           ───────────────────────────────────────────────────────────── */}
       {showSubjectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 animate-scale-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl border border-[#DCE8E0] shadow-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 animate-scale-up">
             <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[#EBF5EF] border border-[#C5E2CF] flex items-center justify-center text-emerald-800">
+                <div className="w-9 h-9 rounded-xl bg-[#EBF5EF] border border-[#C5E2CF] flex items-center justify-center text-[#122A24]">
                   <BookOpen className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-base text-[#122A24]">
+                  <h3 className="font-display font-bold text-lg text-[#122A24]">
                     {modalMode === 'ADD' ? 'Add Subject to Curriculum' : 'Edit Curriculum Subject'}
                   </h3>
-                  <p className="text-[11px] font-mono text-slate-500">
+                  <p className="text-xs font-mono text-[#2D5A4E]/80 mt-0.5">
                     Configure CBSE code, period quota, and assigned faculty
                   </p>
                 </div>
@@ -809,7 +860,7 @@ export function DashboardSubjects({
               <button
                 type="button"
                 onClick={() => setShowSubjectModal(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 border-none bg-transparent cursor-pointer"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-[#122A24] hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -818,7 +869,7 @@ export function DashboardSubjects({
             <form onSubmit={handleSaveSubject} className="space-y-4">
               {/* Target Class Selection */}
               <div>
-                <label className="block text-xs font-mono font-bold text-[#122A24] mb-1">
+                <label className="block text-xs font-mono font-bold text-[#122A24] mb-1.5">
                   Target Classroom <span className="text-rose-500">*</span>
                 </label>
                 <select
@@ -826,7 +877,7 @@ export function DashboardSubjects({
                   onChange={(e) => setTargetClassId(e.target.value)}
                   disabled={modalMode === 'EDIT'}
                   required
-                  className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F8FAF9] focus:bg-white text-xs font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600"
+                  className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F4F8F5] focus:bg-white text-xs font-semibold text-[#122A24] focus:outline-none focus:border-[#122A24] transition-colors"
                 >
                   {sortClassesChronologically(classes).map(c => (
                     <option key={c.id} value={c.id}>
@@ -839,7 +890,7 @@ export function DashboardSubjects({
               {/* Subject Name & CBSE Code */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-mono font-bold text-[#122A24] mb-1">
+                  <label className="block text-xs font-mono font-bold text-[#122A24] mb-1.5">
                     Subject Name <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -848,12 +899,12 @@ export function DashboardSubjects({
                     placeholder="e.g. Mathematics Standard"
                     value={subjectForm.name}
                     onChange={(e) => setSubjectForm({ ...subjectForm, name: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F8FAF9] focus:bg-white text-xs font-medium text-[#122A24] focus:outline-none focus:border-emerald-600"
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F4F8F5] focus:bg-white text-xs font-medium text-[#122A24] focus:outline-none focus:border-[#122A24] transition-colors"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono font-bold text-[#122A24] mb-1">
+                  <label className="block text-xs font-mono font-bold text-[#122A24] mb-1.5">
                     CBSE Code
                   </label>
                   <input
@@ -861,7 +912,7 @@ export function DashboardSubjects({
                     placeholder="e.g. 041"
                     value={subjectForm.code}
                     onChange={(e) => setSubjectForm({ ...subjectForm, code: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F8FAF9] focus:bg-white text-xs font-mono font-bold text-[#122A24] focus:outline-none focus:border-emerald-600 uppercase"
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F4F8F5] focus:bg-white text-xs font-mono font-bold text-[#122A24] focus:outline-none focus:border-[#122A24] uppercase transition-colors"
                   />
                 </div>
               </div>
@@ -869,13 +920,13 @@ export function DashboardSubjects({
               {/* Category / Type & Max Marks */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-mono font-bold text-[#122A24] mb-1">
+                  <label className="block text-xs font-mono font-bold text-[#122A24] mb-1.5">
                     Subject Category
                   </label>
                   <select
                     value={subjectForm.type}
                     onChange={(e) => setSubjectForm({ ...subjectForm, type: e.target.value as any })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F8FAF9] focus:bg-white text-xs font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600"
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F4F8F5] focus:bg-white text-xs font-semibold text-[#122A24] focus:outline-none focus:border-[#122A24] transition-colors"
                   >
                     <option value="COMPULSORY">Compulsory Core</option>
                     <option value="LANGUAGE">Language</option>
@@ -886,7 +937,7 @@ export function DashboardSubjects({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono font-bold text-[#122A24] mb-1">
+                  <label className="block text-xs font-mono font-bold text-[#122A24] mb-1.5">
                     Max Marks (Evaluation)
                   </label>
                   <input
@@ -895,7 +946,7 @@ export function DashboardSubjects({
                     max={200}
                     value={subjectForm.max_marks}
                     onChange={(e) => setSubjectForm({ ...subjectForm, max_marks: Number(e.target.value) || 100 })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F8FAF9] focus:bg-white text-xs font-mono font-bold text-[#122A24] focus:outline-none focus:border-emerald-600"
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F4F8F5] focus:bg-white text-xs font-mono font-bold text-[#122A24] focus:outline-none focus:border-[#122A24] transition-colors"
                   />
                 </div>
               </div>
@@ -903,7 +954,7 @@ export function DashboardSubjects({
               {/* Weekly Periods & Assigned Faculty */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-mono font-bold text-[#122A24] mb-1">
+                  <label className="block text-xs font-mono font-bold text-[#122A24] mb-1.5">
                     Weekly Periods (Quota)
                   </label>
                   <input
@@ -912,18 +963,18 @@ export function DashboardSubjects({
                     max={12}
                     value={subjectForm.weekly_periods}
                     onChange={(e) => setSubjectForm({ ...subjectForm, weekly_periods: Number(e.target.value) || 6 })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F8FAF9] focus:bg-white text-xs font-mono font-bold text-[#122A24] focus:outline-none focus:border-emerald-600"
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F4F8F5] focus:bg-white text-xs font-mono font-bold text-[#122A24] focus:outline-none focus:border-[#122A24] transition-colors"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono font-bold text-[#122A24] mb-1">
+                  <label className="block text-xs font-mono font-bold text-[#122A24] mb-1.5">
                     Assigned Faculty Teacher
                   </label>
                   <select
                     value={subjectForm.assigned_teacher}
                     onChange={(e) => setSubjectForm({ ...subjectForm, assigned_teacher: e.target.value })}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F8FAF9] focus:bg-white text-xs font-medium text-[#122A24] focus:outline-none focus:border-emerald-600"
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#DCE8E0] bg-[#F4F8F5] focus:bg-white text-xs font-medium text-[#122A24] focus:outline-none focus:border-[#122A24] transition-colors"
                   >
                     <option value="">-- Assign Teacher --</option>
                     {teachers.map(t => (
@@ -940,14 +991,14 @@ export function DashboardSubjects({
                 <button
                   type="button"
                   onClick={() => setShowSubjectModal(false)}
-                  className="px-4 py-2 rounded-full border border-[#DCE8E0] bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-[#DCE8E0] bg-white hover:bg-[#F4F8F5] text-xs font-semibold text-[#122A24] cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-5 py-2 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-xs font-semibold text-white cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-5 py-2 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-xs font-semibold text-white cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5 transition-colors"
                 >
                   <Check className="h-3.5 w-3.5" />
                   <span>{saving ? 'Saving...' : modalMode === 'ADD' ? 'Add to Curriculum' : 'Save Changes'}</span>

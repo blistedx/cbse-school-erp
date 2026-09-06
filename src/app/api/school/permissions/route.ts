@@ -2,16 +2,19 @@
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
 import { DEFAULT_ROLE_PERMISSIONS, RolePermissionMatrix } from '@/lib/types';
-import { requireRole, ADMIN_ROLES } from '@/lib/auth-guard';
+import { requireRole, ADMIN_ROLES, resolveTenantSchoolId } from '@/lib/auth-guard';
+import { validateBody, updateSchoolPermissionsSchema } from '@/lib/validation-schemas';
 
 export async function GET(req: Request) {
   try {
     const auth = requireRole(req, ADMIN_ROLES);
     if (auth instanceof NextResponse) return auth;
     const { searchParams } = new URL(req.url);
-    const schoolId = searchParams.get('school_id') || searchParams.get('school') || 'DPS2026';
+    const requestedSchoolId = searchParams.get('school_id') || searchParams.get('school') || undefined;
+    const schoolId = resolveTenantSchoolId(auth, requestedSchoolId);
+    if (schoolId instanceof NextResponse) return schoolId;
 
-    const school = await Database.getSchoolById(schoolId);
+    const school = await Database.getSchoolById(schoolId || 'DPS2026');
     if (!school) {
       return NextResponse.json({
         success: true,
@@ -34,9 +37,10 @@ export async function GET(req: Request) {
       permissions
     });
   } catch (err: any) {
+    console.error('[API_SCHOOL_PERMISSIONS_GET_ERROR]', err);
     return NextResponse.json({
       success: false,
-      error: err.message,
+      error: 'Internal server error',
       permissions: DEFAULT_ROLE_PERMISSIONS
     }, { status: 500 });
   }
@@ -46,30 +50,32 @@ export async function POST(req: Request) {
   try {
     const auth = requireRole(req, ['PRINCIPAL', 'AGENCY_SUPERADMIN']);
     if (auth instanceof NextResponse) return auth;
-    const body = await req.json();
-    const { school_id, permissions } = body;
+    const rawBody = await req.json();
 
+    const validation = validateBody(updateSchoolPermissionsSchema, rawBody);
+    if (!validation.success) return validation.response;
+    const body = validation.data;
+
+    const school_id = resolveTenantSchoolId(auth, body.school_id);
+    if (school_id instanceof NextResponse) return school_id;
     if (!school_id) {
       return NextResponse.json({ success: false, error: 'School ID is required' }, { status: 400 });
     }
 
-    if (!permissions || typeof permissions !== 'object') {
-      return NextResponse.json({ success: false, error: 'Valid permissions object is required' }, { status: 400 });
-    }
-
     const updated = await Database.updateSchoolSettings(school_id, {
-      role_permissions: permissions as RolePermissionMatrix
+      role_permissions: body.permissions as RolePermissionMatrix
     });
 
     return NextResponse.json({
       success: true,
       message: 'Role-Based Access Control permissions updated successfully',
-      permissions: updated?.role_permissions || permissions
+      permissions: updated?.role_permissions || body.permissions
     });
   } catch (err: any) {
+    console.error('[API_SCHOOL_PERMISSIONS_POST_ERROR]', err);
     return NextResponse.json({
       success: false,
-      error: err.message
+      error: 'Internal server error'
     }, { status: 500 });
   }
 }

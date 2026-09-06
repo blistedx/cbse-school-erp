@@ -2055,25 +2055,117 @@ export function DashboardFees({
         </div>
         
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E8F0EA] relative z-10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
           <div>
-            <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight flex items-center gap-2.5">
-              <Coins className="h-7 w-7 text-emerald-700 shrink-0" />
-              <span>Fee Hub &amp; Institutional Accounts</span>
-            </h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight flex items-center gap-2.5">
+                <Coins className="h-7 w-7 text-emerald-700 shrink-0" />
+                <span>Fee Hub &amp; Institutional Accounts</span>
+              </h1>
+              <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                Session {selectedSession || '2026-27'}
+              </span>
+            </div>
             <p className="text-xs text-[#2D5A4E] mt-1 font-mono">
               Daily student fee counter, month-wise collections, CBSE approved fee structure, and faculty payroll registers
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-              Session {selectedSession || '2026-27'}
-            </span>
+
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <button
+              onClick={handlePrintLedgerReport}
+              className="px-3.5 py-2 bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-full text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all"
+              title="Print Official CBSE Accounts Ledger (Letterhead PDF)"
+            >
+              <Printer className="w-3.5 h-3.5 text-[#1C443A]" />
+              <span>Print Ledger PDF</span>
+            </button>
+            <button
+              onClick={() => setShowIssueModal(true)}
+              className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 border-none cursor-pointer shadow-xs transition-all"
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Issue Fee Invoice</span>
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="px-3.5 py-2 bg-[#F8FAF9] hover:bg-slate-100 text-slate-700 border border-[#DCE8E0] rounded-full text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>CSV</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ─────────────────────────────────────────────────────────────
+            2. DASHBOARD KPI HERO BANNER (DEEP FOREST GREEN #122A24)
+            ───────────────────────────────────────────────────────────── */}
+        <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+          <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/70 relative z-10">
+            {/* Tile 1: Total Collections */}
+            <div className="sm:pr-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Total Fee Collections</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                ₹{totalPaid.toLocaleString()}
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300 mt-1 flex items-center gap-1.5">
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>{totalBilled > 0 ? Math.round((totalPaid / totalBilled) * 100) : 0}% Realized to Bank</span>
+              </div>
+            </div>
+
+            {/* Tile 2: Pending Receivables */}
+            <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+              <div className="flex items-center gap-2 text-rose-300">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-rose-200/90">Pending Receivables</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-rose-300 tracking-tight mt-2 font-sans">
+                ₹{totalDue.toLocaleString()}
+              </div>
+              <div className="text-[11px] font-mono text-rose-300/80 mt-1 flex items-center gap-1.5">
+                <span>Outstanding Dues Balance</span>
+              </div>
+            </div>
+
+            {/* Tile 3: Gross Institutional Billing */}
+            <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <CreditCard className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Total Gross Billed</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                ₹{totalBilled.toLocaleString()}
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300/70 mt-1 flex items-center gap-1.5">
+                <span>{invoices.length} Registered Fee Records</span>
+              </div>
+            </div>
+
+            {/* Tile 4: Active Scholars Coverage */}
+            <div className="pt-4 sm:pt-0 sm:pl-4 group select-none">
+              <div className="flex items-center gap-2 text-amber-300">
+                <Coins className="w-4 h-4 shrink-0 text-amber-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-amber-200/90">Student Coverage</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {students.length} <span className="text-xs font-mono text-slate-300 font-normal">Scholars</span>
+              </div>
+              <div className="text-[11px] font-mono text-amber-300 mt-1 flex items-center gap-1.5">
+                <BadgeCheck className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                <span>CBSE Verified Accounts Ledger</span>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* 6 Primary Navigation Buttons (Responsive Multi-Row Grid) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10">
           
           {/* Tab 1: Comprehensive Fees Report Engine */}
           <button
@@ -2160,45 +2252,6 @@ export function DashboardFees({
           </button>
 
         </div>
-
-        {/* Sub-Header Key Metrics Strip */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs font-mono">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-3 py-1 rounded-xl bg-[#F0FDF4] text-emerald-800 border border-[#BBF7D0] font-bold flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              Collected: ₹{totalPaid.toLocaleString()}
-            </span>
-            <span className="px-3 py-1 rounded-xl bg-rose-50 text-rose-800 border border-rose-200 font-bold flex items-center gap-1.5">
-              <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-              Pending: ₹{totalDue.toLocaleString()}
-            </span>
-            <span className="px-3 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200">
-              Total Billed: ₹{totalBilled.toLocaleString()}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePrintLedgerReport}
-              className="px-3.5 py-1.5 bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all"
-              title="Print Official CBSE Accounts Ledger (Letterhead PDF)"
-            >
-              <Printer className="w-3.5 h-3.5 text-[#1C443A]" /> Print Ledger PDF
-            </button>
-            <button
-              onClick={() => setShowIssueModal(true)}
-              className="px-3.5 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 border-none cursor-pointer shadow-2xs transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" /> Issue Fee Invoice
-            </button>
-            <button
-              onClick={handleExportCSV}
-              className="px-3 py-1.5 bg-[#F8FAF9] hover:bg-slate-100 text-slate-700 border border-[#DCE8E0] rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" /> CSV
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
@@ -2210,32 +2263,89 @@ export function DashboardFees({
             /* ─────────────────────────────────────────────────────────────
                STEP 1: PRE-REPORT SELECTION GATE (CHOOSE CLASS & SCOPE FIRST)
                ───────────────────────────────────────────────────────────── */
-            <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-sm p-6 sm:p-10 space-y-6 max-w-4xl mx-auto animate-fade-in">
+            <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-sm p-6 sm:p-10 space-y-7 max-w-4xl mx-auto animate-fade-in relative overflow-hidden">
+              {/* Subtle top ambient glow */}
+              <div className="absolute top-0 right-0 w-80 h-80 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#122A24]/5 via-transparent to-transparent pointer-events-none" />
+
               {/* Header */}
-              <div className="text-center space-y-2 pb-6 border-b border-[#E8F0EA]">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E6F4EA] text-[#0D652D] text-xs font-mono font-bold border border-[#CEEAD6]">
-                  <BarChart2 className="w-4 h-4 text-emerald-700" />
-                  CBSE Institutional Fees Report • Session {selectedSession || '2026-27'}
+              <div className="text-center space-y-2.5 pb-6 border-b border-[#E8F0EA] relative z-10">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#EBF5EF] text-[#1C443A] text-xs font-mono font-bold border border-[#C5E2CF]">
+                  <BarChart2 className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>CBSE Institutional Fees Report • Session {selectedSession || '2026-27'}</span>
                 </div>
-                <h2 className="font-display font-black text-2xl sm:text-3xl text-[#122A24] tracking-tight">
+                <h2 className="font-display font-extrabold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
                   Choose Class &amp; Fee Installment Scope
                 </h2>
-                <p className="text-xs sm:text-sm text-[#2D5A4E] max-w-xl mx-auto">
+                <p className="text-xs sm:text-sm text-[#2D5A4E] max-w-xl mx-auto leading-relaxed">
                   Select the class, section, and fee installment scheme to view exact dues, collected amounts, and pending balance reports.
                 </p>
+
+                {/* Quick Scope Presets */}
+                <div className="pt-2 flex items-center justify-center gap-2 flex-wrap text-xs">
+                  <span className="text-[11px] font-mono text-slate-400 uppercase font-semibold">Quick Presets:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReportClass('ALL');
+                      setReportSection('ALL');
+                      setReportPeriod('FULL_YEAR');
+                      setReportStatusFilter('ALL');
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                      reportClass === 'ALL' && reportPeriod === 'FULL_YEAR'
+                        ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
+                        : 'bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border-[#DCE8E0]'
+                    }`}
+                  >
+                    🌟 Whole School (All Cycles)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReportClass(uniqueClasses[0] || 'Playgroup');
+                      setReportSection('ALL');
+                      setReportPeriod('APRIL_ANNUAL');
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                      reportClass === uniqueClasses[0] && reportPeriod === 'APRIL_ANNUAL'
+                        ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
+                        : 'bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border-[#DCE8E0]'
+                    }`}
+                  >
+                    🎯 Playgroup Cycle 1
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReportStatusFilter('PENDING');
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                      reportStatusFilter === 'PENDING'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                        : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-200'
+                    }`}
+                  >
+                    ⚠️ Pending Defaulters Only
+                  </button>
+                </div>
               </div>
 
               {/* 3 Main Required Dropdown Selectors */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 relative z-10">
                 {/* 1. Class */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-mono font-bold uppercase tracking-wider text-[#122A24]">
-                    1. Select Class <span className="text-rose-500">*</span>:
-                  </label>
+                <div className="p-4 rounded-2xl bg-[#F8FAF9] border border-[#DCE8E0] space-y-2 hover:border-[#122A24]/40 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[#122A24]">
+                      <span className="w-5 h-5 rounded-full bg-[#122A24] text-white text-[11px] flex items-center justify-center font-sans font-bold">1</span>
+                      <span>Class</span>
+                      <span className="text-rose-500">*</span>
+                    </label>
+                    <GraduationCap className="w-4 h-4 text-emerald-700" />
+                  </div>
                   <select
                     value={reportClass}
                     onChange={(e) => setReportClass(e.target.value)}
-                    className="w-full px-3.5 py-3 bg-[#F8FAF9] border-2 border-[#DCE8E0] focus:border-emerald-600 rounded-2xl text-xs sm:text-sm font-bold text-[#122A24] cursor-pointer shadow-2xs focus:outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 bg-white border-2 border-[#DCE8E0] focus:border-[#122A24] rounded-xl text-xs sm:text-sm font-bold text-[#122A24] cursor-pointer shadow-2xs focus:outline-none transition-all"
                   >
                     <option value="ALL">All Classes (Whole School - {students.length} Scholars)</option>
                     {uniqueClasses.map(c => {
@@ -2248,14 +2358,18 @@ export function DashboardFees({
                 </div>
 
                 {/* 2. Section */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-mono font-bold uppercase tracking-wider text-[#122A24]">
-                    2. Select Section:
-                  </label>
+                <div className="p-4 rounded-2xl bg-[#F8FAF9] border border-[#DCE8E0] space-y-2 hover:border-[#122A24]/40 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[#122A24]">
+                      <span className="w-5 h-5 rounded-full bg-[#122A24] text-white text-[11px] flex items-center justify-center font-sans font-bold">2</span>
+                      <span>Section</span>
+                    </label>
+                    <Users className="w-4 h-4 text-emerald-700" />
+                  </div>
                   <select
                     value={reportSection}
                     onChange={(e) => setReportSection(e.target.value)}
-                    className="w-full px-3.5 py-3 bg-[#F8FAF9] border-2 border-[#DCE8E0] focus:border-emerald-600 rounded-2xl text-xs sm:text-sm font-bold text-[#122A24] cursor-pointer shadow-2xs focus:outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 bg-white border-2 border-[#DCE8E0] focus:border-[#122A24] rounded-xl text-xs sm:text-sm font-bold text-[#122A24] cursor-pointer shadow-2xs focus:outline-none transition-all"
                   >
                     <option value="ALL">All Sections</option>
                     <option value="A">Section A</option>
@@ -2265,14 +2379,18 @@ export function DashboardFees({
                 </div>
 
                 {/* 3. Fee Deposit Scheme */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-mono font-bold uppercase tracking-wider text-[#122A24]">
-                    3. Deposit Scheme / Month:
-                  </label>
+                <div className="p-4 rounded-2xl bg-[#F8FAF9] border border-[#DCE8E0] space-y-2 hover:border-[#122A24]/40 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider text-[#122A24]">
+                      <span className="w-5 h-5 rounded-full bg-[#122A24] text-white text-[11px] flex items-center justify-center font-sans font-bold">3</span>
+                      <span>Scheme</span>
+                    </label>
+                    <Calendar className="w-4 h-4 text-emerald-700" />
+                  </div>
                   <select
                     value={reportPeriod}
                     onChange={(e) => setReportPeriod(e.target.value)}
-                    className="w-full px-3.5 py-3 bg-[#F8FAF9] border-2 border-[#DCE8E0] focus:border-emerald-600 rounded-2xl text-xs sm:text-sm font-bold text-[#122A24] cursor-pointer shadow-2xs focus:outline-none transition-all"
+                    className="w-full px-3.5 py-2.5 bg-white border-2 border-[#DCE8E0] focus:border-[#122A24] rounded-xl text-xs sm:text-sm font-bold text-[#122A24] cursor-pointer shadow-2xs focus:outline-none transition-all"
                   >
                     <option value="APRIL_ANNUAL">Cycle 1: April + Annual Fee</option>
                     <option value="MAY_JUNE">Cycle 2: May + June</option>
@@ -2289,17 +2407,18 @@ export function DashboardFees({
               </div>
 
               {/* Optional Secondary Filters */}
-              <div className="p-4 rounded-2xl bg-[#F8FAF9] border border-[#E8F0EA] space-y-3">
-                <div className="text-xs font-mono font-bold uppercase tracking-wider text-slate-600">
-                  Optional Refinement Filters:
+              <div className="p-5 rounded-2xl bg-[#F4F8F5] border border-[#DCE8E0] space-y-3 relative z-10">
+                <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-[#122A24]">
+                  <Filter className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Optional Refinement Filters</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[11px] font-mono text-slate-500 mb-1">Filter by Specific Fee Head:</label>
+                    <label className="block text-[11px] font-mono text-[#2D5A4E] mb-1.5 font-semibold">Filter by Specific Fee Head:</label>
                     <select
                       value={reportHeadFilter}
                       onChange={(e) => setReportHeadFilter(e.target.value as any)}
-                      className="w-full px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none"
+                      className="w-full px-3.5 py-2.5 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none focus:border-[#122A24]"
                     >
                       <option value="ALL">All Fee Heads (Tuition, Transport, Annual &amp; Exam)</option>
                       <option value="TUITION">Tuition Fee Only</option>
@@ -2310,11 +2429,11 @@ export function DashboardFees({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono text-slate-500 mb-1">Filter by Payment Status:</label>
+                    <label className="block text-[11px] font-mono text-[#2D5A4E] mb-1.5 font-semibold">Filter by Payment Status:</label>
                     <select
                       value={reportStatusFilter}
                       onChange={(e) => setReportStatusFilter(e.target.value as any)}
-                      className="w-full px-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none"
+                      className="w-full px-3.5 py-2.5 bg-white border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] focus:outline-none focus:border-[#122A24]"
                     >
                       <option value="ALL">All Scholars (Paid + Partial + Pending)</option>
                       <option value="PENDING">Pending Dues Only (Defaulters List)</option>
@@ -2326,7 +2445,7 @@ export function DashboardFees({
               </div>
 
               {/* Big Action Submit Button */}
-              <div className="pt-2">
+              <div className="pt-2 relative z-10">
                 <button
                   type="button"
                   onClick={() => {
@@ -2334,7 +2453,7 @@ export function DashboardFees({
                     setSlipClass(reportClass !== 'ALL' ? reportClass : uniqueClasses[0] || 'Class 10');
                     notify(`Fees Report opened for ${reportClass} (${reportSection})!`);
                   }}
-                  className="w-full py-4 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-2xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-xl transition-all border-none"
+                  className="w-full py-4 bg-[#122A24] hover:bg-[#1C443A] active:scale-[0.99] text-white rounded-2xl text-sm font-bold flex items-center justify-center gap-2.5 cursor-pointer shadow-md hover:shadow-lg transition-all border-none"
                 >
                   <BarChart2 className="w-5 h-5 text-emerald-400" />
                   <span>Generate &amp; Open Fees Report ({scopedClassScholars.length} Scholars)</span>
@@ -2343,9 +2462,9 @@ export function DashboardFees({
               </div>
 
               {/* Quick Helper Tip */}
-              <div className="text-center text-[11px] font-mono text-slate-500 flex items-center justify-center gap-1.5">
-                <Info className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                <span>Selected: <strong>{reportClass} ({reportSection})</strong> • Installment: <strong>{getPeriodMeta(reportPeriod).label}</strong></span>
+              <div className="text-center text-xs font-mono text-[#2D5A4E] flex items-center justify-center gap-2 bg-[#EBF5EF] py-2.5 px-4 rounded-xl border border-[#C5E2CF] relative z-10">
+                <Info className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span>Selected Scope: <strong className="text-[#122A24]">{reportClass} ({reportSection})</strong> • Installment: <strong className="text-[#122A24]">{getPeriodMeta(reportPeriod).label}</strong></span>
               </div>
             </div>
           ) : (

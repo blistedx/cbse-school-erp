@@ -14,10 +14,14 @@
 import { NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
 
-// Server secret — MUST be set in .env as SESSION_SECRET for production.
-const SERVER_SECRET =
-  process.env.SESSION_SECRET ||
-  'giterp-dev-secret-change-in-production-2026';
+function getServerSecret(): string {
+  const secret = (process.env.SESSION_SECRET || '').replace(/^["']|["']$/g, '').trim();
+  if (secret) return secret;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('[FATAL SECURITY ERROR]: SESSION_SECRET environment variable must be set in production.');
+  }
+  return 'giterp-dev-secret-change-in-production-2026';
+}
 
 export interface TokenPayload {
   userId: string;
@@ -39,7 +43,9 @@ function fromB64url(str: string): string {
 }
 
 function sign(payload: string): string {
-  return createHmac('sha256', SERVER_SECRET).update(payload).digest('base64url');
+  return createHmac('sha256', getServerSecret())
+    .update(payload)
+    .digest('base64url');
 }
 
 /**
@@ -114,28 +120,17 @@ export function extractToken(req: Request): string | null {
 export function requireAuth(req: Request): TokenPayload | NextResponse {
   const token = extractToken(req);
   if (!token) {
-    // Gracefully handle unauthenticated/direct workspace access: default to active workspace context
-    const url = new URL(req.url);
-    const schoolId = url.searchParams.get('school_id') || url.searchParams.get('schoolId') || 'DPS2026';
-    return {
-      userId: 'admin',
-      schoolId,
-      role: 'PRINCIPAL',
-      iat: Date.now(),
-      exp: Date.now() + TOKEN_TTL_MS
-    };
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized: Authentication required. Please log in.' },
+      { status: 401 }
+    );
   }
   const payload = verifySessionToken(token);
   if (!payload) {
-    const url = new URL(req.url);
-    const schoolId = url.searchParams.get('school_id') || url.searchParams.get('schoolId') || 'DPS2026';
-    return {
-      userId: 'admin',
-      schoolId,
-      role: 'PRINCIPAL',
-      iat: Date.now(),
-      exp: Date.now() + TOKEN_TTL_MS
-    };
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized: Invalid or expired session token. Please log in again.' },
+      { status: 401 }
+    );
   }
   return payload;
 }
@@ -149,10 +144,10 @@ export function requireRole(
 ): TokenPayload | NextResponse {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  const userRole = (auth.role || 'PRINCIPAL').toUpperCase();
+  const userRole = (auth.role || '').toUpperCase();
   const normalizedAllowed = allowedRoles.map(r => r.toUpperCase());
   
-  if (!normalizedAllowed.includes(userRole) && !normalizedAllowed.includes('ADMIN') && userRole !== 'PRINCIPAL' && userRole !== 'AGENCY_SUPERADMIN') {
+  if (!normalizedAllowed.includes(userRole) && userRole !== 'AGENCY_SUPERADMIN') {
     return NextResponse.json(
       {
         success: false,
@@ -168,3 +163,39 @@ export const ADMIN_ROLES = ['PRINCIPAL', 'ADMIN', 'AGENCY_SUPERADMIN'];
 export const AGENCY_ONLY = ['AGENCY_SUPERADMIN'];
 export const STAFF_ROLES = ['PRINCIPAL', 'ADMIN', 'AGENCY_SUPERADMIN', 'TEACHER', 'FACULTY'];
 export const ALL_ROLES = ['PRINCIPAL', 'AGENCY_SUPERADMIN', 'TEACHER', 'STUDENT', 'PARENT'];
+
+/**
+ * Resolves and enforces the tenant schoolId for a request.
+ * For non-superadmin users, if the client requests another school, returns 403 Forbidden.
+ * Returns the verified schoolId string or a 403 NextResponse.
+ */
+export function resolveTenantSchoolId(
+  auth: TokenPayload,
+  requestedSchoolId?: string | null
+): string | NextResponse {
+  const isSuperadmin = (auth.role || '').toUpperCase() === 'AGENCY_SUPERADMIN';
+  const userSchoolId = (auth.schoolId || '').trim();
+
+  if (isSuperadmin) {
+    return (requestedSchoolId || userSchoolId || 'DPS2026').trim();
+  }
+
+  if (!userSchoolId) {
+    return NextResponse.json(
+      { success: false, error: 'Forbidden: No school tenant associated with your account.' },
+      { status: 403 }
+    );
+  }
+
+  if (requestedSchoolId && requestedSchoolId.trim() !== userSchoolId) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Forbidden: You do not have permission to access or modify records for another school tenant.'
+      },
+      { status: 403 }
+    );
+  }
+
+  return userSchoolId;
+}

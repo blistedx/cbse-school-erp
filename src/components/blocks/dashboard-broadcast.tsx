@@ -350,32 +350,106 @@ export function DashboardBroadcast({ schoolName = 'DPS International — CBSE', 
         </div>
       )}
 
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs relative overflow-hidden">
+      {/* ─────────────────────────────────────────────────────────────
+          1. HEADER & HERO BANNER (MATCHING DASHBOARD UI SYSTEM)
+          ───────────────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-6 relative overflow-hidden">
+        {/* Background Watermark Behind Header Text */}
         <div 
           aria-hidden="true" 
-          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] text-7xl sm:text-9xl leading-none z-0 tracking-tight"
+          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
         >
           BROADCAST
         </div>
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-[#EBF5EF] text-[#122A24] flex items-center justify-center font-bold shadow-2xs">
-            <Radio className="w-6 h-6 text-emerald-700" />
-          </div>
+
+        {/* Top Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
           <div>
-            <h2 className="font-display font-bold text-lg text-[#122A24]">
-              School-Wide Emergency Broadcast &amp; Web Push Engine
-            </h2>
-            <p className="text-xs text-[#2D5A4E] font-mono">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight flex items-center gap-2.5">
+                <Radio className="h-7 w-7 text-emerald-700 shrink-0" />
+                <span>School-Wide Emergency Broadcast &amp; Web Push Engine</span>
+              </h1>
+              <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                Instant Alerts
+              </span>
+            </div>
+            <p className="text-xs text-[#2D5A4E] mt-1 font-mono">
               Dispatch real-time OS push notifications, siren alarms and SMS alerts to families &amp; staff
             </p>
           </div>
+
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <span className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-[#F4F8F5] text-[#122A24] border border-[#DCE8E0]">
+              {subscriberCount} Active Subscribed Devices
+            </span>
+          </div>
         </div>
 
-        <div className="relative z-10 flex items-center gap-2 shrink-0">
-          <span className="px-3 py-1 rounded-xl text-xs font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-            {subscriberCount} Active Subscribed Devices
-          </span>
+        {/* ─────────────────────────────────────────────────────────────
+            2. DASHBOARD KPI HERO BANNER (DEEP FOREST GREEN #122A24)
+            ───────────────────────────────────────────────────────────── */}
+        <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+          <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/70 relative z-10">
+            {/* Tile 1: Registered Devices */}
+            <div className="sm:pr-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <Smartphone className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Subscribed Devices</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {subscriberCount} <span className="text-xs font-mono text-emerald-300/70 font-normal">Active Handsets</span>
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300 mt-1 flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>W3C Push API VAPID Certified</span>
+              </div>
+            </div>
+
+            {/* Tile 2: Emergency Alert Siren */}
+            <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+              <div className="flex items-center gap-2 text-rose-300">
+                <Volume2 className="w-4 h-4 shrink-0 text-rose-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-rose-200/90">Emergency Siren</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-rose-300 tracking-tight mt-2 font-sans">
+                Audio Armed
+              </div>
+              <div className="text-[11px] font-mono text-rose-300/80 mt-1 flex items-center gap-1.5">
+                <span>Campus Weather &amp; Lockdown Alerts</span>
+              </div>
+            </div>
+
+            {/* Tile 3: Audience Channels */}
+            <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <Users className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Audience Segmentation</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                4 Channels
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300/70 mt-1 flex items-center gap-1.5">
+                <span>All, Parents, Faculty, Transport</span>
+              </div>
+            </div>
+
+            {/* Tile 4: Service Health */}
+            <div className="pt-4 sm:pt-0 sm:pl-4 group select-none">
+              <div className="flex items-center gap-2 text-amber-300">
+                <Bell className="w-4 h-4 shrink-0 text-amber-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-amber-200/90">Notification Relay</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                Real-Time
+              </div>
+              <div className="text-[11px] font-mono text-amber-300 mt-1 flex items-center gap-1.5">
+                <span>Zero Latency Web Dispatch</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

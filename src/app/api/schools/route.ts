@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
 import { extractToken, verifySessionToken, requireRole, AGENCY_ONLY } from '@/lib/auth-guard';
+import { validateBody, createSchoolSchema } from '@/lib/validation-schemas';
 
 export async function GET(req: Request) {
   try {
@@ -18,7 +19,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, schools });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[API_SCHOOLS_GET_ERROR]', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -26,14 +28,19 @@ export async function POST(req: Request) {
   try {
     const auth = requireRole(req, AGENCY_ONLY);
     if (auth instanceof NextResponse) return auth;
-    const body = await req.json();
-    const school = await Database.createSchool(body);
+
+    const rawBody = await req.json();
+    const validation = validateBody(createSchoolSchema, rawBody);
+    if (!validation.success) return validation.response;
+
+    const school = await Database.createSchool(validation.data);
     return NextResponse.json({
       success: true,
       message: `School "${school.school_name}" [${school.school_code}] created successfully!`,
       school
     });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    console.error('[API_SCHOOLS_POST_ERROR]', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -1,8 +1,8 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import fs from 'fs';
 import path from 'path';
-import { getDatabase, isMongoConfigured } from './mongodb';
-import { saveMediaVaultFile } from './media';
+import { getDatabase, isMongoConfigured, sanitizeDocNoBinary } from './mongodb';
+import { saveMediaVaultFile, deleteMediaVaultFile } from './media';
 import {
   School,
   DemoRequest,
@@ -21,6 +21,21 @@ import {
   resolveTeacherRole
 } from './types';
 import { getDefaultCbseSubjectsForClass, sortClassesChronologically } from './cbse-subjects';
+import bcrypt from 'bcryptjs';
+
+export async function hashPassword(plainText: string): Promise<string> {
+  if (!plainText) return '';
+  if (plainText.startsWith('$2a$') || plainText.startsWith('$2b$')) return plainText;
+  return bcrypt.hash(plainText, 10);
+}
+
+export async function verifyPassword(plainText: string, hashOrPlain?: string): Promise<boolean> {
+  if (!plainText || !hashOrPlain) return false;
+  if (hashOrPlain.startsWith('$2a$') || hashOrPlain.startsWith('$2b$')) {
+    return bcrypt.compare(plainText, hashOrPlain);
+  }
+  return plainText === hashOrPlain;
+}
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 if (!fs.existsSync(DATA_DIR)) {
@@ -215,9 +230,6 @@ async function ensureIndexes() {
 function sanitizeDoc<T>(doc: any): T {
   if (!doc) return doc;
   const { _id, ...rest } = doc;
-  if ((rest as any).admin_pin === 'admin@4317') {
-    (rest as any).admin_pin = '123456';
-  }
   return rest as T;
 }
 
@@ -317,7 +329,7 @@ export const Database = {
     }
 
     const assignedAdminId = (adminId || '').trim() || 'admin';
-    const assignedAdminPin = (adminPin || '').trim() || '123456';
+    const assignedAdminPin = (adminPin || '').trim();
 
     const school = await this.createSchool({
       school_code: schoolCode,
@@ -448,6 +460,7 @@ export const Database = {
       throw new Error('School Code and School Name are required.');
     }
 
+    const adminPinHashed = schoolData.admin_pin ? await hashPassword(schoolData.admin_pin.trim()) : '';
     const school: School = {
       id,
       school_code: code,
@@ -458,7 +471,7 @@ export const Database = {
       principal_name: schoolData.principal_name || 'Principal',
       admin_id: schoolData.admin_id || 'admin',
       admin_name: schoolData.admin_name || schoolData.principal_name || 'Administrator',
-      admin_pin: schoolData.admin_pin || '123456',
+      admin_pin: adminPinHashed,
       status: schoolData.status || 'ACTIVE',
       created_at: new Date().toISOString()
     };
@@ -468,7 +481,7 @@ export const Database = {
       if (db) {
         await db.collection('schools').updateOne(
           { school_code: code },
-          { $set: { ...school } },
+          { $set: sanitizeDocNoBinary({ ...school }) },
           { upsert: true }
         );
       }
@@ -494,13 +507,30 @@ export const Database = {
     const cleanedUpdates: any = {};
     for (const [k, v] of Object.entries(updates)) {
       if (v !== undefined && v !== null && String(v).trim() !== '') {
-        if (k === 'admin_pin' && v === 'admin@4317') {
-          // Keep existing school pin or default
-          cleanedUpdates[k] = school.admin_pin || '123456';
+        if (k === 'admin_pin') {
+          const pinStr = String(v).trim();
+          if (pinStr) {
+            cleanedUpdates[k] = await hashPassword(pinStr);
+          }
         } else {
           cleanedUpdates[k] = v;
         }
       }
+    }
+
+    // Offload Base64 school logo to Vercel Blob (ZERO binary in MongoDB)
+    if (cleanedUpdates.logo && typeof cleanedUpdates.logo === 'string' && cleanedUpdates.logo.startsWith('data:')) {
+      const mediaId = `MEDIA-SCH-${school.id || schoolId}`;
+      saveMediaVaultFile({
+        id: mediaId,
+        school_id: school.id || schoolId,
+        entity_type: 'SCHOOL_LOGO',
+        entity_id: school.id || schoolId,
+        filename: `${school.school_code || schoolId}-logo.png`,
+        data: cleanedUpdates.logo
+      }).catch(console.error);
+      cleanedUpdates.logo = `/api/media/${mediaId}`;
+      cleanedUpdates.logo_url = `/api/media/${mediaId}`;
     }
 
     const updated: School = {
@@ -513,7 +543,7 @@ export const Database = {
       if (db) {
         await db.collection('schools').updateOne(
           { $or: [{ id: school.id }, { school_code: school.school_code }] },
-          { $set: cleanedUpdates }
+          { $set: sanitizeDocNoBinary(cleanedUpdates) }
         );
       }
     } catch (e: any) {
@@ -670,8 +700,13 @@ export const Database = {
     const roleUpper = (requestedRole || '').trim().toUpperCase();
 
     // 0. AGENCY SUPERADMIN AUTHENTICATION
-    const agencyPass = process.env.AGENCY_ADMIN_PASS || 'admin@4317';
-    if (uname === 'BLISTEDX' && pwd === agencyPass) {
+    const agencyPass = process.env.AGENCY_ADMIN_PASS || process.env.AGENCY_ADMIN_PASSWORD;
+    if (!agencyPass) {
+      console.error('[SECURITY FATAL]: AGENCY_ADMIN_PASSWORD environment variable is missing. Authentication rejected.');
+      return null;
+    }
+    const isAgencyMatch = await verifyPassword(pwd, agencyPass);
+    if (uname === 'BLISTEDX' && isAgencyMatch) {
       const allSchools = await this.getSchools();
       let targetSchool = schoolCode ? await this.getSchoolByCode(schoolCode) : null;
       if (!targetSchool && allSchools.length > 0) {
@@ -730,23 +765,25 @@ export const Database = {
       uname === 'PRINCIPAL' ||
       uname === 'SUPERADMIN';
 
-    const validAdminPins = ['123456', 'admin@4317', expectedPin].filter(Boolean);
-    const isPrimaryAdminPassword = validAdminPins.includes(pwd);
+    if (isPrimaryAdminUsername) {
+      if (!expectedPin) return null; // Fail-safe: Cannot log in until PIN is explicitly configured
+      const isPrimaryAdminPassword = await verifyPassword(pwd, expectedPin);
 
-    if (isPrimaryAdminUsername && isPrimaryAdminPassword) {
-      return {
-        user: {
-          id: school.admin_id || 'admin',
-          school_id: school.id,
-          username: username || school.admin_id || 'admin',
-          role: 'PRINCIPAL' as const,
-          full_name: school.admin_name || school.principal_name || 'School Administrator',
-          email: `admin@${school.school_code.toLowerCase()}.edu`,
-          status: 'ACTIVE',
-          permissions: ['ALL_PERMISSIONS', 'SCHOOL_ADMIN', 'MODIFY_ANY', 'DELETE_ANY', 'CREATE_ANY']
-        },
-        school
-      };
+      if (isPrimaryAdminPassword) {
+        return {
+          user: {
+            id: school.admin_id || 'admin',
+            school_id: school.id,
+            username: username || school.admin_id || 'admin',
+            role: 'PRINCIPAL' as const,
+            full_name: school.admin_name || school.principal_name || 'School Administrator',
+            email: `admin@${school.school_code.toLowerCase()}.edu`,
+            status: 'ACTIVE',
+            permissions: ['ALL_PERMISSIONS', 'SCHOOL_ADMIN', 'MODIFY_ANY', 'DELETE_ANY', 'CREATE_ANY']
+          },
+          school
+        };
+      }
     }
 
     // 2. Check Faculty & Staff Directory (Teachers & Administrative Staff)
@@ -760,10 +797,10 @@ export const Database = {
 
     if (matchedTeacher) {
       const teacherPasscode = (matchedTeacher.passcode || '').trim();
-      const validTeacherPasswords = [teacherPasscode].filter(Boolean);
-      if (validTeacherPasswords.length === 0) validTeacherPasswords.push('123456');
+      if (!teacherPasscode) return null; // Fail-safe: No passcode configured
 
-      if (validTeacherPasswords.includes(pwd)) {
+      const isTeacherMatch = await verifyPassword(pwd, teacherPasscode);
+      if (isTeacherMatch) {
         const desig = (matchedTeacher.designation || '').toLowerCase();
         const dept = (matchedTeacher.department || '').toLowerCase();
 
@@ -806,11 +843,10 @@ export const Database = {
 
     if (matchedStudent) {
       const studentPasscode = (matchedStudent.passcode || '').trim();
-      const cleanDob = (matchedStudent.dob || '').replace(/[^0-9]/g, '');
-      const validStudentPasswords = [studentPasscode, cleanDob].filter(Boolean);
-      if (validStudentPasswords.length === 0) validStudentPasswords.push('123456');
+      if (!studentPasscode) return null; // Fail-safe: No passcode configured
 
-      if (validStudentPasswords.includes(pwd)) {
+      const isStudentMatch = await verifyPassword(pwd, studentPasscode);
+      if (isStudentMatch) {
         const isParentRole = roleUpper === 'PARENT' || roleUpper === 'PARENTS';
 
         return {
@@ -824,158 +860,6 @@ export const Database = {
               : matchedStudent.full_name,
             email: `${matchedStudent.admission_no.toLowerCase()}@${school.school_code.toLowerCase()}.edu`,
             status: matchedStudent.status || 'ACTIVE'
-          },
-          school
-        };
-      }
-    }
-
-    // 4. Role ID Fallback Login (Driver, Librarian, Security, Accountant, Teacher, Student, Parent)
-    const validDefaultPins = ['123456', 'admin@4317', expectedPin].filter(Boolean);
-    const isStandardPin = validDefaultPins.includes(pwd);
-
-    // Driver Login (DRV01, DRV-01, DRIVER, BUS-01, BUS-04, etc.)
-    const isDriverUname =
-      cleanUname === 'DRV01' ||
-      cleanUname === 'DRV1' ||
-      cleanUname === 'DRV' ||
-      cleanUname === 'DRIVER' ||
-      cleanUname === 'DRIVER01' ||
-      cleanUname === 'DRIVER1' ||
-      cleanUname === 'BUS01' ||
-      cleanUname === 'BUS1' ||
-      cleanUname === 'BUS04' ||
-      cleanUname === 'BUS4' ||
-      cleanUname.startsWith('DRV') ||
-      cleanUname.startsWith('DRIVER') ||
-      roleUpper === 'DRIVER';
-
-    const isDriverPwd =
-      isStandardPin ||
-      cleanPwd === 'driver' ||
-      cleanPwd === 'driver123' ||
-      cleanPwd === 'drv01' ||
-      cleanPwd === 'drv1' ||
-      cleanPwd === '1234' ||
-      cleanPwd === cleanUname.toLowerCase();
-
-    if (isDriverUname && isDriverPwd) {
-      return {
-        user: {
-          id: 'DRV-01',
-          school_id: school.id,
-          username: username || 'DRV01',
-          role: 'DRIVER' as const,
-          full_name: 'Ramesh Yadav (Bus 01 Driver)',
-          email: `transport@${school.school_code.toLowerCase()}.edu`,
-          phone: '+91 98765-43210',
-          vehicle_no: 'UP-32-AB-9876',
-          bus_no: 'BUS-01',
-          route_id: 'ROUTE-LKO-01',
-          route_name: 'Rajajipuram to Chowk Express',
-          license_no: 'DL-04201809283',
-          status: 'ACTIVE'
-        },
-        school
-      };
-    }
-
-    if (cleanUname === 'ACCOUNTANT' || cleanUname === 'ACC01' || cleanUname === 'ACC1' || roleUpper === 'ACCOUNTANT') {
-      if (isStandardPin || cleanPwd === 'accountant') {
-        return {
-          user: {
-            id: 'ACC-01',
-            school_id: school.id,
-            username: username || 'ACC-01',
-            role: 'ACCOUNTANT' as const,
-            full_name: 'Senior Accounts Officer',
-            email: `accounts@${school.school_code.toLowerCase()}.edu`,
-            status: 'ACTIVE'
-          },
-          school
-        };
-      }
-    }
-
-    if (cleanUname === 'LIBRARIAN' || cleanUname === 'LIB01' || cleanUname === 'LIB1' || roleUpper === 'LIBRARIAN') {
-      if (isStandardPin || cleanPwd === 'librarian') {
-        return {
-          user: {
-            id: 'LIB-01',
-            school_id: school.id,
-            username: username || 'LIB-01',
-            role: 'LIBRARIAN' as const,
-            full_name: 'Head Librarian',
-            email: `library@${school.school_code.toLowerCase()}.edu`,
-            status: 'ACTIVE'
-          },
-          school
-        };
-      }
-    }
-
-    if (cleanUname === 'SECURITY' || cleanUname === 'SEC01' || cleanUname === 'SEC1' || cleanUname === 'GUARD' || roleUpper === 'SECURITY' || roleUpper === 'SECURITY_GUARD') {
-      if (isStandardPin || cleanPwd === 'security' || cleanPwd === 'guard') {
-        return {
-          user: {
-            id: 'SEC-01',
-            school_id: school.id,
-            username: username || 'SEC-01',
-            role: 'SECURITY_GUARD' as const,
-            full_name: 'Main Gate Security Officer',
-            email: `security@${school.school_code.toLowerCase()}.edu`,
-            status: 'ACTIVE'
-          },
-          school
-        };
-      }
-    }
-
-    if (cleanUname === 'TEACHER' || cleanUname === 'FAC101' || roleUpper === 'TEACHER') {
-      if (isStandardPin || cleanPwd === 'teacher') {
-        return {
-          user: {
-            id: 'FAC-101',
-            school_id: school.id,
-            username: username || 'FAC-101',
-            role: 'TEACHER' as const,
-            full_name: 'Senior Faculty Teacher',
-            email: `faculty@${school.school_code.toLowerCase()}.edu`,
-            status: 'ACTIVE'
-          },
-          school
-        };
-      }
-    }
-
-    if (cleanUname === 'PARENT' || roleUpper === 'PARENT') {
-      if (isStandardPin || cleanPwd === 'parent') {
-        return {
-          user: {
-            id: 'PAR-DEMO',
-            school_id: school.id,
-            username: username || 'PARENT',
-            role: 'PARENT' as const,
-            full_name: 'Parent / Guardian',
-            email: `parent@${school.school_code.toLowerCase()}.edu`,
-            status: 'ACTIVE'
-          },
-          school
-        };
-      }
-    }
-
-    if (cleanUname === 'STUDENT' || roleUpper === 'STUDENT') {
-      if (isStandardPin || cleanPwd === 'student') {
-        return {
-          user: {
-            id: 'STU-DEMO',
-            school_id: school.id,
-            username: username || 'STUDENT',
-            role: 'STUDENT' as const,
-            full_name: 'Scholar Student',
-            email: `student@${school.school_code.toLowerCase()}.edu`,
-            status: 'ACTIVE'
           },
           school
         };
@@ -1041,6 +925,7 @@ export const Database = {
     await ensureIndexes();
     const id = studentData.id || `STU-${Date.now()}`;
     const academic_session = studentData.academic_session || '2026-27';
+    const studentPasscodeHashed = studentData.passcode ? await hashPassword(studentData.passcode.trim()) : '';
     const student: Student = {
       id,
       school_id: studentData.school_id || '',
@@ -1056,14 +941,17 @@ export const Database = {
       fee_status: studentData.fee_status || 'PENDING',
       attendance_percent: studentData.attendance_percent || 100,
       status: 'ACTIVE',
-      passcode: studentData.passcode || '123456',
+      passcode: studentPasscodeHashed,
       created_at: new Date().toISOString(),
       ...studentData
     };
+    student.passcode = studentPasscodeHashed || student.passcode;
     student.academic_session = academic_session;
 
-    // Offload heavy Base64 image to Local Media Vault
-    if (student.photo && student.photo.startsWith('data:')) {
+    // Offload heavy Base64 image to Vercel Blob (ZERO binary in MongoDB)
+    const rawStudentImg = (student.photo && student.photo.startsWith('data:')) ? student.photo :
+      ((student.avatar && student.avatar.startsWith('data:')) ? student.avatar : null);
+    if (rawStudentImg) {
       const mediaId = `MEDIA-STU-${student.id}`;
       saveMediaVaultFile({
         id: mediaId,
@@ -1071,7 +959,7 @@ export const Database = {
         entity_type: 'STUDENT_PHOTO',
         entity_id: student.id,
         filename: `${student.admission_no || student.id}.jpg`,
-        data: student.photo
+        data: rawStudentImg
       }).catch(console.error);
       student.avatar = `/api/media/${mediaId}`;
       student.photo = `/api/media/${mediaId}`;
@@ -1080,7 +968,7 @@ export const Database = {
     try {
       const db = await getDatabase();
       if (db) {
-        await db.collection('students').insertOne({ ...student });
+        await db.collection('students').insertOne(sanitizeDocNoBinary({ ...student }));
       }
     } catch (e) {}
 
@@ -1093,14 +981,19 @@ export const Database = {
 
   async updateStudent(studentId: string, updates: Partial<Student>): Promise<Student | null> {
     const sanitizedUpdates = { ...updates };
-    if (sanitizedUpdates.photo && sanitizedUpdates.photo.startsWith('data:')) {
+    if (sanitizedUpdates.passcode) {
+      sanitizedUpdates.passcode = await hashPassword(sanitizedUpdates.passcode.trim());
+    }
+    const rawUpdateImg = (sanitizedUpdates.photo && sanitizedUpdates.photo.startsWith('data:')) ? sanitizedUpdates.photo :
+      ((sanitizedUpdates.avatar && sanitizedUpdates.avatar.startsWith('data:')) ? sanitizedUpdates.avatar : null);
+    if (rawUpdateImg) {
       const mediaId = `MEDIA-STU-${studentId}`;
       saveMediaVaultFile({
         id: mediaId,
         school_id: sanitizedUpdates.school_id || 'DPS2026',
         entity_type: 'STUDENT_PHOTO',
         entity_id: studentId,
-        data: sanitizedUpdates.photo
+        data: rawUpdateImg
       }).catch(console.error);
       sanitizedUpdates.avatar = `/api/media/${mediaId}`;
       sanitizedUpdates.photo = `/api/media/${mediaId}`;
@@ -1111,7 +1004,7 @@ export const Database = {
       if (db) {
         await db.collection('students').updateOne(
           { $or: [{ id: studentId }, { admission_no: studentId }] },
-          { $set: sanitizedUpdates }
+          { $set: sanitizeDocNoBinary(sanitizedUpdates) }
         );
       }
     } catch (e) {}
@@ -1132,6 +1025,15 @@ export const Database = {
   },
 
   async deleteStudent(studentId: string): Promise<boolean> {
+    // Clean up associated Vercel Blob file if present to prevent orphaned blobs
+    const student = memoryStore.students.find(s => s.id === studentId || s.admission_no === studentId);
+    if (student?.photo) {
+      deleteMediaVaultFile(student.photo).catch(console.error);
+    }
+    if (student?.avatar && student.avatar !== student.photo) {
+      deleteMediaVaultFile(student.avatar).catch(console.error);
+    }
+
     try {
       const db = await getDatabase();
       if (db) {
@@ -1315,6 +1217,7 @@ export const Database = {
     await ensureIndexes();
     const id = teacherData.id || `TCH-${Date.now()}`;
     const academic_session = teacherData.academic_session || '2026-27';
+    const teacherPasscodeHashed = teacherData.passcode ? await hashPassword(teacherData.passcode.trim()) : '';
     const teacher: Teacher = {
       id,
       school_id: teacherData.school_id || '',
@@ -1328,14 +1231,17 @@ export const Database = {
       phone: teacherData.phone || '',
       email: teacherData.email || '',
       status: 'ACTIVE',
-      passcode: teacherData.passcode || '123456',
+      passcode: teacherPasscodeHashed,
       ...teacherData
     };
+    teacher.passcode = teacherPasscodeHashed || teacher.passcode;
     teacher.academic_session = academic_session;
     teacher.role = teacher.role || resolveTeacherRole(teacher);
 
-    // Offload heavy Base64 image to Local Media Vault
-    if (teacher.photo && teacher.photo.startsWith('data:')) {
+    // Offload heavy Base64 image to Vercel Blob (ZERO binary in MongoDB)
+    const rawTeacherImg = (teacher.photo && teacher.photo.startsWith('data:')) ? teacher.photo :
+      ((teacher.avatar && teacher.avatar.startsWith('data:')) ? teacher.avatar : null);
+    if (rawTeacherImg) {
       const mediaId = `MEDIA-TCH-${teacher.id}`;
       saveMediaVaultFile({
         id: mediaId,
@@ -1343,7 +1249,7 @@ export const Database = {
         entity_type: 'TEACHER_PHOTO',
         entity_id: teacher.id,
         filename: `${teacher.staff_code || teacher.id}.jpg`,
-        data: teacher.photo
+        data: rawTeacherImg
       }).catch(console.error);
       teacher.avatar = `/api/media/${mediaId}`;
       teacher.photo = `/api/media/${mediaId}`;
@@ -1352,7 +1258,7 @@ export const Database = {
     try {
       const db = await getDatabase();
       if (db) {
-        await db.collection('teachers').insertOne({ ...teacher });
+        await db.collection('teachers').insertOne(sanitizeDocNoBinary({ ...teacher }));
       }
     } catch (e) {}
 
@@ -1365,14 +1271,19 @@ export const Database = {
 
   async updateTeacher(teacherId: string, updates: Partial<Teacher>): Promise<Teacher | null> {
     const sanitizedUpdates = { ...updates };
-    if (sanitizedUpdates.photo && sanitizedUpdates.photo.startsWith('data:')) {
+    if (sanitizedUpdates.passcode) {
+      sanitizedUpdates.passcode = await hashPassword(sanitizedUpdates.passcode.trim());
+    }
+    const rawTeacherUpdateImg = (sanitizedUpdates.photo && sanitizedUpdates.photo.startsWith('data:')) ? sanitizedUpdates.photo :
+      ((sanitizedUpdates.avatar && sanitizedUpdates.avatar.startsWith('data:')) ? sanitizedUpdates.avatar : null);
+    if (rawTeacherUpdateImg) {
       const mediaId = `MEDIA-TCH-${teacherId}`;
       saveMediaVaultFile({
         id: mediaId,
         school_id: sanitizedUpdates.school_id || 'DPS2026',
         entity_type: 'TEACHER_PHOTO',
         entity_id: teacherId,
-        data: sanitizedUpdates.photo
+        data: rawTeacherUpdateImg
       }).catch(console.error);
       sanitizedUpdates.avatar = `/api/media/${mediaId}`;
       sanitizedUpdates.photo = `/api/media/${mediaId}`;
@@ -1383,7 +1294,7 @@ export const Database = {
       if (db) {
         await db.collection('teachers').updateOne(
           { $or: [{ id: teacherId }, { staff_code: teacherId }] },
-          { $set: sanitizedUpdates }
+          { $set: sanitizeDocNoBinary(sanitizedUpdates) }
         );
       }
     } catch (e) {}
@@ -1404,6 +1315,15 @@ export const Database = {
   },
 
   async deleteTeacher(teacherId: string): Promise<boolean> {
+    // Clean up associated Vercel Blob file if present to prevent orphaned blobs
+    const teacher = memoryStore.teachers.find(t => t.id === teacherId || t.staff_code === teacherId);
+    if (teacher?.photo) {
+      deleteMediaVaultFile(teacher.photo).catch(console.error);
+    }
+    if (teacher?.avatar && teacher.avatar !== teacher.photo) {
+      deleteMediaVaultFile(teacher.avatar).catch(console.error);
+    }
+
     try {
       const db = await getDatabase();
       if (db) {

@@ -1,14 +1,18 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
-import { requireAuth, requireRole, ADMIN_ROLES } from '@/lib/auth-guard';
+import { requireAuth, requireRole, ADMIN_ROLES, resolveTenantSchoolId } from '@/lib/auth-guard';
+import { validateBody, createNoticeSchema } from '@/lib/validation-schemas';
 
 export async function GET(req: Request) {
   try {
     const auth = requireAuth(req);
     if (auth instanceof NextResponse) return auth;
     const { searchParams } = new URL(req.url);
-    const school_id = searchParams.get('school_id') || searchParams.get('schoolId') || undefined;
+    const requestedSchoolId = searchParams.get('school_id') || searchParams.get('schoolId') || undefined;
+    const school_id = resolveTenantSchoolId(auth, requestedSchoolId);
+    if (school_id instanceof NextResponse) return school_id;
+
     const session = searchParams.get('session') || searchParams.get('academic_session') || undefined;
     let notices = await Database.getNotices(school_id, session);
     if (auth.role === 'STUDENT') {
@@ -19,7 +23,8 @@ export async function GET(req: Request) {
     }
     return NextResponse.json({ success: true, count: notices.length, notices });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[API_NOTICES_GET_ERROR]', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -27,24 +32,30 @@ export async function POST(req: Request) {
   try {
     const auth = requireRole(req, ADMIN_ROLES);
     if (auth instanceof NextResponse) return auth;
-    const body = await req.json();
-    const { school_id, title, content, target_audience, posted_by } = body;
+    const rawBody = await req.json();
 
-    if (!school_id || !title || !content) {
-      return NextResponse.json({ success: false, error: 'School ID, Title, and Content are required' }, { status: 400 });
+    const validation = validateBody(createNoticeSchema, rawBody);
+    if (!validation.success) return validation.response;
+    const body = validation.data;
+
+    const school_id = resolveTenantSchoolId(auth, body.school_id);
+    if (school_id instanceof NextResponse) return school_id;
+    if (!school_id) {
+      return NextResponse.json({ success: false, error: 'School ID is required' }, { status: 400 });
     }
 
     const notice = await Database.createNotice({
       school_id,
-      title,
-      content,
-      target_audience: target_audience || 'ALL',
-      posted_by: posted_by || 'Principal Office'
+      title: body.title,
+      content: body.content,
+      target_audience: body.target_audience || body.audience || 'ALL',
+      posted_by: body.posted_by || body.author || 'Principal Office'
     });
 
     return NextResponse.json({ success: true, notice });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[API_NOTICES_POST_ERROR]', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -59,6 +70,7 @@ export async function DELETE(req: Request) {
     const deleted = await Database.deleteNotice(id);
     return NextResponse.json({ success: deleted });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('[API_NOTICES_DELETE_ERROR]', error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

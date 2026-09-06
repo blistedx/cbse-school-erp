@@ -1229,6 +1229,14 @@ export function DashboardTransport({
           ───────────────────────────────────────────────────────────── */}
       {!isDriverUser && (
         <div className="bg-[#122A24] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-white/10 relative overflow-hidden">
+          {/* Background Watermark Behind Header Text */}
+          <div 
+            aria-hidden="true" 
+            className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-white/[0.08] sm:text-white/[0.12] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+          >
+            TRANSPORT
+          </div>
+
           {/* Subtle grid watermark */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-600/20 via-transparent to-transparent opacity-60 pointer-events-none" />
           

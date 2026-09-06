@@ -876,8 +876,74 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
           </div>
         </div>
 
+        {/* ─────────────────────────────────────────────────────────────
+            2. DASHBOARD KPI HERO BANNER (DEEP FOREST GREEN #122A24)
+            ───────────────────────────────────────────────────────────── */}
+        <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+          <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/70 relative z-10">
+            {/* Tile 1: Student IDs */}
+            <div className="sm:pr-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <IdCard className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Smart Student Photo IDs</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {students.length} <span className="text-xs font-mono text-emerald-300/70 font-normal">Active</span>
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300 mt-1 flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>Vertical Portrait with QR Barcode</span>
+              </div>
+            </div>
+
+            {/* Tile 2: Faculty Credentials */}
+            <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <Users className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Staff &amp; Faculty Dockets</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {teachers.length} <span className="text-xs font-mono text-emerald-300/70 font-normal">Issued</span>
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300/80 mt-1 flex items-center gap-1.5">
+                <span>Employee Badges &amp; Service Passes</span>
+              </div>
+            </div>
+
+            {/* Tile 3: Transfer Certificates */}
+            <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <FileCheck className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Transfer Certificates</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                CBSE Standard
+              </div>
+              <div className="text-[11px] font-mono text-emerald-300/70 mt-1 flex items-center gap-1.5">
+                <span>Unique TC Serial Counter &amp; Seal</span>
+              </div>
+            </div>
+
+            {/* Tile 4: Character & Bonafide */}
+            <div className="pt-4 sm:pt-0 sm:pl-4 group select-none">
+              <div className="flex items-center gap-2 text-amber-300">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-amber-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-amber-200/90">Bonafide &amp; Character</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                Instant PDF
+              </div>
+              <div className="text-[11px] font-mono text-amber-300 mt-1 flex items-center gap-1.5">
+                <span>Official Letterhead Alignment</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Target Type Selector Tabs */}
-        <div className="grid grid-cols-2 gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs max-w-md">
+        <div className="grid grid-cols-2 gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs max-w-md relative z-10">
           <button
             type="button"
             onClick={() => {
