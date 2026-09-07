@@ -530,7 +530,7 @@ function ERPWorkspaceContent() {
   const effectiveRole = (currentUser?.role || 'PRINCIPAL').toUpperCase();
 
   // Dynamically compute allowed tabs based on Principal configured role permissions
-  const isPrincipalMaster = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'PRINCIPAL'].includes(effectiveRole);
+  const isPrincipalMaster = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'GOD_ACCESS', 'PRINCIPAL', 'SCHOOL_ADMIN', 'ADMIN'].includes(effectiveRole);
 
   // Automatically open the role-specific workspace panel on login
   useEffect(() => {

@@ -124,12 +124,12 @@ export function DashboardFees({
   // Unique Chronologically Sorted Class Names
   const uniqueClasses = useMemo(() => {
     const set = new Set<string>();
-    classes.forEach(c => {
-      const name = c.class_name || c.name;
+    (classes || []).forEach(c => {
+      const name = c?.class_name || (c as any)?.name;
       if (name) set.add(name);
     });
-    students.forEach(s => {
-      if (s.class_name) set.add(s.class_name);
+    (students || []).forEach(s => {
+      if (s?.class_name) set.add(s.class_name);
     });
     const list = Array.from(set).map(name => ({ class_name: name }));
     return sortClassesChronologically(list).map(item => item.class_name || '').filter(Boolean);
@@ -591,15 +591,19 @@ export function DashboardFees({
   };
 
   const getTransportFeeRate = (student: Student) => {
-    if (student.transport_opted !== 'YES') {
+    if (!student || student.transport_opted !== 'YES') {
       return { slab: 'Self / None', monthly: 0 };
     }
-    const seed = (Number(student.roll_no) || student.full_name.charCodeAt(0)) % (transportFees.length || 5);
-    const slabItem = transportFees[seed] || transportFees[1] || { slab: '4 to 6 km', monthlyFee: 900 };
+    const nameStr = (student.full_name || '').trim();
+    const seed = (Number(student.roll_no) || (nameStr ? nameStr.charCodeAt(0) : 1)) % ((transportFees && transportFees.length) || 5);
+    const slabItem = (transportFees && transportFees[seed]) || (transportFees && transportFees[1]) || { slab: '4 to 6 km', monthlyFee: 900 };
     return { slab: slabItem.slab, monthly: slabItem.monthlyFee };
   };
 
   const getSiblingConcession = (student: Student) => {
+    if (!student) {
+      return { childOrder: 1, tuitionDiscountPct: 0, freeTransport: false, siblingCount: 1 };
+    }
     const father = (student.father_name || student.guardian_name || '').toLowerCase().trim();
     const phone = (student.guardian_phone || student.phone || '').trim();
 
@@ -607,11 +611,12 @@ export function DashboardFees({
       return { childOrder: 1, tuitionDiscountPct: 0, freeTransport: false, siblingCount: 1 };
     }
 
-    const siblings = students.filter(s => {
+    const siblings = (students || []).filter(s => {
+      if (!s) return false;
       const sFather = (s.father_name || s.guardian_name || '').toLowerCase().trim();
       const sPhone = (s.guardian_phone || s.phone || '').trim();
       return (father && sFather === father) || (phone && sPhone === phone);
-    }).sort((a, b) => (Number(a.roll_no) || 0) - (Number(b.roll_no) || 0) || a.id.localeCompare(b.id));
+    }).sort((a, b) => (Number(a.roll_no) || 0) - (Number(b.roll_no) || 0) || (a.id || '').localeCompare(b.id || ''));
 
     const count = siblings.length;
     const index = siblings.findIndex(s => s.id === student.id);
@@ -679,9 +684,10 @@ export function DashboardFees({
   const feesReportData = useMemo(() => {
     const meta = getPeriodMeta(reportPeriod);
 
-    return students.map((stu, sIdx) => {
-      const tRate = getTuitionFeeRate(stu.class_name);
-      const annRate = getAnnualFeeRate(stu.class_name);
+    return (students || []).map((stu, sIdx) => {
+      const stuName = (stu?.full_name || '').trim();
+      const tRate = getTuitionFeeRate(stu?.class_name || '');
+      const annRate = getAnnualFeeRate(stu?.class_name || '');
       const trRate = getTransportFeeRate(stu);
       const sib = getSiblingConcession(stu);
 
@@ -702,12 +708,14 @@ export function DashboardFees({
       // Total Due
       const totalDue = netTuitionDue + transportDue + annualDue + examDue;
 
-      // Check Real Invoices in Database
-      const matchingInvoices = invoices.filter(inv =>
-        (inv.student_id && inv.student_id === stu.id) ||
-        (inv.admission_no && inv.admission_no === stu.admission_no) ||
-        inv.student_name.toLowerCase() === stu.full_name.toLowerCase()
-      );
+      // Check Real Invoices in Database (Null-safe)
+      const matchingInvoices = (invoices || []).filter(inv => {
+        if (!inv) return false;
+        if (inv.student_id && inv.student_id === stu?.id) return true;
+        if (inv.admission_no && stu?.admission_no && inv.admission_no === stu.admission_no) return true;
+        if (inv.student_name && stuName && inv.student_name.toLowerCase().trim() === stuName.toLowerCase()) return true;
+        return false;
+      });
 
       let totalPaid = 0;
       let tuitionPaid = 0;
@@ -810,10 +818,10 @@ export function DashboardFees({
       if (reportSearch.trim()) {
         const q = reportSearch.toLowerCase().trim();
         const s = item.student;
-        const matchesName = s.full_name.toLowerCase().includes(q);
-        const matchesAdm = (s.admission_no || s.id || '').toLowerCase().includes(q);
-        const matchesRoll = String(item.rollNo).includes(q);
-        const matchesFather = item.fatherName.toLowerCase().includes(q);
+        const matchesName = (s?.full_name || '').toLowerCase().includes(q);
+        const matchesAdm = (s?.admission_no || s?.id || '').toLowerCase().includes(q);
+        const matchesRoll = String(item.rollNo || '').includes(q);
+        const matchesFather = (item.fatherName || '').toLowerCase().includes(q);
         if (!matchesName && !matchesAdm && !matchesRoll && !matchesFather) return false;
       }
       return true;
