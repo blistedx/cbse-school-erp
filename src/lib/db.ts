@@ -1065,7 +1065,7 @@ export const Database = {
       const db = await getDatabase();
       if (db) {
         await db.collection('students').updateOne(
-          { $or: [{ id: studentId }, { admission_no: studentId }, { _id: studentId }] },
+          { $or: [{ id: studentId }, { admission_no: studentId }, { _id: studentId as any }] },
           { $set: sanitizeDocNoBinary(sanitizedUpdates) }
         );
       }
@@ -1366,7 +1366,7 @@ export const Database = {
       const db = await getDatabase();
       if (db) {
         await db.collection('teachers').updateOne(
-          { $or: [{ id: teacherId }, { staff_code: teacherId }, { _id: teacherId }] },
+          { $or: [{ id: teacherId }, { staff_code: teacherId }, { _id: teacherId as any }] },
           { $set: sanitizeDocNoBinary(sanitizedUpdates) }
         );
       }
@@ -1875,6 +1875,9 @@ export const Database = {
     try {
       const db = await getDatabase();
       if (db) {
+        const mongoDoc: any = { ...record };
+        delete mongoDoc._id;
+
         if (isFaculty) {
           await db.collection('attendance').deleteMany({
             school_id: { $in: targetIds },
@@ -1885,7 +1888,7 @@ export const Database = {
               { section: /faculty|staff/i }
             ]
           });
-          await db.collection('attendance').insertOne({ ...record });
+          await db.collection('attendance').insertOne(mongoDoc);
         } else {
           // Use deleteMany + insertOne (instead of replaceOne+upsert) to ensure
           // any stale duplicate records with alternate class-name spellings are
@@ -1898,10 +1901,12 @@ export const Database = {
             class_name: { $regex: classRegex },
             section: { $regex: new RegExp(`^${record.section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
           });
-          await db.collection('attendance').insertOne({ ...record });
+          await db.collection('attendance').insertOne(mongoDoc);
         }
       }
-    } catch (e) {}
+    } catch (e: any) {
+      console.error('[MongoDB Error in recordAttendance]:', e?.message || e);
+    }
 
     if (existingMemIdx >= 0) {
       memoryStore.attendance[existingMemIdx] = record;

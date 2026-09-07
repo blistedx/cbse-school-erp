@@ -3,11 +3,11 @@
 export const APP_INFO = {
   name: 'Giterp CBSE School ERP',
   shortName: 'Giterp ERP',
-  version: '1.2.0',
-  buildNumber: '2026.09.05.127',
-  buildTimestamp: '2026-09-05T19:04:00+05:30',
-  releaseDate: '05 Sep 2026',
-  releaseTag: 'v1.2.0-exp.127',
+  version: '1.2.1',
+  buildNumber: '2026.09.07.135',
+  buildTimestamp: '2026-09-07T11:59:00+05:30',
+  releaseDate: '07 Sep 2026',
+  releaseTag: 'v1.2.1-prod.135',
   engine: 'Next.js 16.3 (Turbopack) • MongoDB Atlas • PWA Web Push',
   status: 'LIVE_PRODUCTION'
 };
