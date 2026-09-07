@@ -233,12 +233,29 @@ function sanitizeDoc<T>(doc: any): T {
   return rest as T;
 }
 
+export function expandSchoolIds(schoolIds: string[]): string[] {
+  const expanded = new Set<string>();
+  for (const id of schoolIds) {
+    if (!id) continue;
+    expanded.add(id);
+    const clean = id.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    expanded.add(clean);
+    if (clean === 'DPS2026' || clean.startsWith('DPS') || clean === 'SCH1788255333307') {
+      expanded.add('DPS2026');
+      expanded.add('DPS-2026');
+      expanded.add('SCH-1788255333307');
+      expanded.add('SCH1788255333307');
+    }
+  }
+  return Array.from(expanded);
+}
+
 function buildSessionFilter(schoolIds: string[], session?: string) {
   const targetSession = session || '2026-27';
   const filter: any = {};
   
   if (schoolIds.length > 0) {
-    const cleanIds = Array.from(new Set(schoolIds.filter(Boolean)));
+    const cleanIds = expandSchoolIds(schoolIds.filter(Boolean));
     filter.school_id = { $in: cleanIds };
   }
 
@@ -257,6 +274,7 @@ function buildSessionFilter(schoolIds: string[], session?: string) {
 
   return filter;
 }
+
 
 export function normalizeClassName(name?: string): string {
   if (!name) return '';
@@ -1729,9 +1747,10 @@ export const Database = {
     try {
       const db = await getDatabase();
       if (db) {
-        const ids = (targetId || targetCode || schoolId)
-          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+        const rawIds = (targetId || targetCode || schoolId)
+          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean) as string[]))
           : [];
+        const ids = expandSchoolIds(rawIds);
         const filter = buildSessionFilter(ids as string[], targetSession);
         const results = await db.collection('attendance')
           .find(filter)
@@ -1748,14 +1767,14 @@ export const Database = {
             }
           });
           const list = Array.from(dedupMap.values());
-          if (list.length > 0) setCached(cacheKey, list, 30000);
+          if (list.length > 0) setCached(cacheKey, list, 5000);
           return list;
         }
       }
     } catch (e) {}
 
     const rawList = (targetId || schoolId)
-      ? memoryStore.attendance.filter(a => [targetId, targetCode, schoolId, cleanId].filter(Boolean).includes(a.school_id) && matchesSession(a, targetSession))
+      ? memoryStore.attendance.filter(a => expandSchoolIds([targetId, targetCode, schoolId, cleanId].filter(Boolean) as string[]).includes(a.school_id) && matchesSession(a, targetSession))
       : memoryStore.attendance.filter(a => matchesSession(a, targetSession));
 
     const memDedupMap = new Map<string, AttendanceRecord>();
@@ -1767,7 +1786,7 @@ export const Database = {
       }
     });
     const memList = Array.from(memDedupMap.values());
-    if (memList.length > 0) setCached(cacheKey, memList, 30000);
+    if (memList.length > 0) setCached(cacheKey, memList, 5000);
     return memList;
   },
 
@@ -1781,8 +1800,12 @@ export const Database = {
 
     const school = school_id ? await this.getSchoolById(school_id) : null;
     const cleanId = school_id ? school_id.replace(/[^A-Z0-9]/gi, '') : undefined;
-    const targetIds = Array.from(new Set([school?.id, school?.school_code, school_id, cleanId].filter(Boolean)));
-    const canonicalSchoolId = school?.id || school?.school_code || school_id || 'DPS2026';
+    const targetIds = expandSchoolIds(Array.from(new Set([school?.id, school?.school_code, school_id, cleanId].filter(Boolean) as string[])));
+    const cleanCanonical = (school?.id || school?.school_code || school_id || 'DPS2026').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+    const canonicalSchoolId = (cleanCanonical === 'DPS2026' || cleanCanonical.startsWith('DPS') || cleanCanonical === 'SCH1788255333307')
+      ? 'DPS2026'
+      : (school?.id || school?.school_code || school_id || 'DPS2026');
+
 
     const isFaculty = /faculty|staff/i.test(rawClassName) || /faculty|staff/i.test(rawSection);
     const class_name = isFaculty ? 'Faculty' : rawClassName;

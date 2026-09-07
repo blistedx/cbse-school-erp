@@ -210,6 +210,8 @@ export function DashboardAttendance({
   const [loadingHolidays, setLoadingHolidays] = useState(false);
   const [declaringHoliday, setDeclaringHoliday] = useState(false);
   const [holidaySearchQuery, setHolidaySearchQuery] = useState('');
+  const [confirmDeleteHoliday, setConfirmDeleteHoliday] = useState<{ id: string; title: string } | null>(null);
+  const [deletingHoliday, setDeletingHoliday] = useState(false);
 
   // Declare Holiday Form State
   const [newHolidayTitle, setNewHolidayTitle] = useState('');
@@ -226,7 +228,7 @@ export function DashboardAttendance({
     if (!selectedSchool) return;
     try {
       setLoadingHolidays(true);
-      const res = await fetch(`/api/holidays?school_id=${selectedSchool.id}&session=${selectedSession}`);
+      const res = await apiFetch(`/api/holidays?school_id=${selectedSchool.id}&session=${selectedSession}`);
       const data = await res.json();
       if (data.success) {
         setHolidays(data.holidays || []);
@@ -237,6 +239,7 @@ export function DashboardAttendance({
       setLoadingHolidays(false);
     }
   }, [selectedSchool, selectedSession]);
+
 
   useEffect(() => {
     loadHolidays();
@@ -332,13 +335,20 @@ export function DashboardAttendance({
     }
   };
 
-  const handleDeleteHoliday = async (id: string, title: string) => {
-    if (!confirm(`Are you sure you want to remove the declared holiday "${title}"?`)) return;
+  const handleDeleteHoliday = (id: string, title: string) => {
+    setConfirmDeleteHoliday({ id, title });
+  };
+
+  const executeDeleteHoliday = async () => {
+    if (!confirmDeleteHoliday) return;
+    const { id, title } = confirmDeleteHoliday;
     try {
+      setDeletingHoliday(true);
       const res = await apiFetch(`/api/holidays?id=${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         showAdminToast(`Holiday "${title}" removed.`);
+        setConfirmDeleteHoliday(null);
         loadHolidays();
         onRefresh();
       } else {
@@ -347,8 +357,11 @@ export function DashboardAttendance({
     } catch (err: any) {
       console.error(err);
       showAlertBox('Error deleting holiday: ' + (err?.message || 'Server connection error'), 'Holiday Removal Error', 'error');
+    } finally {
+      setDeletingHoliday(false);
     }
   };
+
 
   // ─────────────────────────────────────────────────────────────────
   // TAB 1: MARK STUDENT ATTENDANCE STATE
@@ -391,23 +404,40 @@ export function DashboardAttendance({
 
   // Load Existing Roll Call from saved logs only when switching target roster, date, or after fresh save
   useEffect(() => {
-    const currentContextKey = `${attendanceType}_${attendanceType === 'STUDENT' ? (selectedClass?.id || '') : 'FACULTY'}_${attendanceDate}_${effectiveAttendance.length}`;
-    if (loadedContextKeyRef.current === currentContextKey) return;
-    loadedContextKeyRef.current = currentContextKey;
+    let match: AttendanceRecord | null = null;
 
     if (attendanceType === 'STUDENT') {
       if (!selectedClass) return;
       const cSec = (selectedClass.section || '').toUpperCase().trim();
-      const match = effectiveAttendance.find(a => 
+      match = effectiveAttendance.find(a => {
+        const aSec = (a.section || '').toUpperCase().trim();
+        const secMatches = !cSec || !aSec || aSec === cSec || (!aSec && cSec === 'A') || (aSec === 'A' && !cSec);
+        return a.date === attendanceDate && isSameClass(a.class_name, selectedClass.class_name) && secMatches;
+      }) || null;
+    } else {
+      // Faculty Roll Call
+      match = effectiveAttendance.find(a => 
         a.date === attendanceDate && 
-        isSameClass(a.class_name, selectedClass.class_name) &&
-        (!cSec || (a.section || '').toUpperCase().trim() === cSec)
-      );
+        (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
+      ) || null;
+    }
 
+    const matchSignature = match
+      ? `${match.id}_${match.present_count}_${match.absent_count}_${(match as any).student_records?.length || (match as any).teacher_records?.length || 0}_${match.created_at || ''}`
+      : 'none';
+    const currentContextKey = `${attendanceType}_${attendanceType === 'STUDENT' ? (selectedClass?.id || '') : 'FACULTY'}_${attendanceDate}_${matchSignature}`;
+    if (loadedContextKeyRef.current === currentContextKey) return;
+    loadedContextKeyRef.current = currentContextKey;
+
+    if (attendanceType === 'STUDENT') {
       const initialMap: Record<string, 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE'> = {};
       if (match && Array.isArray((match as any).student_records) && (match as any).student_records.length > 0) {
         classStudents.forEach(stu => {
-          const rec = (match as any).student_records.find((r: any) => r.student_id === stu.id || r.admission_no === stu.admission_no);
+          const rec = (match as any).student_records.find((r: any) => 
+            r.student_id === stu.id || 
+            (r.admission_no && stu.admission_no && r.admission_no.trim().toUpperCase() === stu.admission_no.trim().toUpperCase()) ||
+            (r.full_name && stu.full_name && r.full_name.trim().toLowerCase() === stu.full_name.trim().toLowerCase())
+          );
           initialMap[stu.id] = rec ? (rec.status === 'LEAVE' ? 'HOLIDAY' : rec.status) : 'PRESENT';
         });
       } else if (match && (Number(match.absent_count) || 0) > 0) {
@@ -423,15 +453,14 @@ export function DashboardAttendance({
       setStudentStatuses(initialMap);
     } else {
       // Faculty Roll Call
-      const match = effectiveAttendance.find(a => 
-        a.date === attendanceDate && 
-        (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
-      );
-
       const initialMap: Record<string, 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE'> = {};
       if (match && Array.isArray((match as any).teacher_records) && (match as any).teacher_records.length > 0) {
         teachers.forEach(t => {
-          const rec = (match as any).teacher_records.find((r: any) => r.teacher_id === t.id || r.staff_code === t.staff_code);
+          const rec = (match as any).teacher_records.find((r: any) => 
+            r.teacher_id === t.id || 
+            (r.staff_code && t.staff_code && r.staff_code.trim().toUpperCase() === t.staff_code.trim().toUpperCase()) ||
+            (r.full_name && t.full_name && r.full_name.trim().toLowerCase() === t.full_name.trim().toLowerCase())
+          );
           initialMap[t.id] = rec ? (rec.status === 'LEAVE' ? 'HOLIDAY' : rec.status) : 'PRESENT';
         });
       } else if (match && (Number(match.absent_count) || 0) > 0) {
@@ -447,6 +476,7 @@ export function DashboardAttendance({
       setStudentStatuses(initialMap);
     }
   }, [selectedClass, attendanceDate, attendanceType, classStudents, teachers, effectiveAttendance]);
+
 
   const handleStatusChange = (id: string, status: 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE') => {
     setStudentStatuses(prev => ({ ...prev, [id]: status }));
@@ -658,11 +688,11 @@ export function DashboardAttendance({
     if (attendanceType === 'STUDENT') {
       if (!selectedClass) return false;
       const cSec = (selectedClass.section || '').toUpperCase().trim();
-      return effectiveAttendance.some(a =>
-        a.date === attendanceDate &&
-        isSameClass(a.class_name, selectedClass.class_name) &&
-        (!cSec || (a.section || '').toUpperCase().trim() === cSec)
-      );
+      return effectiveAttendance.some(a => {
+        const aSec = (a.section || '').toUpperCase().trim();
+        const secMatches = !cSec || !aSec || aSec === cSec || (!aSec && cSec === 'A') || (aSec === 'A' && !cSec);
+        return a.date === attendanceDate && isSameClass(a.class_name, selectedClass.class_name) && secMatches;
+      });
     } else {
       return effectiveAttendance.some(a =>
         a.date === attendanceDate &&
@@ -670,6 +700,7 @@ export function DashboardAttendance({
       );
     }
   }, [effectiveAttendance, attendanceType, selectedClass, attendanceDate]);
+
 
   // ─────────────────────────────────────────────────────────────────
   // TAB 2: MONTHLY ATTENDANCE SHEET STATE & MATRIX BUILDER
@@ -753,7 +784,8 @@ export function DashboardAttendance({
       '—': 'PRESENT',
       'P': 'ABSENT',
       'A': 'HOLIDAY',
-      'H': 'PRESENT'
+      'H': 'PRESENT',
+      'L': 'PRESENT'
     };
     const nextStatus = nextStatusMap[currentSt] || 'PRESENT';
 
@@ -787,11 +819,14 @@ export function DashboardAttendance({
         return;
       }
 
+      const newlySavedRecords: AttendanceRecord[] = [];
+
       for (const dateStr of Array.from(editedDates)) {
         const existingRec = effectiveAttendance.find(a => {
           const normASec = (a.section || '').toLowerCase().trim();
           const normCSec = (currentSheetClass.section || '').toLowerCase().trim();
-          return a.date === dateStr && isSameClass(a.class_name, currentSheetClass.class_name) && (!normASec || !normCSec || normASec === normCSec);
+          const secMatches = !normASec || !normCSec || normASec === normCSec || (!normASec && normCSec === 'a') || (normASec === 'a' && !normCSec);
+          return a.date === dateStr && isSameClass(a.class_name, currentSheetClass.class_name) && secMatches;
         });
 
         const studentRecords = sheetStudents.map(stu => {
@@ -800,7 +835,11 @@ export function DashboardAttendance({
           if (local) {
             status = local;
           } else if (existingRec && (existingRec as any).student_records) {
-            const matched = (existingRec as any).student_records.find((r: any) => r.student_id === stu.id || r.admission_no === stu.admission_no);
+            const matched = (existingRec as any).student_records.find((r: any) => 
+              r.student_id === stu.id || 
+              (r.admission_no && stu.admission_no && r.admission_no.trim().toUpperCase() === stu.admission_no.trim().toUpperCase()) ||
+              (r.full_name && stu.full_name && r.full_name.trim().toLowerCase() === stu.full_name.trim().toLowerCase())
+            );
             if (matched) status = matched.status === 'HOLIDAY' ? 'HOLIDAY' : (matched.status === 'LEAVE' ? 'HOLIDAY' : matched.status || 'PRESENT');
           }
           return {
@@ -831,10 +870,23 @@ export function DashboardAttendance({
           student_records: studentRecords
         };
 
-        await apiFetch('/api/attendance', {
+        const res = await apiFetch('/api/attendance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
+        });
+
+        const resData = await res.json();
+        if (resData.success && resData.record) {
+          newlySavedRecords.push(resData.record);
+        }
+      }
+
+      if (newlySavedRecords.length > 0) {
+        setLocalAttendanceRecords(prev => {
+          const savedKeys = new Set(newlySavedRecords.map(r => `${r.date}_${normalizeClassName(r.class_name)}_${(r.section || '').toUpperCase().trim()}`));
+          const filtered = prev.filter(r => !savedKeys.has(`${r.date}_${normalizeClassName(r.class_name)}_${(r.section || '').toUpperCase().trim()}`));
+          return [...newlySavedRecords, ...filtered];
         });
       }
 
@@ -849,6 +901,7 @@ export function DashboardAttendance({
       setIsSavingMonthlySheet(false);
     }
   };
+
 
   // Export Monthly Sheet to CSV (Including declared holidays)
   const handleExportMonthlyCSV = () => {
@@ -873,21 +926,25 @@ export function DashboardAttendance({
         // Check real attendance from database or local edits
         const local = sheetEdits[stu.id]?.[dateStr];
         const rec = effectiveAttendance.find(a => {
-          const normA = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
-          const normC = (currentSheetClass.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
           const normASec = (a.section || '').toLowerCase().trim();
           const normCSec = (currentSheetClass.section || '').toLowerCase().trim();
-          return a.date === dateStr && normA === normC && (!normASec || !normCSec || normASec === normCSec);
+          const secMatches = !normASec || !normCSec || normASec === normCSec || (!normASec && normCSec === 'a') || (normASec === 'a' && !normCSec);
+          return a.date === dateStr && isSameClass(a.class_name, currentSheetClass.class_name) && secMatches;
         });
         let st = '-';
         if (local) {
           st = local === 'PRESENT' ? 'P' : local === 'ABSENT' ? 'A' : 'H';
         } else if (rec && (rec as any).student_records) {
-          const matched = (rec as any).student_records.find((r: any) => r.student_id === stu.id || r.admission_no === stu.admission_no);
+          const matched = (rec as any).student_records.find((r: any) => 
+            r.student_id === stu.id || 
+            (r.admission_no && stu.admission_no && r.admission_no.trim().toUpperCase() === stu.admission_no.trim().toUpperCase()) ||
+            (r.full_name && stu.full_name && r.full_name.trim().toLowerCase() === stu.full_name.trim().toLowerCase())
+          );
           if (matched) st = matched.status === 'PRESENT' ? 'P' : matched.status === 'ABSENT' ? 'A' : 'H';
         } else if (rec) {
           st = 'P';
         }
+
 
         if (st === 'P') pCount++;
         else if (st === 'A') aCount++;
@@ -1024,6 +1081,7 @@ export function DashboardAttendance({
   // TAB 3: ATTENDANCE SUMMARY & COMPARATIVE ANALYTICS
   // ─────────────────────────────────────────────────────────────────
   const todayDateStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const [summaryDate, setSummaryDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
 
   const classSummaryData = useMemo(() => {
     const targetList = isTeacher ? selectableClasses : sortedClasses;
@@ -1034,16 +1092,16 @@ export function DashboardAttendance({
         return isSameClass(s.class_name, cls.class_name) && (!cSec || !sSec || sSec === cSec);
       });
 
-      const todayLog = effectiveAttendance.find(a => {
-        const aDate = a.date;
-        const matchesDate = aDate === todayDateStr || aDate === attendanceDate || aDate === new Date().toISOString().split('T')[0];
+      const targetLog = effectiveAttendance.find(a => {
+        const matchesDate = a.date === summaryDate;
         const aSec = (a.section || '').toUpperCase().trim();
         const cSec = (cls.section || '').toUpperCase().trim();
-        return matchesDate && isSameClass(a.class_name, cls.class_name) && (!cSec || !aSec || aSec === cSec);
+        const secMatches = !cSec || !aSec || aSec === cSec || (!aSec && cSec === 'A') || (aSec === 'A' && !cSec);
+        return matchesDate && isSameClass(a.class_name, cls.class_name) && secMatches;
       });
 
-      const isMarked = !!todayLog;
-      const presentCount = isMarked ? Number(todayLog.present_count) || 0 : 0;
+      const isMarked = !!targetLog;
+      const presentCount = isMarked ? Number(targetLog.present_count) || 0 : 0;
       const totalCount = clsStudents.length || Number(cls.capacity) || 35;
       const todayPercent = isMarked && totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
@@ -1061,7 +1119,7 @@ export function DashboardAttendance({
         defaulterStudents: defaulters
       };
     });
-  }, [sortedClasses, selectableClasses, isTeacher, students, effectiveAttendance, todayDateStr, attendanceDate]);
+  }, [sortedClasses, selectableClasses, isTeacher, students, effectiveAttendance, summaryDate]);
 
   const totalClassesCount = isTeacher ? selectableClasses.length : sortedClasses.length;
   const markedClassesTodayCount = classSummaryData.filter(c => c.isMarked).length;
@@ -1074,13 +1132,13 @@ export function DashboardAttendance({
     return students.filter(s => (s.attendance_percent || 95) < 75);
   }, [students]);
 
-  // Faculty Attendance Today Metrics
+  // Faculty Attendance Metrics
   const facultyTodayLog = useMemo(() => {
     return effectiveAttendance.find(a => {
-      const matchesDate = a.date === todayDateStr || a.date === attendanceDate || a.date === new Date().toISOString().split('T')[0];
+      const matchesDate = a.date === summaryDate;
       return matchesDate && (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''));
     }) || null;
-  }, [effectiveAttendance, todayDateStr, attendanceDate]);
+  }, [effectiveAttendance, summaryDate]);
 
   const totalTeachersCount = teachers.length;
   const isFacultyMarkedToday = !!facultyTodayLog;
@@ -1091,6 +1149,7 @@ export function DashboardAttendance({
   const facultyTurnoutRate = isFacultyMarkedToday && totalTeachersCount > 0
     ? Number(((facultyPresentCount / totalTeachersCount) * 100).toFixed(1))
     : 0;
+
 
   const filteredHolidaysList = useMemo(() => {
     if (!holidaySearchQuery.trim()) return holidays;
@@ -2087,23 +2146,27 @@ export function DashboardAttendance({
                             }
 
                             const rec = effectiveAttendance.find(a => {
-                              const normA = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
-                              const normC = (currentSheetClass?.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
                               const normASec = (a.section || '').toLowerCase().trim();
                               const normCSec = (currentSheetClass?.section || '').toLowerCase().trim();
-                              return a.date === dateStr && normA === normC && (!normASec || !normCSec || normASec === normCSec);
+                              const secMatches = !normASec || !normCSec || normASec === normCSec || (!normASec && normCSec === 'a') || (normASec === 'a' && !normCSec);
+                              return a.date === dateStr && isSameClass(a.class_name, currentSheetClass?.class_name) && secMatches;
                             });
 
                             const local = sheetEdits[stu.id]?.[dateStr];
                             let st = '—';
                             if (local) {
-                              st = local === 'PRESENT' ? 'P' : local === 'ABSENT' ? 'A' : 'L';
+                              st = local === 'PRESENT' ? 'P' : local === 'ABSENT' ? 'A' : 'H';
                             } else if (rec && (rec as any).student_records) {
-                              const matched = (rec as any).student_records.find((r: any) => r.student_id === stu.id || r.admission_no === stu.admission_no);
-                              if (matched) st = matched.status === 'PRESENT' ? 'P' : matched.status === 'ABSENT' ? 'A' : 'L';
+                              const matched = (rec as any).student_records.find((r: any) => 
+                                r.student_id === stu.id || 
+                                (r.admission_no && stu.admission_no && r.admission_no.trim().toUpperCase() === stu.admission_no.trim().toUpperCase()) ||
+                                (r.full_name && stu.full_name && r.full_name.trim().toLowerCase() === stu.full_name.trim().toLowerCase())
+                              );
+                              if (matched) st = matched.status === 'PRESENT' ? 'P' : matched.status === 'ABSENT' ? 'A' : (matched.status === 'HOLIDAY' || matched.status === 'LEAVE' ? 'H' : '—');
                             } else if (rec) {
                               st = 'P';
                             }
+
 
                             if (st === 'P') presentDays++;
                             else if (st === 'A') absentDays++;
@@ -2240,15 +2303,28 @@ export function DashboardAttendance({
 
             {/* Class-by-Class Comparative Ledger Table */}
             <div className="border border-[#DCE8E0] rounded-2xl overflow-hidden shadow-2xs bg-white">
-              <div className="p-4 bg-[#F8FAF9] border-b border-[#DCE8E0] flex items-center justify-between">
+              <div className="p-4 bg-[#F8FAF9] border-b border-[#DCE8E0] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h3 className="font-display font-bold text-sm text-[#122A24]">Class-by-Class Attendance Ledger</h3>
-                  <p className="text-[11px] font-mono text-slate-500">Comparative attendance turnout rates and log status for today</p>
+                  <p className="text-[11px] font-mono text-slate-500">Comparative attendance turnout rates and log status for {summaryDate === todayDateStr ? 'Today' : summaryDate}</p>
                 </div>
-                <span className="text-xs font-mono font-bold text-[#1C443A] bg-[#EBF5EF] px-2.5 py-1 rounded-full border border-[#C5E2CF]">
-                  {markedClassesTodayCount}/{totalClassesCount} Verified
-                </span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-[#DCE8E0] text-xs shadow-2xs">
+                    <Calendar className="h-3.5 w-3.5 text-emerald-700" />
+                    <span className="text-[10.5px] font-mono font-bold text-slate-500 uppercase">Date:</span>
+                    <input
+                      type="date"
+                      value={summaryDate}
+                      onChange={(e) => setSummaryDate(e.target.value)}
+                      className="bg-transparent border-none text-xs font-bold text-[#122A24] focus:outline-none cursor-pointer font-mono"
+                    />
+                  </div>
+                  <span className="text-xs font-mono font-bold text-[#1C443A] bg-[#EBF5EF] px-2.5 py-1 rounded-full border border-[#C5E2CF]">
+                    {markedClassesTodayCount}/{totalClassesCount} Verified
+                  </span>
+                </div>
               </div>
+
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
@@ -2801,8 +2877,9 @@ export function DashboardAttendance({
               {classStudents
                 .filter(s => studentStatuses[s.id] === 'ABSENT')
                 .map(s => {
-                  const phone = s.parent_phone || s.phone || '';
+                  const phone = s.guardian_phone || s.parent_phone || s.phone || '';
                   const msgText = buildMorningAbsentText({
+
                     studentName: s.full_name,
                     parentPhone: phone,
                     className: selectedClass.class_name,
@@ -3020,7 +3097,47 @@ export function DashboardAttendance({
         </div>
       )}
 
+      {/* ── IN-APP SLEEK HOLIDAY DELETION CONFIRMATION DIALOG ── */}
+      {confirmDeleteHoliday && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-4 animate-fade-up">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-display font-bold text-base text-[#122A24]">Remove Declared Holiday</h3>
+                <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
+                  Are you sure you want to remove the institutional holiday <strong>&ldquo;{confirmDeleteHoliday.title}&rdquo;</strong>?
+                  This will re-open academic scheduling and register regular working hours for this date.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteHoliday(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors bg-white"
+              >
+                Keep Holiday
+              </button>
+              <button
+                type="button"
+                disabled={deletingHoliday}
+                onClick={executeDeleteHoliday}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-display font-bold text-xs cursor-pointer border-none shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{deletingHoliday ? 'Removing...' : 'Confirm Removal'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Official CBSE Institutional Printable Report Modal for Attendance Hub */}
+
       {activeAttendanceReportModal && (
         <InstitutionalReportModal
           isOpen={activeAttendanceReportModal.isOpen}

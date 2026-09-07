@@ -1325,11 +1325,18 @@ function ERPWorkspaceContent() {
       try {
         const storedSchool = localStorage.getItem('current_school');
         if (storedSchool) {
-          const parsedSchool = JSON.parse(storedSchool);
+          let parsedSchool = JSON.parse(storedSchool);
+          if (parsedSchool.id === 'SCH-1788255333307' || parsedSchool.id === 'SCH1788255333307' || parsedSchool.school_code === 'DPS-2026' || parsedSchool.id === 'DPS-2026' || (parsedSchool.school_code && parsedSchool.school_code.startsWith('DPS'))) {
+            parsedSchool.school_code = 'DPS2026';
+            parsedSchool.id = 'DPS2026';
+            localStorage.setItem('current_school', JSON.stringify(parsedSchool));
+          }
           setSelectedSchool(parsedSchool);
-          const cleanId = (parsedSchool.school_code || parsedSchool.id || 'DPS2026').replace(/[^A-Z0-9]/gi, '');
+          const rawClean = (parsedSchool.school_code || parsedSchool.id || 'DPS2026').replace(/[^A-Z0-9]/gi, '');
+          const cleanId = (rawClean === 'DPS2026' || rawClean.startsWith('DPS') || rawClean === 'SCH1788255333307') ? 'DPS2026' : rawClean;
           const activeSession = localStorage.getItem('giterp_active_session') || selectedSession || '2026-27';
           const cachedBackup = localStorage.getItem(`giterp_offline_backup_${cleanId}_${activeSession}`) || localStorage.getItem(`giterp_offline_backup_${cleanId}`);
+
           if (cachedBackup) {
             const data = JSON.parse(cachedBackup);
             if (data.overview) setOverview(data.overview);
@@ -1372,7 +1379,7 @@ function ERPWorkspaceContent() {
         if (stored) {
           try {
             let parsed = JSON.parse(stored);
-            if (parsed.school_code === 'DPS-2026' || parsed.id === 'DPS-2026') {
+            if (parsed.id === 'SCH-1788255333307' || parsed.id === 'SCH1788255333307' || parsed.school_code === 'DPS-2026' || parsed.id === 'DPS-2026' || (parsed.school_code && parsed.school_code.startsWith('DPS'))) {
               parsed.school_code = 'DPS2026';
               parsed.id = 'DPS2026';
               localStorage.setItem('current_school', JSON.stringify(parsed));
@@ -1381,6 +1388,7 @@ function ERPWorkspaceContent() {
               parsed.admin_pin = '123456';
               localStorage.setItem('current_school', JSON.stringify(parsed));
             }
+
             if (!schoolParam || parsed.school_code === schoolParam || parsed.id === schoolParam || parsed.school_code?.replace(/[^A-Z0-9]/gi, '') === schoolParam?.replace(/[^A-Z0-9]/gi, '')) {
               targetSchool = parsed;
               hasLocalCache = true;
@@ -1643,8 +1651,10 @@ function ERPWorkspaceContent() {
     const activeSchool = (schoolId && schoolId !== selectedSchool?.id)
       ? schoolId
       : (selectedSchool?.school_code || schoolId || selectedSchool?.id || 'DPS2026');
-    const cleanId = (activeSchool || '').replace(/[^A-Z0-9]/gi, '') || 'DPS2026';
+    const rawClean = (activeSchool || '').replace(/[^A-Z0-9]/gi, '') || 'DPS2026';
+    const cleanId = (rawClean === 'DPS2026' || rawClean.startsWith('DPS') || rawClean === 'SCH1788255333307') ? 'DPS2026' : rawClean;
     const targetSession = sessionParam || selectedSession || '2026-27';
+
 
     // 0ms Instant SWR Hydration: Display cached data immediately so user experiences ZERO lag!
     let hasHydrated = false;

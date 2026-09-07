@@ -1,7 +1,7 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
-import { createSessionToken } from '@/lib/auth-guard';
+import { createSessionToken, canonicalizeSchoolId } from '@/lib/auth-guard';
 
 import { checkRateLimit, resetRateLimit } from '@/lib/rate-limiter';
 
@@ -30,12 +30,15 @@ export async function POST(req: Request) {
     // Successful login — clear rate limit record
     resetRateLimit('auth-login', req);
 
+    const canonicalSchool = canonicalizeSchoolId(auth.user.school_id || auth.school?.id || effectiveSchoolCode);
+
     // Issue a signed session token (12h validity)
     const sessionToken = createSessionToken(
       auth.user.id,
-      auth.user.school_id || auth.school?.id || '',
+      canonicalSchool,
       auth.user.role
     );
+
 
     const response = NextResponse.json({
       success: true,

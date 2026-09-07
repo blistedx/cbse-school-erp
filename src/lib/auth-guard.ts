@@ -166,9 +166,24 @@ export const STAFF_ROLES = ['PRINCIPAL', 'ADMIN', 'AGENCY_SUPERADMIN', 'SUPERADM
 export const ALL_ROLES = ['PRINCIPAL', 'ADMIN', 'AGENCY_SUPERADMIN', 'SUPERADMIN', 'SCHOOL_ADMIN', 'GOD_ACCESS', 'TEACHER', 'FACULTY', 'STUDENT', 'PARENT', 'ACCOUNTANT'];
 
 /**
+ * Normalizes legacy, variant, or alias school IDs to their canonical database ID.
+ * Specifically maps SCH-1788255333307, DPS-2026, or DPS* to "DPS2026".
+ */
+export function canonicalizeSchoolId(schoolId?: string | null): string {
+  if (!schoolId) return 'DPS2026';
+  const clean = schoolId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (clean === 'DPS2026' || clean.startsWith('DPS') || clean === 'SCH1788255333307') {
+    return 'DPS2026';
+  }
+  if (clean.startsWith('SXHS')) return 'SXHS-2026';
+  if (clean.startsWith('KV')) return 'KV-2026';
+  return schoolId.trim();
+}
+
+/**
  * Resolves and enforces the tenant schoolId for a request.
  * For non-superadmin users, if the client requests another school, returns 403 Forbidden.
- * Returns the verified schoolId string or a 403 NextResponse.
+ * Returns the verified canonical schoolId string or a 403 NextResponse.
  */
 export function resolveTenantSchoolId(
   auth: TokenPayload,
@@ -179,7 +194,7 @@ export function resolveTenantSchoolId(
   const userSchoolId = (auth.schoolId || '').trim();
 
   if (isSuperadmin) {
-    return (requestedSchoolId || userSchoolId || 'DPS2026').trim();
+    return canonicalizeSchoolId(requestedSchoolId || userSchoolId || 'DPS2026');
   }
 
   if (!userSchoolId) {
@@ -189,12 +204,15 @@ export function resolveTenantSchoolId(
     );
   }
 
+  const canonicalUser = canonicalizeSchoolId(userSchoolId);
+  const canonicalReq = requestedSchoolId ? canonicalizeSchoolId(requestedSchoolId) : canonicalUser;
+
   if (requestedSchoolId && requestedSchoolId.trim()) {
     const cleanReq = requestedSchoolId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     const cleanUser = userSchoolId.toUpperCase().replace(/[^A-Z0-9]/g, '');
     
     // Known school ID/code cross-mappings
-    const isDirectMatch = requestedSchoolId.trim() === userSchoolId || cleanReq === cleanUser;
+    const isDirectMatch = requestedSchoolId.trim() === userSchoolId || cleanReq === cleanUser || canonicalReq === canonicalUser;
     const isKnownAlias = (cleanReq.startsWith('DPS') && cleanUser.startsWith('DPS')) ||
                          (cleanReq.startsWith('SXHS') && cleanUser.startsWith('SXHS')) ||
                          (cleanReq.startsWith('KV') && cleanUser.startsWith('KV')) ||
@@ -213,5 +231,6 @@ export function resolveTenantSchoolId(
     }
   }
 
-  return userSchoolId;
+  return canonicalReq || canonicalUser;
 }
+
