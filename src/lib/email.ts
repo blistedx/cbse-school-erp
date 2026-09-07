@@ -167,14 +167,15 @@ export interface PasswordResetEmailPayload {
 }
 
 export async function sendPasswordResetEmail(payload: PasswordResetEmailPayload): Promise<{ success: boolean; message: string }> {
-  const targetEmail = 'blistedx@gmail.com';
+  const targetEmail = payload.isAgencySuperAdmin
+    ? (process.env.ADMIN_NOTIFICATION_EMAIL || 'blistedx@gmail.com')
+    : (payload.userEmail || process.env.ADMIN_NOTIFICATION_EMAIL || 'blistedx@gmail.com');
   const smtpUser = process.env.SMTP_USER || 'blistedx@gmail.com';
 
   console.log(`\n======================================================`);
   console.log(`🔐 PASSCODE RESET INITIATED FOR: ${payload.userId} (${payload.userName})`);
   console.log(`🏫 School: ${payload.schoolName} [${payload.schoolCode}] | Role: ${payload.userRole}`);
-  console.log(`🔑 New Passcode: ${payload.newPasscode}`);
-  console.log(`📧 Destination: ${maskEmail(targetEmail)} (${targetEmail})`);
+  console.log(`📧 Destination: ${maskEmail(targetEmail)}`);
   console.log(`======================================================\n`);
 
   try {
