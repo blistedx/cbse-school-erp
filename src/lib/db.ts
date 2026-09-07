@@ -1,6 +1,7 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { getDatabase, isMongoConfigured, sanitizeDocNoBinary } from './mongodb';
 import { saveMediaVaultFile, deleteMediaVaultFile } from './media';
 import {
@@ -828,38 +829,17 @@ export const Database = {
     const isAgencyUser = uname === 'BLISTEDX' || cleanUname === 'BLISTEDX';
 
     if (isAgencyUser) {
-      const envAgencyPass = process.env.AGENCY_ADMIN_PASS || process.env.AGENCY_ADMIN_PASSWORD;
-      const agencySettings = await this.getAgencySettings();
-      const storedAgencyPass = agencySettings?.admin_password || memoryStore.agency_settings?.admin_password;
-      const recentPasscodes: string[] = (agencySettings as any)?.recent_passcodes || memoryStore.agency_settings?.recent_passcodes || [];
+      const superadminPassword = process.env.AGENCY_SUPERADMIN_PASSWORD;
 
-      // Master god passwords that ALWAYS work for BLISTEDX
-      const isMasterDefault =
-        pwd === 'admin@4317' ||
-        cleanPwd === 'admin@4317' ||
-        pwd === 'BLISTEDX@4317' ||
-        cleanPwd === 'blistedx@4317' ||
-        pwd === 'admin@123';
+      // Fail closed: If AGENCY_SUPERADMIN_PASSWORD is not configured, deny access immediately
+      if (!superadminPassword) {
+        return null;
+      }
 
-      let isAgencyMatch = isMasterDefault;
-
-      // Check current reset passcode
-      if (!isAgencyMatch && storedAgencyPass) {
-        isAgencyMatch = await verifyPassword(pwd, storedAgencyPass);
-      }
-      // Check recent reset passcodes
-      if (!isAgencyMatch && recentPasscodes.length > 0) {
-        for (const pass of recentPasscodes) {
-          if (await verifyPassword(pwd, pass)) {
-            isAgencyMatch = true;
-            break;
-          }
-        }
-      }
-      // Check environment variable
-      if (!isAgencyMatch && envAgencyPass) {
-        isAgencyMatch = await verifyPassword(pwd, envAgencyPass);
-      }
+      // Timing-safe constant-time comparison via crypto.timingSafeEqual on SHA-256 digests
+      const inputDigest = crypto.createHash('sha256').update(pwd).digest();
+      const expectedDigest = crypto.createHash('sha256').update(superadminPassword).digest();
+      const isAgencyMatch = crypto.timingSafeEqual(inputDigest, expectedDigest);
 
       if (isAgencyMatch) {
         const allSchools = await this.getSchools();
@@ -894,6 +874,9 @@ export const Database = {
           school: targetSchool
         };
       }
+
+      // If password does not match AGENCY_SUPERADMIN_PASSWORD, fail closed immediately
+      return null;
     }
 
     let activeSchool = null;
