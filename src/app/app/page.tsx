@@ -346,6 +346,15 @@ function ERPWorkspaceContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isOmniSearchOpen, setIsOmniSearchOpen] = useState(false);
 
+  // Clear search query when tab changes so search query doesn't unintentionally filter other modules
+  const prevTabRef = React.useRef(activeTab);
+  useEffect(() => {
+    if (prevTabRef.current !== activeTab) {
+      setSearchQuery('');
+      prevTabRef.current = activeTab;
+    }
+  }, [activeTab]);
+
   // PIN visibility states (Plain text visible by default)
   const [showSettingsPin, setShowSettingsPin] = useState(true);
   const [showProfilePin, setShowProfilePin] = useState(true);
@@ -1326,12 +1335,12 @@ function ERPWorkspaceContent() {
     setMounted(true);
     // Strict Access Control: Redirect to /login if user is not authenticated
     if (typeof window !== 'undefined') {
-      // Clean up any stale offline backup caches from localStorage
+      // Clean up any stale offline backup caches from localStorage (preserve active snapshots)
       try {
         const keysToRemove: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
-          if (k && (k.startsWith('giterp_offline_backup_') || k.startsWith('giterp_cache_'))) {
+          if (k && k.startsWith('giterp_offline_backup_')) {
             keysToRemove.push(k);
           }
         }
@@ -1353,6 +1362,24 @@ function ERPWorkspaceContent() {
             localStorage.setItem('current_school', JSON.stringify(parsedSchool));
           }
           setSelectedSchool(parsedSchool);
+
+          // Restore last saved data snapshot immediately so user sees real saved data with 0ms delay
+          try {
+            const storedSess = localStorage.getItem('giterp_active_session') || '2026-27';
+            const cleanCode = (parsedSchool.school_code || parsedSchool.id || 'DPS2026').replace(/[^A-Z0-9]/gi, '');
+            const snapKey = `giterp_snapshot_${cleanCode}_${storedSess}`;
+            const snapRaw = localStorage.getItem(snapKey);
+            if (snapRaw) {
+              const snap = JSON.parse(snapRaw);
+              if (snap.overview) setOverview(snap.overview);
+              if (Array.isArray(snap.students) && snap.students.length > 0) setStudents(snap.students);
+              if (Array.isArray(snap.teachers) && snap.teachers.length > 0) setTeachers(snap.teachers);
+              if (Array.isArray(snap.classes) && snap.classes.length > 0) setClasses(snap.classes);
+              if (Array.isArray(snap.invoices) && snap.invoices.length > 0) setInvoices(snap.invoices);
+              if (Array.isArray(snap.attendance) && snap.attendance.length > 0) setAttendance(snap.attendance);
+              if (Array.isArray(snap.notices) && snap.notices.length > 0) setNotices(snap.notices);
+            }
+          } catch (_) {}
         }
         try { setCurrentUser(JSON.parse(storedUser)); } catch (e) {}
       } catch (e) {}
@@ -1723,7 +1750,19 @@ function ERPWorkspaceContent() {
         try {
           localStorage.setItem('last_active_school_id', cleanId);
           localStorage.setItem('giterp_active_session', targetSession);
-          localStorage.removeItem(`giterp_cache_${cleanId}`);
+          if (stData.success || freshStudents.length > 0 || freshInvoices.length > 0 || freshOverview) {
+            const snap = {
+              overview: freshOverview,
+              students: freshStudents,
+              teachers: freshTeachers,
+              classes: freshClasses,
+              notices: freshNotices,
+              attendance: freshAttendance,
+              invoices: freshInvoices,
+              savedAt: new Date().toISOString()
+            };
+            localStorage.setItem(`giterp_snapshot_${cleanId}_${targetSession}`, JSON.stringify(snap));
+          }
         } catch (_) {}
       }
     } catch (e) {
@@ -3561,20 +3600,24 @@ function ERPWorkspaceContent() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* Universal Omni-Search Trigger Button */}
+          {/* Universal Omni-Search Trigger Bar */}
           {effectiveRole !== 'DRIVER' && (
-            <button
-              type="button"
+            <div
               onClick={() => setIsOmniSearchOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-[#DCE8E0] text-[#122A24] rounded-xl text-xs font-normal shadow-2xs transition-colors cursor-pointer shrink-0"
-              title="Search (Ctrl+K)"
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 hover:bg-gray-100/90 border border-[#DCE8E0] text-[#122A24] rounded-xl text-xs font-normal shadow-2xs transition-all cursor-pointer group w-36 sm:w-56 md:w-64 shrink-0"
+              title="Search Scholars, Staff, Invoices, Classes (Ctrl+K)"
             >
-              <Search className="h-3.5 w-3.5 text-[#2D5A4E]/60 shrink-0" />
-              <span className="hidden sm:inline text-gray-500 text-xs">Search...</span>
-              <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9.5px] font-mono bg-white border border-[#DCE8E0] rounded text-gray-500">
+              <Search className="h-3.5 w-3.5 text-[#2D5A4E]/70 shrink-0 group-hover:text-emerald-700 transition-colors" />
+              <span className="hidden sm:inline text-gray-500 text-xs truncate flex-1 select-none">
+                Search scholars, staff, fees...
+              </span>
+              <span className="sm:hidden text-gray-500 text-xs truncate flex-1 select-none">
+                Search...
+              </span>
+              <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9.5px] font-mono bg-white border border-[#DCE8E0] rounded text-gray-500 shrink-0">
                 ⌘K
               </kbd>
-            </button>
+            </div>
           )}
 
           {/* Academic Session Switcher */}
@@ -12450,9 +12493,13 @@ function ERPWorkspaceContent() {
           setActiveTab(tab as any);
         }}
         onSelectStudent={(s) => {
+          setActiveTab('students');
+          setSearchQuery(s.admission_no || s.full_name);
           setSummaryStudent(s);
         }}
         onSelectTeacher={(t) => {
+          setActiveTab('teachers');
+          setSearchQuery(t.staff_code || t.full_name);
           openTeacherModal(t);
         }}
       />

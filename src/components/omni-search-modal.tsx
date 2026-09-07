@@ -107,44 +107,24 @@ export function OmniSearchModal({
     const q = query.trim().toLowerCase();
     const results: SearchResultItem[] = [];
 
-    // 1. MODULES SEARCH
-    if (activeCategory === 'ALL' || activeCategory === 'MODULES') {
-      ERP_MODULES.forEach(mod => {
-        if (!q || mod.title.toLowerCase().includes(q) || mod.desc.toLowerCase().includes(q) || mod.tab.toLowerCase().includes(q)) {
-          results.push({
-            id: `mod-${mod.id}`,
-            category: 'MODULE',
-            title: mod.title,
-            subtitle: mod.desc,
-            tag: 'ERP Module',
-            tagColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-            icon: mod.icon,
-            iconColor: 'text-emerald-700',
-            iconBg: 'bg-emerald-50',
-            action: () => {
-              onNavigateTab(mod.tab);
-              onClose();
-            }
-          });
-        }
-      });
-    }
-
-    // 2. STUDENTS SEARCH
-    if (activeCategory === 'ALL' || activeCategory === 'STUDENTS') {
+    // Helper: Push Students
+    const pushStudents = (limit = 20) => {
       const matchedStudents = students.filter(s => {
         if (!s) return false;
         if (!q) return true;
+        const anyS = s as any;
         const name = (s.full_name || '').toLowerCase();
         const adm = (s.admission_no || s.id || '').toLowerCase();
         const roll = String(s.roll_no || '').toLowerCase();
         const cls = (s.class_name || '').toLowerCase();
         const sec = (s.section || '').toLowerCase();
         const father = (s.father_name || s.guardian_name || '').toLowerCase();
-        const phone = (s.guardian_phone || '').toLowerCase();
+        const phone = (s.guardian_phone || anyS.emergency_contact_phone || anyS.father_phone || '').toLowerCase();
         const email = (s.guardian_email || '').toLowerCase();
-        return name.includes(q) || adm.includes(q) || roll.includes(q) || cls.includes(q) || sec.includes(q) || father.includes(q) || phone.includes(q) || email.includes(q);
-      }).slice(0, 15);
+        const apaar = (anyS.apaar_id || '').toLowerCase();
+        const aadhaar = (anyS.aadhaar_no || '').toLowerCase();
+        return name.includes(q) || adm.includes(q) || roll.includes(q) || cls.includes(q) || sec.includes(q) || father.includes(q) || phone.includes(q) || email.includes(q) || apaar.includes(q) || aadhaar.includes(q);
+      }).slice(0, limit);
 
       matchedStudents.forEach(s => {
         results.push({
@@ -164,10 +144,10 @@ export function OmniSearchModal({
           }
         });
       });
-    }
+    };
 
-    // 3. TEACHERS SEARCH
-    if (activeCategory === 'ALL' || activeCategory === 'TEACHERS') {
+    // Helper: Push Teachers
+    const pushTeachers = (limit = 15) => {
       const matchedTeachers = teachers.filter(t => {
         if (!t) return false;
         if (!q) return true;
@@ -179,7 +159,7 @@ export function OmniSearchModal({
         const phone = (t.phone || '').toLowerCase();
         const email = (t.email || '').toLowerCase();
         return name.includes(q) || code.includes(q) || dept.includes(q) || desig.includes(q) || subj.includes(q) || phone.includes(q) || email.includes(q);
-      }).slice(0, 15);
+      }).slice(0, limit);
 
       matchedTeachers.forEach(t => {
         results.push({
@@ -199,21 +179,23 @@ export function OmniSearchModal({
           }
         });
       });
-    }
+    };
 
-    // 4. INVOICES SEARCH
-    if (activeCategory === 'ALL' || activeCategory === 'INVOICES') {
+    // Helper: Push Invoices
+    const pushInvoices = (limit = 15) => {
       const matchedInvoices = invoices.filter(inv => {
         if (!inv) return false;
         if (!q) return true;
-        const invNo = (inv.invoice_no || inv.id || '').toLowerCase();
+        const anyInv = inv as any;
+        const invNo = (inv.invoice_no || inv.id || anyInv.receipt_no || '').toLowerCase();
         const sname = (inv.student_name || '').toLowerCase();
         const adm = (inv.admission_no || '').toLowerCase();
         const cls = (inv.class_name || '').toLowerCase();
         const status = (inv.status || '').toLowerCase();
         const mode = (inv.payment_mode || '').toLowerCase();
-        return invNo.includes(q) || sname.includes(q) || adm.includes(q) || cls.includes(q) || status.includes(q) || mode.includes(q);
-      }).slice(0, 15);
+        const term = (inv.month || anyInv.fee_type || '').toLowerCase();
+        return invNo.includes(q) || sname.includes(q) || adm.includes(q) || cls.includes(q) || status.includes(q) || mode.includes(q) || term.includes(q);
+      }).slice(0, limit);
 
       matchedInvoices.forEach(inv => {
         const amt = Number(inv.amount) || 0;
@@ -221,8 +203,8 @@ export function OmniSearchModal({
         results.push({
           id: `inv-${inv.id}`,
           category: 'INVOICE',
-          title: `Invoice #${inv.invoice_no || inv.id} — ₹${amt.toLocaleString()}`,
-          subtitle: `Scholar: ${inv.student_name} (${inv.class_name || 'N/A'}) • Due: ${inv.due_date || 'N/A'} • Mode: ${inv.payment_mode || 'Cash/UPI'}`,
+          title: `Invoice #${inv.invoice_no || inv.id} — ₹${amt.toLocaleString('en-IN')}`,
+          subtitle: `Scholar: ${inv.student_name} (${inv.class_name || 'N/A'}) • Due: ${inv.due_date || 'N/A'} • Mode: ${inv.payment_mode || 'Cash/Counter'}`,
           tag: isPaid ? 'PAID' : 'PENDING',
           tagColor: isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200',
           icon: CreditCard,
@@ -234,10 +216,10 @@ export function OmniSearchModal({
           }
         });
       });
-    }
+    };
 
-    // 5. CLASSES SEARCH
-    if (activeCategory === 'ALL' || activeCategory === 'CLASSES') {
+    // Helper: Push Classes
+    const pushClasses = (limit = 10) => {
       const matchedClasses = classes.filter(c => {
         if (!c) return false;
         if (!q) return true;
@@ -247,7 +229,7 @@ export function OmniSearchModal({
         const teacher = (c.class_teacher || '').toLowerCase();
         const room = (c.room_no || '').toLowerCase();
         return name.includes(q) || sec.includes(q) || code.includes(q) || teacher.includes(q) || room.includes(q);
-      }).slice(0, 10);
+      }).slice(0, limit);
 
       matchedClasses.forEach(c => {
         results.push({
@@ -266,10 +248,10 @@ export function OmniSearchModal({
           }
         });
       });
-    }
+    };
 
-    // 6. NOTICES SEARCH
-    if (activeCategory === 'ALL' || activeCategory === 'NOTICES') {
+    // Helper: Push Notices
+    const pushNotices = (limit = 10) => {
       const matchedNotices = notices.filter(n => {
         if (!n) return false;
         if (!q) return true;
@@ -278,7 +260,7 @@ export function OmniSearchModal({
         const aud = (n.target_audience || '').toLowerCase();
         const by = (n.posted_by || '').toLowerCase();
         return title.includes(q) || content.includes(q) || aud.includes(q) || by.includes(q);
-      }).slice(0, 10);
+      }).slice(0, limit);
 
       matchedNotices.forEach(n => {
         results.push({
@@ -297,6 +279,64 @@ export function OmniSearchModal({
           }
         });
       });
+    };
+
+    // Helper: Push Modules
+    const pushModules = (limit = 20) => {
+      const matchedModules = ERP_MODULES.filter(mod => {
+        if (!q) return true;
+        return mod.title.toLowerCase().includes(q) || mod.desc.toLowerCase().includes(q) || mod.tab.toLowerCase().includes(q);
+      }).slice(0, limit);
+
+      matchedModules.forEach(mod => {
+        results.push({
+          id: `mod-${mod.id}`,
+          category: 'MODULE',
+          title: mod.title,
+          subtitle: mod.desc,
+          tag: 'ERP Module',
+          tagColor: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+          icon: mod.icon,
+          iconColor: 'text-emerald-700',
+          iconBg: 'bg-emerald-50',
+          action: () => {
+            onNavigateTab(mod.tab);
+            onClose();
+          }
+        });
+      });
+    };
+
+    // CATEGORY ROUTING
+    if (activeCategory === 'STUDENTS') {
+      pushStudents(50);
+    } else if (activeCategory === 'TEACHERS') {
+      pushTeachers(50);
+    } else if (activeCategory === 'INVOICES') {
+      pushInvoices(50);
+    } else if (activeCategory === 'CLASSES') {
+      pushClasses(50);
+    } else if (activeCategory === 'NOTICES') {
+      pushNotices(50);
+    } else if (activeCategory === 'MODULES') {
+      pushModules(50);
+    } else {
+      // ALL CATEGORIES:
+      if (q) {
+        // When typing a query: prioritize concrete records over modules!
+        pushStudents(12);
+        pushTeachers(8);
+        pushInvoices(10);
+        pushClasses(6);
+        pushNotices(6);
+        pushModules(6);
+      } else {
+        // When query is empty: show key modules first, then recent scholars & invoices
+        pushModules(6);
+        pushStudents(6);
+        pushInvoices(6);
+        pushTeachers(4);
+      }
     }
 
     return results;
