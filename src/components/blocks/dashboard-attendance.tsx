@@ -135,6 +135,28 @@ export function DashboardAttendance({
     showAdminToast(message);
   };
   
+  // Local attendance records state for immediate reactive UI update upon saving
+  const [localAttendanceRecords, setLocalAttendanceRecords] = useState<AttendanceRecord[]>([]);
+
+  const effectiveAttendance = useMemo(() => {
+    if (!localAttendanceRecords.length) return attendance;
+    // Overlay local records on top of prop attendance
+    const merged = [...attendance];
+    localAttendanceRecords.forEach(localRec => {
+      const idx = merged.findIndex(a =>
+        a.date === localRec.date &&
+        (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') === (localRec.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') &&
+        (a.section || '').toUpperCase().trim() === (localRec.section || '').toUpperCase().trim()
+      );
+      if (idx >= 0) {
+        merged[idx] = localRec;
+      } else {
+        merged.unshift(localRec);
+      }
+    });
+    return merged;
+  }, [attendance, localAttendanceRecords]);
+
   // Sorted Classes
   const sortedClasses = useMemo(() => sortClassesChronologically(classes), [classes]);
 
@@ -354,17 +376,17 @@ export function DashboardAttendance({
 
   // Load Existing Roll Call from saved logs only when switching target roster, date, or after fresh save
   useEffect(() => {
-    const currentContextKey = `${attendanceType}_${attendanceType === 'STUDENT' ? (selectedClass?.id || '') : 'FACULTY'}_${attendanceDate}_${attendance.length}`;
+    const currentContextKey = `${attendanceType}_${attendanceType === 'STUDENT' ? (selectedClass?.id || '') : 'FACULTY'}_${attendanceDate}_${effectiveAttendance.length}`;
     if (loadedContextKeyRef.current === currentContextKey) return;
     loadedContextKeyRef.current = currentContextKey;
 
     if (attendanceType === 'STUDENT') {
       if (!selectedClass) return;
-      const cName = (selectedClass.class_name || '').toLowerCase().trim();
+      const cName = (selectedClass.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
       const cSec = (selectedClass.section || '').toUpperCase().trim();
-      const match = attendance.find(a => 
+      const match = effectiveAttendance.find(a => 
         a.date === attendanceDate && 
-        ((a.class_name || '').toLowerCase().trim() === cName || (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') === cName.replace(/^class\s*/i, '')) &&
+        (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') === cName &&
         (a.section || '').toUpperCase().trim() === cSec
       );
 
@@ -387,7 +409,7 @@ export function DashboardAttendance({
       setStudentStatuses(initialMap);
     } else {
       // Faculty Roll Call
-      const match = attendance.find(a => 
+      const match = effectiveAttendance.find(a => 
         a.date === attendanceDate && 
         (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
       );
@@ -410,7 +432,7 @@ export function DashboardAttendance({
       }
       setStudentStatuses(initialMap);
     }
-  }, [selectedClass, attendanceDate, attendanceType, classStudents, teachers, attendance]);
+  }, [selectedClass, attendanceDate, attendanceType, classStudents, teachers, effectiveAttendance]);
 
   const handleStatusChange = (id: string, status: 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE') => {
     setStudentStatuses(prev => ({ ...prev, [id]: status }));
@@ -493,6 +515,16 @@ export function DashboardAttendance({
 
         const data = await res.json();
         if (data.success) {
+          if (data.record) {
+            setLocalAttendanceRecords(prev => {
+              const filtered = prev.filter(r => !(
+                r.date === data.record.date &&
+                (r.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') === (data.record.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') &&
+                (r.section || '').toUpperCase().trim() === (data.record.section || '').toUpperCase().trim()
+              ));
+              return [data.record, ...filtered];
+            });
+          }
           triggerSaveSuccess(
             'Attendance Saved!',
             sendPushToParents ? `${selectedClass.class_name}-${selectedClass.section} • Alerts Dispatched to Parents` : `${selectedClass.class_name}-${selectedClass.section} Ledger Synced`
@@ -558,6 +590,15 @@ export function DashboardAttendance({
 
         const data = await res.json();
         if (data.success) {
+          if (data.record) {
+            setLocalAttendanceRecords(prev => {
+              const filtered = prev.filter(r => !(
+                r.date === data.record.date &&
+                (/faculty|staff/i.test(r.class_name || '') || /faculty|staff/i.test(r.section || ''))
+              ));
+              return [data.record, ...filtered];
+            });
+          }
           triggerSaveSuccess(
             'Faculty Attendance Saved!',
             `${presentFac}/${totalFaculty} Faculty Members On-Duty`
@@ -597,6 +638,25 @@ export function DashboardAttendance({
 
   // Selected date holiday status
   const activeDateHoliday = useMemo(() => getHolidayForDate(attendanceDate), [getHolidayForDate, attendanceDate]);
+
+  // Check if roll call is recorded for current roster and date
+  const isRosterDateMarked = useMemo(() => {
+    if (attendanceType === 'STUDENT') {
+      if (!selectedClass) return false;
+      const cName = (selectedClass.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+      const cSec = (selectedClass.section || '').toUpperCase().trim();
+      return effectiveAttendance.some(a =>
+        a.date === attendanceDate &&
+        (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') === cName &&
+        (a.section || '').toUpperCase().trim() === cSec
+      );
+    } else {
+      return effectiveAttendance.some(a =>
+        a.date === attendanceDate &&
+        (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
+      );
+    }
+  }, [effectiveAttendance, attendanceType, selectedClass, attendanceDate]);
 
   // ─────────────────────────────────────────────────────────────────
   // TAB 2: MONTHLY ATTENDANCE SHEET STATE & MATRIX BUILDER
@@ -717,7 +777,7 @@ export function DashboardAttendance({
       }
 
       for (const dateStr of Array.from(editedDates)) {
-        const existingRec = attendance.find(a => {
+        const existingRec = effectiveAttendance.find(a => {
           const normA = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
           const normC = (currentSheetClass.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
           const normASec = (a.section || '').toLowerCase().trim();
@@ -803,7 +863,7 @@ export function DashboardAttendance({
 
         // Check real attendance from database or local edits
         const local = sheetEdits[stu.id]?.[dateStr];
-        const rec = attendance.find(a => {
+        const rec = effectiveAttendance.find(a => {
           const normA = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
           const normC = (currentSheetClass.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
           const normASec = (a.section || '').toLowerCase().trim();
@@ -969,11 +1029,15 @@ export function DashboardAttendance({
         return (sName === cName || sName.replace(/^class\s*/i, '') === cName.replace(/^class\s*/i, '')) && (!cSec || !sSec || sSec === cSec);
       });
 
-      const todayLog = attendance.find(a => 
-        a.date === todayDateStr && 
-        (a.class_name || '').toLowerCase() === (cls.class_name || '').toLowerCase() &&
-        (a.section || '').toUpperCase() === (cls.section || '').toUpperCase()
-      );
+      const todayLog = effectiveAttendance.find(a => {
+        const aDate = a.date;
+        const matchesDate = aDate === todayDateStr || aDate === attendanceDate || aDate === new Date().toISOString().split('T')[0];
+        const aName = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+        const cName = (cls.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+        const aSec = (a.section || '').toUpperCase().trim();
+        const cSec = (cls.section || '').toUpperCase().trim();
+        return matchesDate && aName === cName && (!cSec || !aSec || aSec === cSec);
+      });
 
       const isMarked = !!todayLog;
       const presentCount = isMarked ? Number(todayLog.present_count) || 0 : 0;
@@ -994,7 +1058,7 @@ export function DashboardAttendance({
         defaulterStudents: defaulters
       };
     });
-  }, [sortedClasses, students, attendance, todayDateStr]);
+  }, [sortedClasses, selectableClasses, isTeacher, students, effectiveAttendance, todayDateStr, attendanceDate]);
 
   const totalClassesCount = isTeacher ? selectableClasses.length : sortedClasses.length;
   const markedClassesTodayCount = classSummaryData.filter(c => c.isMarked).length;
@@ -1009,11 +1073,11 @@ export function DashboardAttendance({
 
   // Faculty Attendance Today Metrics
   const facultyTodayLog = useMemo(() => {
-    return attendance.find(a => 
-      (a.date === todayDateStr || a.date === new Date().toISOString().split('T')[0]) &&
-      (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
-    ) || null;
-  }, [attendance, todayDateStr]);
+    return effectiveAttendance.find(a => {
+      const matchesDate = a.date === todayDateStr || a.date === attendanceDate || a.date === new Date().toISOString().split('T')[0];
+      return matchesDate && (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''));
+    }) || null;
+  }, [effectiveAttendance, todayDateStr, attendanceDate]);
 
   const totalTeachersCount = teachers.length;
   const isFacultyMarkedToday = !!facultyTodayLog;
@@ -1382,6 +1446,16 @@ export function DashboardAttendance({
                     className="bg-transparent border-none text-xs font-bold text-[#122A24] focus:outline-none cursor-pointer font-mono"
                   />
                 </div>
+
+                {/* Live Roll Call Status Badge for Selected Date */}
+                <span className={`px-2.5 py-1 rounded-full text-xs font-mono font-bold border flex items-center gap-1.5 shadow-2xs ${
+                  isRosterDateMarked
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                    : 'bg-amber-50 text-amber-800 border-amber-300'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${isRosterDateMarked ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                  <span>{isRosterDateMarked ? 'Marked' : 'Pending'}</span>
+                </span>
               </div>
 
               {/* Roster Live Turnout Stats */}
@@ -2009,7 +2083,7 @@ export function DashboardAttendance({
                               );
                             }
 
-                            const rec = attendance.find(a => {
+                            const rec = effectiveAttendance.find(a => {
                               const normA = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
                               const normC = (currentSheetClass?.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
                               const normASec = (a.section || '').toLowerCase().trim();

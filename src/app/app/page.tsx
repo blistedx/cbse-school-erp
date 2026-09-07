@@ -2585,6 +2585,14 @@ function ERPWorkspaceContent() {
       });
       const data = await res.json();
       if (data.success && data.school) {
+        // Immediately update React selectedSchool state and availableSchools array so logo displays instantly
+        setSelectedSchool(data.school);
+        setAvailableSchools(prev => prev.map(s => s.id === data.school.id ? data.school : s));
+        setSettingsForm(prev => ({
+          ...prev,
+          logo: data.school.logo || data.school.logo_url || prev.logo
+        }));
+
         const isMasterAdmin = !currentUser || ['PRINCIPAL', 'ADMIN', 'SUPERADMIN', 'AGENCY_SUPERADMIN'].includes(currentUser?.role?.toUpperCase());
         if (isMasterAdmin) {
           const updatedUser = {
@@ -2605,6 +2613,7 @@ function ERPWorkspaceContent() {
           localStorage.setItem('current_school', JSON.stringify(data.school));
         }
         setSettingsSuccess('Institutional settings and security PIN updated successfully!');
+        showAdminToast('Institutional settings and logo saved successfully!');
         setTimeout(() => setSettingsSuccess(''), 3000);
       }
     } catch (e) {
@@ -3523,8 +3532,17 @@ function ERPWorkspaceContent() {
             <Menu className="h-5 w-5" />
           </button>
 
-          {/* Clean Breadcrumbs (Reference style: "Dashboard / Overview") */}
-          <div className="hidden sm:flex items-center gap-2 text-xs sm:text-sm font-medium">
+          {/* Clean Breadcrumbs with School Logo Badge */}
+          <div className="hidden sm:flex items-center gap-2.5 text-xs sm:text-sm font-medium">
+            {(selectedSchool?.logo || selectedSchool?.logo_url) && (
+              <div className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-200 overflow-hidden shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
+                <img
+                  src={selectedSchool.logo || selectedSchool.logo_url}
+                  alt="School Logo"
+                  className="w-full h-full object-contain rounded"
+                />
+              </div>
+            )}
             <button
               onClick={() => setActiveTab('overview')}
               className="text-gray-400 hover:text-[#122A24] transition-colors border-none bg-transparent p-0 cursor-pointer"
@@ -3538,6 +3556,15 @@ function ERPWorkspaceContent() {
           </div>
 
           <div className="sm:hidden flex items-center gap-2 min-w-0">
+            {(selectedSchool?.logo || selectedSchool?.logo_url) && (
+              <div className="w-5 h-5 rounded-md bg-emerald-50 border border-emerald-200 overflow-hidden shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
+                <img
+                  src={selectedSchool.logo || selectedSchool.logo_url}
+                  alt="School Logo"
+                  className="w-full h-full object-contain rounded-xs"
+                />
+              </div>
+            )}
             <span className="font-bold text-xs text-[#122A24] truncate">
               {TAB_POSTER_CONFIG[activeTab]?.title || activeTab}
             </span>
@@ -3690,13 +3717,21 @@ function ERPWorkspaceContent() {
                 className="flex items-center gap-2.5 border-none bg-transparent p-0 text-left cursor-pointer group"
                 title={effectiveRole === 'DRIVER' ? "Go to Transport Console" : "Go to Overview Dashboard"}
               >
-                <div className="w-8 h-8 rounded-xl bg-white text-[#122A24] flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
-                  <div className="grid grid-cols-2 gap-1 w-3.5 h-3.5">
-                    <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]" />
-                    <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]/70" />
-                    <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]/70" />
-                    <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]" />
-                  </div>
+                <div className="w-8 h-8 rounded-xl bg-white text-[#122A24] flex items-center justify-center font-bold text-xs shadow-xs shrink-0 overflow-hidden p-0.5 border border-white/20">
+                  {selectedSchool?.logo || selectedSchool?.logo_url ? (
+                    <img
+                      src={selectedSchool.logo || selectedSchool.logo_url}
+                      alt={selectedSchool.school_name || 'School Logo'}
+                      className="w-full h-full object-contain rounded-lg"
+                    />
+                  ) : (
+                    <div className="grid grid-cols-2 gap-1 w-3.5 h-3.5">
+                      <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]" />
+                      <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]/70" />
+                      <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]/70" />
+                      <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]" />
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div className="font-bold text-sm text-white truncate max-w-[150px]">
@@ -4032,13 +4067,21 @@ function ERPWorkspaceContent() {
             title={effectiveRole === 'DRIVER' ? "Go to Transport Console" : "Go to Overview Dashboard"}
           >
             {/* School Logo Badge */}
-            <div className="w-9 h-9 rounded-xl bg-white text-[#122A24] flex items-center justify-center font-bold text-xs shadow-xs shrink-0 group-hover:scale-105 transition-transform">
-              <div className="grid grid-cols-2 gap-1 w-4 h-4">
-                <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]" />
-                <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]/70" />
-                <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]/70" />
-                <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]" />
-              </div>
+            <div className="w-9 h-9 rounded-xl bg-white text-[#122A24] flex items-center justify-center font-bold text-xs shadow-xs shrink-0 group-hover:scale-105 transition-transform overflow-hidden p-0.5 border border-white/20">
+              {selectedSchool?.logo || selectedSchool?.logo_url ? (
+                <img
+                  src={selectedSchool.logo || selectedSchool.logo_url}
+                  alt={selectedSchool.school_name || 'School Logo'}
+                  className="w-full h-full object-contain rounded-lg"
+                />
+              ) : (
+                <div className="grid grid-cols-2 gap-1 w-4 h-4">
+                  <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]" />
+                  <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]/70" />
+                  <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]/70" />
+                  <span className="w-1.5 h-1.5 rounded-xs bg-[#122A24]" />
+                </div>
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5 truncate">
@@ -7446,7 +7489,7 @@ function ERPWorkspaceContent() {
                 selectedSession={selectedSession}
                 userRole={effectiveRole}
                 currentUser={currentUser}
-                onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.id, selectedSession)}
+                onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession)}
                 showAdminToast={showAdminToast}
               />
             )

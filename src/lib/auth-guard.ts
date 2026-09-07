@@ -187,14 +187,18 @@ export function resolveTenantSchoolId(
     );
   }
 
-  if (requestedSchoolId && requestedSchoolId.trim() !== userSchoolId) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Forbidden: You do not have permission to access or modify records for another school tenant.'
-      },
-      { status: 403 }
-    );
+  if (requestedSchoolId && requestedSchoolId.trim()) {
+    const cleanReq = requestedSchoolId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const cleanUser = userSchoolId.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (requestedSchoolId.trim() !== userSchoolId && cleanReq !== cleanUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Forbidden: You do not have permission to access or modify records for another school tenant.'
+        },
+        { status: 403 }
+      );
+    }
   }
 
   return userSchoolId;
