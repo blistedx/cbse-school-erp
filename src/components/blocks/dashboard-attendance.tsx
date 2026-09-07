@@ -1324,48 +1324,48 @@ export function DashboardAttendance({
           </div>
         </div>
 
-        {/* 4 Primary Navigation Buttons (Full-Width Responsive Grid) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10">
+        {/* 4 Primary Navigation Tabs */}
+        <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10">
           {/* Tab 1: Mark Student Attendance */}
           <button
             type="button"
             onClick={() => setAttendanceTab('mark_attendance')}
-            className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
               attendanceTab === 'mark_attendance'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
             }`}
           >
             <ClipboardPen className="h-4 w-4 stroke-[1.75] shrink-0" />
-            <span className="truncate">Mark Attendance</span>
+            <span className="whitespace-nowrap">Mark Roll Call</span>
           </button>
 
           {/* Tab 2: Monthly Attendance Sheet */}
           <button
             type="button"
             onClick={() => setAttendanceTab('monthly_sheet')}
-            className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
               attendanceTab === 'monthly_sheet'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
             }`}
           >
             <CalendarDays className="h-4 w-4 stroke-[1.75] shrink-0" />
-            <span className="truncate">Monthly Sheet (31-Day)</span>
+            <span className="whitespace-nowrap">Monthly Register</span>
           </button>
 
           {/* Tab 3: Attendance Summary */}
           <button
             type="button"
             onClick={() => setAttendanceTab('attendance_summary')}
-            className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
               attendanceTab === 'attendance_summary'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
             }`}
           >
             <BarChart3 className="h-4 w-4 stroke-[1.75] shrink-0" />
-            <span className="truncate">Attendance Summary</span>
+            <span className="whitespace-nowrap">Attendance Summary</span>
           </button>
 
           {/* Tab 4: Declare Holidays & Calendar */}
@@ -1373,14 +1373,14 @@ export function DashboardAttendance({
             <button
               type="button"
               onClick={() => setAttendanceTab('holiday_calendar')}
-              className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
                 attendanceTab === 'holiday_calendar'
                   ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                  : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+                  : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
               }`}
             >
               <Palmtree className="h-4 w-4 stroke-[1.75] shrink-0" />
-              <span className="truncate">Declare Holidays ({holidays.length})</span>
+              <span className="whitespace-nowrap">Declared Holidays ({holidays.length})</span>
             </button>
           )}
         </div>
@@ -2239,64 +2239,81 @@ export function DashboardAttendance({
         {attendanceTab === 'attendance_summary' && (
           <div className="space-y-6 animate-fade-in">
             {/* 5 Summary Stat Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
               {/* Card 1: Student Turnout */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] space-y-2">
-                <div className="text-[11px] font-mono font-bold text-[#2D5A4E] uppercase">Student Turnout (Today)</div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl sm:text-3xl font-display font-bold text-[#122A24]">{overallSchoolAttendanceTodayRate}%</span>
-                  <span className="text-xs font-mono text-slate-500">({totalStudentsPresentToday}/{totalSchoolStudents})</span>
+              <div className="min-w-0 p-4 sm:p-4.5 rounded-2xl bg-white border border-[#E2ECE5] shadow-2xs space-y-2 overflow-hidden">
+                <div className="text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider truncate">Student Turnout (Today)</div>
+                <div className="flex items-baseline justify-between gap-1.5 flex-wrap">
+                  <span className="text-2xl sm:text-[28px] font-display font-bold text-[#122A24] tracking-tight">{overallSchoolAttendanceTodayRate}%</span>
+                  <span className="text-[11px] font-mono font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md whitespace-nowrap">
+                    {totalStudentsPresentToday}/{totalSchoolStudents}
+                  </span>
                 </div>
-                <div className="text-[11px] font-mono text-emerald-700">
-                  {markedClassesTodayCount}/{totalClassesCount} Classes Logged
+                <div className="text-[11px] font-mono text-emerald-700 truncate flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>{markedClassesTodayCount}/{totalClassesCount} Classes Logged</span>
                 </div>
               </div>
 
               {/* Card 2: Faculty Turnout */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-2">
-                <div className="text-[11px] font-mono font-bold text-emerald-900 uppercase">Faculty Turnout (Today)</div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl sm:text-3xl font-display font-bold text-emerald-900">{isFacultyMarkedToday ? `${facultyTurnoutRate}%` : 'Pending'}</span>
-                  <span className="text-xs font-mono text-emerald-700">({isFacultyMarkedToday ? facultyPresentCount : 0}/{totalTeachersCount})</span>
+              <div className="min-w-0 p-4 sm:p-4.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/90 shadow-2xs space-y-2 overflow-hidden">
+                <div className="text-[10.5px] font-mono font-bold text-emerald-900 uppercase tracking-wider truncate">Faculty Turnout (Today)</div>
+                <div className="flex items-baseline justify-between gap-1.5 flex-wrap">
+                  <span className="text-2xl sm:text-[28px] font-display font-bold text-emerald-950 tracking-tight">
+                    {isFacultyMarkedToday ? `${facultyTurnoutRate}%` : 'Pending'}
+                  </span>
+                  <span className="text-[11px] font-mono font-semibold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md whitespace-nowrap">
+                    {isFacultyMarkedToday ? `${facultyPresentCount}/${totalTeachersCount}` : `0/${totalTeachersCount}`}
+                  </span>
                 </div>
-                <div className="text-[11px] font-mono text-emerald-800">
-                  {isFacultyMarkedToday ? `${facultyHolidayCount} On Holiday • ${facultyAbsentCount} Absent` : 'Daily Biometric Roll Call'}
+                <div className="text-[11px] font-mono text-emerald-800 truncate flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isFacultyMarkedToday ? 'bg-emerald-600' : 'bg-amber-500'}`} />
+                  <span>{isFacultyMarkedToday ? `${facultyHolidayCount} On Holiday • ${facultyAbsentCount} Absent` : 'Daily Biometric Roll Call'}</span>
                 </div>
               </div>
 
               {/* Card 3: Monthly Average */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] space-y-2">
-                <div className="text-[11px] font-mono font-bold text-[#2D5A4E] uppercase">Monthly Average</div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl sm:text-3xl font-display font-bold text-[#122A24]">92.8%</span>
-                  <span className="text-xs font-mono text-slate-500">(Institutional)</span>
+              <div className="min-w-0 p-4 sm:p-4.5 rounded-2xl bg-white border border-[#E2ECE5] shadow-2xs space-y-2 overflow-hidden">
+                <div className="text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider truncate">Monthly Average</div>
+                <div className="flex items-baseline justify-between gap-1.5 flex-wrap">
+                  <span className="text-2xl sm:text-[28px] font-display font-bold text-[#122A24] tracking-tight">92.8%</span>
+                  <span className="text-[11px] font-mono font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md whitespace-nowrap">
+                    Average
+                  </span>
                 </div>
-                <div className="text-[11px] font-mono text-emerald-700">
-                  +1.4% vs Previous Month
+                <div className="text-[11px] font-mono text-emerald-700 truncate flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>+1.4% vs Previous Month</span>
                 </div>
               </div>
 
               {/* Card 4: Defaulters */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-rose-50/50 border border-rose-200/80 space-y-2">
-                <div className="text-[11px] font-mono font-bold text-rose-900 uppercase">CBSE Defaulters (&lt;75%)</div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl sm:text-3xl font-display font-bold text-rose-700">{allDefaultersList.length}</span>
-                  <span className="text-xs font-mono text-rose-600">Scholars</span>
+              <div className="min-w-0 p-4 sm:p-4.5 rounded-2xl bg-rose-50/70 border border-rose-200/90 shadow-2xs space-y-2 overflow-hidden">
+                <div className="text-[10.5px] font-mono font-bold text-rose-900 uppercase tracking-wider truncate">CBSE Defaulters (&lt;75%)</div>
+                <div className="flex items-baseline justify-between gap-1.5 flex-wrap">
+                  <span className="text-2xl sm:text-[28px] font-display font-bold text-rose-700 tracking-tight">{allDefaultersList.length}</span>
+                  <span className="text-[11px] font-mono font-semibold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-md whitespace-nowrap">
+                    Scholars
+                  </span>
                 </div>
-                <div className="text-[11px] font-mono text-rose-600">
-                  Below CBSE 75% Rule
+                <div className="text-[11px] font-mono text-rose-600 truncate flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                  <span>Below CBSE 75% Rule</span>
                 </div>
               </div>
 
               {/* Card 5: Holidays */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] space-y-2">
-                <div className="text-[11px] font-mono font-bold text-[#2D5A4E] uppercase">Declared Holidays</div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl sm:text-3xl font-display font-bold text-amber-700">{holidays.length}</span>
-                  <span className="text-xs font-mono text-slate-500">Breaks</span>
+              <div className="min-w-0 p-4 sm:p-4.5 rounded-2xl bg-white border border-[#E2ECE5] shadow-2xs space-y-2 overflow-hidden">
+                <div className="text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider truncate">Declared Holidays</div>
+                <div className="flex items-baseline justify-between gap-1.5 flex-wrap">
+                  <span className="text-2xl sm:text-[28px] font-display font-bold text-amber-700 tracking-tight">{holidays.length}</span>
+                  <span className="text-[11px] font-mono font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md whitespace-nowrap">
+                    Breaks
+                  </span>
                 </div>
-                <div className="text-[11px] font-mono text-slate-500">
-                  Official Session Breaks
+                <div className="text-[11px] font-mono text-slate-500 truncate flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                  <span>Official Session Breaks</span>
                 </div>
               </div>
             </div>
