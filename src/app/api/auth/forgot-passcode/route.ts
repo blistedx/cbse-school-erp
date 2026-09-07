@@ -122,7 +122,7 @@ export async function POST(req: Request) {
           schoolCode: school.school_code,
           userId: matchedStudent.admission_no || matchedStudent.id,
           userName: matchedStudent.full_name,
-          userRole: `Student (${matchedStudent.class || 'N/A'}${matchedStudent.section ? '-' + matchedStudent.section : ''})`,
+          userRole: `Student (${matchedStudent.class_name || (matchedStudent as any).class || 'N/A'}${matchedStudent.section ? '-' + matchedStudent.section : ''})`,
           newPasscode,
           userEmail: matchedStudent.email,
           userPhone: matchedStudent.guardian_phone || matchedStudent.phone
