@@ -145,7 +145,9 @@ export function DashboardOverview({
   studentAttendanceRecords.forEach(a => {
     const aDate = a.date || (a.created_at ? a.created_at.split('T')[0] : '');
     if (aDate === localDateStr || aDate === isoDateStr) {
-      const key = `${(a.class_name || '').toLowerCase().trim()}_${(a.section || '').toLowerCase().trim()}`;
+      const rawC = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '').replace(/[-\s]+/g, '');
+      const normClass = /^(pg|playgroup|play|prekg|prenursery)$/i.test(rawC) ? 'playgroup' : rawC;
+      const key = `${normClass}_${(a.section || '').toLowerCase().trim()}`;
       studentTodayMap.set(key, a);
     }
   });
@@ -166,7 +168,7 @@ export function DashboardOverview({
         ? Number(((studentPresentCount / totalStudentsCount) * 100).toFixed(1))
         : 0);
 
-  const dailyStudentRate = isStudentAttendanceMarkedToday && studentEnrolledInLogged > 0 && studentAttendanceRate > 0
+  const dailyStudentRate = isStudentAttendanceMarkedToday && studentEnrolledInLogged > 0
     ? studentAttendanceRate
     : null;
 
@@ -254,7 +256,7 @@ export function DashboardOverview({
   // Dynamic Attendance KPI — NEVER shows fake 94% if unrecorded
   const activeAttendanceKpi = useMemo(() => {
     if (timeFilter === 'Daily') {
-      const marked = isStudentAttendanceMarkedToday && dailyStudentRate !== null && dailyStudentRate > 0;
+      const marked = isStudentAttendanceMarkedToday && dailyStudentRate !== null;
       return {
         label: 'Attendance today',
         displayValue: marked ? `${Math.round(dailyStudentRate!)}%` : 'Not Marked',

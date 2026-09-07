@@ -1,6 +1,6 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
-import { Database } from '@/lib/db';
+import { Database, isSameClass } from '@/lib/db';
 import { requireAuth, requireRole, resolveTenantSchoolId, STAFF_ROLES, ADMIN_ROLES } from '@/lib/auth-guard';
 
 export async function GET(req: Request) {
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
 
       const classes = await Database.getClasses(schoolId);
       const targetClass = classes.find(c =>
-        c.class_name.toLowerCase().trim() === (body.class_name || '').toLowerCase().trim() &&
+        isSameClass(c.class_name, body.class_name) &&
         (c.section || 'A').toUpperCase().trim() === (body.section || 'A').toUpperCase().trim()
       );
 

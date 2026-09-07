@@ -258,6 +258,39 @@ function buildSessionFilter(schoolIds: string[], session?: string) {
   return filter;
 }
 
+export function normalizeClassName(name?: string): string {
+  if (!name) return '';
+  const clean = name.toLowerCase().trim().replace(/^class\s*/i, '').replace(/[-\s]+/g, '');
+  if (/^(pg|playgroup|play|prekg|prenursery)$/i.test(clean)) return 'playgroup';
+  if (/^(lkg|lowerkg|kg1)$/i.test(clean)) return 'lkg';
+  if (/^(ukg|upperkg|kg2)$/i.test(clean)) return 'ukg';
+  if (/^(nursery|nur)$/i.test(clean)) return 'nursery';
+  return clean;
+}
+
+export function isSameClass(classA?: string, classB?: string): boolean {
+  if (!classA || !classB) return false;
+  return normalizeClassName(classA) === normalizeClassName(classB);
+}
+
+export function getClassNameRegex(className: string): RegExp {
+  const norm = normalizeClassName(className);
+  if (norm === 'playgroup') {
+    return /^(class\s*)?(pg|playgroup|play\s*group)$/i;
+  }
+  if (norm === 'lkg') {
+    return /^(class\s*)?(lkg|lower\s*kg)$/i;
+  }
+  if (norm === 'ukg') {
+    return /^(class\s*)?(ukg|upper\s*kg)$/i;
+  }
+  if (norm === 'nursery') {
+    return /^(class\s*)?(nursery|nur)$/i;
+  }
+  const escaped = className.trim().replace(/^class\s*/i, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^(class\\s*)?${escaped}$`, 'i');
+}
+
 function matchesSession(item: any, session?: string): boolean {
   const targetSession = session || '2026-27';
   if (targetSession === 'ALL') return true;
@@ -1708,7 +1741,8 @@ export const Database = {
           const sanitized = results.map(sanitizeDoc<AttendanceRecord>);
           const dedupMap = new Map<string, AttendanceRecord>();
           sanitized.forEach(item => {
-            const key = `${item.date}_${(item.class_name || '').toLowerCase().trim()}_${(item.section || '').toLowerCase().trim()}`;
+            const normC = normalizeClassName(item.class_name);
+            const key = `${item.date}_${normC}_${(item.section || '').toLowerCase().trim()}`;
             if (!dedupMap.has(key)) {
               dedupMap.set(key, item);
             }
@@ -1726,7 +1760,8 @@ export const Database = {
 
     const memDedupMap = new Map<string, AttendanceRecord>();
     rawList.forEach(item => {
-      const key = `${item.date}_${(item.class_name || '').toLowerCase().trim()}_${(item.section || '').toLowerCase().trim()}`;
+      const normC = normalizeClassName(item.class_name);
+      const key = `${item.date}_${normC}_${(item.section || '').toLowerCase().trim()}`;
       if (!memDedupMap.has(key)) {
         memDedupMap.set(key, item);
       }
@@ -1744,21 +1779,25 @@ export const Database = {
     const rawSection = (data.section || 'A').trim();
     const school_id = data.school_id || '';
 
+    const school = school_id ? await this.getSchoolById(school_id) : null;
+    const cleanId = school_id ? school_id.replace(/[^A-Z0-9]/gi, '') : undefined;
+    const targetIds = Array.from(new Set([school?.id, school?.school_code, school_id, cleanId].filter(Boolean)));
+    const canonicalSchoolId = school?.id || school?.school_code || school_id || 'DPS2026';
+
     const isFaculty = /faculty|staff/i.test(rawClassName) || /faculty|staff/i.test(rawSection);
     const class_name = isFaculty ? 'Faculty' : rawClassName;
     const section = isFaculty ? 'Staff' : rawSection;
 
     // Check if record already exists for this date, class, and section
-    const normClassName = class_name.toLowerCase();
     const normSection = section.toLowerCase();
 
     const existingMemIdx = memoryStore.attendance.findIndex(a => 
-      a.school_id === school_id &&
+      targetIds.includes(a.school_id) &&
       matchesSession(a, academic_session) &&
       a.date === date &&
       (isFaculty 
         ? (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
-        : ((a.class_name || '').toLowerCase().trim() === normClassName && (a.section || '').toLowerCase().trim() === normSection))
+        : (isSameClass(a.class_name, class_name) && (a.section || '').toLowerCase().trim() === normSection))
     );
 
     const id = (existingMemIdx >= 0 && memoryStore.attendance[existingMemIdx].id) 
@@ -1768,7 +1807,7 @@ export const Database = {
     const record: AttendanceRecord = {
       ...data,
       id,
-      school_id,
+      school_id: canonicalSchoolId,
       academic_session,
       date,
       class_name,
@@ -1789,7 +1828,7 @@ export const Database = {
       if (db) {
         if (isFaculty) {
           await db.collection('attendance').deleteMany({
-            school_id: record.school_id,
+            school_id: { $in: targetIds },
             academic_session: record.academic_session,
             date: record.date,
             $or: [
@@ -1799,12 +1838,13 @@ export const Database = {
           });
           await db.collection('attendance').insertOne({ ...record });
         } else {
+          const classRegex = getClassNameRegex(record.class_name);
           await db.collection('attendance').replaceOne(
             {
-              school_id: record.school_id,
+              school_id: { $in: targetIds },
               academic_session: record.academic_session,
               date: record.date,
-              class_name: { $regex: new RegExp(`^${record.class_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+              class_name: { $regex: classRegex },
               section: { $regex: new RegExp(`^${record.section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
             },
             { ...record },
@@ -2207,7 +2247,8 @@ export const Database = {
     const latestTodayMap = new Map<string, AttendanceRecord>();
     attendance.forEach(a => {
       if (a.date === localDateStr || a.date === isoDateStr) {
-        const key = `${(a.class_name || '').toLowerCase().trim()}_${(a.section || '').toLowerCase().trim()}`;
+        const normClass = normalizeClassName(a.class_name);
+        const key = `${normClass}_${(a.section || '').toLowerCase().trim()}`;
         latestTodayMap.set(key, a);
       }
     });
@@ -2217,15 +2258,17 @@ export const Database = {
     // 1. Student Attendance strictly for TODAY (Deduplicated per class)
     const studentTodayRecords = uniqueTodayRecords.filter(a => 
       (a.class_name || '').toLowerCase() !== 'faculty' && 
-      (a.class_name || '').toLowerCase() !== 'staff'
+      (a.class_name || '').toLowerCase() !== 'staff' &&
+      !(/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
     );
     const isStudentAttendanceMarkedToday = studentTodayRecords.length > 0;
     const studentsPresentToday = isStudentAttendanceMarkedToday 
-      ? Math.min(totalStudents, studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0))
+      ? studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0)
       : 0;
-    const studentsTotalToday = totalStudents;
-    const studentAttendanceToday = isStudentAttendanceMarkedToday && totalStudents > 0
-      ? Number(((studentsPresentToday / totalStudents) * 100).toFixed(1))
+    const enrolledInLogged = studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.total_students) || 0), 0);
+    const studentsTotalToday = enrolledInLogged > 0 ? enrolledInLogged : totalStudents;
+    const studentAttendanceToday = isStudentAttendanceMarkedToday && studentsTotalToday > 0
+      ? Number(((studentsPresentToday / studentsTotalToday) * 100).toFixed(1))
       : 0;
 
     // 2. Faculty Attendance strictly for TODAY (Deduplicated, capped at total teachers)

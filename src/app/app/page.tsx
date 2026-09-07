@@ -1709,7 +1709,11 @@ function ERPWorkspaceContent() {
       if (freshTeachers.length > 0 || !hasHydrated) setTeachers(freshTeachers);
       if (freshClasses.length > 0 || !hasHydrated) setClasses(freshClasses);
       if (freshNotices.length > 0 || !hasHydrated) setNotices(freshNotices);
-      if (freshAttendance.length > 0 || !hasHydrated) setAttendance(freshAttendance);
+      if (atData.success && Array.isArray(atData.attendance)) {
+        setAttendance(atData.attendance);
+      } else if (freshAttendance.length > 0 || !hasHydrated) {
+        setAttendance(freshAttendance);
+      }
       if (freshInvoices.length > 0 || !hasHydrated) setInvoices(freshInvoices);
 
       // Save real MongoDB session data as offline backup (safely guarded against QuotaExceededError)

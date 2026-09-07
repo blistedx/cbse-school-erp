@@ -51,6 +51,21 @@ import { sendLocalPushNotification } from '@/lib/push-notifications';
 import { apiFetch } from '@/lib/api-client';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 
+export function normalizeClassName(name?: string): string {
+  if (!name) return '';
+  const clean = name.toLowerCase().trim().replace(/^class\s*/i, '').replace(/[-\s]+/g, '');
+  if (/^(pg|playgroup|play|prekg|prenursery)$/i.test(clean)) return 'playgroup';
+  if (/^(lkg|lowerkg|kg1)$/i.test(clean)) return 'lkg';
+  if (/^(ukg|upperkg|kg2)$/i.test(clean)) return 'ukg';
+  if (/^(nursery|nur)$/i.test(clean)) return 'nursery';
+  return clean;
+}
+
+export function isSameClass(classA?: string, classB?: string): boolean {
+  if (!classA || !classB) return false;
+  return normalizeClassName(classA) === normalizeClassName(classB);
+}
+
 interface DashboardAttendanceProps {
   selectedSchool: School | null;
   students: Student[];
@@ -365,12 +380,10 @@ export function DashboardAttendance({
 
   const classStudents = useMemo(() => {
     if (!selectedClass) return [];
-    const cName = (selectedClass.class_name || '').toLowerCase().trim();
     const cSec = (selectedClass.section || '').toLowerCase().trim();
     return students.filter(s => {
-      const sName = (s.class_name || '').toLowerCase().trim();
       const sSec = (s.section || '').toLowerCase().trim();
-      return (sName === cName || sName.replace(/^class\s*/i, '') === cName.replace(/^class\s*/i, '')) && (!cSec || !sSec || sSec === cSec);
+      return isSameClass(s.class_name, selectedClass.class_name) && (!cSec || !sSec || sSec === cSec);
     }).sort((a, b) => (Number(a.roll_no) || 0) - (Number(b.roll_no) || 0));
   }, [students, selectedClass]);
 
@@ -382,12 +395,11 @@ export function DashboardAttendance({
 
     if (attendanceType === 'STUDENT') {
       if (!selectedClass) return;
-      const cName = (selectedClass.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
       const cSec = (selectedClass.section || '').toUpperCase().trim();
       const match = effectiveAttendance.find(a => 
         a.date === attendanceDate && 
-        (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') === cName &&
-        (a.section || '').toUpperCase().trim() === cSec
+        isSameClass(a.class_name, selectedClass.class_name) &&
+        (!cSec || (a.section || '').toUpperCase().trim() === cSec)
       );
 
       const initialMap: Record<string, 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE'> = {};
@@ -519,7 +531,7 @@ export function DashboardAttendance({
             setLocalAttendanceRecords(prev => {
               const filtered = prev.filter(r => !(
                 r.date === data.record.date &&
-                (r.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') === (data.record.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') &&
+                isSameClass(r.class_name, data.record.class_name) &&
                 (r.section || '').toUpperCase().trim() === (data.record.section || '').toUpperCase().trim()
               ));
               return [data.record, ...filtered];
@@ -643,12 +655,11 @@ export function DashboardAttendance({
   const isRosterDateMarked = useMemo(() => {
     if (attendanceType === 'STUDENT') {
       if (!selectedClass) return false;
-      const cName = (selectedClass.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
       const cSec = (selectedClass.section || '').toUpperCase().trim();
       return effectiveAttendance.some(a =>
         a.date === attendanceDate &&
-        (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') === cName &&
-        (a.section || '').toUpperCase().trim() === cSec
+        isSameClass(a.class_name, selectedClass.class_name) &&
+        (!cSec || (a.section || '').toUpperCase().trim() === cSec)
       );
     } else {
       return effectiveAttendance.some(a =>
@@ -707,12 +718,10 @@ export function DashboardAttendance({
 
   const sheetStudents = useMemo(() => {
     if (!currentSheetClass) return [];
-    const cName = (currentSheetClass.class_name || '').toLowerCase().trim();
     const cSec = (currentSheetClass.section || '').toLowerCase().trim();
     return students.filter(s => {
-      const sName = (s.class_name || '').toLowerCase().trim();
       const sSec = (s.section || '').toLowerCase().trim();
-      return (sName === cName || sName.replace(/^class\s*/i, '') === cName.replace(/^class\s*/i, '')) && (!cSec || !sSec || sSec === cSec);
+      return isSameClass(s.class_name, currentSheetClass.class_name) && (!cSec || !sSec || sSec === cSec);
     }).sort((a, b) => (Number(a.roll_no) || 0) - (Number(b.roll_no) || 0));
   }, [students, currentSheetClass]);
 
@@ -778,11 +787,9 @@ export function DashboardAttendance({
 
       for (const dateStr of Array.from(editedDates)) {
         const existingRec = effectiveAttendance.find(a => {
-          const normA = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
-          const normC = (currentSheetClass.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
           const normASec = (a.section || '').toLowerCase().trim();
           const normCSec = (currentSheetClass.section || '').toLowerCase().trim();
-          return a.date === dateStr && normA === normC && (!normASec || !normCSec || normASec === normCSec);
+          return a.date === dateStr && isSameClass(a.class_name, currentSheetClass.class_name) && (!normASec || !normCSec || normASec === normCSec);
         });
 
         const studentRecords = sheetStudents.map(stu => {
@@ -928,12 +935,10 @@ export function DashboardAttendance({
         if (isSun || isHol || dtStr > todayDateStr) return;
 
         const local = sheetEdits[stu.id]?.[dtStr];
-        const rec = attendance.find(a => {
-          const normA = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
-          const normC = (currentSheetClass.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+        const rec = effectiveAttendance.find(a => {
           const normASec = (a.section || '').toLowerCase().trim();
           const normCSec = (currentSheetClass.section || '').toLowerCase().trim();
-          return a.date === dtStr && normA === normC && (!normASec || !normCSec || normASec === normCSec);
+          return a.date === dtStr && isSameClass(a.class_name, currentSheetClass.class_name) && (!normASec || !normCSec || normASec === normCSec);
         });
 
         let st = '-';
@@ -1022,21 +1027,17 @@ export function DashboardAttendance({
     const targetList = isTeacher ? selectableClasses : sortedClasses;
     return targetList.map(cls => {
       const clsStudents = students.filter(s => {
-        const cName = (cls.class_name || '').toLowerCase().trim();
         const cSec = (cls.section || '').toLowerCase().trim();
-        const sName = (s.class_name || '').toLowerCase().trim();
         const sSec = (s.section || '').toLowerCase().trim();
-        return (sName === cName || sName.replace(/^class\s*/i, '') === cName.replace(/^class\s*/i, '')) && (!cSec || !sSec || sSec === cSec);
+        return isSameClass(s.class_name, cls.class_name) && (!cSec || !sSec || sSec === cSec);
       });
 
       const todayLog = effectiveAttendance.find(a => {
         const aDate = a.date;
         const matchesDate = aDate === todayDateStr || aDate === attendanceDate || aDate === new Date().toISOString().split('T')[0];
-        const aName = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
-        const cName = (cls.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
         const aSec = (a.section || '').toUpperCase().trim();
         const cSec = (cls.section || '').toUpperCase().trim();
-        return matchesDate && aName === cName && (!cSec || !aSec || aSec === cSec);
+        return matchesDate && isSameClass(a.class_name, cls.class_name) && (!cSec || !aSec || aSec === cSec);
       });
 
       const isMarked = !!todayLog;
