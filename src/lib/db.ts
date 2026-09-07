@@ -1838,18 +1838,18 @@ export const Database = {
           });
           await db.collection('attendance').insertOne({ ...record });
         } else {
+          // Use deleteMany + insertOne (instead of replaceOne+upsert) to ensure
+          // any stale duplicate records with alternate class-name spellings are
+          // fully removed before inserting the fresh canonical record.
           const classRegex = getClassNameRegex(record.class_name);
-          await db.collection('attendance').replaceOne(
-            {
-              school_id: { $in: targetIds },
-              academic_session: record.academic_session,
-              date: record.date,
-              class_name: { $regex: classRegex },
-              section: { $regex: new RegExp(`^${record.section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
-            },
-            { ...record },
-            { upsert: true }
-          );
+          await db.collection('attendance').deleteMany({
+            school_id: { $in: targetIds },
+            academic_session: record.academic_session,
+            date: record.date,
+            class_name: { $regex: classRegex },
+            section: { $regex: new RegExp(`^${record.section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+          });
+          await db.collection('attendance').insertOne({ ...record });
         }
       }
     } catch (e) {}

@@ -1709,10 +1709,13 @@ function ERPWorkspaceContent() {
       if (freshTeachers.length > 0 || !hasHydrated) setTeachers(freshTeachers);
       if (freshClasses.length > 0 || !hasHydrated) setClasses(freshClasses);
       if (freshNotices.length > 0 || !hasHydrated) setNotices(freshNotices);
-      if (atData.success && Array.isArray(atData.attendance)) {
-        setAttendance(atData.attendance);
-      } else if (freshAttendance.length > 0 || !hasHydrated) {
+      // Only update attendance state if the server returned actual data.
+      // NEVER overwrite existing (cached) attendance with an empty array — that would cause
+      // the "refresh resets attendance to 0" bug when school_id lookup fails on the server.
+      if (freshAttendance.length > 0) {
         setAttendance(freshAttendance);
+      } else if (!hasHydrated) {
+        setAttendance([]);
       }
       if (freshInvoices.length > 0 || !hasHydrated) setInvoices(freshInvoices);
 
@@ -1724,13 +1727,26 @@ function ERPWorkspaceContent() {
           localStorage.removeItem(`giterp_cache_${cleanId}`);
 
           // For small/medium datasets, save offline cache; for 5,000+ datasets, save metadata summary
+          // Only persist attendance if we actually got records — preserve old cache if server returned nothing
+          let cachedAttendanceToSave = freshAttendance;
+          if (freshAttendance.length === 0 && hasHydrated) {
+            try {
+              const oldBackup = localStorage.getItem(`giterp_offline_backup_${cleanId}_${targetSession}`) || localStorage.getItem(`giterp_offline_backup_${cleanId}`);
+              if (oldBackup) {
+                const parsed = JSON.parse(oldBackup);
+                if (Array.isArray(parsed.attendance) && parsed.attendance.length > 0) {
+                  cachedAttendanceToSave = parsed.attendance;
+                }
+              }
+            } catch (_) {}
+          }
           const backupPayload = JSON.stringify({
             overview: freshOverview,
             students: freshStudents.length > 500 ? freshStudents.slice(0, 500) : freshStudents,
             teachers: freshTeachers,
             classes: freshClasses,
             notices: freshNotices,
-            attendance: freshAttendance,
+            attendance: cachedAttendanceToSave,
             invoices: freshInvoices.length > 500 ? freshInvoices.slice(0, 500) : freshInvoices,
             session: targetSession,
             totalStudentsCount: freshStudents.length,

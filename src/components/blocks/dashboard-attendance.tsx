@@ -155,12 +155,14 @@ export function DashboardAttendance({
 
   const effectiveAttendance = useMemo(() => {
     if (!localAttendanceRecords.length) return attendance;
-    // Overlay local records on top of prop attendance
+    // Overlay local records on top of prop attendance.
+    // Use isSameClass() to handle aliases like "PG" ↔ "Playgroup", preventing
+    // duplicate records that caused "random number" present/total counts.
     const merged = [...attendance];
     localAttendanceRecords.forEach(localRec => {
       const idx = merged.findIndex(a =>
         a.date === localRec.date &&
-        (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') === (localRec.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '') &&
+        isSameClass(a.class_name, localRec.class_name) &&
         (a.section || '').toUpperCase().trim() === (localRec.section || '').toUpperCase().trim()
       );
       if (idx >= 0) {
