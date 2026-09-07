@@ -2,22 +2,14 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { verifySessionToken } from '@/lib/auth-guard';
+import { requireAuth } from '@/lib/auth-guard';
 
 // Force dynamic execution for real-time Server-Sent Events stream
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
-  // SSE cannot use custom headers from EventSource API.
-  // Accept token via query param: ?token=<session_token>
-  const { searchParams } = new URL(req.url);
-  const token = searchParams.get('token') || '';
-  if (!token || !verifySessionToken(token)) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized: Invalid or missing session token.' },
-      { status: 401 }
-    );
-  }
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
 
   const encoder = new TextEncoder();
   const storePath = path.join(process.cwd(), 'data', 'erp_store.json');
