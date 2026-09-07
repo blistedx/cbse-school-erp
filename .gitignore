@@ -18,3 +18,8 @@ deploy_to_netlify.zip
 scratch/
 *.bak
 data/media/
+
+# Local runtime databases and credential stores
+data/*.json
+!data/*.example.json
+data/*.bak
