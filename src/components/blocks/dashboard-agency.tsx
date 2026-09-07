@@ -65,17 +65,22 @@ export function DashboardAgency() {
   const [purgeLoading, setPurgeLoading] = useState(false);
   const [purgeError, setPurgeError] = useState('');
   const [purgeSuccessMessage, setPurgeSuccessMessage] = useState('');
+  const [captchaToken, setCaptchaToken] = useState('');
 
-  const generateCaptcha = () => {
-    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-    let code = '';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setCaptchaChallenge(code);
+  const generateCaptcha = async () => {
     setCaptchaInput('');
     setConfirmInput('');
     setPurgeError('');
+    try {
+      const res = await apiFetch('/api/agency/purge-school');
+      const data = await res.json();
+      if (data.success && data.captcha_code) {
+        setCaptchaChallenge(data.captcha_code);
+        setCaptchaToken(data.captcha_token);
+      }
+    } catch {
+      setPurgeError('Failed to load secure captcha challenge.');
+    }
   };
 
   const handleOpenPurgeModal = (school: School) => {
@@ -99,7 +104,7 @@ export function DashboardAgency() {
           school_id: purgeTargetSchool.id,
           school_code: purgeTargetSchool.school_code,
           captcha_input: captchaInput,
-          expected_captcha: captchaChallenge,
+          captcha_token: captchaToken,
           confirmation_text: confirmInput
         })
       });
