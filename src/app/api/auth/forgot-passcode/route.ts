@@ -4,6 +4,8 @@ import { Database } from '@/lib/db';
 import { checkRateLimit, resetRateLimit } from '@/lib/rate-limiter';
 import { sendPasswordResetEmail, maskEmail } from '@/lib/email';
 
+const UNIFORM_RESET_RESPONSE = 'If the provided credentials match an active account, a password reset notification has been dispatched to the registered contact on file.';
+
 export async function POST(req: Request) {
   try {
     const rate = checkRateLimit(req, {
@@ -38,10 +40,10 @@ export async function POST(req: Request) {
         uname === 'BLISTEDX@GMAIL.COM';
 
       if (!isAgencyUser) {
-        return NextResponse.json(
-          { success: false, error: `Invalid Agency Superadmin ID "${rawUsername}".` },
-          { status: 400 }
-        );
+        return NextResponse.json({
+          success: true,
+          message: UNIFORM_RESET_RESPONSE
+        });
       }
 
       // Cryptographically secure 6-digit passcode generator
@@ -78,11 +80,9 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         success: true,
-        message: `A new master passcode has been generated and dispatched to ${maskedEmail}.`,
+        message: UNIFORM_RESET_RESPONSE,
         target_email: maskedEmail,
         masked_email: maskedEmail,
-        account_name: 'BlistedX (Agency Superadmin)',
-        account_role: 'Agency Superadmin (God Access)',
         is_agency: true
       });
     }
@@ -105,10 +105,10 @@ export async function POST(req: Request) {
     // Locate the school
     const school = await Database.getSchoolByCode(rawSchoolCode);
     if (!school || school.status !== 'ACTIVE') {
-      return NextResponse.json(
-        { success: false, error: `No active school found with School Code "${rawSchoolCode}".` },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: true,
+        message: UNIFORM_RESET_RESPONSE
+      });
     }
 
     // Cryptographically secure 6-digit passcode generator
@@ -203,13 +203,10 @@ export async function POST(req: Request) {
     }
 
     if (!emailPayload) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `No user account found matching "${rawUsername}" under ${school.school_name} (${school.school_code}).`
-        },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: true,
+        message: UNIFORM_RESET_RESPONSE
+      });
     }
 
     // 5. Send notification email
@@ -242,11 +239,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `A new passcode has been generated and sent to ${maskedEmail}`,
+      message: UNIFORM_RESET_RESPONSE,
       target_email: maskedEmail,
       masked_email: maskedEmail,
-      account_name: emailPayload.userName,
-      account_role: emailPayload.userRole,
       is_agency: false
     });
   } catch (err: any) {
