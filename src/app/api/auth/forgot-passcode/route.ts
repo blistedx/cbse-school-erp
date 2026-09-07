@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { Database } from '@/lib/db';
 import { checkRateLimit, resetRateLimit } from '@/lib/rate-limiter';
 import { sendPasswordResetEmail, maskEmail } from '@/lib/email';
@@ -7,8 +8,8 @@ export async function POST(req: Request) {
   try {
     const rate = checkRateLimit(req, {
       bucketName: 'auth-forgot-passcode',
-      maxAttempts: 8,
-      windowMs: 10 * 60 * 1000
+      maxAttempts: 5,
+      windowMs: 15 * 60 * 1000
     });
     if (!rate.allowed) return rate.response!;
 
@@ -43,11 +44,8 @@ export async function POST(req: Request) {
         );
       }
 
-      // Generate a secure 6-digit numeric temporary passcode
-      const newPasscode = Math.floor(100000 + Math.random() * 900000).toString();
-
-      // Persist the newly generated passcode into agency settings
-      await Database.updateAgencyPassword(newPasscode);
+      // Cryptographically secure 6-digit passcode generator
+      const newPasscode = crypto.randomInt(100000, 1000000).toString();
 
       const agencyEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'blistedx@gmail.com';
       const maskedEmail = maskEmail(agencyEmail);
@@ -67,11 +65,14 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: `Passcode generated, but failed to deliver email: ${emailResult.message}`
+            error: `Failed to deliver passcode reset email: ${emailResult.message}`
           },
           { status: 500 }
         );
       }
+
+      // Persist only after email is successfully sent
+      await Database.updateAgencyPassword(newPasscode);
 
       resetRateLimit('auth-forgot-passcode', req);
 
@@ -110,8 +111,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Generate a secure 6-digit numeric temporary passcode
-    const newPasscode = Math.floor(100000 + Math.random() * 900000).toString();
+    // Cryptographically secure 6-digit passcode generator
+    const newPasscode = crypto.randomInt(100000, 1000000).toString();
 
     let emailPayload: {
       schoolName: string;
@@ -123,6 +124,8 @@ export async function POST(req: Request) {
       userEmail?: string;
       userPhone?: string;
     } | null = null;
+    let matchedType: 'admin' | 'teacher' | 'student' | null = null;
+    let matchedRecordId: string | null = null;
 
     // 2. Check Primary School Administrator / Principal
     const expectedAdminId = (school.admin_id || '').trim().toUpperCase();
@@ -134,7 +137,8 @@ export async function POST(req: Request) {
       uname === 'SUPERADMIN';
 
     if (isPrimaryAdmin) {
-      await Database.updateSchoolSettings(school.id, { admin_pin: newPasscode });
+      matchedType = 'admin';
+      matchedRecordId = school.id;
       emailPayload = {
         schoolName: school.school_name,
         schoolCode: school.school_code,
@@ -158,7 +162,8 @@ export async function POST(req: Request) {
       );
 
       if (matchedTeacher) {
-        await Database.updateTeacher(matchedTeacher.id, { passcode: newPasscode });
+        matchedType = 'teacher';
+        matchedRecordId = matchedTeacher.id;
         emailPayload = {
           schoolName: school.school_name,
           schoolCode: school.school_code,
@@ -182,7 +187,8 @@ export async function POST(req: Request) {
       );
 
       if (matchedStudent) {
-        await Database.updateStudent(matchedStudent.id, { passcode: newPasscode });
+        matchedType = 'student';
+        matchedRecordId = matchedStudent.id;
         emailPayload = {
           schoolName: school.school_name,
           schoolCode: school.school_code,
@@ -206,17 +212,26 @@ export async function POST(req: Request) {
       );
     }
 
-    // 5. Send notification email to blistedx@gmail.com
+    // 5. Send notification email
     const emailResult = await sendPasswordResetEmail(emailPayload);
 
     if (!emailResult.success) {
       return NextResponse.json(
         {
           success: false,
-          error: `Passcode updated, but failed to send email: ${emailResult.message}`
+          error: `Failed to deliver passcode reset email: ${emailResult.message}`
         },
         { status: 500 }
       );
+    }
+
+    // Crucial: Only commit password change to database AFTER email delivery succeeds
+    if (matchedType === 'admin' && matchedRecordId) {
+      await Database.updateSchoolSettings(matchedRecordId, { admin_pin: newPasscode });
+    } else if (matchedType === 'teacher' && matchedRecordId) {
+      await Database.updateTeacher(matchedRecordId, { passcode: newPasscode });
+    } else if (matchedType === 'student' && matchedRecordId) {
+      await Database.updateStudent(matchedRecordId, { passcode: newPasscode });
     }
 
     // Reset rate limiter on valid request
