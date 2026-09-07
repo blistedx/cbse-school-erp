@@ -140,7 +140,7 @@ export default function LoginPage() {
   const [schoolCode, setSchoolCode] = useState('');
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -420,7 +420,6 @@ export default function LoginPage() {
                     name="schoolCode"
                     value={schoolCode}
                     onChange={(e) => setSchoolCode(e.target.value)}
-                    placeholder="e.g. DPS2026 (Optional)"
                     autoComplete="organization"
                     style={{ textTransform: 'uppercase' }}
                   />
@@ -435,7 +434,6 @@ export default function LoginPage() {
                     name="userId"
                     value={userId}
                     onChange={(e) => setUserId(e.target.value)}
-                    placeholder="e.g. admin, EMP-202601, DPS-2026-0001"
                     autoComplete="username"
                     required
                   />
@@ -450,7 +448,7 @@ export default function LoginPage() {
                       onClick={() => setShowPassword(!showPassword)}
                       style={{ background: 'none', border: 'none', color: '#1B4D3E', fontSize: '11px', cursor: 'pointer', fontWeight: 600, padding: 0 }}
                     >
-                      {showPassword ? 'Hide' : 'Show Plain Text'}
+                      {showPassword ? 'Hide' : 'Show'}
                     </button>
                   </div>
                   <input
@@ -459,11 +457,9 @@ export default function LoginPage() {
                     name="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your security passcode"
                     autoComplete="current-password"
                     required
                   />
-                  <p className="hint">Visible security PIN / passcode (Plain text)</p>
                 </div>
 
                 <div className="row-between">
@@ -647,7 +643,6 @@ export default function LoginPage() {
                           name="forgotAgencyUsername"
                           value={forgotAgencyUsername}
                           onChange={(e) => setForgotAgencyUsername(e.target.value)}
-                          placeholder="BLISTEDX"
                           autoComplete="username"
                           style={{ textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}
                           required
@@ -678,7 +673,6 @@ export default function LoginPage() {
                           name="forgotSchoolCode"
                           value={forgotSchoolCode}
                           onChange={(e) => setForgotSchoolCode(e.target.value)}
-                          placeholder="e.g. DPS2026"
                           autoComplete="organization"
                           style={{ textTransform: 'uppercase' }}
                           required
@@ -694,7 +688,6 @@ export default function LoginPage() {
                           name="forgotUserId"
                           value={forgotUserId}
                           onChange={(e) => setForgotUserId(e.target.value)}
-                          placeholder="e.g. admin, EMP-202601, DPS-2026-0001"
                           autoComplete="username"
                           required
                         />
