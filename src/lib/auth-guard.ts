@@ -16,11 +16,10 @@ import { createHmac } from 'crypto';
 
 function getServerSecret(): string {
   const secret = (process.env.SESSION_SECRET || '').replace(/^["']|["']$/g, '').trim();
-  if (secret) return secret;
-  if (process.env.NODE_ENV === 'production') {
-    console.warn('[SECURITY WARNING]: SESSION_SECRET environment variable is not explicitly set in production. Using fallback secret. For maximum production security, configure SESSION_SECRET in your deployment environment variables.');
+  if (!secret) {
+    throw new Error('[SECURITY FATAL]: SESSION_SECRET is not configured in environment variables.');
   }
-  return 'giterp-super-secret-key-cbse-erp-2026';
+  return secret;
 }
 
 export interface TokenPayload {
