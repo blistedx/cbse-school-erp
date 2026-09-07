@@ -1404,17 +1404,32 @@ function ERPWorkspaceContent() {
         setAvailableSchools(schData.schools);
       }
 
-      if (!targetSchool || (schoolParam && targetSchool.school_code?.replace(/[^A-Z0-9]/gi, '') !== schoolParam?.replace(/[^A-Z0-9]/gi, ''))) {
+      // Only override targetSchool if we genuinely have no school, OR a specific
+      // ?school= URL param requests a different one.
+      // NEVER replace a valid localStorage school with schData.schools[0] — that picks
+      // the wrong school and makes attendance queries return 0 records.
+      if (!targetSchool) {
         if (schData.success && schData.schools && schData.schools.length > 0) {
           if (schoolParam) {
             const cleanParam = schoolParam.replace(/[^A-Z0-9]/gi, '').toUpperCase();
-            targetSchool = schData.schools.find((s: School) => 
-              s.school_code?.replace(/[^A-Z0-9]/gi, '').toUpperCase() === cleanParam || 
+            targetSchool = schData.schools.find((s: School) =>
+              s.school_code?.replace(/[^A-Z0-9]/gi, '').toUpperCase() === cleanParam ||
               s.id?.replace(/[^A-Z0-9]/gi, '').toUpperCase() === cleanParam
             ) || schData.schools[0];
           } else {
             targetSchool = schData.schools[0];
           }
+        }
+      } else if (schoolParam) {
+        // A specific school was requested via URL — switch only if it's a real different match
+        const cleanParam = schoolParam.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        const curClean = (targetSchool.school_code || targetSchool.id || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        if (curClean !== cleanParam && schData.success && schData.schools?.length > 0) {
+          const paramSchool = schData.schools.find((s: School) =>
+            s.school_code?.replace(/[^A-Z0-9]/gi, '').toUpperCase() === cleanParam ||
+            s.id?.replace(/[^A-Z0-9]/gi, '').toUpperCase() === cleanParam
+          );
+          if (paramSchool) targetSchool = paramSchool;
         }
       }
 
