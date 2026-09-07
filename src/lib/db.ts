@@ -2327,7 +2327,9 @@ export const Database = {
 
     // 2. Faculty Attendance strictly for TODAY (Deduplicated, capped at total teachers)
     const facultyTodayRecords = uniqueTodayRecords.filter(a => 
-      /faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || '')
+      /faculty|staff/i.test(a.class_name || '') || 
+      /faculty|staff/i.test(a.section || '') ||
+      (Array.isArray((a as any).teacher_records) && (a as any).teacher_records.length > 0)
     );
     const isFacultyAttendanceMarkedToday = facultyTodayRecords.length > 0;
     const latestFacultyRecord = isFacultyAttendanceMarkedToday ? facultyTodayRecords[facultyTodayRecords.length - 1] : null;

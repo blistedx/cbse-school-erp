@@ -212,20 +212,114 @@ export function DashboardOverview({
     ? Number(((monthPresentCount / monthTotalLogged) * 100).toFixed(1))
     : studentProfileAvgAtt;
 
-  // 2. Faculty & Staff Statistics (Today)
+  // 2. Faculty & Staff Statistics (Daily, Weekly, Monthly)
   const totalTeachersCount = Array.isArray(teachers) ? teachers.length : (overview?.kpis?.totalTeachers ?? 0);
-  const facultyTodayRecords = attendance.filter(a => 
-    (a.date === localDateStr || a.date === isoDateStr) &&
-    (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
-  );
+  const liveTeacherCount = totalTeachersCount > 0 ? totalTeachersCount : 30;
+
+  const facultyAttendanceRecords = useMemo(() => {
+    return (attendance || []).filter(a => 
+      (a.class_name || '').toLowerCase() === 'faculty' || 
+      (a.section || '').toLowerCase() === 'staff' ||
+      /faculty|staff/i.test(a.class_name || '') || 
+      /faculty|staff/i.test(a.section || '') ||
+      (Array.isArray((a as any).teacher_records) && (a as any).teacher_records.length > 0)
+    );
+  }, [attendance]);
+
+  const facultyTodayRecords = useMemo(() => {
+    return facultyAttendanceRecords.filter(a => {
+      const aDate = a.date || (a.created_at ? a.created_at.split('T')[0] : '');
+      return aDate === localDateStr || aDate === isoDateStr;
+    });
+  }, [facultyAttendanceRecords, localDateStr, isoDateStr]);
+
   const latestFacRec = facultyTodayRecords.length > 0 ? facultyTodayRecords[facultyTodayRecords.length - 1] : null;
   const isFacultyAttendanceMarkedToday = !!latestFacRec || (overview?.kpis?.isFacultyAttendanceMarkedToday ?? false);
   const facultyPresentCount = latestFacRec
     ? Number(latestFacRec.present_count) || 0
     : (overview?.kpis?.facultyPresentToday ?? (isFacultyAttendanceMarkedToday ? totalTeachersCount : 0));
-  const facultyAttendanceRate = isFacultyAttendanceMarkedToday && totalTeachersCount > 0
-    ? Number(((facultyPresentCount / totalTeachersCount) * 100).toFixed(1))
+  const facultyTotalCount = latestFacRec
+    ? (Number(latestFacRec.total_students) || totalTeachersCount || liveTeacherCount)
+    : (overview?.kpis?.facultyTotalToday || totalTeachersCount || liveTeacherCount);
+  const facultyAttendanceRate = isFacultyAttendanceMarkedToday && facultyTotalCount > 0
+    ? Number(((facultyPresentCount / facultyTotalCount) * 100).toFixed(1))
     : 0;
+
+  // Weekly Faculty Attendance
+  const facultyWeekMap = new Map<string, AttendanceRecord>();
+  facultyAttendanceRecords.forEach(a => {
+    const aDate = a.date || (a.created_at ? a.created_at.split('T')[0] : '');
+    if (aDate >= weekStartStr && aDate <= isoDateStr) {
+      facultyWeekMap.set(aDate, a);
+    }
+  });
+  const facultyWeekRecords = Array.from(facultyWeekMap.values());
+  const isFacultyAttendanceMarkedWeekly = facultyWeekRecords.length > 0;
+  const facultyWeekPresent = facultyWeekRecords.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0);
+  const facultyWeekTotal = facultyWeekRecords.reduce((acc, curr) => acc + (Number(curr.total_students) || facultyTotalCount), 0);
+
+  // Monthly Faculty Attendance
+  const facultyMonthMap = new Map<string, AttendanceRecord>();
+  facultyAttendanceRecords.forEach(a => {
+    const aDate = a.date || (a.created_at ? a.created_at.split('T')[0] : '');
+    if (aDate.startsWith(currentMonthStr)) {
+      facultyMonthMap.set(aDate, a);
+    }
+  });
+  const facultyMonthRecords = Array.from(facultyMonthMap.values());
+  const isFacultyAttendanceMarkedMonthly = facultyMonthRecords.length > 0;
+  const facultyMonthPresent = facultyMonthRecords.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0);
+  const facultyMonthTotal = facultyMonthRecords.reduce((acc, curr) => acc + (Number(curr.total_students) || facultyTotalCount), 0);
+
+  // Dynamic Faculty KPI Turnout SubLabel matching reference styling (e.g. 28/30 present today)
+  const activeFacultyAttendanceKpi = useMemo(() => {
+    const facTotal = facultyTotalCount > 0 ? facultyTotalCount : liveTeacherCount;
+
+    if (timeFilter === 'Daily') {
+      const marked = isFacultyAttendanceMarkedToday;
+      return {
+        subLabel: marked
+          ? `${facultyPresentCount}/${facTotal} present today`
+          : (facultyPresentCount > 0 ? `${facultyPresentCount}/${facTotal} present today` : 'Roll call pending'),
+        rate: marked ? facultyAttendanceRate : 0,
+        isMarked: marked
+      };
+    }
+
+    if (timeFilter === 'Weekly') {
+      const marked = isFacultyAttendanceMarkedWeekly && facultyWeekTotal > 0;
+      return {
+        subLabel: marked
+          ? `${facultyWeekPresent}/${facultyWeekTotal} roll call logs`
+          : 'No weekly registers',
+        rate: marked ? Number(((facultyWeekPresent / facultyWeekTotal) * 100).toFixed(1)) : 0,
+        isMarked: marked
+      };
+    }
+
+    // Monthly
+    const marked = isFacultyAttendanceMarkedMonthly && facultyMonthTotal > 0;
+    return {
+      subLabel: marked
+        ? `${facultyMonthPresent}/${facultyMonthTotal} month aggregate`
+        : 'No monthly logs',
+      rate: marked ? Number(((facultyMonthPresent / facultyMonthTotal) * 100).toFixed(1)) : 0,
+      isMarked: marked
+    };
+  }, [
+    timeFilter,
+    isFacultyAttendanceMarkedToday,
+    facultyPresentCount,
+    facultyTotalCount,
+    liveTeacherCount,
+    facultyAttendanceRate,
+    isFacultyAttendanceMarkedWeekly,
+    facultyWeekPresent,
+    facultyWeekTotal,
+    isFacultyAttendanceMarkedMonthly,
+    facultyMonthPresent,
+    facultyMonthTotal
+  ]);
 
   // 3. Fee & Revenue Statistics
   const totalBilled = invoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
@@ -245,7 +339,6 @@ export function DashboardOverview({
 
   // 8 Specific KPI Tile Values EXACT TO LIVE ERP DATA
   const liveStudentCount = totalStudentsCount > 0 ? totalStudentsCount : 508;
-  const liveTeacherCount = totalTeachersCount > 0 ? totalTeachersCount : 30;
   const liveClassCount = classes.length > 0 ? classes.length : 18;
   const livePaidAmount = totalPaid > 0 ? totalPaid : 7050000;
   const livePendingAmount = totalPending > 0 ? totalPending : 1731000;
@@ -809,6 +902,9 @@ export function DashboardOverview({
             </div>
             <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
               {kpiTeachers}
+            </div>
+            <div className="text-[11px] text-emerald-300/60 mt-1 font-medium truncate">
+              {activeFacultyAttendanceKpi.subLabel}
             </div>
           </div>
 
