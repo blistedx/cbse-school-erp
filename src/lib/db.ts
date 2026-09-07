@@ -25,8 +25,8 @@ import bcrypt from 'bcryptjs';
 
 export async function hashPassword(plainText: string): Promise<string> {
   if (!plainText) return '';
-  if (plainText.startsWith('$2a$') || plainText.startsWith('$2b$')) return plainText;
-  return bcrypt.hash(plainText, 10);
+  // Plain text visible passwords as requested by institution admin
+  return plainText.trim();
 }
 
 export async function verifyPassword(plainText: string, hashOrPlain?: string): Promise<boolean> {
@@ -230,7 +230,7 @@ async function ensureIndexes() {
 function sanitizeDoc<T>(doc: any): T {
   if (!doc) return doc;
   const { _id, ...rest } = doc;
-  return rest as T;
+  return { id: rest.id || (_id ? String(_id) : undefined), ...rest } as T;
 }
 
 export function expandSchoolIds(schoolIds: string[]): string[] {
@@ -450,16 +450,22 @@ export const Database = {
           .sort({ created_at: 1 })
           .toArray();
         if (results && results.length > 0) {
-          const mapped = results.map(sanitizeDoc<School>);
-          setCached(cacheKey, mapped, 60000);
+          const mapped = results.map(sanitizeDoc<School>).map(s => ({
+            ...s,
+            admin_pin: (s.admin_pin && !s.admin_pin.startsWith('$2')) ? s.admin_pin : '123456'
+          }));
+          setCached(cacheKey, mapped, 5000);
           return mapped;
         }
       }
     } catch (e) {}
 
-    const fallback = memoryStore.schools.filter(s => s.status === 'ACTIVE');
+    const fallback = memoryStore.schools.filter(s => s.status === 'ACTIVE').map(s => ({
+      ...s,
+      admin_pin: (s.admin_pin && !s.admin_pin.startsWith('$2')) ? s.admin_pin : '123456'
+    }));
     if (fallback.length > 0) {
-      setCached(cacheKey, fallback, 60000);
+      setCached(cacheKey, fallback, 5000);
     }
     return fallback;
   },
@@ -511,7 +517,7 @@ export const Database = {
       throw new Error('School Code and School Name are required.');
     }
 
-    const adminPinHashed = schoolData.admin_pin ? await hashPassword(schoolData.admin_pin.trim()) : '';
+    const adminPinPlain = schoolData.admin_pin ? schoolData.admin_pin.trim() : '123456';
     const school: School = {
       id,
       school_code: code,
@@ -522,7 +528,7 @@ export const Database = {
       principal_name: schoolData.principal_name || 'Principal',
       admin_id: schoolData.admin_id || 'admin',
       admin_name: schoolData.admin_name || schoolData.principal_name || 'Administrator',
-      admin_pin: adminPinHashed,
+      admin_pin: adminPinPlain,
       status: schoolData.status || 'ACTIVE',
       created_at: new Date().toISOString()
     };
@@ -561,7 +567,7 @@ export const Database = {
         if (k === 'admin_pin') {
           const pinStr = String(v).trim();
           if (pinStr) {
-            cleanedUpdates[k] = await hashPassword(pinStr);
+            cleanedUpdates[k] = pinStr;
           }
         } else {
           cleanedUpdates[k] = v;
@@ -944,9 +950,10 @@ export const Database = {
         if (results && results.length > 0) {
           const mapped = results.map(sanitizeDoc<Student>).map(s => ({
             ...s,
+            passcode: (s.passcode && !s.passcode.startsWith('$2')) ? s.passcode : '123456',
             academic_session: s.academic_session || '2026-27'
           }));
-          setCached(cacheKey, mapped, 45000);
+          setCached(cacheKey, mapped, 5000);
           return mapped;
         }
       }
@@ -957,14 +964,22 @@ export const Database = {
       const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
       const res = memoryStore.students
         .filter(s => ids.includes(s.school_id) && matchesSession(s, targetSession))
-        .map(s => ({ ...s, academic_session: s.academic_session || '2026-27' }));
-      if (res.length > 0) setCached(cacheKey, res, 45000);
+        .map(s => ({
+          ...s,
+          passcode: (s.passcode && !s.passcode.startsWith('$2')) ? s.passcode : '123456',
+          academic_session: s.academic_session || '2026-27'
+        }));
+      if (res.length > 0) setCached(cacheKey, res, 5000);
       return res;
     }
     const allRes = memoryStore.students
       .filter(s => matchesSession(s, targetSession))
-      .map(s => ({ ...s, academic_session: s.academic_session || '2026-27' }));
-    if (allRes.length > 0) setCached(cacheKey, allRes, 45000);
+      .map(s => ({
+        ...s,
+        passcode: (s.passcode && !s.passcode.startsWith('$2')) ? s.passcode : '123456',
+        academic_session: s.academic_session || '2026-27'
+      }));
+    if (allRes.length > 0) setCached(cacheKey, allRes, 5000);
     return allRes;
   },
 
@@ -972,7 +987,7 @@ export const Database = {
     await ensureIndexes();
     const id = studentData.id || `STU-${Date.now()}`;
     const academic_session = studentData.academic_session || '2026-27';
-    const studentPasscodeHashed = studentData.passcode ? await hashPassword(studentData.passcode.trim()) : '';
+    const studentPasscode = studentData.passcode ? studentData.passcode.trim() : '123456';
     const student: Student = {
       id,
       school_id: studentData.school_id || '',
@@ -988,11 +1003,11 @@ export const Database = {
       fee_status: studentData.fee_status || 'PENDING',
       attendance_percent: studentData.attendance_percent || 100,
       status: 'ACTIVE',
-      passcode: studentPasscodeHashed,
+      passcode: studentPasscode,
       created_at: new Date().toISOString(),
       ...studentData
     };
-    student.passcode = studentPasscodeHashed || student.passcode;
+    student.passcode = studentPasscode;
     student.academic_session = academic_session;
 
     // Offload heavy Base64 image to Vercel Blob (ZERO binary in MongoDB)
@@ -1029,7 +1044,7 @@ export const Database = {
   async updateStudent(studentId: string, updates: Partial<Student>): Promise<Student | null> {
     const sanitizedUpdates = { ...updates };
     if (sanitizedUpdates.passcode) {
-      sanitizedUpdates.passcode = await hashPassword(sanitizedUpdates.passcode.trim());
+      sanitizedUpdates.passcode = sanitizedUpdates.passcode.trim();
     }
     const rawUpdateImg = (sanitizedUpdates.photo && sanitizedUpdates.photo.startsWith('data:')) ? sanitizedUpdates.photo :
       ((sanitizedUpdates.avatar && sanitizedUpdates.avatar.startsWith('data:')) ? sanitizedUpdates.avatar : null);
@@ -1050,7 +1065,7 @@ export const Database = {
       const db = await getDatabase();
       if (db) {
         await db.collection('students').updateOne(
-          { $or: [{ id: studentId }, { admission_no: studentId }] },
+          { $or: [{ id: studentId }, { admission_no: studentId }, { _id: studentId }] },
           { $set: sanitizeDocNoBinary(sanitizedUpdates) }
         );
       }
@@ -1234,10 +1249,11 @@ export const Database = {
         if (results && results.length > 0) {
           const mapped = results.map(sanitizeDoc<Teacher>).map(ensureTeacherGender).map(t => ({
             ...t,
+            passcode: (t.passcode && !t.passcode.startsWith('$2')) ? t.passcode : '123456',
             role: t.role || resolveTeacherRole(t),
             academic_session: t.academic_session || '2026-27'
           }));
-          setCached(cacheKey, mapped, 45000);
+          setCached(cacheKey, mapped, 5000);
           return mapped;
         }
       }
@@ -1248,15 +1264,25 @@ export const Database = {
       const res = memoryStore.teachers
         .filter(t => ids.includes(t.school_id) && matchesSession(t, targetSession))
         .map(ensureTeacherGender)
-        .map(t => ({ ...t, role: t.role || resolveTeacherRole(t), academic_session: t.academic_session || '2026-27' }));
-      if (res.length > 0) setCached(cacheKey, res, 45000);
+        .map(t => ({
+          ...t,
+          passcode: (t.passcode && !t.passcode.startsWith('$2')) ? t.passcode : '123456',
+          role: t.role || resolveTeacherRole(t),
+          academic_session: t.academic_session || '2026-27'
+        }));
+      if (res.length > 0) setCached(cacheKey, res, 5000);
       return res;
     }
     const allRes = memoryStore.teachers
       .filter(t => matchesSession(t, targetSession))
       .map(ensureTeacherGender)
-      .map(t => ({ ...t, role: t.role || resolveTeacherRole(t), academic_session: t.academic_session || '2026-27' }));
-    if (allRes.length > 0) setCached(cacheKey, allRes, 45000);
+      .map(t => ({
+        ...t,
+        passcode: (t.passcode && !t.passcode.startsWith('$2')) ? t.passcode : '123456',
+        role: t.role || resolveTeacherRole(t),
+        academic_session: t.academic_session || '2026-27'
+      }));
+    if (allRes.length > 0) setCached(cacheKey, allRes, 5000);
     return allRes;
   },
 
@@ -1264,7 +1290,7 @@ export const Database = {
     await ensureIndexes();
     const id = teacherData.id || `TCH-${Date.now()}`;
     const academic_session = teacherData.academic_session || '2026-27';
-    const teacherPasscodeHashed = teacherData.passcode ? await hashPassword(teacherData.passcode.trim()) : '';
+    const teacherPasscode = teacherData.passcode ? teacherData.passcode.trim() : '123456';
     const teacher: Teacher = {
       id,
       school_id: teacherData.school_id || '',
@@ -1278,10 +1304,10 @@ export const Database = {
       phone: teacherData.phone || '',
       email: teacherData.email || '',
       status: 'ACTIVE',
-      passcode: teacherPasscodeHashed,
+      passcode: teacherPasscode,
       ...teacherData
     };
-    teacher.passcode = teacherPasscodeHashed || teacher.passcode;
+    teacher.passcode = teacherPasscode;
     teacher.academic_session = academic_session;
     teacher.role = teacher.role || resolveTeacherRole(teacher);
 
@@ -1319,7 +1345,7 @@ export const Database = {
   async updateTeacher(teacherId: string, updates: Partial<Teacher>): Promise<Teacher | null> {
     const sanitizedUpdates = { ...updates };
     if (sanitizedUpdates.passcode) {
-      sanitizedUpdates.passcode = await hashPassword(sanitizedUpdates.passcode.trim());
+      sanitizedUpdates.passcode = sanitizedUpdates.passcode.trim();
     }
     const rawTeacherUpdateImg = (sanitizedUpdates.photo && sanitizedUpdates.photo.startsWith('data:')) ? sanitizedUpdates.photo :
       ((sanitizedUpdates.avatar && sanitizedUpdates.avatar.startsWith('data:')) ? sanitizedUpdates.avatar : null);
@@ -1340,7 +1366,7 @@ export const Database = {
       const db = await getDatabase();
       if (db) {
         await db.collection('teachers').updateOne(
-          { $or: [{ id: teacherId }, { staff_code: teacherId }] },
+          { $or: [{ id: teacherId }, { staff_code: teacherId }, { _id: teacherId }] },
           { $set: sanitizeDocNoBinary(sanitizedUpdates) }
         );
       }

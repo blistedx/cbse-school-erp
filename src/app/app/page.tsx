@@ -346,10 +346,19 @@ function ERPWorkspaceContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isOmniSearchOpen, setIsOmniSearchOpen] = useState(false);
 
-  // PIN visibility states
-  const [showSettingsPin, setShowSettingsPin] = useState(false);
-  const [showProfilePin, setShowProfilePin] = useState(false);
-  const [showModalPin, setShowModalPin] = useState(false);
+  // PIN visibility states (Plain text visible by default)
+  const [showSettingsPin, setShowSettingsPin] = useState(true);
+  const [showProfilePin, setShowProfilePin] = useState(true);
+  const [showModalPin, setShowModalPin] = useState(true);
+
+  // Helper: format passcodes in plain text, converting legacy bcrypt hashes to 123456
+  const cleanPlainPasscode = (code?: string): string => {
+    if (!code) return '123456';
+    if (code.startsWith('$2a$') || code.startsWith('$2b$') || code.startsWith('$2y$')) {
+      return '123456';
+    }
+    return code.trim() || '123456';
+  };
 
   // Modals & Active Edit States
   const [activeReportModal, setActiveReportModal] = useState<{
@@ -1317,6 +1326,18 @@ function ERPWorkspaceContent() {
     setMounted(true);
     // Strict Access Control: Redirect to /login if user is not authenticated
     if (typeof window !== 'undefined') {
+      // Clean up any stale offline backup caches from localStorage
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('giterp_offline_backup_') || k.startsWith('giterp_cache_'))) {
+            keysToRemove.push(k);
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+      } catch (_) {}
+
       const storedUser = localStorage.getItem('current_user');
       if (!storedUser) {
         window.location.replace('/login');
@@ -1332,22 +1353,6 @@ function ERPWorkspaceContent() {
             localStorage.setItem('current_school', JSON.stringify(parsedSchool));
           }
           setSelectedSchool(parsedSchool);
-          const rawClean = (parsedSchool.school_code || parsedSchool.id || 'DPS2026').replace(/[^A-Z0-9]/gi, '');
-          const cleanId = (rawClean === 'DPS2026' || rawClean.startsWith('DPS') || rawClean === 'SCH1788255333307') ? 'DPS2026' : rawClean;
-          const activeSession = localStorage.getItem('giterp_active_session') || selectedSession || '2026-27';
-          const cachedBackup = localStorage.getItem(`giterp_offline_backup_${cleanId}_${activeSession}`) || localStorage.getItem(`giterp_offline_backup_${cleanId}`);
-
-          if (cachedBackup) {
-            const data = JSON.parse(cachedBackup);
-            if (data.overview) setOverview(data.overview);
-            if (Array.isArray(data.students) && data.students.length > 0) setStudents(data.students);
-            if (Array.isArray(data.teachers) && data.teachers.length > 0) setTeachers(data.teachers);
-            if (Array.isArray(data.classes) && data.classes.length > 0) setClasses(data.classes);
-            if (Array.isArray(data.notices) && data.notices.length > 0) setNotices(data.notices);
-            if (Array.isArray(data.attendance) && data.attendance.length > 0) setAttendance(data.attendance);
-            if (Array.isArray(data.invoices) && data.invoices.length > 0) setInvoices(data.invoices);
-            setLoading(false);
-          }
         }
         try { setCurrentUser(JSON.parse(storedUser)); } catch (e) {}
       } catch (e) {}
@@ -1656,28 +1661,7 @@ function ERPWorkspaceContent() {
     const targetSession = sessionParam || selectedSession || '2026-27';
 
 
-    // 0ms Instant SWR Hydration: Display cached data immediately so user experiences ZERO lag!
-    let hasHydrated = false;
-    if (typeof window !== 'undefined') {
-      const offlineBackup = localStorage.getItem(`giterp_offline_backup_${cleanId}_${targetSession}`) || localStorage.getItem(`giterp_offline_backup_${cleanId}`);
-      if (offlineBackup) {
-        try {
-          const cachedData = JSON.parse(offlineBackup);
-          if (cachedData.overview) setOverview(cachedData.overview);
-          if (Array.isArray(cachedData.students) && cachedData.students.length > 0) setStudents(cachedData.students);
-          if (Array.isArray(cachedData.teachers) && cachedData.teachers.length > 0) setTeachers(cachedData.teachers);
-          if (Array.isArray(cachedData.classes) && cachedData.classes.length > 0) setClasses(cachedData.classes);
-          if (Array.isArray(cachedData.notices) && cachedData.notices.length > 0) setNotices(cachedData.notices);
-          if (Array.isArray(cachedData.attendance) && cachedData.attendance.length > 0) setAttendance(cachedData.attendance);
-          if (Array.isArray(cachedData.invoices) && cachedData.invoices.length > 0) setInvoices(cachedData.invoices);
-          hasHydrated = true;
-          setLoading(false);
-        } catch (e) {}
-      }
-    }
-
-    // Only show full loading spinner if this is a first-time load with zero cached data
-    if (!hasHydrated && !isSilent) {
+    if (!isSilent) {
       setLoading(true);
     }
 
@@ -1730,58 +1714,19 @@ function ERPWorkspaceContent() {
       const freshInvoices = inData.success ? (inData.invoices || []) : [];
 
       if (freshOverview) setOverview(freshOverview);
-      if (freshStudents.length > 0 || !hasHydrated) setStudents(freshStudents);
-      if (freshTeachers.length > 0 || !hasHydrated) setTeachers(freshTeachers);
-      if (freshClasses.length > 0 || !hasHydrated) setClasses(freshClasses);
-      if (freshNotices.length > 0 || !hasHydrated) setNotices(freshNotices);
-      // Only update attendance state if the server returned actual data.
-      // NEVER overwrite existing (cached) attendance with an empty array — that would cause
-      // the "refresh resets attendance to 0" bug when school_id lookup fails on the server.
-      if (freshAttendance.length > 0) {
-        setAttendance(freshAttendance);
-      } else if (!hasHydrated) {
-        setAttendance([]);
-      }
-      if (freshInvoices.length > 0 || !hasHydrated) setInvoices(freshInvoices);
+      if (stData.success) setStudents(freshStudents);
+      if (tcData.success) setTeachers(freshTeachers);
+      if (clData.success) setClasses(freshClasses);
+      if (noData.success) setNotices(freshNotices);
+      if (atData.success) setAttendance(freshAttendance);
+      if (inData.success) setInvoices(freshInvoices);
 
-      // Save real MongoDB session data as offline backup (safely guarded against QuotaExceededError)
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem('last_active_school_id', cleanId);
           localStorage.setItem('giterp_active_session', targetSession);
           localStorage.removeItem(`giterp_cache_${cleanId}`);
-
-          // For small/medium datasets, save offline cache; for 5,000+ datasets, save metadata summary
-          // Only persist attendance if we actually got records — preserve old cache if server returned nothing
-          let cachedAttendanceToSave = freshAttendance;
-          if (freshAttendance.length === 0 && hasHydrated) {
-            try {
-              const oldBackup = localStorage.getItem(`giterp_offline_backup_${cleanId}_${targetSession}`) || localStorage.getItem(`giterp_offline_backup_${cleanId}`);
-              if (oldBackup) {
-                const parsed = JSON.parse(oldBackup);
-                if (Array.isArray(parsed.attendance) && parsed.attendance.length > 0) {
-                  cachedAttendanceToSave = parsed.attendance;
-                }
-              }
-            } catch (_) {}
-          }
-          const backupPayload = JSON.stringify({
-            overview: freshOverview,
-            students: freshStudents.length > 500 ? freshStudents.slice(0, 500) : freshStudents,
-            teachers: freshTeachers,
-            classes: freshClasses,
-            notices: freshNotices,
-            attendance: cachedAttendanceToSave,
-            invoices: freshInvoices.length > 500 ? freshInvoices.slice(0, 500) : freshInvoices,
-            session: targetSession,
-            totalStudentsCount: freshStudents.length,
-            timestamp: Date.now()
-          });
-
-          localStorage.setItem(`giterp_offline_backup_${cleanId}_${targetSession}`, backupPayload);
-        } catch (storageErr) {
-          console.warn('[Storage] Local storage quota reached. Offline cache bypassed; live MongoDB memory active.');
-        }
+        } catch (_) {}
       }
     } catch (e) {
       console.error('Failed to load live school data from MongoDB:', e);
@@ -1879,7 +1824,7 @@ function ERPWorkspaceContent() {
       setStudentForm({
         ...initialStudentForm,
         ...studentToEdit,
-        passcode: studentToEdit.passcode || '123456'
+        passcode: cleanPlainPasscode(studentToEdit.passcode)
       });
       setCollectFeeNow(false);
     } else {
@@ -1970,8 +1915,9 @@ function ERPWorkspaceContent() {
 
   // PIN / Passcode Reset Powers
   const handleOpenPinModal = (type: 'student' | 'teacher', id: string, name: string, currentPin = '123456') => {
-    setPinModal({ type, id, name, currentPin });
-    setCustomPinInput(currentPin);
+    const cleanPin = cleanPlainPasscode(currentPin);
+    setPinModal({ type, id, name, currentPin: cleanPin });
+    setCustomPinInput(cleanPin);
   };
 
   const handleSaveCustomPin = async (e: React.FormEvent) => {
@@ -2085,7 +2031,7 @@ function ERPWorkspaceContent() {
     if (teacherToEdit) {
       setEditingTeacherId(teacherToEdit.id);
       const resolvedRole = teacherToEdit.role || resolveTeacherRole(teacherToEdit) || 'TEACHER';
-      setTeacherForm({ ...initialTeacherForm, ...teacherToEdit, role: resolvedRole });
+      setTeacherForm({ ...initialTeacherForm, ...teacherToEdit, passcode: cleanPlainPasscode(teacherToEdit.passcode), role: resolvedRole });
 
       const roleIsCustom = !!teacherToEdit.designation && !STANDARD_DESIGNATIONS.includes(teacherToEdit.designation);
       setIsCustomRole(roleIsCustom);
@@ -5175,7 +5121,7 @@ function ERPWorkspaceContent() {
                                   >
                                     {s.admission_no}
                                   </button>
-                                  <span className="text-[10px] text-slate-400 font-mono block">PIN: {s.passcode || '123456'}</span>
+                                  <span className="text-[10px] text-emerald-700 font-mono font-semibold block">PIN: {cleanPlainPasscode(s.passcode)}</span>
                                 </td>
 
                                 {/* Roll No */}
@@ -6373,8 +6319,8 @@ function ERPWorkspaceContent() {
                                   >
                                     {t.staff_code}
                                   </button>
-                                  {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole) && (
-                                    <span className="text-[10px] text-slate-400 font-mono block">PIN: {t.passcode || '123456'}</span>
+                                  {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN'].includes(effectiveRole) && (
+                                    <span className="text-[10px] text-emerald-700 font-mono font-semibold block">PIN: {cleanPlainPasscode(t.passcode)}</span>
                                   )}
                                 </td>
 
@@ -12217,6 +12163,10 @@ function ERPWorkspaceContent() {
               <div className="font-bold text-sm text-[#122A24]">{pinModal.name}</div>
               <div className="text-[11px] font-mono text-[#2D5A4E] mt-0.5">
                 Role: {pinModal.type === 'student' ? 'Student SIS Account' : 'Faculty Staff Account'}
+              </div>
+              <div className="mt-2 flex items-center gap-2 font-mono text-xs">
+                <span className="text-slate-600 font-sans">Current Plain Text PIN:</span>
+                <span className="font-bold text-emerald-800 bg-white px-2.5 py-0.5 rounded-lg border border-emerald-200 tracking-wider shadow-2xs">{cleanPlainPasscode(pinModal.currentPin)}</span>
               </div>
             </div>
 

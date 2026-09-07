@@ -15,7 +15,7 @@ export async function GET(req: Request) {
 
     const session = searchParams.get('session') || searchParams.get('academic_session') || undefined;
     const role = auth.role;
-    const isAdmin = role === 'PRINCIPAL' || role === 'AGENCY_SUPERADMIN';
+    const isAdmin = ADMIN_ROLES.includes((role || '').toUpperCase());
 
     const rawTeachers = await Database.getTeachers(tenant, session);
     const teachers = rawTeachers.map(t => {

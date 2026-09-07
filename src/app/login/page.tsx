@@ -140,6 +140,7 @@ export default function LoginPage() {
   const [schoolCode, setSchoolCode] = useState('');
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(true);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -405,9 +406,18 @@ export default function LoginPage() {
                 </div>
 
                 <div className="field">
-                  <label htmlFor="password">Passcode / Password</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label htmlFor="password">Passcode / Password</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{ background: 'none', border: 'none', color: '#1B4D3E', fontSize: '11px', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                    >
+                      {showPassword ? 'Hide' : 'Show Plain Text'}
+                    </button>
+                  </div>
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     id="password"
                     name="password"
                     value={password}
@@ -416,7 +426,7 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     required
                   />
-                  <p className="hint">Confidential security PIN / passcode</p>
+                  <p className="hint">Visible security PIN / passcode (Plain text)</p>
                 </div>
 
                 <div className="row-between">
