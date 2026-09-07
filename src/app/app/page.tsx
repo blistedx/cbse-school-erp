@@ -1665,12 +1665,6 @@ function ERPWorkspaceContent() {
       setLoading(true);
     }
 
-    // If device is offline, stop here
-    if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && !navigator.onLine) {
-      setLoading(false);
-      return;
-    }
-
     setIsSyncingLive(true);
 
     try {
@@ -1688,9 +1682,13 @@ function ERPWorkspaceContent() {
       const safeFetchJson = async (url: string) => {
         try {
           const res = await apiFetch(url, fetchOpts);
-          if (!res.ok) return { success: false };
+          if (!res.ok) {
+            console.warn(`[API Live Fetch] ${url} HTTP ${res.status}`);
+            return { success: false };
+          }
           return await res.json();
         } catch (err) {
+          console.warn(`[API Live Fetch Error] ${url}:`, err);
           return { success: false };
         }
       };

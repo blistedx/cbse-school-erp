@@ -1,6 +1,6 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.0 (Build 2026.09.03.116) */
-const CACHE_NAME = 'giterp-core-v8-116';
-const API_CACHE_NAME = 'giterp-api-session-v8-116';
+/*! Giterp Multi-School Enterprise ERP Core v1.2.1 (Build 2026.09.07.136) */
+const CACHE_NAME = 'giterp-core-v121-136';
+const API_CACHE_NAME = 'giterp-api-v121-136';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
@@ -79,8 +79,8 @@ self.addEventListener('fetch', (event) => {
           if (networkResponse && networkResponse.status === 200) {
             const clone = networkResponse.clone();
             caches.open(API_CACHE_NAME).then((cache) => {
-              cache.put(request, clone);
-            });
+              cache.put(request, clone).catch(() => {});
+            }).catch(() => {});
           }
           return networkResponse;
         })
