@@ -26,8 +26,11 @@ import bcrypt from 'bcryptjs';
 
 export async function hashPassword(plainText: string): Promise<string> {
   if (!plainText) return '';
-  // Plain text visible passwords as requested by institution admin
-  return plainText.trim();
+  const trimmed = plainText.trim();
+  if (trimmed.startsWith('$2a$') || trimmed.startsWith('$2b$')) {
+    return trimmed;
+  }
+  return bcrypt.hash(trimmed, 10);
 }
 
 export async function verifyPassword(plainText: string, hashOrPlain?: string): Promise<boolean> {
@@ -35,7 +38,10 @@ export async function verifyPassword(plainText: string, hashOrPlain?: string): P
   if (hashOrPlain.startsWith('$2a$') || hashOrPlain.startsWith('$2b$')) {
     return bcrypt.compare(plainText, hashOrPlain);
   }
-  return plainText === hashOrPlain;
+  const bufA = Buffer.from(plainText);
+  const bufB = Buffer.from(hashOrPlain);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -462,7 +468,7 @@ export const Database = {
         if (results && results.length > 0) {
           const mapped = results.map(sanitizeDoc<School>).map(s => ({
             ...s,
-            admin_pin: (s.admin_pin && !s.admin_pin.startsWith('$2')) ? s.admin_pin : '123456'
+            admin_pin: s.admin_pin || '123456'
           }));
           setCached(cacheKey, mapped, 5000);
           return mapped;
@@ -472,7 +478,7 @@ export const Database = {
 
     const fallback = memoryStore.schools.filter(s => s.status === 'ACTIVE').map(s => ({
       ...s,
-      admin_pin: (s.admin_pin && !s.admin_pin.startsWith('$2')) ? s.admin_pin : '123456'
+      admin_pin: s.admin_pin || '123456'
     }));
     if (fallback.length > 0) {
       setCached(cacheKey, fallback, 5000);
@@ -528,6 +534,7 @@ export const Database = {
     }
 
     const adminPinPlain = schoolData.admin_pin ? schoolData.admin_pin.trim() : '123456';
+    const adminPinHashed = await hashPassword(adminPinPlain);
     const school: School = {
       id,
       school_code: code,
@@ -538,7 +545,7 @@ export const Database = {
       principal_name: schoolData.principal_name || 'Principal',
       admin_id: schoolData.admin_id || 'admin',
       admin_name: schoolData.admin_name || schoolData.principal_name || 'Administrator',
-      admin_pin: adminPinPlain,
+      admin_pin: adminPinHashed,
       status: schoolData.status || 'ACTIVE',
       created_at: new Date().toISOString()
     };
@@ -577,7 +584,7 @@ export const Database = {
         if (k === 'admin_pin') {
           const pinStr = String(v).trim();
           if (pinStr) {
-            cleanedUpdates[k] = pinStr;
+            cleanedUpdates[k] = await hashPassword(pinStr);
           }
         } else {
           cleanedUpdates[k] = v;
@@ -1052,7 +1059,7 @@ export const Database = {
         .filter(s => ids.includes(s.school_id) && matchesSession(s, targetSession))
         .map(s => ({
           ...s,
-          passcode: (s.passcode && !s.passcode.startsWith('$2')) ? s.passcode : '123456',
+          passcode: s.passcode || '123456',
           academic_session: s.academic_session || '2026-27'
         }));
       if (res.length > 0) setCached(cacheKey, res, 5000);
@@ -1062,7 +1069,7 @@ export const Database = {
       .filter(s => matchesSession(s, targetSession))
       .map(s => ({
         ...s,
-        passcode: (s.passcode && !s.passcode.startsWith('$2')) ? s.passcode : '123456',
+        passcode: s.passcode || '123456',
         academic_session: s.academic_session || '2026-27'
       }));
     if (allRes.length > 0) setCached(cacheKey, allRes, 5000);
@@ -1074,6 +1081,7 @@ export const Database = {
     const id = studentData.id || `STU-${Date.now()}`;
     const academic_session = studentData.academic_session || '2026-27';
     const studentPasscode = studentData.passcode ? studentData.passcode.trim() : '123456';
+    const hashedStudentPasscode = await hashPassword(studentPasscode);
     const student: Student = {
       id,
       school_id: studentData.school_id || '',
@@ -1089,11 +1097,11 @@ export const Database = {
       fee_status: studentData.fee_status || 'PENDING',
       attendance_percent: studentData.attendance_percent || 100,
       status: 'ACTIVE',
-      passcode: studentPasscode,
+      passcode: hashedStudentPasscode,
       created_at: new Date().toISOString(),
       ...studentData
     };
-    student.passcode = studentPasscode;
+    student.passcode = hashedStudentPasscode;
     student.academic_session = academic_session;
 
     // Offload heavy Base64 image to Vercel Blob (ZERO binary in MongoDB)
@@ -1130,7 +1138,7 @@ export const Database = {
   async updateStudent(studentId: string, updates: Partial<Student>): Promise<Student | null> {
     const sanitizedUpdates = { ...updates };
     if (sanitizedUpdates.passcode) {
-      sanitizedUpdates.passcode = sanitizedUpdates.passcode.trim();
+      sanitizedUpdates.passcode = await hashPassword(sanitizedUpdates.passcode.trim());
     }
     const rawUpdateImg = (sanitizedUpdates.photo && sanitizedUpdates.photo.startsWith('data:')) ? sanitizedUpdates.photo :
       ((sanitizedUpdates.avatar && sanitizedUpdates.avatar.startsWith('data:')) ? sanitizedUpdates.avatar : null);
@@ -1352,7 +1360,7 @@ export const Database = {
         .map(ensureTeacherGender)
         .map(t => ({
           ...t,
-          passcode: (t.passcode && !t.passcode.startsWith('$2')) ? t.passcode : '123456',
+          passcode: t.passcode || '123456',
           role: t.role || resolveTeacherRole(t),
           academic_session: t.academic_session || '2026-27'
         }));
@@ -1364,7 +1372,7 @@ export const Database = {
       .map(ensureTeacherGender)
       .map(t => ({
         ...t,
-        passcode: (t.passcode && !t.passcode.startsWith('$2')) ? t.passcode : '123456',
+        passcode: t.passcode || '123456',
         role: t.role || resolveTeacherRole(t),
         academic_session: t.academic_session || '2026-27'
       }));
@@ -1377,6 +1385,7 @@ export const Database = {
     const id = teacherData.id || `TCH-${Date.now()}`;
     const academic_session = teacherData.academic_session || '2026-27';
     const teacherPasscode = teacherData.passcode ? teacherData.passcode.trim() : '123456';
+    const hashedTeacherPasscode = await hashPassword(teacherPasscode);
     const teacher: Teacher = {
       id,
       school_id: teacherData.school_id || '',
@@ -1390,10 +1399,10 @@ export const Database = {
       phone: teacherData.phone || '',
       email: teacherData.email || '',
       status: 'ACTIVE',
-      passcode: teacherPasscode,
+      passcode: hashedTeacherPasscode,
       ...teacherData
     };
-    teacher.passcode = teacherPasscode;
+    teacher.passcode = hashedTeacherPasscode;
     teacher.academic_session = academic_session;
     teacher.role = teacher.role || resolveTeacherRole(teacher);
 
@@ -1431,7 +1440,7 @@ export const Database = {
   async updateTeacher(teacherId: string, updates: Partial<Teacher>): Promise<Teacher | null> {
     const sanitizedUpdates = { ...updates };
     if (sanitizedUpdates.passcode) {
-      sanitizedUpdates.passcode = sanitizedUpdates.passcode.trim();
+      sanitizedUpdates.passcode = await hashPassword(sanitizedUpdates.passcode.trim());
     }
     const rawTeacherUpdateImg = (sanitizedUpdates.photo && sanitizedUpdates.photo.startsWith('data:')) ? sanitizedUpdates.photo :
       ((sanitizedUpdates.avatar && sanitizedUpdates.avatar.startsWith('data:')) ? sanitizedUpdates.avatar : null);
