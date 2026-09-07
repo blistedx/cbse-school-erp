@@ -1,6 +1,7 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { getDatabase } from '@/lib/mongodb';
+import { requireAuth, requireRole, STAFF_ROLES } from '@/lib/auth-guard';
 
 export interface TelemetryPayload {
   routeId: string;
@@ -23,6 +24,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
+    const auth = requireAuth(req);
+    if (auth instanceof NextResponse) return auth;
+
     const { searchParams } = new URL(req.url);
     const routeId = searchParams.get('routeId');
 
@@ -90,6 +94,10 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const allowedRoles = [...STAFF_ROLES, 'DRIVER'];
+    const auth = requireRole(req, allowedRoles);
+    if (auth instanceof NextResponse) return auth;
+
     const body = await req.json();
     const {
       routeId,
@@ -107,13 +115,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'routeId is required' }, { status: 400 });
     }
 
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    const spd = Number(speedKmh);
+
+    if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lng) || lng < -180 || lng > 180) {
+      return NextResponse.json({ success: false, error: 'Invalid latitude/longitude coordinates.' }, { status: 400 });
+    }
+    if (isNaN(spd) || spd < 0 || spd > 250) {
+      return NextResponse.json({ success: false, error: 'Invalid speed value.' }, { status: 400 });
+    }
+
     const payload: TelemetryPayload = {
       routeId,
       vehicleNo: vehicleNo || 'UP-32-AB-9876',
       driver: driver || 'Ramesh Yadav',
-      latitude: Number(latitude) || 26.8467,
-      longitude: Number(longitude) || 80.9462,
-      speedKmh: Number(speedKmh) || 0,
+      latitude: lat,
+      longitude: lng,
+      speedKmh: spd,
       heading: Number(heading) || 0,
       accuracyMeters: Number(accuracyMeters) || 5,
       active: Boolean(active),
