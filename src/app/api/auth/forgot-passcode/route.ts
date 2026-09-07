@@ -1,24 +1,92 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
 import { checkRateLimit, resetRateLimit } from '@/lib/rate-limiter';
-import { sendPasswordResetEmail } from '@/lib/email';
+import { sendPasswordResetEmail, maskEmail } from '@/lib/email';
 
 export async function POST(req: Request) {
   try {
     const rate = checkRateLimit(req, {
       bucketName: 'auth-forgot-passcode',
-      maxAttempts: 6,
+      maxAttempts: 8,
       windowMs: 10 * 60 * 1000
     });
     if (!rate.allowed) return rate.response!;
 
     const body = await req.json();
-    const { school_code, username } = body;
+    const { school_code, username, account_type } = body;
 
     const rawSchoolCode = (school_code || '').toString().trim().toUpperCase();
     const rawUsername = (username || '').toString().trim();
+    const uname = rawUsername.toUpperCase();
 
+    // 0. AGENCY SUPERADMIN FORGOT PASSCODE FLOW
+    const isAgencyRequest =
+      account_type === 'AGENCY_ADMIN' ||
+      account_type === 'AGENCY' ||
+      uname === 'BLISTEDX' ||
+      rawSchoolCode === 'SYSTEM' ||
+      rawSchoolCode === 'AGENCY';
+
+    if (isAgencyRequest) {
+      const isAgencyUser =
+        !rawUsername ||
+        uname === 'BLISTEDX' ||
+        uname === 'ADMIN' ||
+        uname === 'SUPERADMIN' ||
+        uname === 'AGENCY' ||
+        uname === 'BLISTEDX@GMAIL.COM';
+
+      if (!isAgencyUser) {
+        return NextResponse.json(
+          { success: false, error: `Invalid Agency Superadmin ID "${rawUsername}".` },
+          { status: 400 }
+        );
+      }
+
+      // Generate a secure 6-digit numeric temporary passcode
+      const newPasscode = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // Persist the newly generated passcode into agency settings
+      await Database.updateAgencyPassword(newPasscode);
+
+      const agencyEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'blistedx@gmail.com';
+      const maskedEmail = maskEmail(agencyEmail);
+
+      const emailResult = await sendPasswordResetEmail({
+        schoolName: 'Giterp Central Agency Platform',
+        schoolCode: 'SYSTEM (AGENCY)',
+        userId: 'BLISTEDX',
+        userName: 'BlistedX (Agency Superadmin)',
+        userRole: 'Agency Superadmin (God Access)',
+        newPasscode,
+        userEmail: agencyEmail,
+        isAgencySuperAdmin: true
+      });
+
+      if (!emailResult.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Passcode generated, but failed to deliver email: ${emailResult.message}`
+          },
+          { status: 500 }
+        );
+      }
+
+      resetRateLimit('auth-forgot-passcode', req);
+
+      return NextResponse.json({
+        success: true,
+        message: `A new master passcode has been generated and dispatched to ${maskedEmail}.`,
+        target_email: maskedEmail,
+        masked_email: maskedEmail,
+        account_name: 'BlistedX (Agency Superadmin)',
+        account_role: 'Agency Superadmin (God Access)',
+        is_agency: true
+      });
+    }
+
+    // 1. SCHOOL USER FORGOT PASSCODE FLOW
     if (!rawSchoolCode) {
       return NextResponse.json(
         { success: false, error: 'School Code is required to reset passcode.' },
@@ -33,7 +101,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Locate the school
+    // Locate the school
     const school = await Database.getSchoolByCode(rawSchoolCode);
     if (!school || school.status !== 'ACTIVE') {
       return NextResponse.json(
@@ -41,8 +109,6 @@ export async function POST(req: Request) {
         { status: 404 }
       );
     }
-
-    const uname = rawUsername.toUpperCase();
 
     // Generate a secure 6-digit numeric temporary passcode
     const newPasscode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -156,12 +222,17 @@ export async function POST(req: Request) {
     // Reset rate limiter on valid request
     resetRateLimit('auth-forgot-passcode', req);
 
+    const rawTargetEmail = emailPayload.userEmail || 'blistedx@gmail.com';
+    const maskedEmail = maskEmail(rawTargetEmail);
+
     return NextResponse.json({
       success: true,
-      message: `A new passcode has been generated and sent to blistedx@gmail.com`,
-      target_email: 'blistedx@gmail.com',
+      message: `A new passcode has been generated and sent to ${maskedEmail}`,
+      target_email: maskedEmail,
+      masked_email: maskedEmail,
       account_name: emailPayload.userName,
-      account_role: emailPayload.userRole
+      account_role: emailPayload.userRole,
+      is_agency: false
     });
   } catch (err: any) {
     console.error('[AUTH_FORGOT_PASSCODE_ERROR]', err);

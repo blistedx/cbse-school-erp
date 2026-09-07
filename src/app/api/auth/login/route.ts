@@ -9,8 +9,9 @@ export async function POST(req: Request) {
   try {
     const rate = checkRateLimit(req, {
       bucketName: 'auth-login',
-      maxAttempts: 15,
-      windowMs: 15 * 60 * 1000
+      maxAttempts: 25,
+      windowMs: 15 * 60 * 1000,
+      skipLocalhost: process.env.NODE_ENV !== 'production'
     });
     if (!rate.allowed) return rate.response!;
 

@@ -157,6 +157,155 @@ html, body {
   --tw-gradient-to: var(--board-2) var(--tw-gradient-to-position, ) !important;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Antigravity Black & White (Monochrome) Master Theme Engine
+   Converts all sections, KPI tiles, headers, badges, and accents
+   into high-contrast pitch black & crisp white editorial aesthetic.
+   ───────────────────────────────────────────────────────────── */
+[data-theme='monochrome'] {
+  --board-1: #09090B !important;
+  --board-2: #18181B !important;
+  --parchment: #F8F9FA !important;
+  --paper-white: #FFFFFF !important;
+  --text-dark: #09090B !important;
+  --theme-accent: #09090B !important;
+  --theme-accent-hover: #18181B !important;
+  --theme-accent-light: #F4F4F5 !important;
+  --theme-border: #E4E4E7 !important;
+  --theme-text-muted: #52525B !important;
+  --ink-navy: #09090B !important;
+  --red-pen: #18181B !important;
+  --chalk: #FFFFFF !important;
+  --line: rgba(9, 9, 11, 0.12) !important;
+}
+
+/* 1. Global Emerald, Green & Teal Text Replacements for Monochrome */
+[data-theme='monochrome'] [class*="text-emerald-600"],
+[data-theme='monochrome'] [class*="text-emerald-700"],
+[data-theme='monochrome'] [class*="text-emerald-800"],
+[data-theme='monochrome'] [class*="text-emerald-900"],
+[data-theme='monochrome'] [class*="text-emerald-950"],
+[data-theme='monochrome'] [class*="text-teal-600"],
+[data-theme='monochrome'] [class*="text-teal-700"],
+[data-theme='monochrome'] [class*="text-teal-800"],
+[data-theme='monochrome'] [class*="text-green-600"],
+[data-theme='monochrome'] [class*="text-green-700"],
+[data-theme='monochrome'] [class*="text-green-800"] {
+  color: #09090B !important;
+}
+
+/* Light Pills, Badges & Backgrounds in Monochrome */
+[data-theme='monochrome'] [class*="bg-emerald-50"],
+[data-theme='monochrome'] [class*="bg-emerald-100"],
+[data-theme='monochrome'] [class*="bg-teal-50"],
+[data-theme='monochrome'] [class*="bg-teal-100"],
+[data-theme='monochrome'] [class*="bg-green-50"],
+[data-theme='monochrome'] [class*="bg-green-100"] {
+  background-color: #F4F4F5 !important;
+  color: #09090B !important;
+}
+
+/* Solid Buttons, Badges & Chips in Monochrome */
+[data-theme='monochrome'] [class*="bg-emerald-500"],
+[data-theme='monochrome'] [class*="bg-emerald-600"],
+[data-theme='monochrome'] [class*="bg-emerald-700"],
+[data-theme='monochrome'] [class*="bg-emerald-800"],
+[data-theme='monochrome'] [class*="bg-teal-600"],
+[data-theme='monochrome'] [class*="bg-teal-700"],
+[data-theme='monochrome'] [class*="bg-green-600"] {
+  background-color: #09090B !important;
+  color: #FFFFFF !important;
+}
+
+/* Borders in Monochrome */
+[data-theme='monochrome'] [class*="border-emerald-"],
+[data-theme='monochrome'] [class*="border-teal-"],
+[data-theme='monochrome'] [class*="border-green-"],
+[data-theme='monochrome'] .border-\[\#E2EAE5\],
+[data-theme='monochrome'] .border-\[\#e2eae5\] {
+  border-color: #E4E4E7 !important;
+}
+
+/* Chart Mint Bar in Monochrome */
+[data-theme='monochrome'] .bg-\[\#A7D7B5\],
+[data-theme='monochrome'] .bg-\[\#a7d7b5\] {
+  background-color: #E4E4E7 !important;
+}
+
+/* 2. KPI Hero Banners & Dark Containers Overrides (Turns all green icons, titles, labels into crisp white & zinc) */
+[data-theme='monochrome'] .bg-\[\#122A24\] [class*="text-emerald-"],
+[data-theme='monochrome'] .bg-\[\#122a24\] [class*="text-emerald-"],
+[data-theme='monochrome'] .bg-\[\#18181B\] [class*="text-emerald-"],
+[data-theme='monochrome'] .bg-\[\#09090B\] [class*="text-emerald-"],
+[data-theme='monochrome'] .from-\[\#122A24\] [class*="text-emerald-"],
+[data-theme='monochrome'] .from-\[\#122a24\] [class*="text-emerald-"],
+[data-theme='monochrome'] header [class*="text-emerald-300"],
+[data-theme='monochrome'] header [class*="text-emerald-400"],
+[data-theme='monochrome'] aside [class*="text-emerald-300"],
+[data-theme='monochrome'] aside [class*="text-emerald-400"],
+[data-theme='monochrome'] aside [class*="text-emerald-200"],
+[data-theme='monochrome'] nav [class*="text-emerald-300"] {
+  color: #FFFFFF !important;
+}
+
+[data-theme='monochrome'] .bg-\[\#122A24\] [class*="text-emerald-200"],
+[data-theme='monochrome'] .bg-\[\#122a24\] [class*="text-emerald-200"],
+[data-theme='monochrome'] .bg-\[\#122A24\] [class*="text-emerald-300"],
+[data-theme='monochrome'] .bg-\[\#122a24\] [class*="text-emerald-300"],
+[data-theme='monochrome'] .from-\[\#122A24\] [class*="text-emerald-200"],
+[data-theme='monochrome'] .from-\[\#122A24\] [class*="text-emerald-300"] {
+  color: #A1A1AA !important;
+}
+
+[data-theme='monochrome'] .bg-\[\#122A24\] svg,
+[data-theme='monochrome'] .bg-\[\#122a24\] svg,
+[data-theme='monochrome'] .from-\[\#122A24\] svg {
+  color: #FFFFFF !important;
+}
+
+/* Eliminate green glowing blurs on dark banners in monochrome */
+[data-theme='monochrome'] [class*="bg-emerald-500/10"],
+[data-theme='monochrome'] [class*="bg-emerald-500/20"],
+[data-theme='monochrome'] [class*="bg-emerald-600/20"],
+[data-theme='monochrome'] [class*="from-emerald-500/20"],
+[data-theme='monochrome'] [class*="from-emerald-600/20"] {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+[data-theme='monochrome'] [class*="bg-emerald-400/30"] {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: #FFFFFF !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+[data-theme='monochrome'] [class*="divide-[#1C443A]"] {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* 3. Hovers & Interactive States in Monochrome */
+[data-theme='monochrome'] [class*="hover:bg-emerald-50"]:hover,
+[data-theme='monochrome'] [class*="hover:bg-emerald-100"]:hover {
+  background-color: #F4F4F5 !important;
+}
+
+[data-theme='monochrome'] [class*="hover:text-emerald-"]:hover {
+  color: #09090B !important;
+}
+
+[data-theme='monochrome'] [class*="hover:border-emerald-"]:hover {
+  border-color: #71717A !important;
+}
+
+/* 4. Calendar & Active Dots in Monochrome */
+[data-theme='monochrome'] [class*="text-emerald-950"] {
+  color: #09090B !important;
+}
+
+[data-theme='monochrome'] span[class*="bg-emerald-500"],
+[data-theme='monochrome'] span[class*="bg-emerald-600"] {
+  background-color: #09090B !important;
+}
+
 /* Dark Theme Overrides for Midnight Obsidian & Cyberpunk Neon */
 .dark,
 [data-theme='midnight'],

@@ -77,7 +77,8 @@ import {
   Lock,
   Zap,
   Calculator,
-  Receipt
+  Receipt,
+  Palette
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS, ManagedRole, STAFF_ROLES, resolveTeacherRole } from '@/lib/types';
@@ -87,6 +88,7 @@ import { calculateRegistrationFees, DEFAULT_TRANSPORT_FEES } from '@/lib/fee-cal
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 import { TaskCompletionOverlay, TaskCelebrationData, TaskCelebrationType } from '@/components/task-completion-overlay';
 import { getAllSiblingGroups, SiblingGroup } from '@/lib/student-helper';
+import { ANTIGRAVITY_THEMES, applyAntigravityTheme, getSavedThemeId } from '@/lib/themes';
 
 const DashboardOverview = dynamic(
   () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
@@ -346,6 +348,21 @@ function ERPWorkspaceContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isOmniSearchOpen, setIsOmniSearchOpen] = useState(false);
 
+  // Theme Management (Default Emerald vs Black & White Monochrome)
+  const [currentTheme, setCurrentTheme] = useState<string>('emerald');
+  const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
+
+  useEffect(() => {
+    const saved = getSavedThemeId();
+    setCurrentTheme(saved);
+    applyAntigravityTheme(saved);
+  }, []);
+
+  const handleSwitchTheme = (themeId: string) => {
+    setCurrentTheme(themeId);
+    applyAntigravityTheme(themeId);
+  };
+
   // Clear search query when tab changes so search query doesn't unintentionally filter other modules
   const prevTabRef = React.useRef(activeTab);
   useEffect(() => {
@@ -446,6 +463,7 @@ function ERPWorkspaceContent() {
   const [purgeLoading, setPurgeLoading] = useState(false);
   const [purgeError, setPurgeError] = useState('');
   const [purgeSuccessMessage, setPurgeSuccessMessage] = useState('');
+
 
   // PWA Push Notifications Header Menu & Live Test State
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
@@ -3511,7 +3529,7 @@ function ERPWorkspaceContent() {
   // Green and White theme navigation style helpers
   const getNavClass = (tab: string) => {
     const isActive = activeTab === tab;
-    return `w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-[13px] font-medium transition-all border-none cursor-pointer text-left ${
+    return `w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-[13px] font-medium transition-all border-none cursor-pointer text-left group ${
       isActive
         ? 'bg-white text-[#122A24] font-bold shadow-xs'
         : 'bg-transparent text-emerald-100/75 hover:text-white hover:bg-white/10'
@@ -3519,12 +3537,12 @@ function ERPWorkspaceContent() {
   };
 
   const getNavIconClass = (tab: string) => {
-    return `h-4 w-4 shrink-0 ${activeTab === tab ? 'text-[#122A24]' : 'text-emerald-300/80'}`;
+    return `h-4 w-4 shrink-0 transition-colors ${activeTab === tab ? 'text-[#122A24]' : 'text-emerald-300/80 group-hover:text-emerald-100'}`;
   };
 
   const getNavBadgeClass = (tab: string) => {
-    return `text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-      activeTab === tab ? 'bg-emerald-100 text-[#122A24]' : 'bg-white/10 text-emerald-200'
+    return `text-[10px] px-2 py-0.5 rounded-full font-mono font-bold transition-colors ${
+      activeTab === tab ? 'bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF]' : 'bg-white/10 text-emerald-200'
     }`;
   };
 
@@ -3543,27 +3561,23 @@ function ERPWorkspaceContent() {
         </div>
       )}
 
-
-
-      {/* Top Header: Responsive with Mobile Drawer Toggle */}
-      {/* Top Header Navigation Bar */}
-      {/* Top Header: Clean Bag\\UI Reference Style with Breadcrumbs */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200/80 px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between shadow-2xs gap-3 sm:gap-6">
+      {/* Top Header: Responsive with Mobile Drawer Toggle & Authentic Dashboard Theme */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#DCE8E0] px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between shadow-2xs gap-3 sm:gap-6">
         <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
           {/* Mobile Hamburger Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="lg:hidden p-2 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-800 border border-gray-200 transition-colors cursor-pointer shadow-2xs flex items-center justify-center shrink-0"
+            className="lg:hidden p-2 rounded-xl bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] transition-colors cursor-pointer shadow-2xs flex items-center justify-center shrink-0"
             title="Open Navigation Menu"
             aria-label="Open Navigation Menu"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="h-5 w-5 text-[#122A24]" />
           </button>
 
           {/* Clean Breadcrumbs with School Logo Badge */}
           <div className="hidden sm:flex items-center gap-2.5 text-xs sm:text-sm font-medium">
             {(selectedSchool?.logo || selectedSchool?.logo_url) && (
-              <div className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-200 overflow-hidden shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
+              <div className="w-6 h-6 rounded-lg bg-[#EBF5EF] border border-[#C5E2CF] overflow-hidden shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
                 <img
                   src={selectedSchool.logo || selectedSchool.logo_url}
                   alt="School Logo"
@@ -3573,19 +3587,19 @@ function ERPWorkspaceContent() {
             )}
             <button
               onClick={() => setActiveTab('overview')}
-              className="text-gray-400 hover:text-[#122A24] transition-colors border-none bg-transparent p-0 cursor-pointer"
+              className="text-[#2D5A4E]/80 hover:text-[#122A24] font-medium transition-colors border-none bg-transparent p-0 cursor-pointer"
             >
               Dashboard
             </button>
-            <span className="text-emerald-300/60">/</span>
-            <span className="text-[#122A24] font-bold capitalize">
+            <span className="text-[#2D5A4E]/40 font-mono select-none">/</span>
+            <span className="text-[#122A24] font-display font-bold capitalize tracking-tight">
               {TAB_POSTER_CONFIG[activeTab]?.title || activeTab.replace('_', ' ')}
             </span>
           </div>
 
           <div className="sm:hidden flex items-center gap-2 min-w-0">
             {(selectedSchool?.logo || selectedSchool?.logo_url) && (
-              <div className="w-5 h-5 rounded-md bg-emerald-50 border border-emerald-200 overflow-hidden shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
+              <div className="w-5 h-5 rounded-md bg-[#EBF5EF] border border-[#C5E2CF] overflow-hidden shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
                 <img
                   src={selectedSchool.logo || selectedSchool.logo_url}
                   alt="School Logo"
@@ -3593,7 +3607,7 @@ function ERPWorkspaceContent() {
                 />
               </div>
             )}
-            <span className="font-bold text-xs text-[#122A24] truncate">
+            <span className="font-display font-bold text-xs text-[#122A24] truncate">
               {TAB_POSTER_CONFIG[activeTab]?.title || activeTab}
             </span>
           </div>
@@ -3604,17 +3618,17 @@ function ERPWorkspaceContent() {
           {effectiveRole !== 'DRIVER' && (
             <div
               onClick={() => setIsOmniSearchOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 hover:bg-gray-100/90 border border-[#DCE8E0] text-[#122A24] rounded-xl text-xs font-normal shadow-2xs transition-all cursor-pointer group w-36 sm:w-56 md:w-64 shrink-0"
+              className="flex items-center gap-2 px-3 py-1.5 bg-[#F4F8F5] hover:bg-[#EBF5EF]/80 border border-[#DCE8E0] text-[#122A24] rounded-xl text-xs font-medium shadow-2xs transition-all cursor-pointer group w-36 sm:w-56 md:w-64 shrink-0"
               title="Search Scholars, Staff, Invoices, Classes (Ctrl+K)"
             >
-              <Search className="h-3.5 w-3.5 text-[#2D5A4E]/70 shrink-0 group-hover:text-emerald-700 transition-colors" />
-              <span className="hidden sm:inline text-gray-500 text-xs truncate flex-1 select-none">
+              <Search className="h-3.5 w-3.5 text-[#2D5A4E]/80 shrink-0 group-hover:text-[#122A24] transition-colors" />
+              <span className="hidden sm:inline text-[#2D5A4E]/60 text-xs truncate flex-1 select-none">
                 Search scholars, staff, fees...
               </span>
-              <span className="sm:hidden text-gray-500 text-xs truncate flex-1 select-none">
+              <span className="sm:hidden text-[#2D5A4E]/60 text-xs truncate flex-1 select-none">
                 Search...
               </span>
-              <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9.5px] font-mono bg-white border border-[#DCE8E0] rounded text-gray-500 shrink-0">
+              <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9.5px] font-mono bg-white border border-[#DCE8E0] rounded text-[#122A24] shrink-0 shadow-2xs">
                 ⌘K
               </kbd>
             </div>
@@ -3623,7 +3637,7 @@ function ERPWorkspaceContent() {
           {/* Academic Session Switcher */}
           {effectiveRole !== 'DRIVER' && (
             <div className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-[#DCE8E0] text-[#122A24] rounded-xl text-xs font-medium shadow-2xs">
-              <Calendar className="h-3.5 w-3.5 text-[#2D5A4E]/60 shrink-0" />
+              <Calendar className="h-3.5 w-3.5 text-[#1C443A] shrink-0" />
               <select
                 value={selectedSession}
                 onChange={(e) => handleSwitchSession(e.target.value)}
@@ -3647,42 +3661,163 @@ function ERPWorkspaceContent() {
                 setPushStatus(getNotificationPermissionStatus());
                 setShowBroadcastInbox(true);
               }}
-              className="p-2 rounded-xl border border-[#DCE8E0] bg-white hover:bg-emerald-50/50 text-[#122A24] text-xs font-semibold cursor-pointer transition-colors shadow-2xs flex items-center justify-center"
+              className="p-2 rounded-xl border border-[#DCE8E0] bg-white hover:bg-[#EBF5EF] text-[#122A24] text-xs font-semibold cursor-pointer transition-colors shadow-2xs flex items-center justify-center"
               title="Notifications"
             >
               <Bell className="h-4 w-4 text-[#122A24]" />
               {unreadBroadcastCount > 0 && (
-                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 min-w-[17px] h-[17px] bg-rose-600 text-white rounded-full text-[9px] font-bold font-mono flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 min-w-[17px] h-[17px] bg-[#C4432B] text-white rounded-full text-[9px] font-bold font-mono flex items-center justify-center shadow-2xs">
                   {unreadBroadcastCount}
                 </span>
               )}
             </button>
           </div>
 
-          {/* User Profile Avatar Pill */}
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`flex items-center gap-2 p-1 sm:px-2.5 sm:py-1 rounded-full border text-xs font-medium cursor-pointer transition-colors shadow-2xs ${
-              activeTab === 'profile'
-                ? 'bg-[#122A24] text-white border-[#122A24]'
-                : 'bg-white hover:bg-[#F4F8F5] text-[#122A24] border-[#DCE8E0]'
-            }`}
-            title="My Profile"
-          >
-            <div className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-[11px] ${
-              activeTab === 'profile' ? 'bg-white text-[#122A24]' : 'bg-[#122A24] text-white'
-            }`}>
-              {(currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()}
-            </div>
-            <span className="hidden md:inline max-w-[120px] truncate text-xs">
-              {currentUser?.full_name?.split(' ')[0] || 'Admin'}
-            </span>
-          </button>
+          {/* User Section (Profile Avatar Pill & Dropdown Menu with Theme Options) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className={`flex items-center gap-2 p-1 sm:px-2.5 sm:py-1 rounded-full border text-xs font-medium cursor-pointer transition-colors shadow-2xs ${
+                showUserMenu || activeTab === 'profile'
+                  ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
+                  : 'bg-white hover:bg-[#EBF5EF] text-[#122A24] border-[#DCE8E0]'
+              }`}
+              title="User Account & Theme Settings"
+            >
+              <div className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-[11px] ${
+                showUserMenu || activeTab === 'profile' ? 'bg-white text-[#122A24]' : 'bg-[#122A24] text-white'
+              }`}>
+                {(currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()}
+              </div>
+              <span className="hidden md:inline max-w-[120px] truncate text-xs font-medium">
+                {currentUser?.full_name?.split(' ')[0] || 'Admin'}
+              </span>
+              <span 
+                className={`hidden sm:inline-block w-2 h-2 rounded-full ${currentTheme === 'monochrome' ? 'bg-zinc-400' : 'bg-emerald-400'}`} 
+                title={`Active Theme: ${currentTheme === 'monochrome' ? 'Black & White' : 'Default (Emerald)'}`} 
+              />
+            </button>
+
+            {showUserMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowUserMenu(false)}
+                />
+                <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] p-3 z-50 animate-in fade-in zoom-in-95 space-y-3">
+                  {/* User Identity Header */}
+                  <div className="flex items-center gap-3 pb-2.5 border-b border-[#E8F0EA]">
+                    <div className="w-10 h-10 rounded-full bg-[#122A24] text-white font-bold flex items-center justify-center text-sm shrink-0 shadow-xs">
+                      {(currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-[#122A24] truncate">
+                        {currentUser?.full_name || profileForm.full_name || 'Administrator'}
+                      </div>
+                      <div className="text-[10px] text-[#2D5A4E] font-mono truncate">
+                        {currentUser?.role || 'Admin'} • ID: {currentUser?.username || profileForm.username || 'admin'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Theme Switcher in User Section */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[10.5px] font-bold text-[#2D5A4E] uppercase tracking-wider px-1">
+                      <span className="flex items-center gap-1.5">
+                        <Palette className="h-3.5 w-3.5 text-[#1C443A]" />
+                        Theme Mode
+                      </span>
+                      <span className="text-[9.5px] font-mono px-1.5 py-0.2 rounded bg-[#EBF5EF] text-[#122A24] font-semibold">
+                        {currentTheme === 'monochrome' ? 'B & W' : 'Default'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                      {/* Default Emerald Theme */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleSwitchTheme('emerald');
+                        }}
+                        className={`flex items-center gap-2 p-2 rounded-xl text-left transition-all cursor-pointer border ${
+                          currentTheme === 'emerald'
+                            ? 'bg-[#EBF5EF] border-[#1C443A] text-[#122A24] font-bold shadow-2xs'
+                            : 'bg-slate-50/70 hover:bg-slate-100 border-[#E8F0EA] text-slate-700 font-medium'
+                        }`}
+                      >
+                        <span className="w-3.5 h-3.5 rounded-full bg-[#122A24] border border-[#10B981] shrink-0 flex items-center justify-center">
+                          {currentTheme === 'emerald' && <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-[11px] leading-tight truncate">Default</div>
+                          <div className="text-[9px] text-[#2D5A4E] truncate">Emerald</div>
+                        </div>
+                      </button>
+
+                      {/* Black & White Theme */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleSwitchTheme('monochrome');
+                        }}
+                        className={`flex items-center gap-2 p-2 rounded-xl text-left transition-all cursor-pointer border ${
+                          currentTheme === 'monochrome'
+                            ? 'bg-zinc-100 border-zinc-900 text-zinc-950 font-bold shadow-2xs'
+                            : 'bg-slate-50/70 hover:bg-slate-100 border-[#E8F0EA] text-slate-700 font-medium'
+                        }`}
+                      >
+                        <span className="w-3.5 h-3.5 rounded-full bg-zinc-950 border border-zinc-500 shrink-0 flex items-center justify-center">
+                          {currentTheme === 'monochrome' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-[11px] leading-tight truncate">Black &amp; White</div>
+                          <div className="text-[9px] text-zinc-500 truncate">Monochrome</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Actions: View Profile & Sign Out */}
+                  <div className="pt-2 border-t border-[#E8F0EA] space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('profile');
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-[#122A24] hover:bg-[#EBF5EF] transition-colors cursor-pointer border-none bg-transparent text-left"
+                    >
+                      <span className="flex items-center gap-2">
+                        <User className="h-3.5 w-3.5 text-[#1C443A]" />
+                        My Profile &amp; Passcode
+                      </span>
+                      <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        handleLogout();
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer border-none bg-transparent text-left"
+                    >
+                      <span className="flex items-center gap-2">
+                        <LogOut className="h-3.5 w-3.5" />
+                        Sign Out
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Refresh button */}
           <button
             onClick={() => selectedSchool && loadSchoolData(selectedSchool.id)}
-            className="hidden sm:flex p-2 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors shadow-2xs cursor-pointer items-center justify-center"
+            className="hidden sm:flex p-2 rounded-xl bg-white border border-[#DCE8E0] hover:bg-[#EBF5EF] text-[#122A24] transition-colors shadow-2xs cursor-pointer items-center justify-center"
             title="Refresh Data"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -3691,7 +3826,7 @@ function ERPWorkspaceContent() {
           {/* Sign out */}
           <button
             onClick={handleLogout}
-            className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-gray-50 hover:bg-red-50 hover:text-red-700 border border-gray-200 hover:border-red-200 text-xs font-medium text-gray-700 transition-colors cursor-pointer shrink-0 flex items-center gap-1.5"
+            className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-white hover:bg-rose-50 hover:text-rose-700 border border-[#DCE8E0] hover:border-rose-200 text-xs font-semibold text-[#122A24] transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 shadow-2xs"
             title="Sign Out"
           >
             <LogOut className="h-3.5 w-3.5" />
@@ -4064,7 +4199,7 @@ function ERPWorkspaceContent() {
               </button>
             )}
 
-            {/* Mobile User Profile Card */}
+            {/* Mobile User Profile Card with Theme Switcher */}
             <div 
               onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }}
               className="mt-auto p-3 rounded-2xl bg-white/10 border border-white/15 text-xs text-white cursor-pointer hover:bg-white/15 transition-colors"
@@ -4080,6 +4215,37 @@ function ERPWorkspaceContent() {
                   <div className="text-[10px] text-emerald-200/70 font-mono truncate">
                     ID: {currentUser?.username || selectedSchool?.admin_id || 'admin'} • Edit Profile →
                   </div>
+                </div>
+              </div>
+
+              {/* Theme Toggle in Mobile User Section */}
+              <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[10px]">
+                <span className="text-white/70 font-mono flex items-center gap-1">
+                  <Palette className="w-3 h-3 text-emerald-300" /> Theme:
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleSwitchTheme('emerald'); }}
+                    className={`px-2 py-0.5 rounded text-[9.5px] font-bold cursor-pointer border transition-colors ${
+                      currentTheme === 'emerald'
+                        ? 'bg-emerald-500 text-white border-emerald-400'
+                        : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    Default
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleSwitchTheme('monochrome'); }}
+                    className={`px-2 py-0.5 rounded text-[9.5px] font-bold cursor-pointer border transition-colors ${
+                      currentTheme === 'monochrome'
+                        ? 'bg-zinc-800 text-white border-zinc-600'
+                        : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    B &amp; W
+                  </button>
                 </div>
               </div>
             </div>
@@ -4409,7 +4575,7 @@ function ERPWorkspaceContent() {
             </button>
           )}
 
-          {/* User Profile Card at Sidebar Bottom */}
+          {/* User Profile Card at Sidebar Bottom with Theme Switcher */}
           <div 
             onClick={() => setActiveTab('profile')}
             className="mt-auto p-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs text-white cursor-pointer transition-colors"
@@ -4425,6 +4591,39 @@ function ERPWorkspaceContent() {
                 <div className="text-[10px] text-emerald-200/70 font-mono truncate">
                   {currentUser?.role || 'School Administrator'}
                 </div>
+              </div>
+            </div>
+
+            {/* Theme Switcher inside User Section Card */}
+            <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[10px]">
+              <span className="text-white/70 font-mono flex items-center gap-1">
+                <Palette className="w-3 h-3 text-emerald-300" /> Theme:
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleSwitchTheme('emerald'); }}
+                  className={`px-2 py-0.5 rounded text-[9.5px] font-bold cursor-pointer border transition-colors ${
+                    currentTheme === 'emerald'
+                      ? 'bg-emerald-500 text-white border-emerald-400'
+                      : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
+                  }`}
+                  title="Switch to Default Theme"
+                >
+                  Default
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleSwitchTheme('monochrome'); }}
+                  className={`px-2 py-0.5 rounded text-[9.5px] font-bold cursor-pointer border transition-colors ${
+                    currentTheme === 'monochrome'
+                      ? 'bg-zinc-800 text-white border-zinc-600'
+                      : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
+                  }`}
+                  title="Switch to Black & White Theme"
+                >
+                  B &amp; W
+                </button>
               </div>
             </div>
           </div>
@@ -8311,6 +8510,174 @@ function ERPWorkspaceContent() {
                 </form>
               </div>
 
+              {/* THEME & APPEARANCE STUDIO CARD */}
+              <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8F0EA]">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-full bg-[#EBF5EF] text-[#122A24] flex items-center justify-center font-bold text-sm border border-[#C5E2CF]">
+                      <Palette className="h-4 w-4 text-[#1C443A]" />
+                    </span>
+                    <div>
+                      <h2 className="font-display font-bold text-base text-[#122A24]">
+                        Appearance &amp; Workspace Theme
+                      </h2>
+                      <p className="text-[11px] text-[#2D5A4E]">
+                        Choose your interface aesthetic. Your selection is automatically saved and remembered across sessions.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0]">
+                      Active: {currentTheme === 'monochrome' ? 'Black & White' : 'Default (Emerald)'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Theme Option 1: Default (Emerald Heritage) */}
+                  <div
+                    onClick={() => handleSwitchTheme('emerald')}
+                    className={`relative p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                      currentTheme === 'emerald'
+                        ? 'border-[#1C443A] bg-[#F4F8F5]/80 shadow-md ring-2 ring-[#1C443A]/20'
+                        : 'border-[#DCE8E0] bg-white hover:border-[#1C443A]/50 hover:bg-[#F4F8F5]/40'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-4 h-4 rounded-full bg-[#122A24] border border-[#1C443A]" />
+                          <span className="font-display font-bold text-sm text-[#122A24]">
+                            Default (Emerald Heritage)
+                          </span>
+                        </div>
+                        {currentTheme === 'emerald' ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#122A24] text-white flex items-center gap-1">
+                            <Check className="h-3 w-3" /> Active
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium">Click to apply</span>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-[#2D5A4E] mb-4 leading-relaxed">
+                        The current institutional chalkboard aesthetic with deep emerald header (#122A24), forest green navigation, mint accents, and parchment canvas.
+                      </p>
+
+                      {/* Color Swatch Preview */}
+                      <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#DCE8E0] mb-3">
+                        <div className="flex-1 text-center">
+                          <div className="w-full h-6 rounded-md bg-[#122A24] shadow-2xs mb-1" />
+                          <span className="text-[9px] font-mono text-[#2D5A4E]">#122A24</span>
+                        </div>
+                        <div className="flex-1 text-center">
+                          <div className="w-full h-6 rounded-md bg-[#1C443A] shadow-2xs mb-1" />
+                          <span className="text-[9px] font-mono text-[#2D5A4E]">#1C443A</span>
+                        </div>
+                        <div className="flex-1 text-center">
+                          <div className="w-full h-6 rounded-md bg-[#10B981] shadow-2xs mb-1" />
+                          <span className="text-[9px] font-mono text-[#2D5A4E]">#10B981</span>
+                        </div>
+                        <div className="flex-1 text-center">
+                          <div className="w-full h-6 rounded-md bg-[#EBF5EF] border border-[#DCE8E0] shadow-2xs mb-1" />
+                          <span className="text-[9px] font-mono text-[#2D5A4E]">#EBF5EF</span>
+                        </div>
+                        <div className="flex-1 text-center">
+                          <div className="w-full h-6 rounded-md bg-[#F4F8F5] border border-[#DCE8E0] shadow-2xs mb-1" />
+                          <span className="text-[9px] font-mono text-[#2D5A4E]">#F4F8F5</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSwitchTheme('emerald');
+                      }}
+                      className={`w-full py-2 px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer border ${
+                        currentTheme === 'emerald'
+                          ? 'bg-[#122A24] text-white border-[#122A24]'
+                          : 'bg-white text-[#122A24] border-[#DCE8E0] hover:bg-[#EBF5EF]'
+                      }`}
+                    >
+                      {currentTheme === 'emerald' ? '✓ Currently Applied' : 'Apply Default Theme'}
+                    </button>
+                  </div>
+
+                  {/* Theme Option 2: Black & White (Monochrome) */}
+                  <div
+                    onClick={() => handleSwitchTheme('monochrome')}
+                    className={`relative p-5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                      currentTheme === 'monochrome'
+                        ? 'border-zinc-950 bg-zinc-50 shadow-md ring-2 ring-zinc-950/20'
+                        : 'border-[#DCE8E0] bg-white hover:border-zinc-950/50 hover:bg-zinc-50/50'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-4 h-4 rounded-full bg-zinc-950 border border-zinc-700" />
+                          <span className="font-display font-bold text-sm text-zinc-950">
+                            Black &amp; White (Monochrome)
+                          </span>
+                        </div>
+                        {currentTheme === 'monochrome' ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-950 text-white flex items-center gap-1">
+                            <Check className="h-3 w-3" /> Active
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium">Click to apply</span>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-zinc-600 mb-4 leading-relaxed">
+                        High-contrast pitch black &amp; crisp white editorial theme. Deep pitch black header (#09090B), clean slate borders, and distraction-free contrast.
+                      </p>
+
+                      {/* Color Swatch Preview */}
+                      <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-zinc-200 mb-3">
+                        <div className="flex-1 text-center">
+                          <div className="w-full h-6 rounded-md bg-[#09090B] shadow-2xs mb-1" />
+                          <span className="text-[9px] font-mono text-zinc-600">#09090B</span>
+                        </div>
+                        <div className="flex-1 text-center">
+                          <div className="w-full h-6 rounded-md bg-[#18181B] shadow-2xs mb-1" />
+                          <span className="text-[9px] font-mono text-zinc-600">#18181B</span>
+                        </div>
+                        <div className="flex-1 text-center">
+                          <div className="w-full h-6 rounded-md bg-[#71717A] shadow-2xs mb-1" />
+                          <span className="text-[9px] font-mono text-zinc-600">#71717A</span>
+                        </div>
+                        <div className="flex-1 text-center">
+                          <div className="w-full h-6 rounded-md bg-[#F4F4F5] border border-zinc-200 shadow-2xs mb-1" />
+                          <span className="text-[9px] font-mono text-zinc-600">#F4F4F5</span>
+                        </div>
+                        <div className="flex-1 text-center">
+                          <div className="w-full h-6 rounded-md bg-white border border-zinc-300 shadow-2xs mb-1" />
+                          <span className="text-[9px] font-mono text-zinc-600">#FFFFFF</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSwitchTheme('monochrome');
+                      }}
+                      className={`w-full py-2 px-3 rounded-xl text-xs font-semibold transition-colors cursor-pointer border ${
+                        currentTheme === 'monochrome'
+                          ? 'bg-zinc-950 text-white border-zinc-950'
+                          : 'bg-white text-zinc-950 border-zinc-300 hover:bg-zinc-100'
+                      }`}
+                    >
+                      {currentTheme === 'monochrome' ? '✓ Currently Applied' : 'Apply Black & White'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* MONGODB ATLAS CLOUD SYNCHRONIZATION & DIAGNOSTICS CARD */}
               <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8F0EA]">
@@ -8747,6 +9114,126 @@ function ERPWorkspaceContent() {
                   </div>
                 </div>
 
+                {/* Card: Personal Workspace Theme & Appearance in User Profile */}
+                <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8F0EA]">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-8 h-8 rounded-full bg-[#EBF5EF] text-[#122A24] flex items-center justify-center font-bold text-sm border border-[#C5E2CF]">
+                        <Palette className="h-4 w-4 text-[#1C443A]" />
+                      </span>
+                      <div>
+                        <h3 className="font-display font-bold text-base text-[#122A24]">
+                          Personal Theme &amp; Visual Appearance
+                        </h3>
+                        <p className="text-[11px] text-[#2D5A4E]">
+                          Select your personal workspace aesthetic. Changes take effect immediately and are saved to your profile.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0]">
+                        Active: {currentTheme === 'monochrome' ? 'Black & White' : 'Default (Emerald)'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Default Theme Card */}
+                    <div
+                      onClick={() => handleSwitchTheme('emerald')}
+                      className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                        currentTheme === 'emerald'
+                          ? 'border-[#1C443A] bg-[#F4F8F5]/80 shadow-xs ring-2 ring-[#1C443A]/20'
+                          : 'border-[#DCE8E0] bg-white hover:border-[#1C443A]/40 hover:bg-[#F4F8F5]/30'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-3.5 h-3.5 rounded-full bg-[#122A24] border border-[#10B981] flex items-center justify-center">
+                              {currentTheme === 'emerald' && <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />}
+                            </span>
+                            <span className="font-bold text-xs text-[#122A24]">Default (Emerald Heritage)</span>
+                          </div>
+                          {currentTheme === 'emerald' && (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#122A24] text-white flex items-center gap-1">
+                              <Check className="h-2.5 w-2.5" /> Active
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-[#2D5A4E] mb-3">
+                          Original CBSE institutional chalkboard aesthetic with deep emerald header (#122A24), sage borders, and warm parchment surfaces.
+                        </p>
+                        <div className="flex items-center gap-1.5 p-2 rounded-lg bg-white border border-[#DCE8E0] mb-3">
+                          <div className="flex-1 h-4 rounded bg-[#122A24]" title="#122A24" />
+                          <div className="flex-1 h-4 rounded bg-[#1C443A]" title="#1C443A" />
+                          <div className="flex-1 h-4 rounded bg-[#10B981]" title="#10B981" />
+                          <div className="flex-1 h-4 rounded bg-[#EBF5EF] border border-[#DCE8E0]" title="#EBF5EF" />
+                          <div className="flex-1 h-4 rounded bg-[#F4F8F5] border border-[#DCE8E0]" title="#F4F8F5" />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleSwitchTheme('emerald'); }}
+                        className={`w-full py-1.5 rounded-xl text-xs font-semibold cursor-pointer border transition-colors ${
+                          currentTheme === 'emerald'
+                            ? 'bg-[#122A24] text-white border-[#122A24]'
+                            : 'bg-white text-[#122A24] border-[#DCE8E0] hover:bg-[#EBF5EF]'
+                        }`}
+                      >
+                        {currentTheme === 'emerald' ? '✓ Currently Applied' : 'Switch to Default'}
+                      </button>
+                    </div>
+
+                    {/* Black & White Theme Card */}
+                    <div
+                      onClick={() => handleSwitchTheme('monochrome')}
+                      className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                        currentTheme === 'monochrome'
+                          ? 'border-zinc-950 bg-zinc-50 shadow-xs ring-2 ring-zinc-950/20'
+                          : 'border-[#DCE8E0] bg-white hover:border-zinc-950/40 hover:bg-zinc-50/50'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-3.5 h-3.5 rounded-full bg-zinc-950 border border-zinc-600 flex items-center justify-center">
+                              {currentTheme === 'monochrome' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </span>
+                            <span className="font-bold text-xs text-zinc-950">Black &amp; White (Monochrome)</span>
+                          </div>
+                          {currentTheme === 'monochrome' && (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-zinc-950 text-white flex items-center gap-1">
+                              <Check className="h-2.5 w-2.5" /> Active
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-zinc-600 mb-3">
+                          Ultra-clean high-contrast editorial theme. Pitch black header (#09090B), crisp slate borders, and pure white cards.
+                        </p>
+                        <div className="flex items-center gap-1.5 p-2 rounded-lg bg-white border border-zinc-200 mb-3">
+                          <div className="flex-1 h-4 rounded bg-[#09090B]" title="#09090B" />
+                          <div className="flex-1 h-4 rounded bg-[#18181B]" title="#18181B" />
+                          <div className="flex-1 h-4 rounded bg-[#71717A]" title="#71717A" />
+                          <div className="flex-1 h-4 rounded bg-[#F4F4F5] border border-zinc-200" title="#F4F4F5" />
+                          <div className="flex-1 h-4 rounded bg-white border border-zinc-300" title="#FFFFFF" />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleSwitchTheme('monochrome'); }}
+                        className={`w-full py-1.5 rounded-xl text-xs font-semibold cursor-pointer border transition-colors ${
+                          currentTheme === 'monochrome'
+                            ? 'bg-zinc-950 text-white border-zinc-950'
+                            : 'bg-white text-zinc-950 border-zinc-300 hover:bg-zinc-100'
+                        }`}
+                      >
+                        {currentTheme === 'monochrome' ? '✓ Currently Applied' : 'Switch to Black & White'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Card 3: Institutional Role & Access Powers Overview */}
                 <div className="bg-white p-6 sm:p-7 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
                   <div className="pb-3 border-b border-[#E8F0EA]">
@@ -8919,6 +9406,27 @@ function ERPWorkspaceContent() {
               userRole={effectiveRole}
             />
           )}
+
+          {/* Institutional Desktop Bottom Status Bar */}
+          <footer className="hidden lg:flex items-center justify-between mt-12 pt-3 pb-1 border-t border-[#DCE8E0] text-[11px] font-mono text-[#2D5A4E]/80 select-none">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-bold text-[#122A24]">{selectedSchool?.school_name || 'Delhi Public School'}</span>
+              <span>•</span>
+              <span>CBSE Affiliation: {selectedSchool?.affiliation_no || (selectedSchool as any)?.cbse_affiliation_no || '2130001'}</span>
+              <span>•</span>
+              <span>Session: {selectedSession}</span>
+              <span>•</span>
+              <span className="px-2 py-0.5 rounded-full bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF] font-bold text-[10px]">
+                CBSE OASIS Synced
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span>Open Source CBSE ERP Core v1.2.0</span>
+              <span>•</span>
+              <span className="text-emerald-700 font-bold">● Local Engine Online</span>
+            </div>
+          </footer>
         </main>
       </div>
 
@@ -12249,236 +12757,312 @@ function ERPWorkspaceContent() {
         </div>
       )}
 
-      {/* MOBILE BOTTOM NAVIGATION DOCK (ROLE ADAPTIVE FOR ADMIN, TEACHER, STUDENT, PARENT, DRIVER) */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#DCE8E0] px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.06)] select-none">
-        {effectiveRole !== 'DRIVER' && (
+      {/* MOBILE & TABLET BOTTOM NAVIGATION DOCK (THEME MATCHING EXECUTIVE DOCK) */}
+      <nav
+        aria-label="Mobile Navigation Dock"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#DCE8E0] px-2 py-1.5 pb-[max(0.45rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(18,42,36,0.08)] select-none"
+      >
+        <div className="max-w-md mx-auto flex items-center justify-around gap-1">
+          {effectiveRole !== 'DRIVER' && (
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                activeTab === 'overview'
+                  ? 'bg-[#122A24] text-white shadow-xs'
+                  : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+              }`}
+            >
+              <div className={`p-1 rounded-lg ${activeTab === 'overview' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                <BarChart3 className="h-4 w-4" />
+              </div>
+              <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'overview' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                Overview
+              </span>
+            </button>
+          )}
+
+          {effectiveRole === 'DRIVER' ? (
+            <>
+              <button
+                onClick={() => setActiveTab('transport')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'transport'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'transport' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <Bus className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'transport' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Transport
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('notices')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'notices'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'notices' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <Bell className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'notices' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Notices
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('broadcast')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'broadcast'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'broadcast' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <Radio className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'broadcast' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Broadcast
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('profile')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'profile'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'profile' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <User className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'profile' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Profile
+                </span>
+              </button>
+            </>
+          ) : effectiveRole === 'TEACHER' ? (
+            <>
+              <button
+                onClick={() => setActiveTab('attendance')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'attendance'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'attendance' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <CalendarCheck className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'attendance' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Attendance
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('exams')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'exams'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'exams' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <Award className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'exams' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Marks
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('homework')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'homework'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'homework' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <FileText className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'homework' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Homework
+                </span>
+              </button>
+            </>
+          ) : effectiveRole === 'STUDENT' ? (
+            <>
+              <button
+                onClick={() => setActiveTab('exams')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'exams'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'exams' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <Award className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'exams' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Marksheet
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('attendance')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'attendance'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'attendance' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <CalendarCheck className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'attendance' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Attendance
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('fees')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'fees'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'fees' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <Coins className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'fees' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Fee Dues
+                </span>
+              </button>
+            </>
+          ) : effectiveRole === 'PARENT' ? (
+            <>
+              <button
+                onClick={() => setActiveTab('exams')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'exams'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'exams' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <Award className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'exams' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Report Card
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('fees')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'fees'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'fees' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <Coins className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'fees' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Pay Fees
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('attendance')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'attendance'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'attendance' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <CalendarCheck className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'attendance' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Attendance
+                </span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setActiveTab('students')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'students'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'students' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <GraduationCap className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'students' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Students
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('teachers')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'teachers'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'teachers' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <Users className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'teachers' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Faculty
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('attendance')}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
+                  activeTab === 'attendance'
+                    ? 'bg-[#122A24] text-white shadow-xs'
+                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
+                }`}
+              >
+                <div className={`p-1 rounded-lg ${activeTab === 'attendance' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
+                  <CalendarCheck className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'attendance' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
+                  Attendance
+                </span>
+              </button>
+            </>
+          )}
+
           <button
-            onClick={() => setActiveTab('overview')}
-            className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-              activeTab === 'overview' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-            }`}
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] hover:border-[#C5E2CF] transition-all cursor-pointer shadow-2xs group"
+            title="Open Navigation Menu"
           >
-            <div className={`p-1 rounded-lg ${activeTab === 'overview' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-              <BarChart3 className="h-4 w-4" />
+            <div className="p-1 rounded-lg bg-white border border-[#DCE8E0] text-[#122A24] group-hover:border-[#C5E2CF] transition-colors shadow-2xs">
+              <Menu className="h-4 w-4 text-[#122A24]" />
             </div>
-            <span>Overview</span>
+            <span className="text-[10px] font-bold text-[#122A24] font-display">
+              Menu
+            </span>
           </button>
-        )}
-
-        {effectiveRole === 'DRIVER' ? (
-          <>
-            <button
-              onClick={() => setActiveTab('transport')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'transport' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'transport' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <Bus className="h-4 w-4" />
-              </div>
-              <span>Transport</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('notices')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'notices' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'notices' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <Bell className="h-4 w-4" />
-              </div>
-              <span>Notice Board</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('broadcast')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'broadcast' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'broadcast' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <Radio className="h-4 w-4" />
-              </div>
-              <span>Broadcast</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'profile' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'profile' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <User className="h-4 w-4" />
-              </div>
-              <span>My Profile</span>
-            </button>
-          </>
-        ) : effectiveRole === 'TEACHER' ? (
-          <>
-            <button
-              onClick={() => setActiveTab('attendance')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'attendance' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'attendance' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <CalendarCheck className="h-4 w-4" />
-              </div>
-              <span>Attendance</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('exams')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'exams' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'exams' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <Award className="h-4 w-4" />
-              </div>
-              <span>Marks Ledger</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('homework')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'homework' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'homework' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <FileText className="h-4 w-4" />
-              </div>
-              <span>Homework</span>
-            </button>
-          </>
-        ) : effectiveRole === 'STUDENT' ? (
-          <>
-            <button
-              onClick={() => setActiveTab('exams')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'exams' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'exams' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <Award className="h-4 w-4" />
-              </div>
-              <span>Marksheet</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('attendance')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'attendance' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'attendance' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <CalendarCheck className="h-4 w-4" />
-              </div>
-              <span>Attendance</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('fees')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none cursor-pointer ${
-                activeTab === 'fees' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'fees' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <Coins className="h-4 w-4" />
-              </div>
-              <span>Fee Dues</span>
-            </button>
-          </>
-        ) : effectiveRole === 'PARENT' ? (
-          <>
-            <button
-              onClick={() => setActiveTab('exams')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'exams' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'exams' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <Award className="h-4 w-4" />
-              </div>
-              <span>Report Card</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('fees')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none cursor-pointer ${
-                activeTab === 'fees' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'fees' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <Coins className="h-4 w-4" />
-              </div>
-              <span>Pay Fees</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('attendance')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'attendance' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'attendance' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <CalendarCheck className="h-4 w-4" />
-              </div>
-              <span>Attendance</span>
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => setActiveTab('students')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'students' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'students' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <GraduationCap className="h-4 w-4" />
-              </div>
-              <span>Students</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('teachers')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'teachers' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'teachers' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <Users className="h-4 w-4" />
-              </div>
-              <span>Faculty</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('attendance')}
-              className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold transition-all border-none bg-transparent cursor-pointer ${
-                activeTab === 'attendance' ? 'text-[#122A24] font-bold' : 'text-slate-500 hover:text-[#122A24]'
-              }`}
-            >
-              <div className={`p-1 rounded-lg ${activeTab === 'attendance' ? 'bg-[#122A24] text-white' : 'bg-transparent text-slate-500'}`}>
-                <CalendarCheck className="h-4 w-4" />
-              </div>
-              <span>Attendance</span>
-            </button>
-          </>
-        )}
-
-        <button
-          onClick={() => setMobileMenuOpen(true)}
-          className="flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl text-[10px] font-semibold text-slate-500 hover:text-[#122A24] border-none bg-transparent cursor-pointer"
-        >
-          <div className="p-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-            <Menu className="h-4 w-4" />
-          </div>
-          <span>Menu</span>
-        </button>
-      </div>
+        </div>
+      </nav>
 
       {/* UNIVERSAL OMNI-SEARCH & COMMAND PALETTE */}
       <OmniSearchModal

@@ -23,9 +23,9 @@ export interface AntigravityTheme {
 export const ANTIGRAVITY_THEMES: AntigravityTheme[] = [
   {
     id: 'emerald',
-    name: 'Antigravity Emerald Forest',
+    name: 'Default (Emerald Heritage)',
     category: 'Classic',
-    description: 'The iconic Deep Emerald & Mint Green chalkboard heritage aesthetic.',
+    description: 'The iconic Deep Emerald & Mint Green chalkboard heritage aesthetic (Current Default).',
     isDark: false,
     colors: {
       primary: '#122A24',
@@ -42,8 +42,28 @@ export const ANTIGRAVITY_THEMES: AntigravityTheme[] = [
     }
   },
   {
+    id: 'monochrome',
+    name: 'Black & White (Monochrome)',
+    category: 'Minimal',
+    description: 'Ultra-clean high-contrast Pitch Black & Crisp White editorial aesthetic.',
+    isDark: false,
+    colors: {
+      primary: '#09090B',
+      primaryHover: '#18181B',
+      primaryLight: '#F4F4F5',
+      accent: '#09090B',
+      accentHover: '#27272A',
+      background: '#F8F9FA',
+      surface: '#FFFFFF',
+      surfaceBorder: '#E4E4E7',
+      textPrimary: '#09090B',
+      textSecondary: '#52525B',
+      heroGradient: 'linear-gradient(135deg, #09090B 0%, #27272A 100%)'
+    }
+  },
+  {
     id: 'midnight',
-    name: 'Antigravity Midnight Obsidian',
+    name: 'Midnight Obsidian',
     category: 'Dark',
     description: 'Sleek Cyberpunk Dark Mode with glowing Cyan and deep slate panels.',
     isDark: true,
@@ -207,6 +227,11 @@ export const getThemeById = (id?: string): AntigravityTheme => {
   return ANTIGRAVITY_THEMES.find(t => t.id === id) || ANTIGRAVITY_THEMES[0];
 };
 
+export const getSavedThemeId = (): string => {
+  if (typeof window === 'undefined') return 'emerald';
+  return localStorage.getItem('antigravity_erp_theme') || 'emerald';
+};
+
 export const applyAntigravityTheme = (themeId: string) => {
   if (typeof document === 'undefined') return;
   const theme = getThemeById(themeId);
@@ -223,7 +248,9 @@ export const applyAntigravityTheme = (themeId: string) => {
     '--theme-accent-hover': theme.colors.accentHover,
     '--theme-accent-light': theme.colors.primaryLight,
     '--theme-border': theme.colors.surfaceBorder,
-    '--theme-text-muted': theme.colors.textSecondary
+    '--theme-text-muted': theme.colors.textSecondary,
+    '--ink-navy': theme.id === 'monochrome' ? '#09090B' : theme.id === 'emerald' ? '#16233F' : theme.colors.primary,
+    '--red-pen': theme.id === 'monochrome' ? '#18181B' : '#C4432B',
   };
 
   Object.entries(properties).forEach(([k, v]) => {

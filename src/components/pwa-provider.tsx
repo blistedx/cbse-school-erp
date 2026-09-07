@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { WifiOff, Download, X, RefreshCw, Bell } from 'lucide-react';
 import { requestNotificationPermission, sendLocalPushNotification } from '@/lib/push-notifications';
+import { applyAntigravityTheme, getSavedThemeId } from '@/lib/themes';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -20,8 +21,13 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
-    // 1. Check initial online state
+    // 1. Restore active theme immediately
     if (typeof window !== 'undefined') {
+      try {
+        const themeId = getSavedThemeId();
+        applyAntigravityTheme(themeId);
+      } catch (e) {}
+
       setIsOnline(navigator.onLine);
       if (!navigator.onLine) {
         setShowOfflineAlert(true);

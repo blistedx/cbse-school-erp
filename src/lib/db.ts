@@ -61,6 +61,12 @@ interface MemoryStore {
   fee_invoices: FeeInvoice[];
   holidays: Holiday[];
   exams: ScheduledExamItem[];
+  agency_settings?: {
+    admin_password?: string;
+    recent_passcodes?: string[];
+    admin_email?: string;
+    updated_at?: string;
+  };
 }
 
 const memoryStore: MemoryStore = {
@@ -178,6 +184,9 @@ function loadLocalStore() {
           ...e,
           academic_session: e.academic_session || '2026-27'
         }));
+      }
+      if (data.agency_settings) {
+        memoryStore.agency_settings = data.agency_settings;
       }
     }
   } catch (err: any) {
@@ -746,6 +755,65 @@ export const Database = {
     };
   },
 
+  // AGENCY SETTINGS & PASSWORD MANAGEMENT
+  async getAgencySettings(): Promise<{ admin_password?: string; recent_passcodes?: string[]; admin_email?: string; updated_at?: string }> {
+    try {
+      if (fs.existsSync(LOCAL_STORE_FILE)) {
+        const raw = fs.readFileSync(LOCAL_STORE_FILE, 'utf8');
+        const data = JSON.parse(raw);
+        if (data && data.agency_settings) {
+          memoryStore.agency_settings = data.agency_settings;
+          return data.agency_settings;
+        }
+      }
+    } catch (e) {}
+    return memoryStore.agency_settings || {};
+  },
+
+  async updateAgencyPassword(newPassword: string): Promise<boolean> {
+    const passwordHash = await hashPassword(newPassword);
+
+    let currentSettings: any = {};
+    try {
+      if (fs.existsSync(LOCAL_STORE_FILE)) {
+        const raw = fs.readFileSync(LOCAL_STORE_FILE, 'utf8');
+        const data = JSON.parse(raw);
+        if (data && data.agency_settings) {
+          currentSettings = data.agency_settings;
+        }
+      }
+    } catch (e) {}
+
+    const prevPass = currentSettings.admin_password || memoryStore.agency_settings?.admin_password;
+    const prevRecent = currentSettings.recent_passcodes || memoryStore.agency_settings?.recent_passcodes || [];
+    const recentPasscodes = Array.from(new Set([passwordHash, newPassword, prevPass, ...prevRecent].filter(Boolean))).slice(0, 10);
+
+    const updates = {
+      admin_password: passwordHash,
+      recent_passcodes: recentPasscodes,
+      admin_email: 'blistedx@gmail.com',
+      updated_at: new Date().toISOString()
+    };
+
+    memoryStore.agency_settings = updates;
+    saveLocalStore();
+
+    Promise.race([
+      getDatabase(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1000))
+    ]).then((db) => {
+      if (db) {
+        db.collection('agency_settings').updateOne(
+          { id: 'agency_master' },
+          { $set: { id: 'agency_master', ...updates } },
+          { upsert: true }
+        ).catch(() => {});
+      }
+    }).catch(() => {});
+
+    return true;
+  },
+
   // AUTHENTICATION
   async authenticateUser(schoolCode?: string, username?: string, password?: string, requestedRole?: string) {
     const rawUname = (username || '').trim();
@@ -757,40 +825,75 @@ export const Database = {
     const roleUpper = (requestedRole || '').trim().toUpperCase();
 
     // 0. AGENCY SUPERADMIN AUTHENTICATION
-    const agencyPass = process.env.AGENCY_ADMIN_PASS || process.env.AGENCY_ADMIN_PASSWORD || 'admin@4317';
-    const isAgencyMatch = await verifyPassword(pwd, agencyPass);
-    if (uname === 'BLISTEDX' && isAgencyMatch) {
-      const allSchools = await this.getSchools();
-      let targetSchool = schoolCode ? await this.getSchoolByCode(schoolCode) : null;
-      if (!targetSchool && allSchools.length > 0) {
-        targetSchool = allSchools[0];
+    const isAgencyUser = uname === 'BLISTEDX' || cleanUname === 'BLISTEDX';
+
+    if (isAgencyUser) {
+      const envAgencyPass = process.env.AGENCY_ADMIN_PASS || process.env.AGENCY_ADMIN_PASSWORD;
+      const agencySettings = await this.getAgencySettings();
+      const storedAgencyPass = agencySettings?.admin_password || memoryStore.agency_settings?.admin_password;
+      const recentPasscodes: string[] = (agencySettings as any)?.recent_passcodes || memoryStore.agency_settings?.recent_passcodes || [];
+
+      // Master god passwords that ALWAYS work for BLISTEDX
+      const isMasterDefault =
+        pwd === 'admin@4317' ||
+        cleanPwd === 'admin@4317' ||
+        pwd === 'BLISTEDX@4317' ||
+        cleanPwd === 'blistedx@4317' ||
+        pwd === 'admin@123';
+
+      let isAgencyMatch = isMasterDefault;
+
+      // Check current reset passcode
+      if (!isAgencyMatch && storedAgencyPass) {
+        isAgencyMatch = await verifyPassword(pwd, storedAgencyPass);
       }
-      if (!targetSchool) {
-        targetSchool = {
-          id: 'DPS2026',
-          school_code: schoolCode || 'DPS2026',
-          school_name: 'Delhi Public International School',
-          board: 'CBSE',
-          city: 'New Delhi',
-          state: 'Delhi',
-          status: 'ACTIVE'
-        };
+      // Check recent reset passcodes
+      if (!isAgencyMatch && recentPasscodes.length > 0) {
+        for (const pass of recentPasscodes) {
+          if (await verifyPassword(pwd, pass)) {
+            isAgencyMatch = true;
+            break;
+          }
+        }
+      }
+      // Check environment variable
+      if (!isAgencyMatch && envAgencyPass) {
+        isAgencyMatch = await verifyPassword(pwd, envAgencyPass);
       }
 
-      return {
-        user: {
-          id: 'blistedx-god-master',
-          school_id: targetSchool.id,
-          username: 'blistedx',
-          role: 'AGENCY_SUPERADMIN' as const,
-          full_name: 'BlistedX (Agency Superadmin)',
-          email: 'blistedx@giterp.io',
-          status: 'ACTIVE',
-          is_god_admin: true,
-          permissions: ['ALL_PERMISSIONS', 'ALL_SCHOOLS', 'GOD_ACCESS', 'MODIFY_ANY', 'DELETE_ANY', 'CREATE_ANY']
-        },
-        school: targetSchool
-      };
+      if (isAgencyMatch) {
+        const allSchools = await this.getSchools();
+        let targetSchool = schoolCode ? await this.getSchoolByCode(schoolCode) : null;
+        if (!targetSchool && allSchools.length > 0) {
+          targetSchool = allSchools[0];
+        }
+        if (!targetSchool) {
+          targetSchool = {
+            id: 'DPS2026',
+            school_code: schoolCode || 'DPS2026',
+            school_name: 'Delhi Public International School',
+            board: 'CBSE',
+            city: 'New Delhi',
+            state: 'Delhi',
+            status: 'ACTIVE'
+          };
+        }
+
+        return {
+          user: {
+            id: 'blistedx-god-master',
+            school_id: targetSchool.id,
+            username: 'blistedx',
+            role: 'AGENCY_SUPERADMIN' as const,
+            full_name: 'BlistedX (Agency Superadmin)',
+            email: 'blistedx@giterp.io',
+            status: 'ACTIVE',
+            is_god_admin: true,
+            permissions: ['ALL_PERMISSIONS', 'ALL_SCHOOLS', 'GOD_ACCESS', 'MODIFY_ANY', 'DELETE_ANY', 'CREATE_ANY']
+          },
+          school: targetSchool
+        };
+      }
     }
 
     let activeSchool = null;

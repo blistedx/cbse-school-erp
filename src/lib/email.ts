@@ -142,6 +142,18 @@ export async function sendDemoRequestEmail(payload: DemoRequestPayload): Promise
   }
 }
 
+export function maskEmail(email?: string): string {
+  if (!email || !email.includes('@')) return 'b******x@gmail.com';
+  const parts = email.split('@');
+  const user = parts[0];
+  const domain = parts[1];
+  if (user.length <= 2) {
+    return `${user[0]}*@${domain}`;
+  }
+  const starCount = Math.min(Math.max(user.length - 2, 3), 6);
+  return `${user[0]}${'*'.repeat(starCount)}${user[user.length - 1]}@${domain}`;
+}
+
 export interface PasswordResetEmailPayload {
   schoolName: string;
   schoolCode: string;
@@ -151,6 +163,7 @@ export interface PasswordResetEmailPayload {
   newPasscode: string;
   userEmail?: string;
   userPhone?: string;
+  isAgencySuperAdmin?: boolean;
 }
 
 export async function sendPasswordResetEmail(payload: PasswordResetEmailPayload): Promise<{ success: boolean; message: string }> {
@@ -161,37 +174,48 @@ export async function sendPasswordResetEmail(payload: PasswordResetEmailPayload)
   console.log(`🔐 PASSCODE RESET INITIATED FOR: ${payload.userId} (${payload.userName})`);
   console.log(`🏫 School: ${payload.schoolName} [${payload.schoolCode}] | Role: ${payload.userRole}`);
   console.log(`🔑 New Passcode: ${payload.newPasscode}`);
-  console.log(`📧 Destination: ${targetEmail}`);
+  console.log(`📧 Destination: ${maskEmail(targetEmail)} (${targetEmail})`);
   console.log(`======================================================\n`);
 
   try {
     const transporter = getTransporter();
 
     const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'medium' });
+    const isAgency = Boolean(payload.isAgencySuperAdmin);
 
     const htmlContent = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; padding: 32px; color: #0F172A;">
         <div style="max-width: 600px; margin: 0 auto; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 32px; box-shadow: 0 4px 16px rgba(0,0,0,0.06);">
           <div style="border-bottom: 2px solid #C4432B; padding-bottom: 18px; margin-bottom: 24px;">
             <div style="display: flex; align-items: center; justify-content: space-between;">
-              <h2 style="color: #122A24; margin: 0; font-size: 22px; font-weight: 700;">🔐 Security Passcode Reset</h2>
-              <span style="background: #FEF2F2; color: #C4432B; font-size: 11px; font-weight: bold; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">Urgent Credentials</span>
+              <h2 style="color: #122A24; margin: 0; font-size: 22px; font-weight: 700;">
+                ${isAgency ? '⚡ Agency Superadmin Master Passcode Reset' : '🔐 Security Passcode Reset'}
+              </h2>
+              <span style="background: #FEF2F2; color: #C4432B; font-size: 11px; font-weight: bold; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+                ${isAgency ? 'Superadmin Master Access' : 'Urgent Credentials'}
+              </span>
             </div>
-            <p style="color: #52796F; margin: 6px 0 0; font-size: 13px; font-weight: 500;">EduGit Multi-School Enterprise Platform</p>
+            <p style="color: #52796F; margin: 6px 0 0; font-size: 13px; font-weight: 500;">
+              ${isAgency ? 'Giterp Central Agency Multi-School Command Console' : 'Giterp Multi-School Enterprise Platform'}
+            </p>
           </div>
 
           <p style="font-size: 14px; color: #334155; line-height: 1.6; margin-bottom: 20px;">
-            A passcode reset request was received for an account registered under your school ERP system. A new security passcode has been automatically generated and updated in the system.
+            ${
+              isAgency
+                ? 'A master passcode reset request was initiated for the Agency Superadmin (God Access) account. A new security passcode has been generated and activated.'
+                : 'A passcode reset request was received for an account registered under your school ERP system. A new security passcode has been automatically generated and updated in the system.'
+            }
           </p>
 
           <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 18px; margin-bottom: 24px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
               <tr style="border-bottom: 1px solid #EDF2F7;">
-                <td style="padding: 9px 0; font-weight: 600; width: 140px; color: #64748B;">School Name:</td>
+                <td style="padding: 9px 0; font-weight: 600; width: 140px; color: #64748B;">Platform / School:</td>
                 <td style="padding: 9px 0; color: #0F172A; font-weight: bold;">${payload.schoolName}</td>
               </tr>
               <tr style="border-bottom: 1px solid #EDF2F7;">
-                <td style="padding: 9px 0; font-weight: 600; color: #64748B;">School Code:</td>
+                <td style="padding: 9px 0; font-weight: 600; color: #64748B;">Scope / Code:</td>
                 <td style="padding: 9px 0; color: #122A24; font-family: monospace; font-weight: bold; font-size: 15px;">${payload.schoolCode}</td>
               </tr>
               <tr style="border-bottom: 1px solid #EDF2F7;">
@@ -199,24 +223,21 @@ export async function sendPasswordResetEmail(payload: PasswordResetEmailPayload)
                 <td style="padding: 9px 0; color: #0F172A; font-family: monospace; font-weight: bold; font-size: 15px;">${payload.userId}</td>
               </tr>
               <tr style="border-bottom: 1px solid #EDF2F7;">
-                <td style="padding: 9px 0; font-weight: 600; color: #64748B;">Full Name:</td>
+                <td style="padding: 9px 0; font-weight: 600; color: #64748B;">Account Name:</td>
                 <td style="padding: 9px 0; color: #0F172A; font-weight: 600;">${payload.userName}</td>
               </tr>
               <tr style="border-bottom: 1px solid #EDF2F7;">
                 <td style="padding: 9px 0; font-weight: 600; color: #64748B;">Account Role:</td>
                 <td style="padding: 9px 0; color: #0F172A;">
-                  <span style="background: #F1F5F9; color: #1E293B; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">${payload.userRole}</span>
+                  <span style="background: ${isAgency ? '#DC2626' : '#F1F5F9'}; color: ${isAgency ? '#FFFFFF' : '#1E293B'}; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 700;">
+                    ${payload.userRole}
+                  </span>
                 </td>
               </tr>
               ${payload.userEmail ? `
               <tr style="border-bottom: 1px solid #EDF2F7;">
-                <td style="padding: 9px 0; font-weight: 600; color: #64748B;">User Email:</td>
-                <td style="padding: 9px 0; color: #334155;">${payload.userEmail}</td>
-              </tr>` : ''}
-              ${payload.userPhone ? `
-              <tr style="border-bottom: 1px solid #EDF2F7;">
-                <td style="padding: 9px 0; font-weight: 600; color: #64748B;">Contact Phone:</td>
-                <td style="padding: 9px 0; color: #334155;">${payload.userPhone}</td>
+                <td style="padding: 9px 0; font-weight: 600; color: #64748B;">Destination:</td>
+                <td style="padding: 9px 0; color: #334155;">${maskEmail(payload.userEmail)}</td>
               </tr>` : ''}
               <tr>
                 <td style="padding: 9px 0; font-weight: 600; color: #64748B;">Request Time:</td>
@@ -229,37 +250,39 @@ export async function sendPasswordResetEmail(payload: PasswordResetEmailPayload)
             <p style="color: #A3E635; margin: 0 0 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;">
               ⚡ Newly Generated Security Passcode
             </p>
-            <div style="font-family: 'Courier New', Courier, monospace; font-size: 32px; font-weight: 800; color: #FFFFFF; letter-spacing: 6px; padding: 8px 16px; background: rgba(255,255,255,0.1); border-radius: 8px; display: inline-block;">
+            <div style="font-family: 'Courier New', Courier, monospace; font-size: 34px; font-weight: 800; color: #FFFFFF; letter-spacing: 6px; padding: 10px 20px; background: rgba(255,255,255,0.12); border-radius: 8px; display: inline-block;">
               ${payload.newPasscode}
             </div>
             <p style="color: #94A3B8; margin: 10px 0 0; font-size: 12px;">
-              Use this passcode along with School Code <strong style="color: #FFFFFF;">${payload.schoolCode}</strong> and User ID <strong style="color: #FFFFFF;">${payload.userId}</strong> to log in.
+              ${
+                isAgency
+                  ? `Sign in with User ID <strong style="color: #FFFFFF;">${payload.userId}</strong> and this newly issued passcode.`
+                  : `Use this passcode along with School Code <strong style="color: #FFFFFF;">${payload.schoolCode}</strong> and User ID <strong style="color: #FFFFFF;">${payload.userId}</strong> to log in.`
+              }
             </p>
           </div>
 
           <div style="border-top: 1px solid #E2E8F0; padding-top: 18px; font-size: 12px; color: #64748B; line-height: 1.5;">
-            <p style="margin: 0 0 6px;">🛡️ <strong>Security Tip:</strong> It is recommended to change this temporary passcode from your ERP profile settings once logged in.</p>
-            <p style="margin: 0;">If you did not authorize this password reset, please secure the account immediately in the Agency Admin Console.</p>
+            <p style="margin: 0 0 6px;">🛡️ <strong>Security Tip:</strong> Passcode reset actions are audited and logged with IP address and timestamp.</p>
+            <p style="margin: 0;">If you did not authorize this password reset, please take immediate action to secure your infrastructure.</p>
           </div>
         </div>
       </div>
     `;
 
-    const recipients = [targetEmail];
-    if (payload.userEmail && payload.userEmail.includes('@') && payload.userEmail.toLowerCase() !== targetEmail.toLowerCase()) {
-      recipients.push(payload.userEmail);
-    }
+    const subject = isAgency
+      ? `⚡ Master Passcode Reset: ${payload.userId} - Agency Superadmin Console`
+      : `🔐 New Passcode for ${payload.userId} - ${payload.schoolName} (${payload.schoolCode})`;
 
     await transporter.sendMail({
-      from: `"EduGit Security" <${smtpUser}>`,
+      from: `"Giterp Security" <${smtpUser}>`,
       to: targetEmail,
-      cc: payload.userEmail && payload.userEmail.includes('@') && payload.userEmail.toLowerCase() !== targetEmail.toLowerCase() ? payload.userEmail : undefined,
-      subject: `🔐 New Passcode for ${payload.userId} - ${payload.schoolName} (${payload.schoolCode})`,
-      text: `Passcode Reset Request\n\nSchool: ${payload.schoolName} (${payload.schoolCode})\nUser ID: ${payload.userId}\nName: ${payload.userName}\nRole: ${payload.userRole}\n\nNew Passcode: ${payload.newPasscode}\n\nGenerated At: ${timestamp} IST`,
+      subject,
+      text: `Passcode Reset Request\n\nPlatform: ${payload.schoolName} (${payload.schoolCode})\nUser ID: ${payload.userId}\nName: ${payload.userName}\nRole: ${payload.userRole}\n\nNew Passcode: ${payload.newPasscode}\n\nGenerated At: ${timestamp} IST`,
       html: htmlContent
     });
 
-    console.log(`✅ Passcode reset email successfully delivered to ${targetEmail}!`);
+    console.log(`✅ Passcode reset email successfully delivered to ${maskEmail(targetEmail)}!`);
     return {
       success: true,
       message: 'New passcode has been emailed successfully!'

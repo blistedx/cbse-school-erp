@@ -529,7 +529,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T19:16:24.317Z"
     },
     {
@@ -542,7 +542,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T19:16:24.187Z"
     },
     {
@@ -555,7 +555,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T19:16:24.062Z"
     },
     {
@@ -568,7 +568,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T19:16:23.877Z"
     },
     {
@@ -581,7 +581,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T19:06:18.534Z"
     },
     {
@@ -594,7 +594,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T19:06:18.317Z"
     },
     {
@@ -607,7 +607,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T19:06:18.074Z"
     },
     {
@@ -620,7 +620,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T19:06:17.908Z"
     },
     {
@@ -633,7 +633,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T19:06:17.122Z"
     },
     {
@@ -646,7 +646,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:52:39.802Z"
     },
     {
@@ -659,7 +659,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:52:39.683Z"
     },
     {
@@ -672,7 +672,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:52:39.585Z"
     },
     {
@@ -685,7 +685,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:52:39.489Z"
     },
     {
@@ -698,7 +698,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:52:39.360Z"
     },
     {
@@ -711,7 +711,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:51:35.258Z"
     },
     {
@@ -724,7 +724,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:51:35.141Z"
     },
     {
@@ -737,7 +737,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:51:35.015Z"
     },
     {
@@ -750,7 +750,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:51:34.876Z"
     },
     {
@@ -763,7 +763,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:51:34.254Z"
     },
     {
@@ -776,7 +776,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:11:16.723Z"
     },
     {
@@ -789,7 +789,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:11:16.354Z"
     },
     {
@@ -802,7 +802,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:11:15.879Z"
     },
     {
@@ -815,7 +815,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:11:15.606Z"
     },
     {
@@ -828,7 +828,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:11:14.156Z"
     },
     {
@@ -841,7 +841,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:10:09.097Z"
     },
     {
@@ -854,7 +854,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:10:08.959Z"
     },
     {
@@ -867,7 +867,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:10:08.851Z"
     },
     {
@@ -880,7 +880,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:10:08.664Z"
     },
     {
@@ -893,7 +893,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:10:08.204Z"
     },
     {
@@ -906,7 +906,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:09:36.199Z"
     },
     {
@@ -919,7 +919,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:09:35.689Z"
     },
     {
@@ -932,7 +932,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:09:34.816Z"
     },
     {
@@ -945,7 +945,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:09:34.075Z"
     },
     {
@@ -958,7 +958,7 @@
       "email": "test@example.com",
       "phone": "",
       "notes": "",
-      "status": "PENDING",
+      "status": "REJECTED",
       "created_at": "2026-09-06T18:09:29.351Z"
     }
   ],
@@ -40974,5 +40974,11 @@
       "pass_marks": 14,
       "status": "PENDING"
     }
-  ]
+  ],
+  "agency_settings": {
+    "admin_password": "543072",
+    "recent_passcodes": ["543072", "394940"],
+    "admin_email": "blistedx@gmail.com",
+    "updated_at": "2026-09-07T17:47:17.392Z"
+  }
 }

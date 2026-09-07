@@ -38,11 +38,16 @@ export function DashboardAgency() {
   const [loading, setLoading] = useState(true);
 
   // Agency Authentication Gate State (Requires blistedx / admin@4317)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [agencyIdInput, setAgencyIdInput] = useState('');
   const [agencyPassInput, setAgencyPassInput] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [authViewMode, setAuthViewMode] = useState<'LOGIN' | 'FORGOT_PASSCODE'>('LOGIN');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState<{ message: string; target_email: string } | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Approval Modal State
   const [selectedReq, setSelectedReq] = useState<DemoRequest | null>(null);
@@ -186,6 +191,41 @@ export function DashboardAgency() {
     }
   };
 
+  const handleAgencyForgotPasscode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    setForgotError('');
+    setForgotSuccess(null);
+
+    const id = agencyIdInput.trim() || 'BLISTEDX';
+
+    try {
+      const res = await fetch('/api/auth/forgot-passcode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          account_type: 'AGENCY_ADMIN',
+          username: id
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setForgotSuccess({
+          message: data.message || `Master passcode generated and sent to ${data.target_email || 'b******x@gmail.com'}`,
+          target_email: data.target_email || 'b******x@gmail.com'
+        });
+        setAgencyIdInput(id.toUpperCase());
+      } else {
+        setForgotError(data.error || 'Failed to generate new Agency passcode.');
+      }
+    } catch (err: any) {
+      setForgotError('Connection error: ' + (err?.message || 'Request failed'));
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   const handleLockConsole = () => {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('agency_auth');
@@ -296,7 +336,7 @@ export function DashboardAgency() {
   );
 
   // 1. RENDER AUTHENTICATION SECURITY GATE IF NOT LOGGED IN
-  if (isAuthenticated === false) {
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#122A24] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
         {/* Background Grid Accent */}
@@ -311,60 +351,166 @@ export function DashboardAgency() {
             </div>
             <div className="pt-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider">
-                🔒 Restricted Agency Gate
+                {authViewMode === 'LOGIN' ? '🔒 Restricted Agency Gate' : '⚡ Agency Passcode Recovery'}
               </span>
             </div>
             <h1 className="font-display font-bold text-2xl text-[#122A24] tracking-tight">
-              AgencyOS Master Access
+              {authViewMode === 'LOGIN' ? 'AgencyOS Master Access' : 'Forgot Agency Passcode'}
             </h1>
             <p className="text-xs text-[#2D5A4E]">
-              Enter authorized God Superadmin credentials to unlock multi-tenant school infrastructure.
+              {authViewMode === 'LOGIN'
+                ? 'Enter authorized God Superadmin credentials to unlock multi-tenant school infrastructure.'
+                : 'Enter your Agency Superadmin ID. A new security passcode will be sent to your hidden email.'}
             </p>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleAgencyLogin} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-semibold text-[#122A24] mb-1.5">Agency Superadmin ID</label>
-              <input
-                type="text"
-                required
-                value={agencyIdInput}
-                onChange={(e) => setAgencyIdInput(e.target.value)}
-                placeholder="e.g. blistedx"
-                autoComplete="username"
-                className="w-full px-4 py-3 bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl text-xs font-mono font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 focus:bg-white transition-all"
-              />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-[#122A24] mb-1.5">Master Agency Passcode</label>
-              <input
-                type="password"
-                required
-                value={agencyPassInput}
-                onChange={(e) => setAgencyPassInput(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                className="w-full px-4 py-3 bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold text-[#122A24] focus:outline-none focus:border-emerald-600 focus:bg-white transition-all"
-              />
-            </div>
-
-            {authError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl animate-fade-in">
-                {authError}
+          {authViewMode === 'LOGIN' ? (
+            /* Login Form */
+            <form onSubmit={handleAgencyLogin} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-[#122A24] mb-1.5">Agency Superadmin ID</label>
+                <input
+                  type="text"
+                  required
+                  value={agencyIdInput}
+                  onChange={(e) => setAgencyIdInput(e.target.value)}
+                  placeholder="e.g. blistedx"
+                  autoComplete="username"
+                  className="w-full px-4 py-3 bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl text-xs font-mono font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 focus:bg-white transition-all"
+                />
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={authLoading}
-              className="w-full py-3 bg-[#122A24] hover:bg-[#1C443A] text-white font-bold rounded-xl text-xs border-none cursor-pointer shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <span>{authLoading ? 'Verifying Credentials...' : 'Unlock Agency Console'}</span>
-            </button>
-          </form>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block font-semibold text-[#122A24]">Master Agency Passcode</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthViewMode('FORGOT_PASSCODE');
+                      setForgotError('');
+                      setForgotSuccess(null);
+                      if (!agencyIdInput.trim()) {
+                        setAgencyIdInput('BLISTEDX');
+                      }
+                    }}
+                    className="text-[11px] text-[#C4432B] hover:underline font-semibold bg-transparent border-none cursor-pointer p-0"
+                  >
+                    Forgot passcode?
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={agencyPassInput}
+                    onChange={(e) => setAgencyPassInput(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    className="w-full px-4 py-3 bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl text-xs font-mono font-bold text-[#122A24] focus:outline-none focus:border-emerald-600 focus:bg-white transition-all pr-14"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-[#2D5A4E] hover:text-[#122A24] bg-transparent border-none cursor-pointer p-1"
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
+
+              {authError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl animate-fade-in">
+                  {authError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={authLoading}
+                className="w-full py-3 bg-[#122A24] hover:bg-[#1C443A] text-white font-bold rounded-xl text-xs border-none cursor-pointer shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                <span>{authLoading ? 'Verifying Credentials...' : 'Unlock Agency Console'}</span>
+              </button>
+            </form>
+          ) : (
+            /* Forgot Passcode View */
+            <div className="space-y-4 text-xs">
+              {forgotSuccess ? (
+                <div className="p-5 bg-[#ECFDF5] border border-[#A7F3D0] rounded-2xl text-center space-y-3 animate-fade-in">
+                  <div className="w-12 h-12 rounded-full bg-[#10B981] text-white flex items-center justify-center mx-auto text-xl font-bold shadow-sm">
+                    ✓
+                  </div>
+                  <h4 className="font-bold text-sm text-[#065F46] m-0">Passcode Reset Successful!</h4>
+                  <p className="text-xs text-[#047857] leading-relaxed m-0">
+                    A new master passcode has been sent to hidden email: <strong className="font-mono font-bold">{forgotSuccess.target_email || 'b******x@gmail.com'}</strong>. Please check your inbox and sign in.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthViewMode('LOGIN');
+                      setAgencyPassInput('');
+                      setAuthError('');
+                    }}
+                    className="w-full py-3 bg-[#122A24] hover:bg-[#1C443A] text-white font-bold rounded-xl text-xs border-none cursor-pointer shadow-md transition-all mt-2"
+                  >
+                    Sign in with New Passcode →
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleAgencyForgotPasscode} className="space-y-4">
+                  <div>
+                    <label className="block font-semibold text-[#122A24] mb-1.5">Agency Superadmin ID</label>
+                    <input
+                      type="text"
+                      required
+                      value={agencyIdInput}
+                      onChange={(e) => setAgencyIdInput(e.target.value)}
+                      placeholder="BLISTEDX"
+                      autoComplete="username"
+                      className="w-full px-4 py-3 bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl text-xs font-mono font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 focus:bg-white transition-all uppercase"
+                    />
+                    <p className="text-[11px] text-[#52796F] mt-1">Master platform administrator account (e.g. BLISTEDX)</p>
+                  </div>
+
+                  <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs leading-relaxed flex items-start gap-2.5">
+                    <span className="text-base leading-none mt-0.5">🔒</span>
+                    <div>
+                      <strong>Security Verification:</strong> The newly generated master passcode will be securely dispatched to the confidential registered email: <strong className="font-mono">b******x@gmail.com</strong>.
+                    </div>
+                  </div>
+
+                  {forgotError && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl animate-fade-in">
+                      {forgotError}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="w-full py-3 bg-[#C4432B] hover:bg-[#A33520] text-white font-bold rounded-xl text-xs border-none cursor-pointer shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <span>⚡</span>
+                    <span>{forgotLoading ? 'Generating & Sending Passcode...' : 'Send Master Passcode'}</span>
+                  </button>
+
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthViewMode('LOGIN');
+                        setForgotError('');
+                      }}
+                      className="text-xs text-[#122A24] hover:underline font-semibold bg-transparent border-none cursor-pointer p-0"
+                    >
+                      ← Back to AgencyOS Login
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
 
           {/* Footer Back Link */}
           <div className="pt-4 border-t border-[#E8F0EA] text-center">
