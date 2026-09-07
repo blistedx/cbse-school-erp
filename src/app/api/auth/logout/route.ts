@@ -1,11 +1,17 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
+import { extractToken, revokeToken } from '@/lib/auth-guard';
 
 /**
  * POST /api/auth/logout
- * Clears the HttpOnly erp_session_token cookie and invalidates client session state.
+ * Invalidates the session token on the server-side blocklist and clears the HttpOnly cookie.
  */
-export async function POST() {
+export async function POST(req: Request) {
+  const token = extractToken(req);
+  if (token) {
+    revokeToken(token);
+  }
+
   const response = NextResponse.json({
     success: true,
     message: 'Logged out successfully.'

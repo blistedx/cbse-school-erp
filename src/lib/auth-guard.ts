@@ -12,7 +12,41 @@
  */
 
 import { NextResponse } from 'next/server';
-import { createHmac } from 'crypto';
+import { createHmac, createHash } from 'crypto';
+
+/**
+ * Server-side token blocklist.
+ * Maps token signature SHA-256 hash -> expiration timestamp (ms).
+ */
+const revokedTokenHashes = new Map<string, number>();
+
+export function revokeToken(token: string): void {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 2) return;
+    const [payload, sig] = parts;
+    const data: TokenPayload = JSON.parse(fromB64url(payload));
+    const tokenHash = createHash('sha256').update(sig).digest('hex');
+    revokedTokenHashes.set(tokenHash, data.exp || Date.now() + TOKEN_TTL_MS);
+  } catch {}
+}
+
+export function isTokenRevoked(token: string): boolean {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 2) return true;
+    const tokenHash = createHash('sha256').update(parts[1]).digest('hex');
+    const exp = revokedTokenHashes.get(tokenHash);
+    if (!exp) return false;
+    if (Date.now() > exp) {
+      revokedTokenHashes.delete(tokenHash);
+      return false;
+    }
+    return true;
+  } catch {
+    return true;
+  }
+}
 
 function getServerSecret(): string {
   const secret = (process.env.SESSION_SECRET || '').replace(/^["']|["']$/g, '').trim();
@@ -69,6 +103,8 @@ export function verifySessionToken(token: string): TokenPayload | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 2) return null;
+    if (isTokenRevoked(token)) return null;
+
     const [payload, sig] = parts;
     const expectedSig = sign(payload);
     // Constant-time comparison to prevent timing attacks
