@@ -79,7 +79,8 @@ import {
   Calculator,
   Receipt,
   Palette,
-  Camera
+  Camera,
+  Loader2
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS, ManagedRole, STAFF_ROLES, resolveTeacherRole } from '@/lib/types';
@@ -334,6 +335,9 @@ function ERPWorkspaceContent() {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [studentSubTab, setStudentSubTab] = useState<'directory' | 'siblings'>('directory');
   const [summaryStudent, setSummaryStudent] = useState<Student | null>(null);
+  const [studentNameActionTarget, setStudentNameActionTarget] = useState<Student | null>(null);
+  const [isUploadingStudentDp, setIsUploadingStudentDp] = useState(false);
+  const [studentDpSuccess, setStudentDpSuccess] = useState(false);
   const [availableSchools, setAvailableSchools] = useState<School[]>([]);
   const [showExportMenu, setShowExportMenu] = useState<string | null>(null);
   const [feeMenuOpen, setFeeMenuOpen] = useState(true);
@@ -1617,6 +1621,51 @@ function ERPWorkspaceContent() {
         showAdminToast('Faculty photo attached to registration form.');
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  // Direct Student DP Upload & Cloud Sync Handler
+  const handleDirectStudentDpUpload = async (file: File, targetStudent: Student) => {
+    if (!file || !targetStudent) return;
+    try {
+      setIsUploadingStudentDp(true);
+      setStudentDpSuccess(false);
+      const base64 = await compressImageFile(file, 480, 0.85);
+      const res = await fetch('/api/students', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: targetStudent.id,
+          photo: base64,
+          avatar: base64,
+          school_id: targetStudent.school_id || selectedSchool?.id || 'DPS2026'
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.student) {
+        const freshUrl = data.student.photo ? `${data.student.photo.split('?')[0]}?v=${Date.now()}` : base64;
+        const updatedStudent: Student = {
+          ...targetStudent,
+          ...data.student,
+          photo: freshUrl,
+          avatar: freshUrl,
+        };
+        setStudents(prev => prev.map(s => (s.id === targetStudent.id || s.admission_no === targetStudent.admission_no) ? updatedStudent : s));
+        setStudentNameActionTarget(updatedStudent);
+        setStudentDpSuccess(true);
+        showAdminToast(`Profile picture updated for ${targetStudent.full_name}!`);
+        setTimeout(() => {
+          setStudentDpSuccess(false);
+          setStudentNameActionTarget(null);
+        }, 1200);
+      } else {
+        showAdminToast(data.error || 'Failed to update student profile picture.');
+      }
+    } catch (err: any) {
+      console.error('Error uploading student DP:', err);
+      showAdminToast('Failed to upload profile picture.');
+    } finally {
+      setIsUploadingStudentDp(false);
     }
   };
 
@@ -5832,14 +5881,28 @@ function ERPWorkspaceContent() {
                                 <td className="py-3.5 px-4">
                                   <div className="flex items-center gap-2.5">
                                     {s.photo || s.avatar ? (
-                                      <img src={s.photo || s.avatar} alt={s.full_name} className="w-8 h-8 rounded-full object-cover border shrink-0 shadow-2xs cursor-pointer" onClick={() => setSummaryStudent(s)} />
+                                      <img
+                                        src={s.photo || s.avatar}
+                                        alt={s.full_name}
+                                        className="w-8 h-8 rounded-full object-cover border shrink-0 shadow-2xs cursor-pointer hover:ring-2 hover:ring-emerald-500 transition-all"
+                                        onClick={() => setStudentNameActionTarget(s)}
+                                        title="Click to View Profile or Change DP"
+                                      />
                                     ) : (
-                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border shrink-0 shadow-2xs font-mono cursor-pointer ${avatarStyle}`} onClick={() => setSummaryStudent(s)}>
+                                      <div
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border shrink-0 shadow-2xs font-mono cursor-pointer hover:ring-2 hover:ring-emerald-500 transition-all ${avatarStyle}`}
+                                        onClick={() => setStudentNameActionTarget(s)}
+                                        title="Click to View Profile or Change DP"
+                                      >
                                         {initials}
                                       </div>
                                     )}
                                     <div>
-                                      <div className="font-semibold text-[#122A24] hover:text-emerald-700 cursor-pointer transition-colors flex items-center gap-1.5" onClick={() => setSummaryStudent(s)}>
+                                      <div
+                                        className="font-semibold text-[#122A24] hover:text-emerald-700 cursor-pointer transition-colors flex items-center gap-1.5"
+                                        onClick={() => setStudentNameActionTarget(s)}
+                                        title="Click to View Profile or Change DP"
+                                      >
                                         <span>{s.full_name}</span>
                                         <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-mono font-normal">360°</span>
                                       </div>
@@ -6139,11 +6202,23 @@ function ERPWorkspaceContent() {
                           <div>
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2.5">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border shrink-0 font-mono ${avatarStyle}`}>
-                                  {initials}
+                                <div 
+                                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border shrink-0 font-mono overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-500 transition-all ${avatarStyle}`}
+                                  onClick={() => setStudentNameActionTarget(s)}
+                                  title="Click to View Profile or Change DP"
+                                >
+                                  {s.photo || s.avatar ? (
+                                    <img src={s.photo || s.avatar} alt={s.full_name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    initials
+                                  )}
                                 </div>
                                 <div>
-                                  <h3 className="font-semibold text-[#122A24] text-sm leading-tight hover:text-emerald-700 cursor-pointer" onClick={() => setSummaryStudent(s)}>
+                                  <h3 
+                                    className="font-semibold text-[#122A24] text-sm leading-tight hover:text-emerald-700 cursor-pointer" 
+                                    onClick={() => setStudentNameActionTarget(s)}
+                                    title="Click to View Profile"
+                                  >
                                     {s.full_name}
                                   </h3>
                                   <div className="text-[11px] font-mono text-[#1C443A] font-bold mt-0.5">
@@ -13795,6 +13870,138 @@ function ERPWorkspaceContent() {
           setSummaryStudent(updated);
         }}
       />
+
+      {/* STUDENT QUICK ACTION MODAL (VIEW PROFILE & CHANGE DP) */}
+      {studentNameActionTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fade-in"
+          onClick={() => {
+            if (!isUploadingStudentDp) setStudentNameActionTarget(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl border border-[#DCE8E0] space-y-5 animate-in zoom-in-95 duration-150 relative text-center"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              type="button"
+              disabled={isUploadingStudentDp}
+              onClick={() => setStudentNameActionTarget(null)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center cursor-pointer border-none transition-colors"
+            >
+              ✕
+            </button>
+
+            {/* Avatar & Identity Header */}
+            <div className="flex flex-col items-center gap-3 pt-2">
+              <div className="relative group">
+                <div className="w-20 h-20 rounded-full overflow-hidden border-3 border-emerald-600/30 shadow-md bg-emerald-950 flex items-center justify-center text-white font-display font-bold text-2xl">
+                  {studentNameActionTarget.photo || studentNameActionTarget.avatar ? (
+                    <img
+                      src={studentNameActionTarget.photo || studentNameActionTarget.avatar}
+                      alt={studentNameActionTarget.full_name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{(studentNameActionTarget.full_name || 'S')[0]}</span>
+                  )}
+                </div>
+                {isUploadingStudentDp && (
+                  <div className="absolute inset-0 bg-black/70 rounded-full flex flex-col items-center justify-center text-white text-[10px] font-bold">
+                    <Loader2 className="w-6 h-6 animate-spin text-emerald-400 mb-1" />
+                    <span>Uploading...</span>
+                  </div>
+                )}
+                {studentDpSuccess && (
+                  <div className="absolute inset-0 bg-emerald-700/90 rounded-full flex flex-col items-center justify-center text-white text-[11px] font-bold">
+                    <Check className="w-7 h-7 text-white mb-0.5" />
+                    <span>Updated!</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h3 className="font-display font-bold text-lg text-[#122A24] tracking-tight">
+                  {studentNameActionTarget.full_name}
+                </h3>
+                <div className="flex items-center justify-center gap-2 mt-1 text-xs text-[#2D5A4E] font-mono">
+                  <span className="bg-[#EBF5EF] px-2 py-0.5 rounded-md border border-[#C5E2CF] font-bold text-[#1C443A]">
+                    Adm: {studentNameActionTarget.admission_no}
+                  </span>
+                  <span>•</span>
+                  <span>{studentNameActionTarget.class_name} ({studentNameActionTarget.section || 'A'})</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Options: 1) View 2) Change DP */}
+            <div className="space-y-2.5 pt-1">
+              {/* OPTION 1: VIEW (View Profile & 360° Dossier) */}
+              <button
+                type="button"
+                disabled={isUploadingStudentDp}
+                onClick={() => {
+                  const target = studentNameActionTarget;
+                  setStudentNameActionTarget(null);
+                  setSummaryStudent(target);
+                }}
+                className="w-full p-3.5 rounded-2xl bg-[#F8FAF9] hover:bg-[#EBF5EF] border border-[#DCE8E0] hover:border-[#10B981] flex items-center gap-3.5 transition-all cursor-pointer text-left group shadow-2xs"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white border border-[#DCE8E0] text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-[#122A24] group-hover:text-white transition-colors">
+                  <Eye className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-[#122A24] group-hover:text-emerald-900 flex items-center justify-between">
+                    <span>View Profile</span>
+                    <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/80">360° Dossier</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                    Inspect academics, attendance, ledger &amp; siblings
+                  </div>
+                </div>
+              </button>
+
+              {/* OPTION 2: CHANGE DP */}
+              <label
+                className={`w-full p-3.5 rounded-2xl bg-[#F8FAF9] hover:bg-[#EBF5EF] border border-[#DCE8E0] hover:border-[#10B981] flex items-center gap-3.5 transition-all cursor-pointer text-left group shadow-2xs ${
+                  isUploadingStudentDp ? 'opacity-60 pointer-events-none' : ''
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-white border border-[#DCE8E0] text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-[#122A24] group-hover:text-white transition-colors">
+                  <Camera className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-[#122A24] group-hover:text-emerald-900 flex items-center justify-between">
+                    <span>Change DP</span>
+                    <span className="text-[10px] font-mono text-[#0D652D] bg-[#E6F4EA] px-1.5 py-0.5 rounded border border-[#CEEAD6]">Vercel Blob</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                    Upload photo directly to online cloud storage
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={isUploadingStudentDp}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f && studentNameActionTarget) {
+                      handleDirectStudentDpUpload(f, studentNameActionTarget);
+                    }
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+
+            <div className="text-[10.5px] text-slate-400">
+              Photos are auto-compressed &amp; synced directly to central cloud storage.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* UNIVERSAL TASK COMPLETION OVERLAY (1 SEC CENTERED BACKDROP BLUR) */}
       <TaskCompletionOverlay data={celebrationData} />
