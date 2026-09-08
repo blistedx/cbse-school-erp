@@ -379,7 +379,7 @@ export function DashboardAgency() {
                   required
                   value={agencyIdInput}
                   onChange={(e) => setAgencyIdInput(e.target.value)}
-                  placeholder="e.g. blistedx"
+                  placeholder="Enter Superadmin ID"
                   autoComplete="username"
                   className="w-full px-4 py-3 bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl text-xs font-mono font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 focus:bg-white transition-all"
                 />
@@ -394,9 +394,6 @@ export function DashboardAgency() {
                       setAuthViewMode('FORGOT_PASSCODE');
                       setForgotError('');
                       setForgotSuccess(null);
-                      if (!agencyIdInput.trim()) {
-                        setAgencyIdInput('BLISTEDX');
-                      }
                     }}
                     className="text-[11px] text-[#C4432B] hover:underline font-semibold bg-transparent border-none cursor-pointer p-0"
                   >
@@ -471,11 +468,11 @@ export function DashboardAgency() {
                       required
                       value={agencyIdInput}
                       onChange={(e) => setAgencyIdInput(e.target.value)}
-                      placeholder="BLISTEDX"
+                      placeholder="Enter Superadmin ID"
                       autoComplete="username"
                       className="w-full px-4 py-3 bg-[#F4F8F5] border border-[#DCE8E0] rounded-xl text-xs font-mono font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 focus:bg-white transition-all uppercase"
                     />
-                    <p className="text-[11px] text-[#52796F] mt-1">Master platform administrator account (e.g. BLISTEDX)</p>
+                    <p className="text-[11px] text-[#52796F] mt-1">Master platform administrator account</p>
                   </div>
 
                   <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs leading-relaxed flex items-start gap-2.5">
@@ -567,7 +564,7 @@ export function DashboardAgency() {
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <div className="hidden md:flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-300 text-amber-900 rounded-full text-xs font-mono font-bold shadow-xs">
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-            <span>⚡ GOD ACCESS: blistedx</span>
+            <span>⚡ AGENCY SUPERADMIN</span>
           </div>
 
           <Link
@@ -682,7 +679,7 @@ export function DashboardAgency() {
                   Gmail SMTP
                 </div>
                 <p className="text-[11px] text-white/50">
-                  blistedx@gmail.com Live
+                  Encrypted Relay Active
                 </p>
               </div>
 

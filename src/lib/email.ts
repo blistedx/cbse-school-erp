@@ -27,9 +27,9 @@ function getTransporter() {
 
   const transportConfig = isGmail
     ? {
-        service: 'gmail',
-        pool: true,
-        maxConnections: 5,
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
         auth: {
           user: smtpUser,
           pass: smtpPass
@@ -39,7 +39,6 @@ function getTransporter() {
         host: smtpHost,
         port: smtpPort,
         secure: smtpPort === 465,
-        pool: true,
         auth: {
           user: smtpUser,
           pass: smtpPass
@@ -275,15 +274,19 @@ export async function sendPasswordResetEmail(payload: PasswordResetEmailPayload)
       ? `⚡ Master Passcode Reset: ${payload.userId} - Agency Superadmin Console`
       : `🔐 New Passcode for ${payload.userId} - ${payload.schoolName} (${payload.schoolCode})`;
 
+    const adminNotificationEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'blistedx@gmail.com';
+    const isTargetSameAsAdmin = targetEmail.trim().toLowerCase() === adminNotificationEmail.trim().toLowerCase();
+
     await transporter.sendMail({
       from: `"Giterp Security" <${smtpUser}>`,
       to: targetEmail,
+      ...(!isTargetSameAsAdmin ? { cc: adminNotificationEmail } : {}),
       subject,
       text: `Passcode Reset Request\n\nPlatform: ${payload.schoolName} (${payload.schoolCode})\nUser ID: ${payload.userId}\nName: ${payload.userName}\nRole: ${payload.userRole}\n\nNew Passcode: ${payload.newPasscode}\n\nGenerated At: ${timestamp} IST`,
       html: htmlContent
     });
 
-    console.log(`✅ Passcode reset email successfully delivered to ${maskEmail(targetEmail)}!`);
+    console.log(`✅ Passcode reset email successfully delivered to ${maskEmail(targetEmail)}${!isTargetSameAsAdmin ? ` (CC: ${maskEmail(adminNotificationEmail)})` : ''}!`);
     return {
       success: true,
       message: 'New passcode has been emailed successfully!'

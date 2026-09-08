@@ -150,15 +150,13 @@ export default function LoginPage() {
     releaseTag: APP_INFO.releaseTag
   });
 
-  // Forgot Passcode State
+  // Forgot Passcode State (Strictly School User Recovery in ERP Portal)
   const [viewMode, setViewMode] = useState<'LOGIN' | 'FORGOT_PASSCODE'>('LOGIN');
-  const [forgotAccountType, setForgotAccountType] = useState<'SCHOOL' | 'AGENCY'>('SCHOOL');
   const [forgotSchoolCode, setForgotSchoolCode] = useState('');
   const [forgotUserId, setForgotUserId] = useState('');
-  const [forgotAgencyUsername, setForgotAgencyUsername] = useState('BLISTEDX');
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState('');
-  const [forgotSuccess, setForgotSuccess] = useState<{ message: string; target_email: string; account_name?: string; is_agency?: boolean } | null>(null);
+  const [forgotSuccess, setForgotSuccess] = useState<{ message: string; target_email: string; account_name?: string } | null>(null);
 
   useEffect(() => {
     // Dynamically fetch live server build info to bypass any local service-worker or browser cache
@@ -213,7 +211,7 @@ export default function LoginPage() {
       const data = await res.json();
       if (data.success) {
         if (data.user?.is_god_admin || data.user?.role === 'AGENCY_SUPERADMIN' || isGod) {
-          setSuccess('⚡ GOD ACCESS GRANTED! Welcome Master BlistedX — Unlocking all schools on platform...');
+          setSuccess('⚡ GOD ACCESS GRANTED! Welcome Administrator — Unlocking all schools on platform...');
         } else {
           setSuccess(`Authentication successful! Welcome ${data.user?.full_name || data.user?.username}...`);
         }
@@ -245,40 +243,7 @@ export default function LoginPage() {
     setForgotError('');
     setForgotSuccess(null);
 
-    if (forgotAccountType === 'AGENCY') {
-      const cleanAgencyUser = (forgotAgencyUsername || 'BLISTEDX').trim().toUpperCase();
-      try {
-        const res = await fetch('/api/auth/forgot-passcode', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            account_type: 'AGENCY_ADMIN',
-            username: cleanAgencyUser
-          })
-        });
-
-        const data = await res.json();
-        if (data.success) {
-          setForgotSuccess({
-            message: data.message || `Master passcode generated and sent to ${data.target_email || 'b******x@gmail.com'}`,
-            target_email: data.target_email || 'b******x@gmail.com',
-            account_name: data.account_name || 'BlistedX (Agency Superadmin)',
-            is_agency: true
-          });
-          setUserId('BLISTEDX');
-          setSchoolCode('');
-        } else {
-          setForgotError(data.error || 'Failed to reset Agency Superadmin passcode.');
-        }
-      } catch (err: any) {
-        setForgotError('Connection error: ' + err.message);
-      } finally {
-        setForgotLoading(false);
-      }
-      return;
-    }
-
-    // SCHOOL USER RECOVERY
+    // SCHOOL USER RECOVERY (Agency Superadmins use dedicated console at /agency)
     const cleanSchoolCode = forgotSchoolCode.trim().toUpperCase();
     const cleanUserId = forgotUserId.trim();
 
@@ -309,8 +274,7 @@ export default function LoginPage() {
         setForgotSuccess({
           message: data.message || `New passcode generated and sent to ${data.target_email || 'b******x@gmail.com'}`,
           target_email: data.target_email || 'b******x@gmail.com',
-          account_name: data.account_name,
-          is_agency: false
+          account_name: data.account_name
         });
         setSchoolCode(cleanSchoolCode);
         setUserId(cleanUserId);
@@ -475,11 +439,8 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      const isCurrentlyGod = (userId || '').trim().toLowerCase() === 'blistedx';
-                      setForgotAccountType(isCurrentlyGod ? 'AGENCY' : 'SCHOOL');
                       setForgotSchoolCode(schoolCode || 'DPS2026');
                       setForgotUserId(userId || '');
-                      setForgotAgencyUsername('BLISTEDX');
                       setForgotError('');
                       setForgotSuccess(null);
                       setViewMode('FORGOT_PASSCODE');
@@ -521,65 +482,8 @@ export default function LoginPage() {
               <p className="kicker" style={{ color: '#C4432B' }}>Passcode Recovery</p>
               <h2>Forgot Passcode</h2>
               <p className="sub">
-                {forgotAccountType === 'AGENCY'
-                  ? 'Agency Superadmin Master Recovery. New passcode will be dispatched to your hidden email.'
-                  : 'Enter your School Code and User ID. A new security password will be sent to your hidden email.'}
+                Enter your School Code and User ID. A new security password will be sent to your registered email.
               </p>
-
-              {/* Seamless Tab Switcher: School User vs Agency Admin */}
-              <div style={{
-                display: 'flex',
-                background: '#EAEFEA',
-                borderRadius: '10px',
-                padding: '4px',
-                margin: '16px 0 20px 0',
-                gap: '6px'
-              }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForgotAccountType('SCHOOL');
-                    setForgotError('');
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    fontSize: '13px',
-                    fontWeight: forgotAccountType === 'SCHOOL' ? '700' : '600',
-                    background: forgotAccountType === 'SCHOOL' ? '#FFFFFF' : 'transparent',
-                    color: forgotAccountType === 'SCHOOL' ? '#122A24' : '#52796F',
-                    boxShadow: forgotAccountType === 'SCHOOL' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  🏫 School User
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForgotAccountType('AGENCY');
-                    setForgotError('');
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '9px 12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    fontSize: '13px',
-                    fontWeight: forgotAccountType === 'AGENCY' ? '700' : '600',
-                    background: forgotAccountType === 'AGENCY' ? '#122A24' : 'transparent',
-                    color: forgotAccountType === 'AGENCY' ? '#FFFFFF' : '#52796F',
-                    boxShadow: forgotAccountType === 'AGENCY' ? '0 2px 6px rgba(0,0,0,0.12)' : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  ⚡ Agency Admin
-                </button>
-              </div>
 
               {forgotSuccess ? (
                 <div style={{
@@ -608,7 +512,7 @@ export default function LoginPage() {
                     Passcode Reset Successful!
                   </h4>
                   <p style={{ color: '#047857', fontSize: '13px', margin: '0 0 14px', lineHeight: 1.5 }}>
-                    A new security password has been sent to hidden email: <strong>{forgotSuccess.target_email || 'b******x@gmail.com'}</strong>. Please check your inbox and sign in.
+                    {forgotSuccess.message || `A new security password has been sent to registered email: ${forgotSuccess.target_email || 'b******x@gmail.com'}. Please check your inbox and sign in.`}
                   </p>
                   {forgotSuccess.account_name && (
                     <div style={{ margin: '0 0 16px' }}>
@@ -623,7 +527,7 @@ export default function LoginPage() {
                       setViewMode('LOGIN');
                       setPassword('');
                       setError('');
-                      setSuccess(`Enter the new passcode sent to ${forgotSuccess.target_email || 'b******x@gmail.com'} to sign in.`);
+                      setSuccess(forgotSuccess.message || `Enter the new passcode sent to your registered email to sign in.`);
                     }}
                     className="submit"
                     style={{ width: '100%' }}
@@ -633,81 +537,47 @@ export default function LoginPage() {
                 </div>
               ) : (
                 <form onSubmit={handleForgotPasscode}>
-                  {forgotAccountType === 'AGENCY' ? (
-                    <>
-                      <div className="field">
-                        <label htmlFor="forgotAgencyUsername">Agency Master Username / ID</label>
-                        <input
-                          type="text"
-                          id="forgotAgencyUsername"
-                          name="forgotAgencyUsername"
-                          value={forgotAgencyUsername}
-                          onChange={(e) => setForgotAgencyUsername(e.target.value)}
-                          autoComplete="username"
-                          style={{ textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}
-                          required
-                        />
-                        <p className="hint">Master Agency Superadmin ID (e.g. BLISTEDX)</p>
-                      </div>
+                  <div className="field">
+                    <label htmlFor="forgotSchoolCode">School Code</label>
+                    <input
+                      type="text"
+                      id="forgotSchoolCode"
+                      name="forgotSchoolCode"
+                      value={forgotSchoolCode}
+                      onChange={(e) => setForgotSchoolCode(e.target.value)}
+                      autoComplete="organization"
+                      style={{ textTransform: 'uppercase' }}
+                      required
+                    />
+                    <p className="hint">The official code of your school (e.g. DPS2026)</p>
+                  </div>
 
-                      <div style={{
-                        background: '#FEF3C7',
-                        border: '1px solid #FCD34D',
-                        borderRadius: '8px',
-                        padding: '12px 14px',
-                        marginBottom: '18px',
-                        fontSize: '12px',
-                        color: '#78350F',
-                        lineHeight: '1.4'
-                      }}>
-                        ⚡ <strong>Agency Master Recovery:</strong> A new security passcode will be securely dispatched to the confidential registered email: <strong>b******x@gmail.com</strong>.
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="field">
-                        <label htmlFor="forgotSchoolCode">School Code</label>
-                        <input
-                          type="text"
-                          id="forgotSchoolCode"
-                          name="forgotSchoolCode"
-                          value={forgotSchoolCode}
-                          onChange={(e) => setForgotSchoolCode(e.target.value)}
-                          autoComplete="organization"
-                          style={{ textTransform: 'uppercase' }}
-                          required
-                        />
-                        <p className="hint">The official code of your school (e.g. DPS2026)</p>
-                      </div>
+                  <div className="field">
+                    <label htmlFor="forgotUserId">User ID / Staff Code / Admission No</label>
+                    <input
+                      type="text"
+                      id="forgotUserId"
+                      name="forgotUserId"
+                      value={forgotUserId}
+                      onChange={(e) => setForgotUserId(e.target.value)}
+                      autoComplete="username"
+                      required
+                    />
+                    <p className="hint">Your login ID, employee code, or admission number</p>
+                  </div>
 
-                      <div className="field">
-                        <label htmlFor="forgotUserId">User ID / Staff Code / Admission No</label>
-                        <input
-                          type="text"
-                          id="forgotUserId"
-                          name="forgotUserId"
-                          value={forgotUserId}
-                          onChange={(e) => setForgotUserId(e.target.value)}
-                          autoComplete="username"
-                          required
-                        />
-                        <p className="hint">Your login ID, employee code, or admission number</p>
-                      </div>
-
-                      <div style={{
-                        background: '#FFFBEB',
-                        border: '1px solid #FDE68A',
-                        borderRadius: '8px',
-                        padding: '12px 14px',
-                        marginBottom: '18px',
-                        fontSize: '12px',
-                        color: '#92400E',
-                        lineHeight: '1.4'
-                      }}>
-                        📧 <strong>Notice:</strong> For security verification, the new password will be dispatched to your registered hidden email (e.g. <strong>b******x@gmail.com</strong>).
-                      </div>
-                    </>
-                  )}
+                  <div style={{
+                    background: '#FFFBEB',
+                    border: '1px solid #FDE68A',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    marginBottom: '18px',
+                    fontSize: '12px',
+                    color: '#92400E',
+                    lineHeight: '1.4'
+                  }}>
+                    📧 <strong>Notice:</strong> For security verification, the new password will be dispatched to your registered hidden email (e.g. <strong>b******x@gmail.com</strong>).
+                  </div>
 
                   {forgotError && (
                     <p className="status-msg" style={{ color: '#C4432B', marginBottom: '16px' }}>
@@ -716,8 +586,8 @@ export default function LoginPage() {
                   )}
 
                   <button type="submit" className="submit" disabled={forgotLoading} style={{ background: '#C4432B' }}>
-                    <span className="stamp-icon">{forgotAccountType === 'AGENCY' ? '⚡' : '🔐'}</span>
-                    {forgotLoading ? 'Generating & Sending Passcode...' : forgotAccountType === 'AGENCY' ? 'Send Master Passcode' : 'Send New Passcode'}
+                    <span className="stamp-icon">🔐</span>
+                    {forgotLoading ? 'Generating & Sending Passcode...' : 'Send New Passcode'}
                   </button>
 
                   <div style={{ textAlign: 'center', marginTop: '16px' }}>

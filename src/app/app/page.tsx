@@ -3859,14 +3859,6 @@ function ERPWorkspaceContent() {
               </option>
             ))}
           </select>
-          <Link
-            href="/agency"
-            className="px-2 py-1 rounded-lg bg-[#122A24] text-white text-[10px] font-bold no-underline shrink-0 flex items-center gap-0.5"
-            title="Open Agency Cloud"
-          >
-            <span>Agency</span>
-            <span>↗</span>
-          </Link>
         </div>
       )}
 

@@ -105,10 +105,13 @@ export async function POST(req: Request) {
     // Locate the school
     const school = await Database.getSchoolByCode(rawSchoolCode);
     if (!school || school.status !== 'ACTIVE') {
-      return NextResponse.json({
-        success: true,
-        message: UNIFORM_RESET_RESPONSE
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: `School with code "${rawSchoolCode}" was not found or is currently inactive. Please check the institutional code.`
+        },
+        { status: 404 }
+      );
     }
 
     // Cryptographically secure 6-digit passcode generator
@@ -203,10 +206,13 @@ export async function POST(req: Request) {
     }
 
     if (!emailPayload) {
-      return NextResponse.json({
-        success: true,
-        message: UNIFORM_RESET_RESPONSE
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: `No registered account found matching ID "${rawUsername}" in ${school.school_name}. Please check your User ID, Staff Code, or Admission No.`
+        },
+        { status: 404 }
+      );
     }
 
     // 5. Send notification email
@@ -234,14 +240,18 @@ export async function POST(req: Request) {
     // Reset rate limiter on valid request
     resetRateLimit('auth-forgot-passcode', req);
 
-    const rawTargetEmail = emailPayload.userEmail || 'blistedx@gmail.com';
+    const rawTargetEmail = emailPayload.userEmail || process.env.ADMIN_NOTIFICATION_EMAIL || 'blistedx@gmail.com';
     const maskedEmail = maskEmail(rawTargetEmail);
+    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'blistedx@gmail.com';
+    const isCcAdmin = rawTargetEmail.trim().toLowerCase() !== adminEmail.trim().toLowerCase();
 
     return NextResponse.json({
       success: true,
-      message: UNIFORM_RESET_RESPONSE,
+      message: `A new security passcode has been dispatched to ${maskedEmail}${isCcAdmin ? ` (copy sent to ${maskEmail(adminEmail)})` : ''}.`,
       target_email: maskedEmail,
+      admin_email: isCcAdmin ? maskEmail(adminEmail) : undefined,
       masked_email: maskedEmail,
+      account_name: emailPayload.userName,
       is_agency: false
     });
   } catch (err: any) {
