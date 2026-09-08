@@ -1451,7 +1451,7 @@ export function DashboardTransport({
           {/* Subtle Background Watermark */}
           <div 
             aria-hidden="true" 
-            className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+            className="pointer-events-none select-none absolute right-4 sm:right-8 -top-3 font-poster font-black uppercase text-[#122A24]/[0.025] text-7xl sm:text-8xl lg:text-[110px] leading-none z-0 tracking-tight"
           >
             FLEET
           </div>
@@ -1840,17 +1840,21 @@ export function DashboardTransport({
               </div>
 
               {/* REAL INTERACTIVE MAP CONTAINER */}
-              <div className={`relative w-full rounded-xl overflow-hidden bg-slate-100 border border-[#DCE8E0] shadow-inner transition-all duration-300 ${
+              <div className={`relative w-full rounded-xl overflow-hidden bg-[#F0F7F3] border border-[#DCE8E0] shadow-inner transition-all duration-300 ${
                 isMapFullscreen
                   ? 'flex-1 min-h-[500px]'
                   : 'h-[480px] sm:h-[540px]'
               }`}>
                 {googleMapMode !== 'RADAR_CANVAS' ? (
                   <iframe
-                    srcDoc={interactiveMapSrcDoc}
-                    className="w-full h-full border-0"
-                    title="Interactive Fleet Radar Map"
-                    sandbox="allow-scripts allow-same-origin allow-popups"
+                    src={
+                      mapTileType === 'SATELLITE'
+                        ? `https://maps.google.com/maps?q=${adminBusCoords.lat},${adminBusCoords.lng}&t=k&z=16&ie=UTF8&iwloc=&output=embed`
+                        : `https://www.openstreetmap.org/export/embed.html?bbox=${(adminBusCoords.lng - 0.035).toFixed(5)}%2C${(adminBusCoords.lat - 0.02).toFixed(5)}%2C${(adminBusCoords.lng + 0.035).toFixed(5)}%2C${(adminBusCoords.lat + 0.02).toFixed(5)}&layer=mapnik&marker=${adminBusCoords.lat.toFixed(5)}%2C${adminBusCoords.lng.toFixed(5)}`
+                    }
+                    className="w-full h-full border-0 bg-white"
+                    title="Live Fleet Radar Map"
+                    loading="lazy"
                   />
                 ) : (
                   <div className="w-full h-full bg-[#122A24] p-6 flex flex-col justify-between relative overflow-hidden text-white">
@@ -1911,19 +1915,19 @@ export function DashboardTransport({
                   </div>
                 )}
 
-                {/* Floating Telemetry HUD over Google Maps */}
-                <div className="absolute top-3 left-3 bg-[#122A24]/90 backdrop-blur-md text-white p-3 rounded-2xl border border-emerald-500/30 shadow-xl text-xs space-y-1.5 z-10 max-w-sm">
+                {/* Floating Telemetry HUD over Live Map */}
+                <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-md text-[#122A24] p-3 rounded-2xl border border-[#DCE8E0] shadow-md text-xs space-y-1.5 z-10 max-w-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-1.5 font-bold text-emerald-400">
-                      <Smartphone className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
                       <span>{adminBusCoords.isStreaming ? 'Live Smartphone Telemetry' : 'Standby Telemetry'}</span>
                     </div>
-                    <span className="font-mono text-[10.5px] text-slate-300">{adminBusCoords.lastUpdated}</span>
+                    <span className="font-mono text-[10.5px] text-slate-500 font-semibold">{adminBusCoords.lastUpdated}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-xs font-mono text-slate-200 flex-wrap">
-                    <span>Lat: <strong>{adminBusCoords.lat.toFixed(4)}&deg;</strong></span>
-                    <span>Lng: <strong>{adminBusCoords.lng.toFixed(4)}&deg;</strong></span>
-                    <span className="text-emerald-300 font-bold bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30">
+                  <div className="flex items-center gap-2 text-xs font-mono text-slate-700 flex-wrap">
+                    <span>Lat: <strong className="text-slate-900">{adminBusCoords.lat.toFixed(4)}&deg;</strong></span>
+                    <span>Lng: <strong className="text-slate-900">{adminBusCoords.lng.toFixed(4)}&deg;</strong></span>
+                    <span className="text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
                       ⚡ {adminBusCoords.speedKmh} km/h
                     </span>
                     <span className="text-slate-400">&plusmn;{adminBusCoords.accuracyMeters}m</span>
@@ -2129,12 +2133,12 @@ export function DashboardTransport({
                       }}
                       className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-[#122A24] text-white border-[#122A24] shadow-sm ring-2 ring-emerald-400/30'
+                          ? 'bg-[#EBF5EF] text-[#122A24] border-emerald-500 shadow-xs ring-2 ring-emerald-500/25'
                           : 'bg-white text-slate-700 border-[#E2ECE5] hover:border-emerald-300 hover:bg-[#F8FAF9]'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <div className={`font-semibold text-xs leading-tight ${isSelected ? 'text-white' : 'text-[#122A24]'}`}>
+                        <div className="font-bold text-xs text-[#122A24] leading-tight">
                           {r.name}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -2143,14 +2147,14 @@ export function DashboardTransport({
                               LIVE
                             </span>
                           ) : (
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold font-mono ${isSelected ? 'bg-white/15 text-slate-300' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded font-bold font-mono bg-slate-100 text-slate-600 border border-slate-200/60">
                               STANDBY
                             </span>
                           )}
                           <span
                             className={`text-[9.5px] px-2 py-0.5 rounded-full font-bold font-mono ${
                               isSelected
-                                ? 'bg-emerald-400 text-[#122A24]'
+                                ? 'bg-[#122A24] text-white'
                                 : r.status === 'ON_ROUTE'
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : 'bg-slate-100 text-slate-600 border border-slate-200'
@@ -2161,17 +2165,17 @@ export function DashboardTransport({
                         </div>
                       </div>
 
-                      <div className={`text-[11px] mt-2 flex items-center justify-between gap-2 ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                        <span className="truncate">Driver: {r.substituteDriver ? `Relief: ${r.substituteDriver}` : r.driver}</span>
-                        <span className={`font-mono text-[10.5px] shrink-0 ${isSelected ? 'text-emerald-300' : 'text-slate-700 font-semibold'}`}>{r.vehicleNo}</span>
+                      <div className="text-[11px] mt-2 flex items-center justify-between gap-2 text-slate-600">
+                        <span className="truncate">Driver: <strong>{r.substituteDriver ? `Relief: ${r.substituteDriver}` : r.driver}</strong></span>
+                        <span className="font-mono text-[10.5px] text-[#122A24] font-bold shrink-0">{r.vehicleNo}</span>
                       </div>
 
-                      <div className={`text-[10px] mt-1.5 pt-1.5 border-t flex items-center justify-between ${isSelected ? 'border-white/10 text-emerald-300/90' : 'border-slate-100 text-slate-500'}`}>
+                      <div className="text-[10px] mt-1.5 pt-1.5 border-t border-[#D8E6DC] flex items-center justify-between text-slate-500">
                         <div className="flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full ${isBusOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+                          <span className={`w-1.5 h-1.5 rounded-full ${isBusOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
                           <span>{r.stops.length} Stops &bull; {r.capacity}</span>
                         </div>
-                        <span className="font-medium text-[10px]">
+                        <span className="font-semibold text-[10px] text-emerald-800">
                           {ROUTE_SHIFTS_METADATA[activeShift].shortLabel}
                         </span>
                       </div>
@@ -2990,20 +2994,14 @@ export function DashboardTransport({
               {/* REAL INTERACTIVE MAP OR RADAR CANVAS */}
               {googleMapMode !== 'RADAR_CANVAS' ? (
                 <iframe
-                  srcDoc={buildInteractiveMapHtml({
-                    stops: currentShiftStops,
-                    busCoords: {
-                      lat: liveDriverGeo.latitude || adminBusCoords.lat,
-                      lng: liveDriverGeo.longitude || adminBusCoords.lng
-                    },
-                    isLive: true,
-                    tileType: mapTileType,
-                    focusMode: googleMapMode === 'LIVE_PIN' ? 'BUS' : googleMapMode === 'LIVE_NAV' ? 'NAV' : 'ALL',
-                    focusStop: nextDriverStop
-                  })}
-                  className="w-full h-full border-0"
+                  src={
+                    mapTileType === 'SATELLITE'
+                      ? `https://maps.google.com/maps?q=${liveDriverGeo.latitude || adminBusCoords.lat},${liveDriverGeo.longitude || adminBusCoords.lng}&t=k&z=16&ie=UTF8&iwloc=&output=embed`
+                      : `https://www.openstreetmap.org/export/embed.html?bbox=${((liveDriverGeo.longitude || adminBusCoords.lng) - 0.035).toFixed(5)}%2C${((liveDriverGeo.latitude || adminBusCoords.lat) - 0.02).toFixed(5)}%2C${((liveDriverGeo.longitude || adminBusCoords.lng) + 0.035).toFixed(5)}%2C${((liveDriverGeo.latitude || adminBusCoords.lat) + 0.02).toFixed(5)}&layer=mapnik&marker=${(liveDriverGeo.latitude || adminBusCoords.lat).toFixed(5)}%2C${(liveDriverGeo.longitude || adminBusCoords.lng).toFixed(5)}`
+                  }
+                  className="w-full h-full border-0 bg-white"
                   title="Driver Interactive Route Map"
-                  sandbox="allow-scripts allow-same-origin allow-popups"
+                  loading="lazy"
                 />
               ) : (
                 <div className="w-full h-full bg-[#122A24] p-6 flex flex-col justify-between relative overflow-hidden text-white">
