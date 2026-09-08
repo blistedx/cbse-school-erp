@@ -48,7 +48,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const auth = requireRole(req, ['PRINCIPAL', 'AGENCY_SUPERADMIN']);
+    const auth = requireRole(req, ADMIN_ROLES);
     if (auth instanceof NextResponse) return auth;
     const rawBody = await req.json();
 

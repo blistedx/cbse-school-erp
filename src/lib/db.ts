@@ -592,19 +592,65 @@ export const Database = {
       }
     }
 
-    // Offload Base64 school logo to Vercel Blob (ZERO binary in MongoDB)
+    // Offload Base64 school logo to Vercel Blob / Media Vault (ZERO binary in MongoDB)
     if (cleanedUpdates.logo && typeof cleanedUpdates.logo === 'string' && cleanedUpdates.logo.startsWith('data:')) {
       const mediaId = `MEDIA-SCH-${school.id || schoolId}`;
-      saveMediaVaultFile({
+      await saveMediaVaultFile({
         id: mediaId,
         school_id: school.id || schoolId,
         entity_type: 'SCHOOL_LOGO',
         entity_id: school.id || schoolId,
         filename: `${school.school_code || schoolId}-logo.png`,
         data: cleanedUpdates.logo
-      }).catch(console.error);
+      });
       cleanedUpdates.logo = `/api/media/${mediaId}`;
       cleanedUpdates.logo_url = `/api/media/${mediaId}`;
+    }
+
+    // Offload Base64 principal / admin profile picture to Vercel Blob / Media Vault
+    const rawPrincipalPic = (cleanedUpdates.avatar && typeof cleanedUpdates.avatar === 'string' && cleanedUpdates.avatar.startsWith('data:'))
+      ? cleanedUpdates.avatar
+      : ((cleanedUpdates.photo && typeof cleanedUpdates.photo === 'string' && cleanedUpdates.photo.startsWith('data:'))
+        ? cleanedUpdates.photo
+        : ((cleanedUpdates.principal_avatar && typeof cleanedUpdates.principal_avatar === 'string' && cleanedUpdates.principal_avatar.startsWith('data:'))
+          ? cleanedUpdates.principal_avatar
+          : null));
+
+    if (rawPrincipalPic) {
+      const mediaId = `MEDIA-PRIN-${school.id || schoolId}`;
+      await saveMediaVaultFile({
+        id: mediaId,
+        school_id: school.id || schoolId,
+        entity_type: 'PRINCIPAL_PHOTO',
+        entity_id: school.id || schoolId,
+        filename: `${school.school_code || schoolId}-principal.png`,
+        data: rawPrincipalPic
+      });
+      cleanedUpdates.avatar = `/api/media/${mediaId}`;
+      cleanedUpdates.photo = `/api/media/${mediaId}`;
+      cleanedUpdates.principal_avatar = `/api/media/${mediaId}`;
+    } else if (cleanedUpdates.avatar && typeof cleanedUpdates.avatar === 'string' && cleanedUpdates.avatar.startsWith('/')) {
+      cleanedUpdates.photo = cleanedUpdates.avatar;
+      cleanedUpdates.principal_avatar = cleanedUpdates.avatar;
+    }
+
+    // Sync principal profile picture to teacher roster record for Abhishek Shukla / PRIN01
+    if (cleanedUpdates.principal_avatar) {
+      try {
+        const db = await getDatabase();
+        if (db) {
+          await db.collection('teachers').updateMany(
+            { school_id: school.id || schoolId, $or: [{ staff_code: 'PRIN01' }, { id: 'TCH-PRIN-DPS2026' }, { full_name: /Abhishek Shukla/i }] },
+            { $set: { avatar: cleanedUpdates.principal_avatar, photo: cleanedUpdates.principal_avatar } }
+          );
+        }
+        memoryStore.teachers.forEach(t => {
+          if ((t.school_id === school.id || t.school_id === schoolId) && (t.staff_code === 'PRIN01' || t.id === 'TCH-PRIN-DPS2026' || (t.full_name && t.full_name.includes('Abhishek')))) {
+            t.avatar = cleanedUpdates.principal_avatar;
+            t.photo = cleanedUpdates.principal_avatar;
+          }
+        });
+      } catch (e) {}
     }
 
     const updated: School = {
@@ -916,6 +962,15 @@ export const Database = {
       const isPrimaryAdminPassword = await verifyPassword(pwd, expectedPin);
 
       if (isPrimaryAdminPassword) {
+        let principalAvatar = (school as any).principal_avatar || (school as any).avatar || (school as any).photo || '';
+        if (!principalAvatar) {
+          const teachers = await this.getTeachers(school.id);
+          const prinTeacher = teachers.find(t => t.staff_code === 'PRIN01' || t.id === 'TCH-PRIN-DPS2026' || (t.full_name && t.full_name.includes('Abhishek')));
+          if (prinTeacher?.avatar || prinTeacher?.photo) {
+            principalAvatar = prinTeacher.avatar || prinTeacher.photo || '';
+          }
+        }
+
         return {
           user: {
             id: school.admin_id || 'admin',
@@ -925,9 +980,16 @@ export const Database = {
             full_name: school.admin_name || school.principal_name || 'School Administrator',
             email: `admin@${school.school_code.toLowerCase()}.edu`,
             status: 'ACTIVE',
+            avatar: principalAvatar,
+            photo: principalAvatar,
             permissions: ['ALL_PERMISSIONS', 'SCHOOL_ADMIN', 'MODIFY_ANY', 'DELETE_ANY', 'CREATE_ANY']
           },
-          school
+          school: {
+            ...school,
+            principal_avatar: principalAvatar,
+            avatar: principalAvatar,
+            photo: principalAvatar
+          }
         };
       }
     }
@@ -970,6 +1032,8 @@ export const Database = {
             email: matchedTeacher.email || `${(matchedTeacher.staff_code || 'staff').toLowerCase()}@${school.school_code.toLowerCase()}.edu`,
             phone: matchedTeacher.phone,
             status: matchedTeacher.status || 'ACTIVE',
+            avatar: matchedTeacher.avatar || matchedTeacher.photo || '',
+            photo: matchedTeacher.photo || matchedTeacher.avatar || '',
             permissions: isElevated
               ? ['SCHOOL_STAFF_ELEVATED', 'MODIFY_ANY', 'CREATE_ANY']
               : undefined
@@ -1005,7 +1069,9 @@ export const Database = {
               ? (matchedStudent.father_name || matchedStudent.guardian_name || `Parent of ${matchedStudent.full_name}`)
               : matchedStudent.full_name,
             email: `${matchedStudent.admission_no.toLowerCase()}@${school.school_code.toLowerCase()}.edu`,
-            status: matchedStudent.status || 'ACTIVE'
+            status: matchedStudent.status || 'ACTIVE',
+            avatar: matchedStudent.avatar || matchedStudent.photo || '',
+            photo: matchedStudent.photo || matchedStudent.avatar || ''
           },
           school
         };
@@ -1109,14 +1175,14 @@ export const Database = {
       ((student.avatar && student.avatar.startsWith('data:')) ? student.avatar : null);
     if (rawStudentImg) {
       const mediaId = `MEDIA-STU-${student.id}`;
-      saveMediaVaultFile({
+      await saveMediaVaultFile({
         id: mediaId,
         school_id: student.school_id,
         entity_type: 'STUDENT_PHOTO',
         entity_id: student.id,
         filename: `${student.admission_no || student.id}.jpg`,
         data: rawStudentImg
-      }).catch(console.error);
+      });
       student.avatar = `/api/media/${mediaId}`;
       student.photo = `/api/media/${mediaId}`;
     }
@@ -1144,13 +1210,13 @@ export const Database = {
       ((sanitizedUpdates.avatar && sanitizedUpdates.avatar.startsWith('data:')) ? sanitizedUpdates.avatar : null);
     if (rawUpdateImg) {
       const mediaId = `MEDIA-STU-${studentId}`;
-      saveMediaVaultFile({
+      await saveMediaVaultFile({
         id: mediaId,
         school_id: sanitizedUpdates.school_id || 'DPS2026',
         entity_type: 'STUDENT_PHOTO',
         entity_id: studentId,
         data: rawUpdateImg
-      }).catch(console.error);
+      });
       sanitizedUpdates.avatar = `/api/media/${mediaId}`;
       sanitizedUpdates.photo = `/api/media/${mediaId}`;
     }
@@ -1328,6 +1394,50 @@ export const Database = {
       return { ...t, gender: (num % 3 !== 0) ? 'Female' : 'Male' };
     };
 
+    const ensurePrincipalInList = (list: Teacher[]): Teacher[] => {
+      const sch = school || { id: 'DPS2026', school_code: 'DPS2026', principal_name: 'Abhishek Shukla', admin_pin: '123456', phone: '+91 9876543210', email: 'principal@dps2026.edu.in' };
+      const prinName = sch.principal_name || 'Abhishek Shukla';
+      const prinEmail = sch.email || `principal@${(sch.school_code || 'dps2026').toLowerCase()}.edu.in`;
+      const prinPhone = sch.phone || '+91 9876543210';
+      const prinPin = sch.admin_pin || '123456';
+      const prinId = `TCH-PRIN-${(sch.id || 'DPS2026').toUpperCase()}`;
+
+      const hasPrincipal = list.some(t => 
+        (t.role || '').toUpperCase() === 'PRINCIPAL' ||
+        resolveTeacherRole(t) === 'PRINCIPAL' ||
+        (t.staff_code || '').toUpperCase() === 'PRIN-01' ||
+        (t.staff_code || '').toUpperCase() === 'EMP-00' ||
+        (t.full_name || '').trim().toLowerCase() === prinName.trim().toLowerCase()
+      );
+
+      if (!hasPrincipal) {
+        const principalTeacher: Teacher = {
+          id: prinId,
+          school_id: sch.id || 'DPS2026',
+          academic_session: targetSession,
+          staff_code: 'PRIN-01',
+          full_name: prinName,
+          designation: 'Principal & Head of Institution',
+          department: 'Leadership & Administration',
+          subject_specialization: 'Institutional Governance & CBSE Pedagogy',
+          classes_taught: 'Senior School',
+          email: prinEmail,
+          phone: prinPhone,
+          qualification: 'Ph.D, M.Ed, M.Sc',
+          experience_years: 18,
+          gender: 'Male',
+          date_of_joining: '2018-04-01',
+          status: 'ACTIVE',
+          photo: (sch as any)?.principal_avatar || '',
+          avatar: (sch as any)?.principal_avatar || '',
+          passcode: prinPin,
+          role: 'PRINCIPAL'
+        };
+        return [principalTeacher, ...list];
+      }
+      return list;
+    };
+
     // 1. MongoDB Query (Fast Primary Store)
     try {
       const db = await getDatabase();
@@ -1347,8 +1457,9 @@ export const Database = {
             role: t.role || resolveTeacherRole(t),
             academic_session: t.academic_session || '2026-27'
           }));
-          setCached(cacheKey, mapped, 5000);
-          return mapped;
+          const finalMapped = ensurePrincipalInList(mapped);
+          setCached(cacheKey, finalMapped, 5000);
+          return finalMapped;
         }
       }
     } catch (e) {}
@@ -1364,8 +1475,9 @@ export const Database = {
           role: t.role || resolveTeacherRole(t),
           academic_session: t.academic_session || '2026-27'
         }));
-      if (res.length > 0) setCached(cacheKey, res, 5000);
-      return res;
+      const finalRes = ensurePrincipalInList(res);
+      if (finalRes.length > 0) setCached(cacheKey, finalRes, 5000);
+      return finalRes;
     }
     const allRes = memoryStore.teachers
       .filter(t => matchesSession(t, targetSession))
@@ -1376,8 +1488,9 @@ export const Database = {
         role: t.role || resolveTeacherRole(t),
         academic_session: t.academic_session || '2026-27'
       }));
-    if (allRes.length > 0) setCached(cacheKey, allRes, 5000);
-    return allRes;
+    const finalAllRes = ensurePrincipalInList(allRes);
+    if (finalAllRes.length > 0) setCached(cacheKey, finalAllRes, 5000);
+    return finalAllRes;
   },
 
   async createTeacher(teacherData: Partial<Teacher>): Promise<Teacher> {
@@ -1411,14 +1524,14 @@ export const Database = {
       ((teacher.avatar && teacher.avatar.startsWith('data:')) ? teacher.avatar : null);
     if (rawTeacherImg) {
       const mediaId = `MEDIA-TCH-${teacher.id}`;
-      saveMediaVaultFile({
+      await saveMediaVaultFile({
         id: mediaId,
         school_id: teacher.school_id,
         entity_type: 'TEACHER_PHOTO',
         entity_id: teacher.id,
         filename: `${teacher.staff_code || teacher.id}.jpg`,
         data: rawTeacherImg
-      }).catch(console.error);
+      });
       teacher.avatar = `/api/media/${mediaId}`;
       teacher.photo = `/api/media/${mediaId}`;
     }
@@ -1446,15 +1559,34 @@ export const Database = {
       ((sanitizedUpdates.avatar && sanitizedUpdates.avatar.startsWith('data:')) ? sanitizedUpdates.avatar : null);
     if (rawTeacherUpdateImg) {
       const mediaId = `MEDIA-TCH-${teacherId}`;
-      saveMediaVaultFile({
+      await saveMediaVaultFile({
         id: mediaId,
         school_id: sanitizedUpdates.school_id || 'DPS2026',
         entity_type: 'TEACHER_PHOTO',
         entity_id: teacherId,
         data: rawTeacherUpdateImg
-      }).catch(console.error);
+      });
       sanitizedUpdates.avatar = `/api/media/${mediaId}`;
       sanitizedUpdates.photo = `/api/media/${mediaId}`;
+
+      // If updating the Principal's teacher record, also sync school.principal_avatar
+      if (teacherId === 'PRIN01' || teacherId === 'TCH-PRIN-DPS2026' || (sanitizedUpdates.full_name && sanitizedUpdates.full_name.includes('Abhishek'))) {
+        try {
+          const db = await getDatabase();
+          if (db) {
+            await db.collection('schools').updateOne(
+              { school_code: sanitizedUpdates.school_id || 'DPS2026' },
+              { $set: { principal_avatar: `/api/media/${mediaId}`, avatar: `/api/media/${mediaId}`, photo: `/api/media/${mediaId}` } }
+            );
+          }
+          const sch = memoryStore.schools.find(s => s.school_code === (sanitizedUpdates.school_id || 'DPS2026') || s.id === sanitizedUpdates.school_id);
+          if (sch) {
+            sch.principal_avatar = `/api/media/${mediaId}`;
+            sch.avatar = `/api/media/${mediaId}`;
+            sch.photo = `/api/media/${mediaId}`;
+          }
+        } catch (e) {}
+      }
     }
 
     try {
@@ -1470,7 +1602,10 @@ export const Database = {
     invalidateServerCache('teachers');
     invalidateServerCache('overview');
 
-    const idx = memoryStore.teachers.findIndex(t => t.id === teacherId || t.staff_code === teacherId);
+    let idx = memoryStore.teachers.findIndex(t => t.id === teacherId || t.staff_code === teacherId);
+    if (idx < 0 && (teacherId === 'PRIN01' || teacherId === 'TCH-PRIN-DPS2026' || (sanitizedUpdates.full_name && sanitizedUpdates.full_name.includes('Abhishek')))) {
+      idx = memoryStore.teachers.findIndex(t => t.staff_code === 'PRIN01' || t.id === 'TCH-PRIN-DPS2026' || (t.full_name && t.full_name.includes('Abhishek')));
+    }
     if (idx >= 0) {
       memoryStore.teachers[idx] = {
         ...memoryStore.teachers[idx],

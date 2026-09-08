@@ -35,7 +35,9 @@ export async function GET(req: Request) {
           phone: teacher.phone,
           qualification: teacher.qualification,
           subject_specialization: teacher.subject_specialization,
-          status: teacher.status
+          status: teacher.status,
+          avatar: teacher.avatar || teacher.photo || '',
+          photo: teacher.photo || teacher.avatar || ''
         }
       });
     }
@@ -58,13 +60,24 @@ export async function GET(req: Request) {
           section: student.section,
           roll_no: student.roll_no,
           guardian_name: student.guardian_name,
-          guardian_phone: student.guardian_phone
+          guardian_phone: student.guardian_phone,
+          avatar: student.avatar || student.photo || '',
+          photo: student.photo || student.avatar || ''
         }
       });
     }
 
     // Principal / Admin / Superadmin
     const school = await Database.getSchoolById(schoolId);
+    let principalAvatar = (school as any)?.principal_avatar || (school as any)?.avatar || (school as any)?.photo || '';
+    if (!principalAvatar && schoolId) {
+      const teachers = await Database.getTeachers(schoolId);
+      const prinTeacher = teachers.find(t => t.staff_code === 'PRIN01' || t.id === 'TCH-PRIN-DPS2026' || (t.full_name && t.full_name.includes('Abhishek')));
+      if (prinTeacher?.avatar || prinTeacher?.photo) {
+        principalAvatar = prinTeacher.avatar || prinTeacher.photo || '';
+      }
+    }
+
     return NextResponse.json({
       success: true,
       role,
@@ -74,7 +87,9 @@ export async function GET(req: Request) {
         full_name: school?.principal_name || school?.admin_name || 'School Administrator',
         email: school?.email || `admin@${(school?.school_code || 'dps2026').toLowerCase()}.edu`,
         phone: school?.phone || '',
-        admin_pin_configured: Boolean(school?.admin_pin)
+        admin_pin_configured: Boolean(school?.admin_pin),
+        avatar: principalAvatar,
+        photo: principalAvatar
       }
     });
   } catch (error: any) {
@@ -96,7 +111,23 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const { userId, role, schoolId } = auth;
-    const { full_name, email, phone, new_password } = body;
+    const { full_name, email, phone, new_password, avatar, photo } = body;
+
+    // Validate avatar size if provided as base64 (Max 200 KB)
+    const rawPic = avatar || photo;
+    if (rawPic && typeof rawPic === 'string' && rawPic.startsWith('data:')) {
+      const base64Part = rawPic.split(',')[1] || '';
+      const estimatedBytes = Math.ceil((base64Part.length * 3) / 4);
+      if (estimatedBytes > 200 * 1024) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Profile picture (${(estimatedBytes / 1024).toFixed(1)} KB) exceeds maximum allowed limit of 200 KB. Please upload an image between 100 KB and 200 KB.`
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     // 1. TEACHER PERSONAL CREDENTIAL UPDATE
     if (role === 'TEACHER') {
@@ -113,6 +144,10 @@ export async function POST(req: Request) {
       if (new_password && new_password.trim()) {
         updates.passcode = new_password.trim();
       }
+      if (rawPic !== undefined) {
+        updates.avatar = rawPic;
+        updates.photo = rawPic;
+      }
 
       const updatedTeacher = await Database.updateTeacher(teacher.id, updates);
 
@@ -127,7 +162,9 @@ export async function POST(req: Request) {
           role: 'TEACHER',
           full_name: updatedTeacher?.full_name || teacher.full_name,
           email: updatedTeacher?.email || teacher.email,
-          phone: updatedTeacher?.phone || teacher.phone
+          phone: updatedTeacher?.phone || teacher.phone,
+          avatar: updatedTeacher?.avatar || updatedTeacher?.photo || teacher.avatar || teacher.photo || '',
+          photo: updatedTeacher?.photo || updatedTeacher?.avatar || teacher.photo || teacher.avatar || ''
         }
       });
     }
@@ -149,6 +186,10 @@ export async function POST(req: Request) {
       if (new_password && new_password.trim()) {
         updates.passcode = new_password.trim();
       }
+      if (rawPic !== undefined) {
+        updates.avatar = rawPic;
+        updates.photo = rawPic;
+      }
 
       const updatedStudent = await Database.updateStudent(student.id, updates);
 
@@ -163,7 +204,9 @@ export async function POST(req: Request) {
           role,
           full_name: student.full_name,
           email: updatedStudent?.email || student.email || `${student.admission_no.toLowerCase()}@${schoolId.toLowerCase()}.edu`,
-          phone: updatedStudent?.phone || student.phone || student.guardian_phone
+          phone: updatedStudent?.phone || student.phone || student.guardian_phone,
+          avatar: updatedStudent?.avatar || updatedStudent?.photo || student.avatar || student.photo || '',
+          photo: updatedStudent?.photo || updatedStudent?.avatar || student.photo || student.avatar || ''
         }
       });
     }
@@ -186,8 +229,14 @@ export async function POST(req: Request) {
       if (body.admin_pin && body.admin_pin.trim()) {
         updates.admin_pin = body.admin_pin.trim();
       }
+      if (rawPic !== undefined) {
+        updates.avatar = rawPic;
+        updates.photo = rawPic;
+        updates.principal_avatar = rawPic;
+      }
 
       const updatedSchool = await Database.updateSchool(targetSchool.id, updates);
+      const resAvatar = (updatedSchool as any)?.principal_avatar || (updatedSchool as any)?.avatar || (updatedSchool as any)?.photo || '';
 
       return NextResponse.json({
         success: true,
@@ -198,7 +247,9 @@ export async function POST(req: Request) {
           username: updatedSchool?.admin_id || 'admin',
           role,
           full_name: updatedSchool?.principal_name || updatedSchool?.admin_name || 'School Administrator',
-          email: updatedSchool?.email || `admin@${(updatedSchool?.school_code || 'dps2026').toLowerCase()}.edu`
+          email: updatedSchool?.email || `admin@${(updatedSchool?.school_code || 'dps2026').toLowerCase()}.edu`,
+          avatar: resAvatar,
+          photo: resAvatar
         }
       });
     }

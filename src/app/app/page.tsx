@@ -78,7 +78,8 @@ import {
   Zap,
   Calculator,
   Receipt,
-  Palette
+  Palette,
+  Camera
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS, ManagedRole, STAFF_ROLES, resolveTeacherRole } from '@/lib/types';
@@ -453,6 +454,7 @@ function ERPWorkspaceContent() {
   const [individualTargetSession, setIndividualTargetSession] = useState<string>('2027-28');
   const [settingsSuccess, setSettingsSuccess] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const isSuperAdmin = mounted && !!currentUser && (currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'AGENCY_SUPERADMIN' || currentUser?.role === 'GOD_ACCESS' || currentUser?.is_god_admin || currentUser?.username?.toLowerCase() === 'blistedx');
 
   // Agency Superadmin School Purge Modal State (Protected with Captcha)
@@ -562,7 +564,7 @@ function ERPWorkspaceContent() {
   const effectiveRole = (currentUser?.role || 'PRINCIPAL').toUpperCase();
 
   // Dynamically compute allowed tabs based on Principal configured role permissions
-  const isPrincipalMaster = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'GOD_ACCESS', 'PRINCIPAL', 'SCHOOL_ADMIN', 'ADMIN'].includes(effectiveRole);
+  const isPrincipalMaster = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'GOD_ACCESS', 'PRINCIPAL', 'SCHOOL_ADMIN', 'ADMIN', 'VICE_PRINCIPAL'].includes(effectiveRole);
 
   // Automatically open the role-specific workspace panel on login
   useEffect(() => {
@@ -648,18 +650,34 @@ function ERPWorkspaceContent() {
     if (!currentUser) {
       return (moduleId: string) => ({ can_view: false, can_edit: false, can_add: false, can_delete: false });
     }
-    // Principal and God mode have unconditional full create/edit/delete/view authority
+    // Principal, Vice Principal, Admin, and God mode have elevated authority across modules
     if (isPrincipalMaster) {
-      return (moduleId: string) => ({ can_view: true, can_edit: true, can_add: true, can_delete: true });
+      return (moduleId: string) => {
+        // Strict Rule: Leave approval and rejection are strictly reserved for the School Principal only!
+        if (moduleId === 'approvals' && !['SUPERADMIN', 'AGENCY_SUPERADMIN', 'GOD_ACCESS', 'PRINCIPAL'].includes(effectiveRole)) {
+          return { can_view: true, can_edit: false, can_add: true, can_delete: false };
+        }
+        return ({ can_view: true, can_edit: true, can_add: true, can_delete: true });
+      };
     }
     const roleConfig = rolePermissions[effectiveRole as ManagedRole];
     return (moduleId: string) => {
       const perms = roleConfig?.[moduleId];
+      const canEdit = !!perms?.can_edit;
+      const canDelete = !!perms?.can_delete;
+      if (moduleId === 'approvals' && !['SUPERADMIN', 'AGENCY_SUPERADMIN', 'GOD_ACCESS', 'PRINCIPAL'].includes(effectiveRole)) {
+        return {
+          can_view: !!perms?.can_view,
+          can_edit: false,
+          can_add: !!perms?.can_add,
+          can_delete: false
+        };
+      }
       return {
         can_view: !!perms?.can_view,
-        can_edit: !!perms?.can_edit,
+        can_edit: canEdit,
         can_add: !!perms?.can_add,
-        can_delete: !!perms?.can_delete
+        can_delete: canDelete
       };
     };
   }, [currentUser, effectiveRole, rolePermissions, isPrincipalMaster]);
@@ -674,7 +692,7 @@ function ERPWorkspaceContent() {
       if (data.success && Array.isArray(data.broadcasts)) {
         const readIds = getReadBroadcastIds();
         const role = (currentUser?.role || 'ALL').toUpperCase();
-        const isFullAdmin = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(role);
+        const isFullAdmin = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL', 'VICE_PRINCIPAL'].includes(role);
         const count = data.broadcasts.filter((b: any) => {
           if (readIds.has(b.id)) return false;
           if (isFullAdmin) return true;
@@ -819,9 +837,80 @@ function ERPWorkspaceContent() {
   const [showTeacherFilterMenu, setShowTeacherFilterMenu] = useState(false);
   const [activeTeacherMenuId, setActiveTeacherMenuId] = useState<string | null>(null);
 
+  const effectiveTeachers = React.useMemo(() => {
+    const list = teachers || [];
+    const prinName = selectedSchool?.principal_name || (currentUser?.role === 'PRINCIPAL' ? currentUser?.full_name : null) || 'Abhishek Shukla';
+    const resolvedPrinPhoto = (selectedSchool as any)?.principal_avatar || currentUser?.avatar || currentUser?.photo || '/api/media/MEDIA-TCH-TCH-PRIN-DPS2026';
+    
+    // Normalize and strictly lock Principal profile to 'PRINCIPAL' role
+    const normalizedList = list.map(t => {
+      const nameClean = (t.full_name || '').toLowerCase().trim();
+      const codeClean = (t.staff_code || (t as any).id || '').toUpperCase();
+      const desigClean = (t.designation || '').toLowerCase();
+
+      const isPrin = 
+        codeClean.includes('PRIN') ||
+        (nameClean.includes('abhishek') && nameClean.includes('shukla')) ||
+        nameClean === 'abhishek shukla' ||
+        nameClean === prinName.toLowerCase().trim() ||
+        (desigClean.includes('principal') && !desigClean.includes('vice'));
+
+      if (isPrin) {
+        const photo = t.photo || t.avatar || resolvedPrinPhoto;
+        return {
+          ...t,
+          role: 'PRINCIPAL' as ManagedRole,
+          designation: 'Principal & Head of Institution',
+          department: 'Leadership & Administration',
+          subject_specialization: t.subject_specialization || 'Institutional Governance & CBSE Pedagogy',
+          classes_taught: t.classes_taught || 'Senior School / Institutional Head',
+          full_name: t.full_name || 'Abhishek Shukla',
+          photo,
+          avatar: photo
+        };
+      }
+      return t;
+    });
+
+    const hasPrincipal = normalizedList.some(t => 
+      (t.role || '').toUpperCase() === 'PRINCIPAL' ||
+      resolveTeacherRole(t) === 'PRINCIPAL' ||
+      (t.staff_code || '').toUpperCase().includes('PRIN') ||
+      (t.full_name || '').toLowerCase().includes('abhishek')
+    );
+
+    if (!hasPrincipal) {
+      const prinTeacher: Teacher = {
+        id: 'TCH-PRIN-DPS2026',
+        school_id: selectedSchool?.id || 'DPS2026',
+        academic_session: '2026-27',
+        staff_code: 'PRIN01',
+        full_name: prinName,
+        designation: 'Principal & Head of Institution',
+        department: 'Leadership & Administration',
+        subject_specialization: 'Institutional Governance & CBSE Pedagogy',
+        classes_taught: 'Senior School / Institutional Head',
+        email: selectedSchool?.email || 'emmalover4317@gmail.com',
+        phone: selectedSchool?.phone || '+91 11 4987 6543',
+        qualification: 'Ph.D, M.Ed, M.Sc (CBSE Certified Administrator)',
+        experience_years: 18,
+        gender: 'Male',
+        date_of_joining: '2018-04-01',
+        status: 'ACTIVE',
+        photo: resolvedPrinPhoto,
+        avatar: resolvedPrinPhoto,
+        passcode: '123456',
+        role: 'PRINCIPAL'
+      };
+      return [prinTeacher, ...normalizedList];
+    }
+    return normalizedList;
+  }, [teachers, selectedSchool, currentUser]);
+
   const teacherRoleCounts = useMemo(() => {
     const counts: Record<string, number> = {
-      ALL: teachers.length,
+      ALL: effectiveTeachers.length,
+      PRINCIPAL: 0,
       TEACHER: 0,
       ADMIN: 0,
       ACCOUNTANT: 0,
@@ -830,7 +919,7 @@ function ERPWorkspaceContent() {
       SECURITY_GUARD: 0,
       VICE_PRINCIPAL: 0
     };
-    (teachers || []).forEach(t => {
+    (effectiveTeachers || []).forEach(t => {
       const r = resolveTeacherRole(t);
       if (counts[r] !== undefined) {
         counts[r]++;
@@ -839,10 +928,14 @@ function ERPWorkspaceContent() {
       }
     });
     return counts;
-  }, [teachers]);
+  }, [effectiveTeachers]);
 
   const getTeacherRoleBadgeStyle = (role: string) => {
     switch (role) {
+      case 'PRINCIPAL':
+        return 'bg-amber-100 text-amber-950 border-amber-300 font-black shadow-2xs';
+      case 'VICE_PRINCIPAL':
+        return 'bg-rose-50 text-rose-800 border-rose-200';
       case 'ADMIN':
         return 'bg-purple-50 text-purple-800 border-purple-200';
       case 'ACCOUNTANT':
@@ -853,10 +946,6 @@ function ERPWorkspaceContent() {
         return 'bg-cyan-50 text-cyan-800 border-cyan-200';
       case 'SECURITY_GUARD':
         return 'bg-slate-100 text-slate-800 border-slate-300';
-      case 'VICE_PRINCIPAL':
-        return 'bg-rose-50 text-rose-800 border-rose-200';
-      case 'PRINCIPAL':
-        return 'bg-indigo-50 text-indigo-800 border-indigo-200';
       case 'TEACHER':
       default:
         return 'bg-emerald-50 text-emerald-800 border-emerald-200';
@@ -939,6 +1028,23 @@ function ERPWorkspaceContent() {
     setMounted(true);
     if (typeof window !== 'undefined') {
       try {
+        const rawUser = localStorage.getItem('current_user');
+        let validUser: any = null;
+        if (rawUser && rawUser !== 'null' && rawUser !== 'undefined') {
+          try {
+            const parsed = JSON.parse(rawUser);
+            if (parsed && (parsed.id || parsed.username)) {
+              validUser = parsed;
+            }
+          } catch (_) {}
+        }
+
+        if (!validUser) {
+          // Unauthenticated: Immediately redirect to login without hanging in a loading state
+          window.location.href = '/login';
+          return;
+        }
+
         const storedPerms = localStorage.getItem('giterp_role_permissions');
         if (storedPerms) {
           try { setRolePermissions(JSON.parse(storedPerms)); } catch (_) {}
@@ -946,41 +1052,37 @@ function ERPWorkspaceContent() {
         const storedSess = localStorage.getItem('giterp_active_session');
         if (storedSess) setSelectedSession(storedSess);
 
-        const storedUser = localStorage.getItem('current_user');
-        if (storedUser) {
-          const parsed = JSON.parse(storedUser);
-          setCurrentUser(parsed);
+        setCurrentUser(validUser);
 
-          // Ensure valid session token exists for all authenticated API requests
-          const currentToken = localStorage.getItem('erp_session_token');
-          if (!currentToken) {
-            // Auto-request fresh session token for active user
-            fetch('/api/auth/session', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: parsed.id,
-                schoolId: parsed.school_id || (new URLSearchParams(window.location.search).get('school')) || 'DPS2026',
-                role: parsed.role || 'PRINCIPAL',
-                username: parsed.username
-              })
-            }).then(r => r.json()).then(d => {
-              if (d.success && d.session_token) {
-                localStorage.setItem('erp_session_token', d.session_token);
-              }
-            }).catch(() => {});
-          }
-
-          if (['TEACHER', 'STUDENT', 'PARENT'].includes(parsed.role?.toUpperCase())) {
-            setProfileForm({
-              full_name: parsed.full_name || '',
-              username: parsed.username || '',
-              admin_pin: '',
-              email: parsed.email || '',
-              phone: parsed.phone || ''
-            });
-          }
+        // Ensure valid session token exists for all authenticated API requests
+        const currentToken = localStorage.getItem('erp_session_token');
+        if (!currentToken) {
+          // Auto-request fresh session token for active user
+          fetch('/api/auth/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: validUser.id,
+              schoolId: validUser.school_id || (new URLSearchParams(window.location.search).get('school')) || 'DPS2026',
+              role: validUser.role || 'PRINCIPAL',
+              username: validUser.username
+            })
+          }).then(r => r.json()).then(d => {
+            if (d.success && d.session_token) {
+              localStorage.setItem('erp_session_token', d.session_token);
+            }
+          }).catch(() => {});
         }
+
+        const userAvatar = validUser.avatar || validUser.photo || '';
+        setProfileForm({
+          full_name: validUser.full_name || '',
+          username: validUser.username || '',
+          admin_pin: '',
+          email: validUser.email || '',
+          phone: validUser.phone || '',
+          avatar: userAvatar
+        });
       } catch (e) {}
     }
   }, []);
@@ -1056,7 +1158,8 @@ function ERPWorkspaceContent() {
     username: '',
     admin_pin: '',
     email: '',
-    phone: ''
+    phone: '',
+    avatar: ''
   });
 
   // Comprehensive CBSE Student Form (Basic fields required, CBSE fields optional)
@@ -1314,6 +1417,7 @@ function ERPWorkspaceContent() {
   const [settingsForm, setSettingsForm] = useState({
     school_name: '',
     principal_name: '',
+    principal_avatar: '',
     board: 'CBSE',
     city: '',
     state: '',
@@ -1330,14 +1434,14 @@ function ERPWorkspaceContent() {
     logo: ''
   });
 
-  // School Logo Upload Handler (Max 2MB)
+  // School Logo Upload Handler (Max 200 KB, Recommended 100 KB - 200 KB)
   const handleSchoolLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const maxBytes = 2 * 1024 * 1024; // 2 MB limit
+    const maxBytes = 200 * 1024; // 200 KB limit
     if (file.size > maxBytes) {
-      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-      alert(`Selected file is ${sizeMb} MB. School logo / icon must be 2 MB or smaller.`);
+      const sizeKb = (file.size / 1024).toFixed(1);
+      alert(`Selected file is ${sizeKb} KB. Image must be 200 KB or smaller (Recommended: 100 KB - 200 KB).`);
       return;
     }
     const reader = new FileReader();
@@ -1352,6 +1456,164 @@ function ERPWorkspaceContent() {
   const handleRemoveSchoolLogo = () => {
     setSettingsForm(prev => ({ ...prev, logo: '' }));
     showAdminToast('School logo removed.');
+  };
+
+  // Principal Profile Photo Upload Handler in School Settings
+  const handleSchoolPrincipalPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const maxBytes = 200 * 1024; // 200 KB limit
+    if (file.size > maxBytes) {
+      const sizeKb = (file.size / 1024).toFixed(1);
+      alert(`Selected photo is ${sizeKb} KB. Principal picture must be 200 KB or smaller (Recommended: 100 KB - 200 KB).`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setSettingsForm(prev => ({ ...prev, principal_avatar: base64 }));
+      setProfileForm(prev => ({ ...prev, avatar: base64 }));
+      if (currentUser?.role === 'PRINCIPAL' || currentUser?.role === 'ADMIN') {
+        const updated = { ...currentUser, avatar: base64, photo: base64 };
+        setCurrentUser(updated);
+        try { localStorage.setItem('current_user', JSON.stringify(updated)); } catch (_) {}
+      }
+      showAdminToast('Principal photo selected. Click "Save Institutional Profile" below to persist.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePrincipalPhoto = () => {
+    setSettingsForm(prev => ({ ...prev, principal_avatar: '' }));
+    setProfileForm(prev => ({ ...prev, avatar: '' }));
+    if (currentUser?.role === 'PRINCIPAL' || currentUser?.role === 'ADMIN') {
+      const updated = { ...currentUser, avatar: '', photo: '' };
+      setCurrentUser(updated);
+      try { localStorage.setItem('current_user', JSON.stringify(updated)); } catch (_) {}
+    }
+    showAdminToast('Principal photo removed.');
+  };
+
+  // User Profile Photo Upload Handler (Strict 200 KB limit, recommended 100-200 KB)
+  const handleUserProfilePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const maxBytes = 200 * 1024; // 200 KB limit
+    if (file.size > maxBytes) {
+      const sizeKb = (file.size / 1024).toFixed(1);
+      alert(`Selected photo is ${sizeKb} KB. Profile picture must be 200 KB or smaller (Recommended: 100 KB - 200 KB).`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setProfileForm(prev => ({ ...prev, avatar: base64 }));
+      if (currentUser?.role === 'PRINCIPAL' || currentUser?.role === 'ADMIN') {
+        setSettingsForm(prev => ({ ...prev, principal_avatar: base64 }));
+        const updated = { ...currentUser, avatar: base64, photo: base64 };
+        setCurrentUser(updated);
+        try { localStorage.setItem('current_user', JSON.stringify(updated)); } catch (_) {}
+      }
+      showAdminToast('Profile picture selected. Save profile to persist changes.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveUserProfilePhoto = () => {
+    setProfileForm(prev => ({ ...prev, avatar: '' }));
+    if (currentUser?.role === 'PRINCIPAL' || currentUser?.role === 'ADMIN') {
+      setSettingsForm(prev => ({ ...prev, principal_avatar: '' }));
+      const updated = { ...currentUser, avatar: '', photo: '' };
+      setCurrentUser(updated);
+      try { localStorage.setItem('current_user', JSON.stringify(updated)); } catch (_) {}
+    }
+    showAdminToast('Profile picture cleared.');
+  };
+
+  // Direct Teacher Quick Photo Upload from Faculty Directory
+  const handleQuickUploadTeacherPhoto = async (teacherId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const maxBytes = 200 * 1024; // 200 KB
+    if (file.size > maxBytes) {
+      const sizeKb = (file.size / 1024).toFixed(1);
+      alert(`Selected photo is ${sizeKb} KB. Photo must be 200 KB or smaller.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      try {
+        const res = await apiFetch('/api/teachers', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: teacherId,
+            school_id: selectedSchool?.id || 'DPS2026',
+            photo: base64,
+            avatar: base64
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          setTeachers(prev => prev.map(t => (t.id === teacherId || t.staff_code === teacherId) ? { ...t, photo: base64, avatar: base64 } : t));
+          const isPrin = teacherId === 'TCH-PRIN-DPS2026' || teacherId === 'PRIN01' || (data.teacher?.full_name || '').toLowerCase().includes('abhishek');
+          if (isPrin) {
+            setProfileForm(prev => ({ ...prev, avatar: base64 }));
+            setSettingsForm(prev => ({ ...prev, principal_avatar: base64 }));
+            if (currentUser?.role === 'PRINCIPAL' || currentUser?.role === 'ADMIN') {
+              const patched = { ...currentUser, avatar: base64, photo: base64 };
+              setCurrentUser(patched);
+              try { localStorage.setItem('current_user', JSON.stringify(patched)); } catch (_) {}
+            }
+          }
+          showAdminToast('Faculty photo updated and persisted successfully!');
+        } else {
+          alert(data.error || 'Failed to update faculty photo.');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Student Passport Photo Upload Handler (Strict 200 KB limit, recommended 100-200 KB)
+  const handleStudentPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const maxBytes = 200 * 1024; // 200 KB limit
+    if (file.size > maxBytes) {
+      const sizeKb = (file.size / 1024).toFixed(1);
+      alert(`Selected photo is ${sizeKb} KB. Student passport photo must be 200 KB or smaller (Recommended: 100 KB - 200 KB).`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setStudentForm(prev => ({ ...prev, photo: base64, avatar: base64 }));
+      showAdminToast('Student photo attached to admission form.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Faculty / Teacher Profile Photo Upload Handler (Strict 200 KB limit, recommended 100-200 KB)
+  const handleTeacherPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const maxBytes = 200 * 1024; // 200 KB limit
+    if (file.size > maxBytes) {
+      const sizeKb = (file.size / 1024).toFixed(1);
+      alert(`Selected photo is ${sizeKb} KB. Faculty profile photo must be 200 KB or smaller (Recommended: 100 KB - 200 KB).`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setTeacherForm(prev => ({ ...prev, photo: base64, avatar: base64 }));
+      showAdminToast('Faculty photo attached to registration form.');
+    };
+    reader.readAsDataURL(file);
   };
 
   useEffect(() => {
@@ -1371,8 +1633,8 @@ function ERPWorkspaceContent() {
       } catch (_) {}
 
       const storedUser = localStorage.getItem('current_user');
-      if (!storedUser) {
-        window.location.replace('/login');
+      if (!storedUser || storedUser === 'null' || storedUser === 'undefined') {
+        window.location.href = '/login';
         return;
       }
       try {
@@ -1385,7 +1647,6 @@ function ERPWorkspaceContent() {
             localStorage.setItem('current_school', JSON.stringify(parsedSchool));
           }
           setSelectedSchool(parsedSchool);
-
           // Restore last saved data snapshot immediately so user sees real saved data with 0ms delay
           try {
             const storedSess = localStorage.getItem('giterp_active_session') || '2026-27';
@@ -1396,7 +1657,25 @@ function ERPWorkspaceContent() {
               const snap = JSON.parse(snapRaw);
               if (snap.overview) setOverview(snap.overview);
               if (Array.isArray(snap.students) && snap.students.length > 0) setStudents(snap.students);
-              if (Array.isArray(snap.teachers) && snap.teachers.length > 0) setTeachers(snap.teachers);
+              if (Array.isArray(snap.teachers) && snap.teachers.length > 0) {
+                const prinPhoto = (parsedSchool as any)?.principal_avatar || '/api/media/MEDIA-TCH-TCH-PRIN-DPS2026';
+                const sanitized = snap.teachers.map((t: any) => {
+                  const nameClean = (t.full_name || '').toLowerCase().trim();
+                  const codeClean = (t.staff_code || t.id || '').toUpperCase();
+                  if (codeClean.includes('PRIN') || nameClean.includes('abhishek') || nameClean === 'abhishek shukla') {
+                    return {
+                      ...t,
+                      role: 'PRINCIPAL',
+                      designation: 'Principal & Head of Institution',
+                      department: 'Leadership & Administration',
+                      photo: t.photo || t.avatar || prinPhoto,
+                      avatar: t.avatar || t.photo || prinPhoto
+                    };
+                  }
+                  return t;
+                });
+                setTeachers(sanitized);
+              }
               if (Array.isArray(snap.classes) && snap.classes.length > 0) setClasses(snap.classes);
               if (Array.isArray(snap.invoices) && snap.invoices.length > 0) setInvoices(snap.invoices);
               if (Array.isArray(snap.attendance) && snap.attendance.length > 0) setAttendance(snap.attendance);
@@ -1404,7 +1683,18 @@ function ERPWorkspaceContent() {
             }
           } catch (_) {}
         }
-        try { setCurrentUser(JSON.parse(storedUser)); } catch (e) {}
+        try {
+          const u = JSON.parse(storedUser);
+          if (u.username === 'admin' || (u.full_name || '').toLowerCase().includes('abhishek')) {
+            u.role = 'PRINCIPAL';
+            u.full_name = u.full_name || 'Abhishek Shukla';
+            if (!u.avatar) {
+              u.avatar = '/api/media/MEDIA-TCH-TCH-PRIN-DPS2026';
+              u.photo = '/api/media/MEDIA-TCH-TCH-PRIN-DPS2026';
+            }
+          }
+          setCurrentUser(u);
+        } catch (e) {}
       } catch (e) {}
     }
     fetchAuthenticatedSchool();
@@ -1415,8 +1705,8 @@ function ERPWorkspaceContent() {
     try {
       if (typeof window !== 'undefined') {
         const storedUser = localStorage.getItem('current_user');
-        if (!storedUser) {
-          window.location.replace('/login');
+        if (!storedUser || storedUser === 'null' || storedUser === 'undefined') {
+          window.location.href = '/login';
           return;
         }
       }
@@ -1427,7 +1717,12 @@ function ERPWorkspaceContent() {
         const storedUser = localStorage.getItem('current_user');
         if (storedUser) {
           try {
-            setCurrentUser(JSON.parse(storedUser));
+            const parsedUser = JSON.parse(storedUser);
+            if (parsedUser.username === 'admin' || (parsedUser.full_name || '').toLowerCase().includes('abhishek')) {
+              parsedUser.role = 'PRINCIPAL';
+              parsedUser.full_name = parsedUser.full_name || 'Abhishek Shukla';
+            }
+            setCurrentUser(parsedUser);
           } catch (e) {}
         }
         const stored = localStorage.getItem('current_school');
@@ -1509,8 +1804,8 @@ function ERPWorkspaceContent() {
           id: 'DPS2026',
           school_code: 'DPS2026',
           school_name: 'Delhi Public School',
-          principal_name: 'Dr. Rajesh Sharma',
-          admin_name: 'Dr. Rajesh Sharma',
+          principal_name: 'Abhishek Shukla',
+          admin_name: 'Abhishek Shukla',
           admin_id: 'admin',
           admin_pin: '123456',
           board: 'CBSE',
@@ -1533,27 +1828,33 @@ function ERPWorkspaceContent() {
         if (storedUser) {
           try {
             activeUserObj = JSON.parse(storedUser);
+            if (activeUserObj.username === 'admin' || (activeUserObj.full_name || '').toLowerCase().includes('abhishek')) {
+              activeUserObj.role = 'PRINCIPAL';
+              activeUserObj.full_name = activeUserObj.full_name || 'Abhishek Shukla';
+            }
             setCurrentUser(activeUserObj);
           } catch (e) {}
         }
         
         // Strict Access Control: No 1-click or auto-login fallback.
         // User MUST have authenticated with school code, ID, and passcode at /login.
-        if (!activeUserObj) {
+        if (!activeUserObj || !activeUserObj.id) {
           if (typeof window !== 'undefined') {
-            window.location.replace('/login');
+            window.location.href = '/login';
           } else {
             router.replace('/login');
           }
           return;
         }
         
-        const activePrincipalName = targetSchool.principal_name || targetSchool.admin_name || activeUserObj?.full_name || 'Dr. Rajesh Sharma';
+        const activePrincipalName = targetSchool.principal_name || targetSchool.admin_name || activeUserObj?.full_name || 'Abhishek Shukla';
         const cleanAdminPin = (targetSchool.admin_pin === 'admin@4317' ? '123456' : targetSchool.admin_pin) || '123456';
+        const resolvedPrinPhoto = (targetSchool as any)?.principal_avatar || activeUserObj?.avatar || activeUserObj?.photo || '/api/media/MEDIA-TCH-TCH-PRIN-DPS2026';
         
         setSettingsForm({
           school_name: targetSchool.school_name || '',
           principal_name: activePrincipalName,
+          principal_avatar: resolvedPrinPhoto,
           board: targetSchool.board || 'CBSE',
           city: targetSchool.city || 'New Delhi',
           state: targetSchool.state || 'Delhi',
@@ -1584,16 +1885,26 @@ function ERPWorkspaceContent() {
             username: activeUserObj?.username || '',
             admin_pin: '', // Never expose school admin PIN to teachers or students
             email: activeUserObj?.email || '',
-            phone: activeUserObj?.phone || ''
+            phone: activeUserObj?.phone || '',
+            avatar: activeUserObj?.avatar || activeUserObj?.photo || ''
           });
         } else {
+          const activeAvatar = activeUserObj?.avatar || activeUserObj?.photo || (targetSchool as any)?.principal_avatar || (targetSchool as any)?.avatar || '';
           setProfileForm({
             full_name: activeUserObj?.full_name || activePrincipalName,
             username: activeUserObj?.username || targetSchool.admin_id || 'admin',
             admin_pin: cleanAdminPin,
             email: activeUserObj?.email || `admin@${(targetSchool.school_code || 'dps2026').toLowerCase()}.edu`,
-            phone: activeUserObj?.phone || ''
+            phone: activeUserObj?.phone || '',
+            avatar: activeAvatar
           });
+          if (activeAvatar && activeUserObj && !activeUserObj.avatar) {
+            const patched = { ...activeUserObj, avatar: activeAvatar, photo: activeAvatar };
+            setCurrentUser(patched);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('current_user', JSON.stringify(patched));
+            }
+          }
         }
         if (typeof window !== 'undefined') {
           localStorage.setItem('current_school', JSON.stringify(targetSchool));
@@ -1644,6 +1955,8 @@ function ERPWorkspaceContent() {
             full_name: profileForm.full_name,
             email: profileForm.email,
             phone: profileForm.phone,
+            avatar: profileForm.avatar,
+            photo: profileForm.avatar,
             new_password: profileForm.admin_pin // Entered in password box
           })
         });
@@ -1651,7 +1964,9 @@ function ERPWorkspaceContent() {
         if (data.success && data.user) {
           const updatedUser = {
             ...(currentUser || {}),
-            ...data.user
+            ...data.user,
+            avatar: data.user.avatar || profileForm.avatar || (currentUser as any)?.avatar,
+            photo: data.user.photo || profileForm.avatar || (currentUser as any)?.photo
           };
           setCurrentUser(updatedUser);
           if (typeof window !== 'undefined') {
@@ -1676,7 +1991,11 @@ function ERPWorkspaceContent() {
           principal_name: profileForm.full_name,
           admin_name: profileForm.full_name,
           admin_id: profileForm.username,
-          admin_pin: sanitizedPin
+          admin_pin: sanitizedPin,
+          avatar: profileForm.avatar,
+          photo: profileForm.avatar,
+          principal_avatar: profileForm.avatar,
+          logo: selectedSchool.logo
         })
       });
       const data = await res.json();
@@ -1684,15 +2003,23 @@ function ERPWorkspaceContent() {
         if (data.school.admin_pin === 'admin@4317') {
           data.school.admin_pin = '123456';
         }
+        const savedAvatar = data.school.principal_avatar || data.school.avatar || profileForm.avatar || (currentUser as any)?.avatar || '';
         const updatedUser = {
           ...(currentUser || {}),
           full_name: profileForm.full_name,
           username: profileForm.username,
           email: profileForm.email,
-          phone: profileForm.phone
+          phone: profileForm.phone,
+          avatar: savedAvatar,
+          photo: savedAvatar
         };
         setCurrentUser(updatedUser);
         setSelectedSchool(data.school);
+        setProfileForm(prev => ({
+          ...prev,
+          full_name: profileForm.full_name,
+          avatar: savedAvatar
+        }));
         setSettingsForm(prev => ({
           ...prev,
           principal_name: profileForm.full_name,
@@ -1702,6 +2029,18 @@ function ERPWorkspaceContent() {
           localStorage.setItem('current_user', JSON.stringify(updatedUser));
           localStorage.setItem('current_school', JSON.stringify(data.school));
         }
+
+        // Also sync to auth profile route for cross-session parity
+        apiFetch('/api/auth/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            full_name: profileForm.full_name,
+            avatar: profileForm.avatar,
+            photo: profileForm.avatar
+          })
+        }).catch(() => {});
+
         setShowProfileModal(false);
         showAdminToast('School administrator credentials saved successfully.');
       }
@@ -2639,28 +2978,40 @@ function ERPWorkspaceContent() {
       const res = await apiFetch('/api/school/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ school_id: selectedSchool.id, ...settingsForm })
+        body: JSON.stringify({
+          school_id: selectedSchool.id,
+          ...settingsForm,
+          principal_avatar: settingsForm.principal_avatar,
+          avatar: settingsForm.principal_avatar,
+          photo: settingsForm.principal_avatar
+        })
       });
       const data = await res.json();
       if (data.success && data.school) {
         // Immediately update React selectedSchool state and availableSchools array so logo displays instantly
         setSelectedSchool(data.school);
         setAvailableSchools(prev => prev.map(s => s.id === data.school.id ? data.school : s));
+        const savedPrincipalAvatar = data.school.principal_avatar || data.school.avatar || settingsForm.principal_avatar || currentUser?.avatar || '';
+        
         setSettingsForm(prev => ({
           ...prev,
+          principal_avatar: savedPrincipalAvatar,
           logo: data.school.logo || data.school.logo_url || prev.logo
         }));
 
-        const isMasterAdmin = !currentUser || ['PRINCIPAL', 'ADMIN', 'SUPERADMIN', 'AGENCY_SUPERADMIN'].includes(currentUser?.role?.toUpperCase());
+        const isMasterAdmin = !currentUser || ['PRINCIPAL', 'VICE_PRINCIPAL', 'ADMIN', 'SUPERADMIN', 'AGENCY_SUPERADMIN'].includes(currentUser?.role?.toUpperCase());
         if (isMasterAdmin) {
           const updatedUser = {
             ...(currentUser || {}),
-            full_name: settingsForm.principal_name || 'Dr. Rajesh Sharma'
+            full_name: settingsForm.principal_name || 'Abhishek Shukla',
+            avatar: savedPrincipalAvatar || currentUser?.avatar || '',
+            photo: savedPrincipalAvatar || currentUser?.photo || ''
           };
           setCurrentUser(updatedUser);
           setProfileForm(prev => ({
             ...prev,
-            full_name: settingsForm.principal_name,
+            full_name: settingsForm.principal_name || 'Abhishek Shukla',
+            avatar: savedPrincipalAvatar,
             admin_pin: settingsForm.admin_pin
           }));
           if (typeof window !== 'undefined') {
@@ -2670,8 +3021,38 @@ function ERPWorkspaceContent() {
         if (typeof window !== 'undefined') {
           localStorage.setItem('current_school', JSON.stringify(data.school));
         }
-        setSettingsSuccess('Institutional settings and security PIN updated successfully!');
-        showAdminToast('Institutional settings and logo saved successfully!');
+
+        // Immediately update teachers list in state and snapshot
+        setTeachers(prev => {
+          const updated = prev.map(t => {
+            const nameClean = (t.full_name || '').toLowerCase();
+            const codeClean = (t.staff_code || t.id || '').toUpperCase();
+            if (codeClean.includes('PRIN') || nameClean.includes('abhishek') || nameClean === 'abhishek shukla') {
+              return {
+                ...t,
+                full_name: settingsForm.principal_name || 'Abhishek Shukla',
+                role: 'PRINCIPAL' as ManagedRole,
+                designation: 'Principal & Head of Institution',
+                department: 'Leadership & Administration',
+                photo: savedPrincipalAvatar || t.photo,
+                avatar: savedPrincipalAvatar || t.avatar
+              };
+            }
+            return t;
+          });
+          try {
+            const storedSess = localStorage.getItem('giterp_active_session') || '2026-27';
+            const cleanCode = (data.school.school_code || data.school.id || 'DPS2026').replace(/[^A-Z0-9]/gi, '');
+            const snapKey = `giterp_snapshot_${cleanCode}_${storedSess}`;
+            const existingSnap = JSON.parse(localStorage.getItem(snapKey) || '{}');
+            existingSnap.teachers = updated;
+            localStorage.setItem(snapKey, JSON.stringify(existingSnap));
+          } catch (_) {}
+          return updated;
+        });
+
+        setSettingsSuccess('Institutional settings, Principal photo, and security PIN updated successfully!');
+        showAdminToast('Institutional settings and Principal profile saved successfully!');
         setTimeout(() => setSettingsSuccess(''), 3000);
       }
     } catch (e) {
@@ -2867,16 +3248,17 @@ function ERPWorkspaceContent() {
   };
 
   const handleLogout = () => {
+    setIsLoggingOut(true);
     triggerTaskCelebration({
       type: 'SIGNOUT',
       title: 'Signing Out Securely...',
       subtitle: 'Session closed & credentials locked'
     });
 
-    setTimeout(() => {
+    try {
       if (typeof window !== 'undefined') {
         // Clear server-side HttpOnly session cookie
-        fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+        fetch('/api/auth/logout', { method: 'POST', keepalive: true }).catch(() => {});
         localStorage.removeItem('current_user');
         localStorage.removeItem('current_school');
         localStorage.removeItem('giterp_role_permissions');
@@ -2890,13 +3272,15 @@ function ERPWorkspaceContent() {
         } catch (_) {}
         sessionStorage.clear();
       }
-      setCurrentUser(null);
+    } catch (_) {}
+
+    setTimeout(() => {
       if (typeof window !== 'undefined') {
-        window.location.replace('/login');
+        window.location.href = '/login';
       } else {
         router.replace('/login');
       }
-    }, 950);
+    }, 450);
   };
 
   const formatClassDisplay = (cls?: string) => {
@@ -3053,7 +3437,7 @@ function ERPWorkspaceContent() {
   );
 
   // 2. FILTERED TEACHERS
-  const filteredTeachers = (teachers || []).filter(t => {
+  const filteredTeachers = (effectiveTeachers || []).filter(t => {
     if (!t) return false;
     if (teacherStatusFilter !== 'ALL' && t.status !== teacherStatusFilter) return false;
     if (teacherRoleFilter !== 'ALL' && resolveTeacherRole(t) !== teacherRoleFilter) return false;
@@ -3074,10 +3458,22 @@ function ERPWorkspaceContent() {
     const email = (t.email || '').toLowerCase();
     return name.includes(q) || code.includes(q) || roleStr.includes(q) || subj.includes(q) || cls.includes(q) || desig.includes(q) || phone.includes(q) || email.includes(q);
   }).sort((a, b) => {
+    const roleA = resolveTeacherRole(a);
+    const roleB = resolveTeacherRole(b);
+
+    // 1. PRINCIPAL IS ALWAYS #1 PINNED TO THE VERY TOP (Rank 1 / Head of Institution)
+    if (roleA === 'PRINCIPAL' && roleB !== 'PRINCIPAL') return -1;
+    if (roleB === 'PRINCIPAL' && roleA !== 'PRINCIPAL') return 1;
+
+    // 2. VICE PRINCIPAL IMMEDIATELY FOLLOWS PRINCIPAL (Rank 2)
+    if (roleA === 'VICE_PRINCIPAL' && roleB !== 'VICE_PRINCIPAL') return -1;
+    if (roleB === 'VICE_PRINCIPAL' && roleA !== 'VICE_PRINCIPAL') return 1;
+
+    // 3. User-Selected Sort Criteria for remaining faculty
     if (teacherSortBy === 'A-Z' || teacherSortBy === 'name-asc') return (a.full_name || '').localeCompare(b.full_name || '');
     if (teacherSortBy === 'Z-A' || teacherSortBy === 'name-desc') return (b.full_name || '').localeCompare(a.full_name || '');
-    if (teacherSortBy === 'role-asc') return resolveTeacherRole(a).localeCompare(resolveTeacherRole(b));
-    if (teacherSortBy === 'role-desc') return resolveTeacherRole(b).localeCompare(resolveTeacherRole(a));
+    if (teacherSortBy === 'role-asc') return roleA.localeCompare(roleB);
+    if (teacherSortBy === 'role-desc') return roleB.localeCompare(roleA);
     if (teacherSortBy === 'ID-Asc' || teacherSortBy === 'id-asc') return (a.staff_code || '').localeCompare(b.staff_code || '', undefined, { numeric: true });
     if (teacherSortBy === 'id-desc') return (b.staff_code || '').localeCompare(a.staff_code || '', undefined, { numeric: true });
     if (teacherSortBy === 'desig-asc') return (a.designation || '').localeCompare(b.designation || '');
@@ -3527,12 +3923,34 @@ function ERPWorkspaceContent() {
   const totalPaid = invoices.filter(i => i.status === 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
   const totalPending = invoices.filter(i => i.status !== 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
-  if (!mounted || !currentUser) {
+  // 1. SSR & Hydration Phase: Server & Client render MUST match identically
+  if (!mounted) {
     return (
       <div className="h-[100dvh] w-full flex items-center justify-center bg-[#122A24] text-white font-mono text-xs">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
           <span>Authenticating ERP Session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Post-Mount Client Phase: Clean Logout or Unauthenticated Session Redirection
+  if (isLoggingOut || !currentUser) {
+    return (
+      <div className="h-[100dvh] w-full flex items-center justify-center bg-[#122A24] text-white font-mono text-xs">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+          <span className="text-emerald-300 font-semibold text-sm">
+            {isLoggingOut ? 'Signed Out Securely' : 'Session Inactive'}
+          </span>
+          <span className="text-white/60 text-xs">Redirecting to login portal...</span>
+          <a
+            href="/login"
+            className="mt-2 text-xs text-emerald-400 underline hover:text-emerald-200"
+          >
+            Click here if not redirected automatically
+          </a>
         </div>
       </div>
     );
@@ -3685,6 +4103,25 @@ function ERPWorkspaceContent() {
             </button>
           </div>
 
+          {/* Direct Desktop Theme Toggle Button (Strictly Default Emerald <-> Black & White) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                const nextTheme = currentTheme === 'monochrome' ? 'emerald' : 'monochrome';
+                handleSwitchTheme(nextTheme);
+              }}
+              className="p-2 rounded-xl border border-[#DCE8E0] bg-white hover:bg-[#EBF5EF] text-[#122A24] text-xs font-semibold cursor-pointer transition-all shadow-2xs flex items-center justify-center gap-1.5 group"
+              title={`Active Theme: ${currentTheme === 'monochrome' ? 'Black & White (Monochrome)' : 'Default (Emerald Heritage)'}. Click to switch.`}
+              aria-label="Toggle Theme"
+            >
+              <Palette className="h-4 w-4 text-[#122A24] group-hover:rotate-12 transition-transform" />
+              <span className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                currentTheme === 'monochrome' ? 'bg-zinc-950 ring-1 ring-zinc-500' : 'bg-emerald-500 ring-1 ring-emerald-300'
+              }`} />
+            </button>
+          </div>
+
           {/* User Section (Profile Avatar Pill & Dropdown Menu with Theme Options) */}
           <div className="relative">
             <button
@@ -3697,10 +4134,14 @@ function ERPWorkspaceContent() {
               }`}
               title="User Account & Theme Settings"
             >
-              <div className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-[11px] ${
+              <div className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-[11px] overflow-hidden ${
                 showUserMenu || activeTab === 'profile' ? 'bg-white text-[#122A24]' : 'bg-[#122A24] text-white'
               }`}>
-                {(currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()}
+                {currentUser?.avatar || currentUser?.photo || profileForm.avatar ? (
+                  <img src={currentUser?.avatar || currentUser?.photo || profileForm.avatar} alt="Avatar" className="w-full h-full object-cover rounded-full" />
+                ) : (
+                  (currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()
+                )}
               </div>
               <span className="hidden md:inline max-w-[120px] truncate text-xs font-medium">
                 {currentUser?.full_name?.split(' ')[0] || 'Admin'}
@@ -3720,8 +4161,12 @@ function ERPWorkspaceContent() {
                 <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] p-3 z-50 animate-in fade-in zoom-in-95 space-y-3">
                   {/* User Identity Header */}
                   <div className="flex items-center gap-3 pb-2.5 border-b border-[#E8F0EA]">
-                    <div className="w-10 h-10 rounded-full bg-[#122A24] text-white font-bold flex items-center justify-center text-sm shrink-0 shadow-xs">
-                      {(currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()}
+                    <div className="w-10 h-10 rounded-full bg-[#122A24] text-white font-bold flex items-center justify-center text-sm shrink-0 shadow-xs overflow-hidden">
+                      {currentUser?.avatar || currentUser?.photo || profileForm.avatar ? (
+                        <img src={currentUser?.avatar || currentUser?.photo || profileForm.avatar} alt="Avatar" className="w-full h-full object-cover rounded-full" />
+                      ) : (
+                        (currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-bold text-[#122A24] truncate">
@@ -4852,8 +5297,8 @@ function ERPWorkspaceContent() {
                       )}
                     </div>
 
-                    {/* Promotion Studio - only for Admin/Principal */}
-                    {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole) && (
+                    {/* Promotion Studio - only for Admin/Principal/Vice Principal */}
+                    {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL', 'VICE_PRINCIPAL'].includes(effectiveRole) && (
                       <button
                         onClick={() => {
                           setPromotionSourceClass('Class 9');
@@ -5569,8 +6014,8 @@ function ERPWorkspaceContent() {
                                             </button>
                                           )}
 
-                                          {/* Promote / Graduate (Admin/Principal only) */}
-                                          {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole) && (
+                                          {/* Promote / Graduate (Admin/Principal/Vice Principal) */}
+                                          {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL', 'VICE_PRINCIPAL'].includes(effectiveRole) && (
                                             <button
                                               onClick={() => {
                                                 setActiveStudentMenuId(null);
@@ -6093,7 +6538,7 @@ function ERPWorkspaceContent() {
                       <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
                         teacherRoleFilter === 'ALL' ? 'bg-white/20 text-white' : 'bg-[#EBF5EF] text-[#1C443A]'
                       }`}>
-                        {teachers.length}
+                        {effectiveTeachers.length}
                       </span>
                     </button>
 
@@ -6563,21 +7008,37 @@ function ERPWorkspaceContent() {
                                   >
                                     {t.staff_code}
                                   </button>
-                                  {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL', 'SCHOOL_ADMIN'].includes(effectiveRole) && (
+                                  {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL', 'VICE_PRINCIPAL', 'SCHOOL_ADMIN'].includes(effectiveRole) && (
                                     <span className="text-[10px] text-emerald-700 font-mono font-semibold block">PIN: {cleanPlainPasscode(t.passcode)}</span>
                                   )}
                                 </td>
 
-                                {/* Name with Circular Avatar */}
+                                {/* Name with Circular Avatar & 1-Click Photo Upload */}
                                 <td className="py-3.5 px-4">
                                   <div className="flex items-center gap-2.5">
-                                    {t.photo || t.avatar ? (
-                                      <img src={t.photo || t.avatar} alt={t.full_name} className="w-8 h-8 rounded-full object-cover border shrink-0 shadow-2xs" />
-                                    ) : (
-                                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border shrink-0 shadow-2xs font-mono ${avatarStyle}`}>
-                                        {initials}
-                                      </div>
-                                    )}
+                                    <div className="relative group shrink-0">
+                                      {t.photo || t.avatar ? (
+                                        <img src={t.photo || t.avatar} alt={t.full_name} className="w-8 h-8 rounded-full object-cover border shrink-0 shadow-2xs" />
+                                      ) : (
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border shrink-0 shadow-2xs font-mono ${avatarStyle}`}>
+                                          {initials}
+                                        </div>
+                                      )}
+                                      {currentRoleModulePerms('teachers').can_edit && (
+                                        <label
+                                          className="absolute inset-0 bg-black/60 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity"
+                                          title="Click to upload/change faculty photo"
+                                        >
+                                          <Camera className="w-3.5 h-3.5 text-white" />
+                                          <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            className="hidden"
+                                            onChange={(e) => handleQuickUploadTeacherPhoto(t.id, e)}
+                                          />
+                                        </label>
+                                      )}
+                                    </div>
                                     <div>
                                       <div className={`font-semibold text-[#122A24] transition-colors ${currentRoleModulePerms('teachers').can_edit ? 'hover:text-emerald-700 cursor-pointer' : 'cursor-default'}`} onClick={() => currentRoleModulePerms('teachers').can_edit && openTeacherModal(t)}>
                                         {t.full_name}
@@ -6590,6 +7051,7 @@ function ERPWorkspaceContent() {
                                 {/* Operational ERP Role */}
                                 <td className="py-3.5 px-4">
                                   <span className={`px-2.5 py-1 rounded-full text-[10.5px] font-mono font-bold uppercase inline-flex items-center gap-1 border ${getTeacherRoleBadgeStyle(resolveTeacherRole(t))}`}>
+                                    {resolveTeacherRole(t) === 'PRINCIPAL' && <Crown className="w-3.5 h-3.5 text-amber-800 shrink-0" />}
                                     {resolveTeacherRole(t).replace('_', ' ')}
                                   </span>
                                 </td>
@@ -6679,6 +7141,23 @@ function ERPWorkspaceContent() {
                                           </button>
                                         )}
                                         {currentRoleModulePerms('teachers').can_edit && (
+                                          <label
+                                            className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
+                                          >
+                                            <Camera className="h-3.5 w-3.5 text-emerald-700" />
+                                            <span>Upload Photo</span>
+                                            <input
+                                              type="file"
+                                              accept="image/jpeg,image/png,image/webp"
+                                              className="hidden"
+                                              onChange={(e) => {
+                                                setActiveTeacherMenuId(null);
+                                                handleQuickUploadTeacherPhoto(t.id, e);
+                                              }}
+                                            />
+                                          </label>
+                                        )}
+                                        {currentRoleModulePerms('teachers').can_edit && (
                                           <button
                                             onClick={() => {
                                               setActiveTeacherMenuId(null);
@@ -6690,7 +7169,7 @@ function ERPWorkspaceContent() {
                                             <span>{t.status === 'INACTIVE' ? 'Set Active' : 'Set Inactive'}</span>
                                           </button>
                                         )}
-                                        {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL'].includes(effectiveRole) && (
+                                        {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL', 'VICE_PRINCIPAL'].includes(effectiveRole) && (
                                           <button
                                             onClick={() => {
                                               setActiveTeacherMenuId(null);
@@ -6828,7 +7307,8 @@ function ERPWorkspaceContent() {
                                 </div>
                               </div>
                               <div className="flex flex-col items-end gap-1 shrink-0">
-                                <span className={`text-[9.5px] px-2 py-0.5 rounded-full font-bold font-mono uppercase border ${getTeacherRoleBadgeStyle(resolveTeacherRole(t))}`}>
+                                <span className={`text-[9.5px] px-2 py-0.5 rounded-full font-bold font-mono uppercase inline-flex items-center gap-1 border ${getTeacherRoleBadgeStyle(resolveTeacherRole(t))}`}>
+                                  {resolveTeacherRole(t) === 'PRINCIPAL' && <Crown className="w-3 h-3 text-amber-800 shrink-0" />}
                                   {resolveTeacherRole(t).replace('_', ' ')}
                                 </span>
                                 <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold font-mono bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
@@ -8261,7 +8741,7 @@ function ERPWorkspaceContent() {
                         <div className="flex items-center justify-center sm:justify-start gap-2.5 flex-wrap pt-1">
                           <label className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors">
                             <UploadCloud className="w-4 h-4" />
-                            <span>{settingsForm.logo ? 'Change School Logo (Max 2MB)' : 'Upload School Logo (Max 2MB)'}</span>
+                            <span>{settingsForm.logo ? 'Change School Logo (Max 200KB)' : 'Upload School Logo (Max 200KB)'}</span>
                             <input
                               type="file"
                               accept="image/png, image/jpeg, image/jpg, image/svg+xml, image/webp"
@@ -8316,15 +8796,57 @@ function ERPWorkspaceContent() {
                       </div>
                     </div>
 
+                    {/* Principal Profile Photo Section */}
+                    <div className="p-3.5 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs flex flex-col sm:flex-row items-center gap-4">
+                      <div className="w-16 h-16 rounded-2xl border-2 border-[#122A24]/30 bg-emerald-50/60 overflow-hidden flex items-center justify-center shrink-0 shadow-2xs">
+                        {settingsForm.principal_avatar || (selectedSchool as any)?.principal_avatar || currentUser?.avatar || currentUser?.photo ? (
+                          <img
+                            src={settingsForm.principal_avatar || (selectedSchool as any)?.principal_avatar || currentUser?.avatar || currentUser?.photo}
+                            alt="Principal"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="font-display font-bold text-xl text-[#122A24]">
+                            {(settingsForm.principal_name || 'A')[0]?.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0 text-center sm:text-left space-y-1">
+                        <div className="flex items-center justify-center sm:justify-start gap-2">
+                          <span className="font-bold text-xs text-[#122A24]">Principal &amp; Head of Institution Photograph</span>
+                          <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-emerald-100 text-emerald-800">Max 200 KB</span>
+                        </div>
+                        <p className="text-[10.5px] text-[#2D5A4E]">
+                          Official photograph of Abhishek Shukla (Principal) displayed on institutional letterheads, faculty ledger, and report cards.
+                        </p>
+                        <div className="flex items-center justify-center sm:justify-start gap-2 pt-0.5 flex-wrap">
+                          <label className="px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5 shadow-2xs transition-colors">
+                            <Camera className="w-3.5 h-3.5" />
+                            <span>{settingsForm.principal_avatar || (selectedSchool as any)?.principal_avatar ? 'Change Principal Photo' : 'Upload Principal Photo'}</span>
+                            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleSchoolPrincipalPhotoUpload} className="hidden" />
+                          </label>
+                          {(settingsForm.principal_avatar || (selectedSchool as any)?.principal_avatar) && (
+                            <button
+                              type="button"
+                              onClick={handleRemovePrincipalPhoto}
+                              className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold border border-rose-200 cursor-pointer transition-colors"
+                            >
+                              Remove Photo
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div>
-                        <label className="block font-semibold text-[#122A24] mb-1">Principal / Head of Institution</label>
+                        <label className="block font-semibold text-[#122A24] mb-1">Principal / Head of Institution *</label>
                         <input
                           type="text"
                           value={settingsForm.principal_name}
                           onChange={(e) => setSettingsForm({ ...settingsForm, principal_name: e.target.value })}
-                          placeholder="e.g. Dr. Rajesh Sharma"
-                          className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs bg-white"
+                          placeholder="e.g. Abhishek Shukla"
+                          className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl text-xs font-semibold text-[#122A24] bg-white"
                         />
                       </div>
                       <div>
@@ -8852,8 +9374,20 @@ function ERPWorkspaceContent() {
                   PROFILE
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left relative z-10">
-                  <div className="w-20 h-20 rounded-2xl bg-white/15 border-2 border-white/30 text-white font-display font-bold text-3xl flex items-center justify-center shadow-lg shrink-0">
-                    {(currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()}
+                  <div className="w-20 h-20 rounded-2xl bg-white/15 border-2 border-white/30 text-white font-display font-bold text-3xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden relative group">
+                    {profileForm.avatar || currentUser?.avatar || currentUser?.photo ? (
+                      <img src={profileForm.avatar || currentUser?.avatar || currentUser?.photo} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      (currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()
+                    )}
+                    <label
+                      className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity text-white text-[10px] font-sans font-semibold gap-1"
+                      title="Click to change profile picture"
+                    >
+                      <Camera className="w-5 h-5 text-white" />
+                      <span>Upload</span>
+                      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleUserProfilePhotoUpload} className="hidden" />
+                    </label>
                   </div>
                   <div>
                     <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
@@ -8927,6 +9461,42 @@ function ERPWorkspaceContent() {
                     </div>
 
                     <div className="space-y-3.5 text-xs">
+                      {/* Profile Picture Upload Section */}
+                      <div className="flex items-center gap-3.5 p-3.5 bg-emerald-50/50 rounded-2xl border border-emerald-200/80">
+                        <div className="w-14 h-14 rounded-2xl border-2 border-[#122A24]/20 bg-white overflow-hidden flex items-center justify-center shrink-0 shadow-2xs">
+                          {profileForm.avatar || currentUser?.avatar || currentUser?.photo ? (
+                            <img src={profileForm.avatar || currentUser?.avatar || currentUser?.photo} alt="Profile" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="font-display font-bold text-lg text-[#122A24]">
+                              {(profileForm.full_name || currentUser?.full_name || 'U')[0]?.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-[#122A24]">Profile Picture</span>
+                            <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-emerald-100 text-emerald-800">Max 200 KB</span>
+                          </div>
+                          <p className="text-[10.5px] text-[#2D5A4E] mt-0.5">JPG, PNG, WebP (Recommended 100 - 200 KB)</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <label className="px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-semibold cursor-pointer inline-flex items-center gap-1.5 shadow-2xs transition-colors">
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>{profileForm.avatar || currentUser?.avatar || currentUser?.photo ? 'Change Photo' : 'Upload Photo'}</span>
+                              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleUserProfilePhotoUpload} className="hidden" />
+                            </label>
+                            {(profileForm.avatar || currentUser?.avatar || currentUser?.photo) && (
+                              <button
+                                type="button"
+                                onClick={handleRemoveUserProfilePhoto}
+                                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold border border-rose-200 cursor-pointer transition-colors"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
                       <div>
                         <label className="block font-semibold text-[#122A24] mb-1">
                           Full Legal Name {['STUDENT', 'TEACHER', 'PARENT'].includes(currentUser?.role || '') ? '' : '*'}
@@ -9473,6 +10043,40 @@ function ERPWorkspaceContent() {
                   <span className="font-mono text-[10px] uppercase font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
                     Required for quick save
                   </span>
+                </div>
+
+                {/* Student Passport Photo Upload */}
+                <div className="flex items-center gap-3.5 p-3 bg-white rounded-xl border border-emerald-200 shadow-2xs">
+                  <div className="w-14 h-14 rounded-xl border-2 border-emerald-300 bg-emerald-50/70 overflow-hidden flex items-center justify-center shrink-0">
+                    {studentForm.photo || studentForm.avatar ? (
+                      <img src={studentForm.photo || studentForm.avatar} alt="Student Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-6 h-6 text-emerald-700/60" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-[var(--ink-navy)]">Student Passport Photo</span>
+                      <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-emerald-100 text-emerald-800">Max 200 KB</span>
+                    </div>
+                    <p className="text-[10.5px] text-slate-500 mt-0.5">JPG, PNG, WebP (Recommended 100 - 200 KB)</p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <label className="px-2.5 py-1.5 bg-[var(--ink-navy)] hover:bg-[var(--ink-navy)]/90 text-white rounded-lg text-[11px] font-semibold cursor-pointer inline-flex items-center gap-1.5 shadow-2xs transition-colors">
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>{studentForm.photo || studentForm.avatar ? 'Change Photo' : 'Upload Photo'}</span>
+                        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleStudentPhotoUpload} className="hidden" />
+                      </label>
+                      {(studentForm.photo || studentForm.avatar) && (
+                        <button
+                          type="button"
+                          onClick={() => setStudentForm(prev => ({ ...prev, photo: '', avatar: '' }))}
+                          className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-[11px] font-semibold border border-rose-200 cursor-pointer transition-colors"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
@@ -10621,6 +11225,40 @@ function ERPWorkspaceContent() {
                   <span className="font-mono text-[10px] uppercase font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
                     Required for quick save
                   </span>
+                </div>
+
+                {/* Faculty Profile Photo Upload */}
+                <div className="flex items-center gap-3.5 p-3 bg-white rounded-xl border border-emerald-200 shadow-2xs">
+                  <div className="w-14 h-14 rounded-xl border-2 border-emerald-300 bg-emerald-50/70 overflow-hidden flex items-center justify-center shrink-0">
+                    {teacherForm.photo || teacherForm.avatar ? (
+                      <img src={teacherForm.photo || teacherForm.avatar} alt="Faculty Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-6 h-6 text-emerald-700/60" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-[var(--ink-navy)]">Faculty Profile Photo</span>
+                      <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-emerald-100 text-emerald-800">Max 200 KB</span>
+                    </div>
+                    <p className="text-[10.5px] text-slate-500 mt-0.5">JPG, PNG, WebP (Recommended 100 - 200 KB)</p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <label className="px-2.5 py-1.5 bg-[var(--ink-navy)] hover:bg-[var(--ink-navy)]/90 text-white rounded-lg text-[11px] font-semibold cursor-pointer inline-flex items-center gap-1.5 shadow-2xs transition-colors">
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>{teacherForm.photo || teacherForm.avatar ? 'Change Photo' : 'Upload Photo'}</span>
+                        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleTeacherPhotoUpload} className="hidden" />
+                      </label>
+                      {(teacherForm.photo || teacherForm.avatar) && (
+                        <button
+                          type="button"
+                          onClick={() => setTeacherForm(prev => ({ ...prev, photo: '', avatar: '' }))}
+                          className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-[11px] font-semibold border border-rose-200 cursor-pointer transition-colors"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
@@ -12016,6 +12654,42 @@ function ERPWorkspaceContent() {
             </div>
 
             <form onSubmit={handleSaveProfile} className="space-y-3.5 text-xs">
+              {/* Profile Photo Upload in Modal */}
+              <div className="flex items-center gap-3.5 p-3 bg-emerald-50/50 rounded-2xl border border-emerald-200/80">
+                <div className="w-14 h-14 rounded-2xl border-2 border-[#122A24]/20 bg-white overflow-hidden flex items-center justify-center shrink-0 shadow-2xs">
+                  {profileForm.avatar || currentUser?.avatar || currentUser?.photo ? (
+                    <img src={profileForm.avatar || currentUser?.avatar || currentUser?.photo} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="font-display font-bold text-lg text-[#122A24]">
+                      {(profileForm.full_name || currentUser?.full_name || 'U')[0]?.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs text-[#122A24]">Profile Picture</span>
+                    <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-emerald-100 text-emerald-800">Max 200 KB</span>
+                  </div>
+                  <p className="text-[10.5px] text-[#2D5A4E] mt-0.5">JPG, PNG, WebP (100 - 200 KB)</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <label className="px-2.5 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-[11px] font-semibold cursor-pointer inline-flex items-center gap-1.5 shadow-2xs transition-colors">
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>{profileForm.avatar || currentUser?.avatar || currentUser?.photo ? 'Change Photo' : 'Upload Photo'}</span>
+                      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleUserProfilePhotoUpload} className="hidden" />
+                    </label>
+                    {(profileForm.avatar || currentUser?.avatar || currentUser?.photo) && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveUserProfilePhoto}
+                        className="px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-[11px] font-semibold border border-rose-200 cursor-pointer transition-colors"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block font-semibold text-[#122A24] mb-1">
                   {currentUser?.role === 'STUDENT'

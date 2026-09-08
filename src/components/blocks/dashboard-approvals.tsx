@@ -70,6 +70,13 @@ export function DashboardApprovals({
 }: DashboardApprovalsProps) {
   const isTeacher = userRole === 'TEACHER' || currentUser?.role === 'TEACHER';
 
+  // Strict Rule: Leave approval and rejection are exclusively reserved for the School Principal (and SuperAdmin)
+  const canApproveLeaves = isSuperAdmin || 
+    (currentUser?.role || '').toUpperCase() === 'PRINCIPAL' || 
+    (userRole || '').toUpperCase() === 'PRINCIPAL' ||
+    ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'GOD_ACCESS'].includes((currentUser?.role || '').toUpperCase()) ||
+    ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'GOD_ACCESS'].includes((userRole || '').toUpperCase());
+
   // Current logged in teacher identity
   const currentTeacher = useMemo(() => {
     if (!currentUser) return teachers[0];
@@ -371,7 +378,7 @@ export function DashboardApprovals({
       end_date: todayStr,
       days: 1,
       reason: simulatedAbsentReason,
-      status: 'APPROVED',
+      status: canApproveLeaves ? 'APPROVED' : 'PENDING',
       applied_at: todayStr
     };
 
@@ -426,6 +433,10 @@ export function DashboardApprovals({
   };
 
   const handleUpdateStatus = (id: string, newStatus: 'APPROVED' | 'REJECTED') => {
+    if (!canApproveLeaves) {
+      alert('Action Unauthorized: Leave approval and rejection are strictly reserved for the School Principal.');
+      return;
+    }
     setLeaveApplications(prev =>
       prev.map(app => (app.id === id ? { ...app, status: newStatus } : app))
     );
@@ -970,23 +981,13 @@ export function DashboardApprovals({
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right">
-                      {isTeacher ? (
-                        app.status === 'PENDING' ? (
-                          <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[10.5px] font-mono">
-                            Pending Approval
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-mono text-slate-500 font-semibold">
-                            {app.status === 'APPROVED' ? 'Approved by Admin' : 'Declined by Admin'}
-                          </span>
-                        )
-                      ) : (
+                      {canApproveLeaves ? (
                         app.status === 'PENDING' ? (
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
                               onClick={() => handleUpdateStatus(app.id, 'APPROVED')}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10.5px] border-none cursor-pointer transition-colors"
+                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10.5px] border-none cursor-pointer transition-colors shadow-xs"
                             >
                               Approve
                             </button>
@@ -999,7 +1000,18 @@ export function DashboardApprovals({
                             </button>
                           </div>
                         ) : (
-                          <span className="text-[10px] font-mono text-slate-400">Processed</span>
+                          <span className="text-[10px] font-mono text-slate-400 font-semibold">Processed</span>
+                        )
+                      ) : (
+                        app.status === 'PENDING' ? (
+                          <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[10.5px] font-mono inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-amber-600" />
+                            Pending Principal Approval
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono text-slate-500 font-semibold">
+                            {app.status === 'APPROVED' ? 'Approved by Principal' : 'Declined by Principal'}
+                          </span>
                         )
                       )}
                     </td>

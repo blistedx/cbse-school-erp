@@ -1,6 +1,6 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
+import fs from 'fs';
 import { NextResponse } from 'next/server';
-import { getMediaVaultFile, deleteMediaVaultFile } from '@/lib/media';
+import { getMediaVaultFile, deleteMediaVaultFile, getMediaBinaryFilePath } from '@/lib/media';
 import { requireAuth, resolveTenantSchoolId } from '@/lib/auth-guard';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -11,25 +11,50 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const item = await getMediaVaultFile(id);
-    if (!item) {
-      return NextResponse.json({ error: 'Media not found' }, { status: 404 });
-    }
 
     const { searchParams } = new URL(req.url);
     const wantsJson = searchParams.get('redirect') === 'false' || req.headers.get('accept')?.includes('application/json');
 
-    // 1. If Vercel Blob URL exists, redirect directly to high-speed CDN
-    const targetUrl = item.blob_url || item.url;
-    if (targetUrl) {
+    // 1. Check local disk vault first (ultra-fast zero-latency offline response)
+    const localBinPath = getMediaBinaryFilePath(id);
+    if (localBinPath && fs.existsSync(localBinPath)) {
+      if (wantsJson) {
+        return NextResponse.json({
+          success: true,
+          id: id,
+          url: item?.url || `/api/media/${id}`,
+          blob_url: item?.blob_url || `/api/media/${id}`,
+          mime_type: item?.mime_type || 'image/jpeg',
+          size_bytes: item?.size_bytes || fs.statSync(localBinPath).size
+        });
+      }
+
+      const fileBuffer = fs.readFileSync(localBinPath);
+      const uint8Array = new Uint8Array(fileBuffer);
+      return new Response(uint8Array, {
+        status: 200,
+        headers: {
+          'Content-Type': item?.mime_type || 'image/jpeg',
+          'Content-Length': String(uint8Array.byteLength),
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'X-Powered-By': 'Local-Media-Vault',
+          'X-Content-Type-Options': 'nosniff'
+        }
+      });
+    }
+
+    // 2. If Vercel Blob live CDN URL exists, redirect directly
+    const targetUrl = item?.blob_url || item?.url;
+    if (targetUrl && targetUrl.startsWith('http')) {
       if (wantsJson) {
         return NextResponse.json(
           {
             success: true,
-            id: item.id,
+            id: item?.id || id,
             url: targetUrl,
             blob_url: targetUrl,
-            mime_type: item.mime_type,
-            size_bytes: item.size_bytes
+            mime_type: item?.mime_type,
+            size_bytes: item?.size_bytes
           },
           {
             headers: {

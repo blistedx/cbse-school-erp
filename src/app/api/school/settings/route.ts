@@ -1,12 +1,12 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
-import { requireRole, resolveTenantSchoolId } from '@/lib/auth-guard';
+import { requireRole, resolveTenantSchoolId, ADMIN_ROLES } from '@/lib/auth-guard';
 import { validateBody, updateSchoolSettingsSchema } from '@/lib/validation-schemas';
 
 export async function POST(req: Request) {
   try {
-    const auth = requireRole(req, ['PRINCIPAL', 'AGENCY_SUPERADMIN']);
+    const auth = requireRole(req, ADMIN_ROLES);
     if (auth instanceof NextResponse) return auth;
 
     const rawBody = await req.json();
@@ -41,7 +41,10 @@ export async function POST(req: Request) {
       full_name,
       admin_pin,
       logo,
-      logo_url
+      logo_url,
+      avatar,
+      photo,
+      principal_avatar
     } = body;
 
     const updated = await Database.updateSchoolSettings(school_id, {
@@ -63,7 +66,10 @@ export async function POST(req: Request) {
       admin_id: admin_id || username,
       admin_pin,
       logo,
-      logo_url
+      logo_url,
+      avatar,
+      photo,
+      principal_avatar
     });
 
     return NextResponse.json({ success: true, school: updated });

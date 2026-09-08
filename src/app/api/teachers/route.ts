@@ -44,6 +44,24 @@ export async function POST(req: Request) {
     const tenant = resolveTenantSchoolId(auth, body.school_id);
     if (tenant instanceof NextResponse) return tenant;
 
+    // Validate photo size (Max 200 KB limit, recommended 100 KB - 200 KB)
+    const photoData = body.photo || body.avatar;
+    if (photoData && photoData.startsWith('data:')) {
+      const base64Part = photoData.split(',')[1] || '';
+      const estimatedBytes = Math.ceil((base64Part.length * 3) / 4);
+      const MAX_PHOTO_BYTES = 200 * 1024; // 200 KB
+      if (estimatedBytes > MAX_PHOTO_BYTES) {
+        const sizeKb = (estimatedBytes / 1024).toFixed(1);
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Teacher profile picture (${sizeKb} KB) exceeds maximum allowed limit of 200 KB. Please upload a photo between 100 KB and 200 KB.`
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     if (body.action === 'UPDATE' || (body.id && body.is_update)) {
       const { id, ...updates } = body;
       const updated = await Database.updateTeacher(id!, updates);

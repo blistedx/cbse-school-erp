@@ -3,8 +3,9 @@ import { uploadToVercelBlob } from '@/lib/media';
 import { requireAuth, resolveTenantSchoolId } from '@/lib/auth-guard';
 import { validateBody, uploadMediaSchema } from '@/lib/validation-schemas';
 
-// Maximum allowed upload size: 5 Megabytes
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+// Maximum allowed upload size: 200 Kilobytes (Ideal recommended size: 100 KB - 200 KB)
+const MAX_UPLOAD_BYTES = 200 * 1024;
+const MIN_RECOMMENDED_BYTES = 50 * 1024; // 50 KB minimum for clear clarity
 
 // Allowed MIME types
 const ALLOWED_MIME_TYPES = new Set([
@@ -93,12 +94,13 @@ export async function POST(req: Request) {
       buffer = Buffer.from(body.data, 'base64');
     }
 
-    // 3. File Size Verification (Max 5MB)
+    // 3. File Size Verification (Strict 200 KB limit, recommended 100 KB - 200 KB)
     if (buffer.length > MAX_UPLOAD_BYTES) {
+      const sizeKb = (buffer.length / 1024).toFixed(1);
       return NextResponse.json(
         {
           success: false,
-          error: `File size (${(buffer.length / (1024 * 1024)).toFixed(2)} MB) exceeds maximum allowed limit of 5 MB.`
+          error: `File size (${sizeKb} KB) exceeds maximum allowed limit of 200 KB. Please upload an image between 100 KB and 200 KB for optimal speed and passport photo clarity.`
         },
         { status: 413 }
       );

@@ -21,6 +21,9 @@ export interface School {
   admin_pin?: string;
   logo?: string; // Base64 data URL or URL for School Icon / Logo up to 2MB
   logo_url?: string;
+  avatar?: string;
+  photo?: string;
+  principal_avatar?: string;
   role_permissions?: RolePermissionMatrix;
   status: 'ACTIVE' | 'PENDING' | 'INACTIVE';
   created_at?: string;
@@ -50,6 +53,7 @@ export interface User {
   email?: string;
   phone?: string;
   avatar?: string; // Base64 data URL or image URL up to 2MB
+  photo?: string;
   theme?: string;  // Active Antigravity theme ID
   status?: string;
   is_god_admin?: boolean;
@@ -440,7 +444,7 @@ export interface ModulePermission {
   can_delete: boolean; // Can delete records
 }
 
-export type ManagedRole = 'ADMIN' | 'VICE_PRINCIPAL' | 'TEACHER' | 'ACCOUNTANT' | 'DRIVER' | 'LIBRARIAN' | 'SECURITY_GUARD' | 'STUDENT' | 'PARENT';
+export type ManagedRole = 'PRINCIPAL' | 'ADMIN' | 'VICE_PRINCIPAL' | 'TEACHER' | 'ACCOUNTANT' | 'DRIVER' | 'LIBRARIAN' | 'SECURITY_GUARD' | 'STUDENT' | 'PARENT';
 
 export type RolePermissionMatrix = Record<
   ManagedRole,
@@ -448,25 +452,47 @@ export type RolePermissionMatrix = Record<
 >;
 
 export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
-  ADMIN: {
-    classes: { can_view: true, can_edit: true, can_add: true, can_delete: false },
-    subjects: { can_view: true, can_edit: true, can_add: true, can_delete: false },
-    attendance: { can_view: true, can_edit: true, can_add: true, can_delete: false },
-    exams: { can_view: true, can_edit: true, can_add: true, can_delete: false },
-    homework: { can_view: true, can_edit: true, can_add: true, can_delete: false },
+  PRINCIPAL: {
+    classes: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    subjects: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    attendance: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    exams: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    homework: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     approvals: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     notices: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     students: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     siblings: { can_view: true, can_edit: true, can_add: true, can_delete: true },
-    teachers: { can_view: true, can_edit: true, can_add: true, can_delete: false },
+    teachers: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     fees: { can_view: true, can_edit: true, can_add: true, can_delete: true },
-    reports: { can_view: true, can_edit: true, can_add: true, can_delete: false },
+    reports: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     certificates: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     transport: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     library: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     visitors: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     broadcast: { can_view: true, can_edit: true, can_add: true, can_delete: true },
-    data_hub: { can_view: true, can_edit: true, can_add: true, can_delete: false },
+    data_hub: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    audit_logs: { can_view: true, can_edit: false, can_add: false, can_delete: false },
+    profile: { can_view: true, can_edit: true, can_add: false, can_delete: false }
+  },
+  ADMIN: {
+    classes: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    subjects: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    attendance: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    exams: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    homework: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    approvals: { can_view: true, can_edit: false, can_add: true, can_delete: false },
+    notices: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    students: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    siblings: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    teachers: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    fees: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    reports: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    certificates: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    transport: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    library: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    visitors: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    broadcast: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    data_hub: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     audit_logs: { can_view: true, can_edit: false, can_add: false, can_delete: false },
     profile: { can_view: true, can_edit: true, can_add: false, can_delete: false }
   },
@@ -476,19 +502,19 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissionMatrix = {
     attendance: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     exams: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     homework: { can_view: true, can_edit: true, can_add: true, can_delete: true },
-    approvals: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    approvals: { can_view: true, can_edit: false, can_add: true, can_delete: false },
     notices: { can_view: true, can_edit: true, can_add: true, can_delete: true },
-    students: { can_view: true, can_edit: true, can_add: true, can_delete: false },
-    siblings: { can_view: true, can_edit: true, can_add: false, can_delete: false },
-    teachers: { can_view: true, can_edit: true, can_add: false, can_delete: false },
-    fees: { can_view: true, can_edit: false, can_add: false, can_delete: false },
-    reports: { can_view: true, can_edit: true, can_add: false, can_delete: false },
-    certificates: { can_view: true, can_edit: true, can_add: false, can_delete: false },
-    transport: { can_view: true, can_edit: true, can_add: false, can_delete: false },
-    library: { can_view: true, can_edit: true, can_add: true, can_delete: false },
-    visitors: { can_view: true, can_edit: true, can_add: false, can_delete: false },
+    students: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    siblings: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    teachers: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    fees: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    reports: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    certificates: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    transport: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    library: { can_view: true, can_edit: true, can_add: true, can_delete: true },
+    visitors: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     broadcast: { can_view: true, can_edit: true, can_add: true, can_delete: true },
-    data_hub: { can_view: true, can_edit: true, can_add: false, can_delete: false },
+    data_hub: { can_view: true, can_edit: true, can_add: true, can_delete: true },
     audit_logs: { can_view: true, can_edit: false, can_add: false, can_delete: false },
     profile: { can_view: true, can_edit: true, can_add: false, can_delete: false }
   },
@@ -661,6 +687,17 @@ export interface StaffRoleDefinition {
 
 export const STAFF_ROLES: StaffRoleDefinition[] = [
   {
+    id: 'PRINCIPAL',
+    label: 'Principal / Head of Institution',
+    shortLabel: 'Principal',
+    badge: 'Principal',
+    description: 'Institutional leadership, academic governance, staff management & policy administration',
+    category: 'Leadership',
+    badgeClass: 'bg-indigo-50 text-indigo-900 border-indigo-200',
+    activeRingClass: 'ring-indigo-600 border-indigo-600 bg-indigo-50/40',
+    iconName: 'Crown'
+  },
+  {
     id: 'TEACHER',
     label: 'Teacher / Academic Faculty',
     shortLabel: 'Teacher',
@@ -741,18 +778,38 @@ export const STAFF_ROLES: StaffRoleDefinition[] = [
 
 export function resolveTeacherRole(t?: Partial<Teacher> | null): ManagedRole {
   if (!t) return 'TEACHER';
-  if (t.role) {
-    const r = (t.role || '').toUpperCase();
-    if (r === 'ADMIN' || r === 'VICE_PRINCIPAL' || r === 'TEACHER' || r === 'ACCOUNTANT' || r === 'DRIVER' || r === 'LIBRARIAN' || r === 'SECURITY_GUARD' || r === 'PRINCIPAL') {
-      return (r === 'PRINCIPAL' ? 'VICE_PRINCIPAL' : r) as ManagedRole;
-    }
-  }
+  const name = (t.full_name || '').toLowerCase();
   const desig = (t.designation || '').toLowerCase();
   const dept = (t.department || '').toLowerCase();
-  const code = (t.staff_code || t.employee_code || '').toUpperCase();
+  const code = (t.staff_code || t.employee_code || (t as any).id || '').toUpperCase();
 
-  if (desig.includes('vice principal') || dept.includes('vice principal')) return 'VICE_PRINCIPAL';
-  if (desig.includes('principal') || dept.includes('leadership')) return 'VICE_PRINCIPAL';
+  // 1. Abhishek Shukla / Principal Code is strictly and unconditionally PRINCIPAL
+  if (
+    (name.includes('abhishek') && name.includes('shukla')) ||
+    name === 'abhishek shukla' ||
+    code.includes('PRIN') ||
+    (desig.includes('principal') && !desig.includes('vice')) ||
+    (dept.includes('leadership') && !desig.includes('vice'))
+  ) {
+    return 'PRINCIPAL';
+  }
+
+  // 2. Vice Principal
+  if (
+    desig.includes('vice principal') ||
+    dept.includes('vice principal') ||
+    (t.role || '').toUpperCase() === 'VICE_PRINCIPAL'
+  ) {
+    return 'VICE_PRINCIPAL';
+  }
+
+  if (t.role) {
+    const r = (t.role || '').toUpperCase();
+    if (r === 'PRINCIPAL' || r === 'ADMIN' || r === 'VICE_PRINCIPAL' || r === 'TEACHER' || r === 'ACCOUNTANT' || r === 'DRIVER' || r === 'LIBRARIAN' || r === 'SECURITY_GUARD') {
+      return r as ManagedRole;
+    }
+  }
+
   if (desig.includes('driver') || dept.includes('transport') || code.startsWith('DRV') || code.startsWith('BUS')) return 'DRIVER';
   if (desig.includes('librar') || dept.includes('library') || code.startsWith('LIB')) return 'LIBRARIAN';
   if (desig.includes('guard') || desig.includes('security') || dept.includes('security') || code.startsWith('SEC')) return 'SECURITY_GUARD';

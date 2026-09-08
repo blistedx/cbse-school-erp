@@ -159,6 +159,16 @@ export default function LoginPage() {
   const [forgotSuccess, setForgotSuccess] = useState<{ message: string; target_email: string; account_name?: string } | null>(null);
 
   useEffect(() => {
+    // Ensure clean auth state when opening login page
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('current_user');
+        localStorage.removeItem('erp_session_token');
+        localStorage.removeItem('giterp_role_permissions');
+        sessionStorage.clear();
+      } catch (_) {}
+    }
+
     // Dynamically fetch live server build info to bypass any local service-worker or browser cache
     fetch(`/api/app-info?t=${Date.now()}`, { cache: 'no-store' })
       .then((res) => res.json())

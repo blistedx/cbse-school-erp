@@ -23,14 +23,18 @@ export interface MediaVaultItem {
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const METADATA_DIR = path.join(DATA_DIR, 'media');
+const FILES_DIR = path.join(DATA_DIR, 'media', 'files');
 
 // In-memory cache for ultra-fast metadata resolution
 const mediaMemoryCache = new Map<string, MediaVaultItem>();
 
-function ensureMetadataDir() {
+function ensureDirectories() {
   try {
     if (!fs.existsSync(METADATA_DIR)) {
       fs.mkdirSync(METADATA_DIR, { recursive: true });
+    }
+    if (!fs.existsSync(FILES_DIR)) {
+      fs.mkdirSync(FILES_DIR, { recursive: true });
     }
   } catch (e) {
     // Non-blocking in restricted environments
@@ -40,6 +44,13 @@ function ensureMetadataDir() {
 function getMetadataFilePath(id: string): string {
   const safeId = id.replace(/[^a-zA-Z0-9_-]/g, '_');
   return path.join(METADATA_DIR, `${safeId}.json`);
+}
+
+export function getMediaBinaryFilePath(id: string): string | null {
+  const safeId = id.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const binPath = path.join(FILES_DIR, `${safeId}.bin`);
+  if (fs.existsSync(binPath)) return binPath;
+  return null;
 }
 
 /**
@@ -52,7 +63,8 @@ export function isBlobConfigured(): boolean {
 
 /**
  * Uploads a binary buffer to Vercel Blob and records metadata.
- * NO file bytes or base64 data are stored in MongoDB.
+ * Always persists a local binary file copy for 100% offline-first reliability.
+ * NO file bytes or base64 data are stored in MongoDB Atlas documents.
  */
 export async function uploadToVercelBlob(options: {
   id: string;
@@ -65,31 +77,35 @@ export async function uploadToVercelBlob(options: {
   uploadedBy?: string;
 }): Promise<MediaVaultItem> {
   const { id, filename, buffer, mimeType, schoolId, entityType, entityId, uploadedBy } = options;
+  ensureDirectories();
   const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const safeId = id.replace(/[^a-zA-Z0-9_-]/g, '_');
   const pathname = `media/${schoolId}/${id}-${safeName}`;
 
-  let blobUrl: string;
+  // 1. Always save binary file to local disk vault for instant, zero-latency offline access
+  try {
+    fs.writeFileSync(path.join(FILES_DIR, `${safeId}.bin`), buffer);
+  } catch (err: any) {
+    console.warn('[Media Vault] Local binary write notice:', err.message);
+  }
+
+  let blobUrl = `/api/media/${id}`;
   let returnedPathname = pathname;
 
+  // 2. Upload to Vercel Blob if token is configured
   if (isBlobConfigured()) {
     try {
       const blob = await put(pathname, buffer, {
         access: 'public',
         contentType: mimeType,
-        addRandomSuffix: false
+        addRandomSuffix: true
       });
       blobUrl = blob.url;
       returnedPathname = blob.pathname;
     } catch (err: any) {
-      console.error('[Vercel Blob] Upload error:', err.message);
-      throw new Error(`Failed to upload to Vercel Blob: ${err.message}`);
+      console.warn('[Vercel Blob] Upload notice (falling back to local media vault):', err.message);
+      blobUrl = `/api/media/${id}`;
     }
-  } else {
-    // Local / Offline fallback URL when BLOB_READ_WRITE_TOKEN is not yet set in environment
-    console.warn(
-      '[Vercel Blob Notice]: BLOB_READ_WRITE_TOKEN not detected. Using placeholder Blob URL. Enable Vercel Blob in your dashboard to generate live CDN URLs.'
-    );
-    blobUrl = `https://blob.vercel-storage.com/${pathname}`;
   }
 
   const record: MediaVaultItem = {
@@ -117,7 +133,7 @@ export async function uploadToVercelBlob(options: {
  */
 export async function saveMediaMetadata(item: MediaVaultItem): Promise<boolean> {
   try {
-    ensureMetadataDir();
+    ensureDirectories();
     const cleanRecord: MediaVaultItem = {
       id: item.id,
       blob_url: item.blob_url || item.url,
