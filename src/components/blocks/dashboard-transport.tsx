@@ -1441,19 +1441,19 @@ export function DashboardTransport({
   }, [currentShiftStops, adminBusCoords, mapTileType, googleMapMode, nextDriverStop]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto animate-fade-in text-slate-800">
       
       {/* ─────────────────────────────────────────────────────────────
-          1. DASHBOARD HEADER & TABS BAR (MATCHING APPLICATION DASHBOARD UI)
+          1. DASHBOARD HEADER, KPI HERO BANNER & TABS BAR (MATCHING DASHBOARD UI)
           ───────────────────────────────────────────────────────────── */}
       {!isDriverUser && (
-        <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
+        <div className="bg-white rounded-xl sm:rounded-3xl border border-[#DCE8E0] shadow-xs p-2.5 sm:p-6 lg:p-7 space-y-3 sm:space-y-5 relative overflow-hidden">
           {/* Subtle Background Watermark */}
           <div 
             aria-hidden="true" 
-            className="pointer-events-none select-none absolute right-4 sm:right-8 -top-3 font-poster font-black uppercase text-[#122A24]/[0.025] text-7xl sm:text-8xl lg:text-[110px] leading-none z-0 tracking-tight"
+            className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
           >
-            FLEET
+            TRANSPORT
           </div>
 
           {/* Top Header Row */}
@@ -1489,58 +1489,124 @@ export function DashboardTransport({
             </div>
           </div>
 
+          {/* ─────────────────────────────────────────────────────────────
+              2. DASHBOARD KPI HERO BANNER (DEEP FOREST GREEN #122A24)
+              ───────────────────────────────────────────────────────────── */}
+          <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+            <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/70 relative z-10">
+              {/* Tile 1: Active Fleet */}
+              <div className="sm:pr-4 group select-none">
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <Bus className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Active Fleet</span>
+                </div>
+                <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                  {routes.length} <span className="text-xs font-mono text-emerald-300/70 font-normal">Buses</span>
+                </div>
+                <div className="text-[11px] font-mono text-emerald-300 mt-1 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span>100% Operational Readiness</span>
+                </div>
+              </div>
+
+              {/* Tile 2: Active Transit Shift */}
+              <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <Clock className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Active Transit Shift</span>
+                </div>
+                <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans truncate">
+                  {ROUTE_SHIFTS_METADATA[activeShift].shortLabel}
+                </div>
+                <div className="text-[11px] font-mono text-emerald-300/80 mt-1 flex items-center gap-1.5">
+                  <span>{ROUTE_SHIFTS_METADATA[activeShift].timing}</span>
+                </div>
+              </div>
+
+              {/* Tile 3: Route Waypoints */}
+              <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <MapPin className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Route Waypoints</span>
+                </div>
+                <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                  {routes.reduce((acc, r) => acc + r.stops.length, 0)} <span className="text-xs font-mono text-emerald-300/70 font-normal">Stops</span>
+                </div>
+                <div className="text-[11px] font-mono text-emerald-300/70 mt-1 flex items-center gap-1.5">
+                  <span>Across Lucknow Sectors</span>
+                </div>
+              </div>
+
+              {/* Tile 4: Enrolled Commuters */}
+              <div className="pt-4 sm:pt-0 sm:pl-4 group select-none">
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <Users className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Enrolled Commuters</span>
+                </div>
+                <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                  {routes.reduce((acc, r) => acc + r.stops.reduce((sAcc, s) => sAcc + ((s as any).studentsCount || 8), 0), 0)} <span className="text-xs font-mono text-emerald-300/70 font-normal">Scholars</span>
+                </div>
+                <div className="text-[11px] font-mono text-emerald-300 mt-1 flex items-center gap-1.5">
+                  <span>Verified Transit Passes</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Dedicated Responsive Tabs Bar (Matching Fees Hub & Attendance Hub) */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 relative z-10">
+          <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10">
             <button
               type="button"
               onClick={() => setViewMode('FLEET')}
-              className={`py-2.5 px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
+              className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
                 viewMode === 'FLEET'
                   ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                  : 'bg-[#F4F8F5] text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/80 font-semibold border border-[#DCE8E0]'
+                  : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
               }`}
             >
               <Radio className="h-4 w-4 stroke-[1.75] shrink-0" />
-              <span>Live Fleet Radar</span>
+              <span className="whitespace-nowrap">Live Fleet Radar</span>
             </button>
 
             <button
               type="button"
               onClick={() => setViewMode('ROUTES')}
-              className={`py-2.5 px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
+              className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
                 viewMode === 'ROUTES'
                   ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                  : 'bg-[#F4F8F5] text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/80 font-semibold border border-[#DCE8E0]'
+                  : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
               }`}
             >
               <Navigation className="h-4 w-4 stroke-[1.75] shrink-0" />
-              <span>Route Management</span>
+              <span className="whitespace-nowrap">Route Management</span>
             </button>
 
             <button
               type="button"
               onClick={() => setViewMode('DRIVER')}
-              className={`py-2.5 px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
+              className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
                 viewMode === 'DRIVER'
                   ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                  : 'bg-[#F4F8F5] text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/80 font-semibold border border-[#DCE8E0]'
+                  : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
               }`}
             >
               <Smartphone className="h-4 w-4 stroke-[1.75] shrink-0" />
-              <span>Driver Mobile App</span>
+              <span className="whitespace-nowrap">Driver Mobile App</span>
             </button>
 
             <button
               type="button"
               onClick={() => setViewMode('PARENT')}
-              className={`py-2.5 px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
+              className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
                 viewMode === 'PARENT'
                   ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                  : 'bg-[#F4F8F5] text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/80 font-semibold border border-[#DCE8E0]'
+                  : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
               }`}
             >
               <MapPin className="h-4 w-4 stroke-[1.75] shrink-0" />
-              <span>Parent Live ETA</span>
+              <span className="whitespace-nowrap">Parent Live ETA</span>
             </button>
           </div>
 
@@ -1560,63 +1626,6 @@ export function DashboardTransport({
               </button>
             </div>
           )}
-        </div>
-      )}
-
-      {/* 4 Fleet Overview KPIs (Matching the App Dashboard Design System) */}
-      {!isDriverUser && viewMode === 'FLEET' && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl p-4.5 border border-[#DCE8E0] shadow-xs">
-            <div className="flex items-center justify-between text-slate-500 text-xs">
-              <span>Active Fleet</span>
-              <Bus className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div className="text-2xl font-bold text-[#122A24] mt-1 font-sans">
-              {routes.length} <span className="text-xs font-normal text-slate-500 font-mono">Buses</span>
-            </div>
-            <div className="text-[11px] text-emerald-700 font-medium mt-0.5">
-              100% Operational Readiness
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-4.5 border border-[#DCE8E0] shadow-xs">
-            <div className="flex items-center justify-between text-slate-500 text-xs">
-              <span>Active Transit Shift</span>
-              <Clock className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div className="text-base sm:text-lg font-bold text-[#122A24] mt-1 truncate">
-              {ROUTE_SHIFTS_METADATA[activeShift].shortLabel}
-            </div>
-            <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-              {ROUTE_SHIFTS_METADATA[activeShift].timing}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-4.5 border border-[#DCE8E0] shadow-xs">
-            <div className="flex items-center justify-between text-slate-500 text-xs">
-              <span>Route Waypoints</span>
-              <MapPin className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div className="text-2xl font-bold text-[#122A24] mt-1 font-sans">
-              {routes.reduce((acc, r) => acc + r.stops.length, 0)} <span className="text-xs font-normal text-slate-500 font-mono">Stops</span>
-            </div>
-            <div className="text-[11px] text-slate-500 mt-0.5">
-              Across all Lucknow sectors
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-4.5 border border-[#DCE8E0] shadow-xs">
-            <div className="flex items-center justify-between text-slate-500 text-xs">
-              <span>Enrolled Commuters</span>
-              <Users className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div className="text-2xl font-bold text-[#122A24] mt-1 font-sans">
-              {routes.reduce((acc, r) => acc + r.stops.reduce((sAcc, s) => sAcc + ((s as any).studentsCount || 8), 0), 0)} <span className="text-xs font-normal text-slate-500 font-mono">Scholars</span>
-            </div>
-            <div className="text-[11px] text-emerald-700 font-medium mt-0.5">
-              Verified daily bus passes
-            </div>
-          </div>
         </div>
       )}
 
