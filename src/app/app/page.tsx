@@ -1461,10 +1461,17 @@ function ERPWorkspaceContent() {
         loadSchoolData(targetSchool.school_code || targetSchool.id, undefined, true);
       }
 
-      const schRes = await apiFetch('/api/schools');
-      const schData = await schRes.json();
-      if (schData.success && Array.isArray(schData.schools)) {
-        setAvailableSchools(schData.schools);
+      let schData: any = { success: false, schools: [] };
+      try {
+        const schRes = await apiFetch('/api/schools');
+        if (schRes && schRes.ok) {
+          schData = await schRes.json();
+          if (schData.success && Array.isArray(schData.schools)) {
+            setAvailableSchools(schData.schools);
+          }
+        }
+      } catch (schErr) {
+        console.warn('[fetchAuthenticatedSchool] /api/schools notice:', schErr);
       }
 
       // Only override targetSchool if we genuinely have no school, OR a specific
@@ -1597,7 +1604,7 @@ function ERPWorkspaceContent() {
         router.push('/login');
       }
     } catch (e) {
-      console.error(e);
+      console.warn('[fetchAuthenticatedSchool error handled]', e);
     } finally {
       setLoading(false);
     }

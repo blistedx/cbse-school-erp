@@ -57,7 +57,7 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
 
   let token = await getSessionToken();
 
-  const makeRequest = (authToken: string) => {
+  const makeRequest = async (authToken: string): Promise<Response> => {
     const headers = new Headers(options.headers || {});
     if (authToken) {
       if (!headers.has('Authorization')) {
@@ -74,14 +74,37 @@ export async function apiFetch(url: string, options: RequestInit = {}): Promise<
     });
   };
 
-  let response = await makeRequest(token);
+  const tryRequestWithRetry = async (authToken: string, maxAttempts = 2): Promise<Response> => {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await makeRequest(authToken);
+      } catch (err: any) {
+        if (attempt < maxAttempts) {
+          // Transient network blip or dev server HMR recompilation — wait 250ms and retry once
+          await new Promise(r => setTimeout(r, 250));
+          continue;
+        }
+        // If still failing (e.g. offline), return a graceful mock Response so callers don't throw uncaught TypeErrors
+        return new Response(
+          JSON.stringify({ success: false, error: err?.message || 'Network connection failed' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+    return new Response(
+      JSON.stringify({ success: false, error: 'Network connection failed' }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } }
+    );
+  };
+
+  let response = await tryRequestWithRetry(token);
 
   // If 401 Unauthorized (token expired or invalidated), attempt auto-refresh once
   if (response.status === 401 && !url.includes('/api/auth/')) {
     localStorage.removeItem('erp_session_token');
     const newToken = await requestFreshToken();
     if (newToken) {
-      response = await makeRequest(newToken);
+      response = await tryRequestWithRetry(newToken);
     }
   }
 
