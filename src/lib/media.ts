@@ -318,11 +318,11 @@ export async function saveMediaVaultFile(item: {
   blob_url?: string;
   url?: string;
   created_at?: string;
-}): Promise<boolean> {
+}): Promise<MediaVaultItem | null> {
   try {
     // If it's already a URL without data, just save metadata
     if (!item.data && (item.blob_url || item.url)) {
-      return await saveMediaMetadata({
+      const record: MediaVaultItem = {
         id: item.id,
         blob_url: item.blob_url || item.url || '',
         url: item.url || item.blob_url || '',
@@ -333,10 +333,12 @@ export async function saveMediaVaultFile(item: {
         mime_type: item.mime_type || 'image/jpeg',
         size_bytes: item.size_bytes || 0,
         created_at: item.created_at || new Date().toISOString()
-      });
+      };
+      await saveMediaMetadata(record);
+      return record;
     }
 
-    // If base64 data is present, decode and upload to Vercel Blob
+    // If base64 data is present, decode to binary buffer and upload to Vercel Blob
     if (item.data) {
       let buffer: Buffer;
       let detectedMime = item.mime_type || 'image/jpeg';
@@ -350,7 +352,7 @@ export async function saveMediaVaultFile(item: {
         buffer = Buffer.from(item.data, 'base64');
       }
 
-      await uploadToVercelBlob({
+      const record = await uploadToVercelBlob({
         id: item.id,
         filename: item.filename || 'media.jpg',
         buffer,
@@ -359,12 +361,12 @@ export async function saveMediaVaultFile(item: {
         entityType: item.entity_type,
         entityId: item.entity_id
       });
-      return true;
+      return record;
     }
 
-    return false;
+    return null;
   } catch (e: any) {
     console.error('[Media Vault] saveMediaVaultFile error:', e.message);
-    return false;
+    return null;
   }
 }

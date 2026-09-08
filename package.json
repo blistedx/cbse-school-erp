@@ -4,7 +4,7 @@
   "description": "Multi-Tenant Enterprise School ERP Database & Core Engine",
   "main": "server.js",
   "scripts": {
-    "dev": "next dev -p 5173",
+    "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

@@ -90,6 +90,7 @@ import { InstitutionalReportModal, ReportColumn } from '@/components/institution
 import { TaskCompletionOverlay, TaskCelebrationData, TaskCelebrationType } from '@/components/task-completion-overlay';
 import { getAllSiblingGroups, SiblingGroup } from '@/lib/student-helper';
 import { ANTIGRAVITY_THEMES, applyAntigravityTheme, getSavedThemeId } from '@/lib/themes';
+import { compressImageFile } from '@/lib/image-compress';
 
 const DashboardOverview = dynamic(
   () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
@@ -1578,42 +1579,44 @@ function ERPWorkspaceContent() {
     reader.readAsDataURL(file);
   };
 
-  // Student Passport Photo Upload Handler (Strict 200 KB limit, recommended 100-200 KB)
-  const handleStudentPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Student Passport Photo Upload Handler with automatic client-side compression
+  const handleStudentPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const maxBytes = 200 * 1024; // 200 KB limit
-    if (file.size > maxBytes) {
-      const sizeKb = (file.size / 1024).toFixed(1);
-      alert(`Selected photo is ${sizeKb} KB. Student passport photo must be 200 KB or smaller (Recommended: 100 KB - 200 KB).`);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
+    try {
+      const base64 = await compressImageFile(file, 480, 0.85);
       setStudentForm(prev => ({ ...prev, photo: base64, avatar: base64 }));
       showAdminToast('Student photo attached to admission form.');
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.warn('Canvas compression fallback:', err);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        setStudentForm(prev => ({ ...prev, photo: base64, avatar: base64 }));
+        showAdminToast('Student photo attached to admission form.');
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  // Faculty / Teacher Profile Photo Upload Handler (Strict 200 KB limit, recommended 100-200 KB)
-  const handleTeacherPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Faculty / Teacher Profile Photo Upload Handler with automatic client-side compression
+  const handleTeacherPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const maxBytes = 200 * 1024; // 200 KB limit
-    if (file.size > maxBytes) {
-      const sizeKb = (file.size / 1024).toFixed(1);
-      alert(`Selected photo is ${sizeKb} KB. Faculty profile photo must be 200 KB or smaller (Recommended: 100 KB - 200 KB).`);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
+    try {
+      const base64 = await compressImageFile(file, 480, 0.85);
       setTeacherForm(prev => ({ ...prev, photo: base64, avatar: base64 }));
       showAdminToast('Faculty photo attached to registration form.');
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.warn('Canvas compression fallback:', err);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        setTeacherForm(prev => ({ ...prev, photo: base64, avatar: base64 }));
+        showAdminToast('Faculty photo attached to registration form.');
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   useEffect(() => {
@@ -2206,6 +2209,18 @@ function ERPWorkspaceContent() {
           } catch (invErr) {
             console.error('Initial fee invoice generation error:', invErr);
           }
+        }
+
+        if (data.student) {
+          const freshStu = data.student as Student;
+          setStudents(prev => {
+            const exists = prev.some(s => s.id === freshStu.id || s.admission_no === freshStu.admission_no);
+            if (exists) {
+              return prev.map(s => (s.id === freshStu.id || s.admission_no === freshStu.admission_no) ? freshStu : s);
+            }
+            return [freshStu, ...prev];
+          });
+          setSummaryStudent(curr => (curr && (curr.id === freshStu.id || curr.admission_no === freshStu.admission_no)) ? freshStu : curr);
         }
 
         setShowStudentModal(false);
@@ -13777,6 +13792,10 @@ function ERPWorkspaceContent() {
         onSelectSibling={(sib) => setSummaryStudent(sib)}
         onEditStudent={(s) => openStudentModal(s)}
         onCollectFee={(s) => handleQuickCollectFee(s)}
+        onUpdateStudent={(updated) => {
+          setStudents(prev => prev.map(s => (s.id === updated.id || s.admission_no === updated.admission_no) ? updated : s));
+          setSummaryStudent(updated);
+        }}
       />
 
       {/* UNIVERSAL TASK COMPLETION OVERLAY (1 SEC CENTERED BACKDROP BLUR) */}

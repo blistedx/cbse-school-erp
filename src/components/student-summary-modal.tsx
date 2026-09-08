@@ -1,11 +1,12 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { X, Users, Award, CreditCard, CalendarCheck, ShieldCheck, FileText, ChevronRight, Phone, MapPin } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { X, Users, Award, CreditCard, CalendarCheck, ShieldCheck, FileText, ChevronRight, Phone, MapPin, Camera, Loader2, Check } from 'lucide-react';
 import { Student, FeeInvoice, AttendanceRecord } from '@/lib/types';
 import { getStudentSiblings, getStudentAssessmentReport } from '@/lib/student-helper';
 import { getStudentMonthlyFeeSchedule } from '@/lib/monthly-fee-helper';
+import { compressImageFile } from '@/lib/image-compress';
 
 interface StudentSummaryModalProps {
   isOpen: boolean;
@@ -17,7 +18,21 @@ interface StudentSummaryModalProps {
   onSelectSibling?: (sibling: Student) => void;
   onEditStudent?: (student: Student) => void;
   onCollectFee?: (student: Student) => void;
+  onUpdateStudent?: (updatedStudent: Student) => void;
 }
+
+// Helper to determine if a string is a valid image URL or base64 data URI
+const isImageUrl = (val?: string): boolean => {
+  if (!val || typeof val !== 'string') return false;
+  const trimmed = val.trim();
+  return (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('/') ||
+    trimmed.startsWith('data:image') ||
+    trimmed.startsWith('blob:')
+  );
+};
 
 export function StudentSummaryModal({
   isOpen,
@@ -28,37 +43,120 @@ export function StudentSummaryModal({
   attendanceRecords = [],
   onSelectSibling,
   onEditStudent,
-  onCollectFee
+  onCollectFee,
+  onUpdateStudent
 }: StudentSummaryModalProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'academics' | 'siblings' | 'fees' | 'attendance'>('overview');
+  const [imgError, setImgError] = useState(false);
+  const [localStudent, setLocalStudent] = useState<Student | null>(student);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
-  const siblings = useMemo(() => {
-    if (!student) return [];
-    return getStudentSiblings(student, allStudents);
-  }, [student, allStudents]);
-
-  const assessmentReport = useMemo(() => {
-    if (!student) return null;
-    return getStudentAssessmentReport(student);
+  useEffect(() => {
+    setLocalStudent(student);
+    setImgError(false);
   }, [student]);
 
+  const activeStudent = localStudent || student;
+
+  // Resolve candidate student profile image / avatar
+  const studentPhotoUrl = useMemo(() => {
+    if (!activeStudent) return null;
+    const candidate = activeStudent.photo || activeStudent.avatar || (activeStudent as any).profile_picture_url || (activeStudent as any).profile_image || (activeStudent as any).profile_picture;
+    if (isImageUrl(candidate)) {
+      return candidate.trim();
+    }
+    return null;
+  }, [activeStudent]);
+
+  const studentEmoji = useMemo(() => {
+    if (!activeStudent) return null;
+    const candidate = activeStudent.avatar || activeStudent.photo;
+    if (candidate && typeof candidate === 'string') {
+      const trimmed = candidate.trim();
+      if (trimmed.length > 0 && trimmed.length <= 4 && !trimmed.startsWith('/')) {
+        return trimmed;
+      }
+    }
+    return null;
+  }, [activeStudent]);
+
+  // Reset imgError whenever student or photo URL changes
+  useEffect(() => {
+    setImgError(false);
+  }, [activeStudent?.id, studentPhotoUrl]);
+
+  // Direct 1-Click DP / Photo Upload
+  const handleDirectPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeStudent) return;
+    try {
+      setUploadingPhoto(true);
+      const base64 = await compressImageFile(file, 480, 0.85);
+      const res = await fetch('/api/students', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: activeStudent.id,
+          photo: base64,
+          avatar: base64,
+          school_id: activeStudent.school_id || 'DPS2026'
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.student) {
+        const fresh: Student = {
+          ...activeStudent,
+          ...data.student,
+          photo: data.student.photo ? `${data.student.photo.split('?')[0]}?v=${Date.now()}` : base64,
+          avatar: data.student.avatar ? `${data.student.avatar.split('?')[0]}?v=${Date.now()}` : base64,
+        };
+        setLocalStudent(fresh);
+        setImgError(false);
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 3000);
+        if (onUpdateStudent) {
+          onUpdateStudent(fresh);
+        }
+      } else {
+        alert(data.error || 'Failed to update profile picture.');
+      }
+    } catch (err: any) {
+      console.error('Direct photo upload error:', err);
+      alert('Error uploading profile picture: ' + err.message);
+    } finally {
+      setUploadingPhoto(false);
+      e.target.value = '';
+    }
+  };
+
+  const siblings = useMemo(() => {
+    if (!activeStudent) return [];
+    return getStudentSiblings(activeStudent, allStudents);
+  }, [activeStudent, allStudents]);
+
+  const assessmentReport = useMemo(() => {
+    if (!activeStudent) return null;
+    return getStudentAssessmentReport(activeStudent);
+  }, [activeStudent]);
+
   const monthlySchedule = useMemo(() => {
-    if (!student) return null;
-    return getStudentMonthlyFeeSchedule(student, invoices);
-  }, [student, invoices]);
+    if (!activeStudent) return null;
+    return getStudentMonthlyFeeSchedule(activeStudent, invoices);
+  }, [activeStudent, invoices]);
 
   const studentInvoices = useMemo(() => {
-    if (!student) return [];
+    if (!activeStudent) return [];
     return invoices.filter(
-      inv => inv.student_id === student.id || inv.admission_no === student.admission_no
+      inv => inv.student_id === activeStudent.id || inv.admission_no === activeStudent.admission_no
     );
-  }, [student, invoices]);
+  }, [activeStudent, invoices]);
 
   const totalPending = monthlySchedule ? monthlySchedule.currentBalanceDue : 0;
 
-  if (!isOpen || !student) return null;
+  if (!isOpen || !activeStudent) return null;
 
-  const attendancePercent = student.attendance_percent || 92;
+  const attendancePercent = activeStudent.attendance_percent || 92;
   const isDefaulter = attendancePercent < 75;
 
   // Normalize class name to avoid duplicate "Class Class 6" or "Class Playgroup"
@@ -101,21 +199,62 @@ export function StudentSummaryModal({
 
           <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5 sm:gap-4">
-              {/* Scholar Monogram Badge */}
-              <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-display font-bold text-xl sm:text-2xl shadow-md border-2 border-white shrink-0">
-                {(student.full_name || 'S')[0]}
+              {/* Scholar Profile Picture / Monogram Badge with Direct Upload */}
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-display font-bold text-xl sm:text-2xl shadow-md border-2 border-white shrink-0 overflow-hidden relative group">
+                {studentPhotoUrl && !imgError ? (
+                  <img
+                    src={studentPhotoUrl}
+                    alt={activeStudent.full_name || 'Scholar Profile'}
+                    className="w-full h-full object-cover"
+                    onError={() => setImgError(true)}
+                  />
+                ) : studentEmoji ? (
+                  <span className="text-2xl sm:text-3xl leading-none">{studentEmoji}</span>
+                ) : (
+                  <span>{(activeStudent.full_name || 'S')[0]}</span>
+                )}
+
+                {/* Direct 1-Click DP Upload Trigger Overlay */}
+                <label 
+                  className={`absolute inset-0 bg-black/65 flex flex-col items-center justify-center cursor-pointer transition-opacity text-white text-[9.5px] font-sans font-semibold gap-1 ${uploadingPhoto ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                  title="Click to Upload / Change Student Photo"
+                >
+                  {uploadingPhoto ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                      <span className="text-[9px]">Saving...</span>
+                    </>
+                  ) : uploadSuccess ? (
+                    <>
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <span className="text-[9px] text-emerald-300">Updated!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-4 h-4 text-white" />
+                      <span className="text-[9px]">Change DP</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    disabled={uploadingPhoto}
+                    onChange={handleDirectPhotoUpload}
+                  />
+                </label>
               </div>
 
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="font-display font-bold text-xl sm:text-2xl text-[#122A24] tracking-tight">
-                    {student.full_name}
+                    {activeStudent.full_name}
                   </h2>
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#122A24] text-white">
                     SCHOLAR
                   </span>
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                    Adm: {student.admission_no}
+                    Adm: {activeStudent.admission_no}
                   </span>
                   {siblings.length > 0 && (
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-100 text-purple-900 border border-purple-300">
@@ -125,11 +264,11 @@ export function StudentSummaryModal({
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-[#2D5A4E] font-mono mt-1.5 flex-wrap">
-                  <span>Class: <strong>{cleanClass(student.class_name)}-{student.section || 'A'}</strong></span>
+                  <span>Class: <strong>{cleanClass(activeStudent.class_name)}-{activeStudent.section || 'A'}</strong></span>
                   <span>•</span>
-                  <span>Roll: <strong>#{student.roll_no || '16'}</strong></span>
+                  <span>Roll: <strong>#{activeStudent.roll_no || '16'}</strong></span>
                   <span>•</span>
-                  <span>Session: <strong>{student.academic_session || '2026-27'}</strong></span>
+                  <span>Session: <strong>{activeStudent.academic_session || '2026-27'}</strong></span>
                 </div>
               </div>
             </div>
@@ -138,15 +277,15 @@ export function StudentSummaryModal({
             <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
               {onEditStudent && (
                 <button
-                  onClick={() => { onEditStudent(student); onClose(); }}
+                  onClick={() => { onEditStudent(activeStudent); onClose(); }}
                   className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-[#122A24] border border-[#C5E2CF] rounded-full text-xs font-semibold shadow-2xs transition-all cursor-pointer"
                 >
                   Edit Profile
                 </button>
               )}
-              {onCollectFee && student.fee_status !== 'PAID' && (
+              {onCollectFee && activeStudent.fee_status !== 'PAID' && (
                 <button
-                  onClick={() => { onCollectFee(student); onClose(); }}
+                  onClick={() => { onCollectFee(activeStudent); onClose(); }}
                   className="px-4 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-bold shadow-xs transition-all cursor-pointer"
                 >
                   Collect Fee
@@ -373,8 +512,20 @@ export function StudentSummaryModal({
                         className="p-4 rounded-2xl bg-white border border-[#DCE8E0] hover:border-purple-300 transition-colors flex flex-col justify-between gap-3 shadow-2xs"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="w-11 h-11 rounded-xl bg-purple-100 text-purple-800 border border-purple-300 flex items-center justify-center font-display font-bold text-base shrink-0">
-                            {sib.full_name?.slice(0, 2).toUpperCase()}
+                          <div className="w-11 h-11 rounded-xl bg-purple-100 text-purple-800 border border-purple-300 flex items-center justify-center font-display font-bold text-base shrink-0 overflow-hidden relative">
+                            {(sib.photo || sib.avatar) && isImageUrl(sib.photo || sib.avatar) ? (
+                              <img
+                                src={(sib.photo || sib.avatar)!}
+                                alt={sib.full_name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            ) : null}
+                            <span className={(sib.photo || sib.avatar) && isImageUrl(sib.photo || sib.avatar) ? 'hidden' : ''}>
+                              {sib.full_name?.slice(0, 2).toUpperCase()}
+                            </span>
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -695,21 +846,21 @@ export function StudentSummaryModal({
         <div className="p-3.5 sm:p-4 bg-[#F4F8F5] border-t border-[#DCE8E0] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
           <div className="flex items-center gap-2 text-xs font-mono text-[#2D5A4E]">
             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-            <span>Institutional Scholar Record • Adm: <strong className="text-[#122A24] font-bold">{student.admission_no}</strong> • OASIS Verified</span>
+            <span>Institutional Scholar Record • Adm: <strong className="text-[#122A24] font-bold">{activeStudent.admission_no}</strong> • OASIS Verified</span>
           </div>
 
           <div className="flex items-center gap-2 self-end sm:self-auto">
             {onEditStudent && (
               <button
-                onClick={() => { onEditStudent(student); onClose(); }}
+                onClick={() => { onEditStudent(activeStudent); onClose(); }}
                 className="px-3.5 py-1.5 bg-white hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-full text-xs font-semibold shadow-2xs transition-all cursor-pointer"
               >
                 Edit Profile
               </button>
             )}
-            {onCollectFee && student.fee_status !== 'PAID' && (
+            {onCollectFee && activeStudent.fee_status !== 'PAID' && (
               <button
-                onClick={() => { onCollectFee(student); onClose(); }}
+                onClick={() => { onCollectFee(activeStudent); onClose(); }}
                 className="px-3.5 py-1.5 bg-[#EBF5EF] hover:bg-[#D5EBDC] text-[#1C443A] border border-[#C5E2CF] rounded-full text-xs font-bold shadow-2xs transition-all cursor-pointer"
               >
                 Collect Fee

@@ -42,7 +42,8 @@ export async function checkCockroachStatus(): Promise<{ connected: boolean; erro
 // 📸 LOCAL MEDIA VAULT BRIDGE (Seamless backward compatibility)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function saveMediaVaultFile(item: MediaVaultItem): Promise<boolean> {
-  return await saveLocalMediaVaultFile(item);
+  const res = await saveLocalMediaVaultFile(item);
+  return Boolean(res);
 }
 
 export async function getMediaVaultFile(id: string): Promise<MediaVaultItem | null> {

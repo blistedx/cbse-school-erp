@@ -341,20 +341,37 @@ export function DashboardSiblings({
                           onClick={() => onSelectStudent(s)}
                           className="p-3.5 rounded-2xl bg-[#F8FAF9] border border-[#E2ECE5] hover:bg-[#EBF5EF]/60 hover:border-[#A3D1B4] cursor-pointer transition-all flex items-center justify-between gap-2.5 shadow-2xs group/child"
                         >
-                          <div className="min-w-0 flex-1">
-                            <div className="font-semibold text-xs text-[#122A24] group-hover/child:text-[#1C443A] truncate">
-                              {s.full_name}
-                            </div>
-                            <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                              Class {s.class_name} ({s.section || 'A'}) {s.roll_no ? `• Roll ${s.roll_no}` : ''}
-                            </div>
-                            <div className="text-[11px] font-medium text-emerald-700 mt-1 flex items-center gap-1.5">
-                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                              <span>Att: {att}%</span>
-                              <span>•</span>
-                              <span className={isPaid ? 'text-emerald-700' : 'text-amber-700 font-semibold'}>
-                                {s.fee_status || 'PAID'}
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className="w-8 h-8 rounded-xl bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF] flex items-center justify-center font-display font-bold text-xs shrink-0 overflow-hidden relative">
+                              {(s.photo || s.avatar) ? (
+                                <img
+                                  src={s.photo || s.avatar}
+                                  alt={s.full_name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              ) : null}
+                              <span className={(s.photo || s.avatar) ? 'hidden' : ''}>
+                                {(s.full_name || 'S')[0]}
                               </span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold text-xs text-[#122A24] group-hover/child:text-[#1C443A] truncate">
+                                {s.full_name}
+                              </div>
+                              <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                                Class {s.class_name} ({s.section || 'A'}) {s.roll_no ? `• Roll ${s.roll_no}` : ''}
+                              </div>
+                              <div className="text-[11px] font-medium text-emerald-700 mt-1 flex items-center gap-1.5">
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                                <span>Att: {att}%</span>
+                                <span>•</span>
+                                <span className={isPaid ? 'text-emerald-700' : 'text-amber-700 font-semibold'}>
+                                  {s.fee_status || 'PAID'}
+                                </span>
+                              </div>
                             </div>
                           </div>
 

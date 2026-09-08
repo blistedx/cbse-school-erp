@@ -2959,8 +2959,20 @@ export function DashboardExams({
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
                   <div className="flex items-start sm:items-center gap-4">
                     {/* Rounded Avatar Box */}
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF] font-display font-black text-2xl flex items-center justify-center shadow-2xs shrink-0 overflow-hidden">
-                      {(activeDossierStudent.full_name || 'A').charAt(0).toUpperCase()}
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF] font-display font-black text-2xl flex items-center justify-center shadow-2xs shrink-0 overflow-hidden relative">
+                      {(activeDossierStudent.photo || activeDossierStudent.avatar) ? (
+                        <img
+                          src={activeDossierStudent.photo || activeDossierStudent.avatar}
+                          alt={activeDossierStudent.full_name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                      <span className={(activeDossierStudent.photo || activeDossierStudent.avatar) ? 'hidden' : ''}>
+                        {(activeDossierStudent.full_name || 'A').charAt(0).toUpperCase()}
+                      </span>
                     </div>
 
                     {/* Student Identity */}

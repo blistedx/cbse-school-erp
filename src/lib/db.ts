@@ -1175,7 +1175,7 @@ export const Database = {
       ((student.avatar && student.avatar.startsWith('data:')) ? student.avatar : null);
     if (rawStudentImg) {
       const mediaId = `MEDIA-STU-${student.id}`;
-      await saveMediaVaultFile({
+      const savedMedia = await saveMediaVaultFile({
         id: mediaId,
         school_id: student.school_id,
         entity_type: 'STUDENT_PHOTO',
@@ -1183,8 +1183,11 @@ export const Database = {
         filename: `${student.admission_no || student.id}.jpg`,
         data: rawStudentImg
       });
-      student.avatar = `/api/media/${mediaId}`;
-      student.photo = `/api/media/${mediaId}`;
+      const onlineBlobUrl = (savedMedia && typeof savedMedia === 'object' && savedMedia.blob_url && savedMedia.blob_url.startsWith('http'))
+        ? savedMedia.blob_url
+        : `/api/media/${mediaId}?v=${Date.now()}`;
+      student.avatar = onlineBlobUrl;
+      student.photo = onlineBlobUrl;
     }
 
     try {
@@ -1210,15 +1213,18 @@ export const Database = {
       ((sanitizedUpdates.avatar && sanitizedUpdates.avatar.startsWith('data:')) ? sanitizedUpdates.avatar : null);
     if (rawUpdateImg) {
       const mediaId = `MEDIA-STU-${studentId}`;
-      await saveMediaVaultFile({
+      const savedMedia = await saveMediaVaultFile({
         id: mediaId,
         school_id: sanitizedUpdates.school_id || 'DPS2026',
         entity_type: 'STUDENT_PHOTO',
         entity_id: studentId,
         data: rawUpdateImg
       });
-      sanitizedUpdates.avatar = `/api/media/${mediaId}`;
-      sanitizedUpdates.photo = `/api/media/${mediaId}`;
+      const onlineBlobUrl = (savedMedia && typeof savedMedia === 'object' && savedMedia.blob_url && savedMedia.blob_url.startsWith('http'))
+        ? savedMedia.blob_url
+        : `/api/media/${mediaId}?v=${Date.now()}`;
+      sanitizedUpdates.avatar = onlineBlobUrl;
+      sanitizedUpdates.photo = onlineBlobUrl;
     }
 
     try {
@@ -1524,7 +1530,7 @@ export const Database = {
       ((teacher.avatar && teacher.avatar.startsWith('data:')) ? teacher.avatar : null);
     if (rawTeacherImg) {
       const mediaId = `MEDIA-TCH-${teacher.id}`;
-      await saveMediaVaultFile({
+      const savedMedia = await saveMediaVaultFile({
         id: mediaId,
         school_id: teacher.school_id,
         entity_type: 'TEACHER_PHOTO',
@@ -1532,8 +1538,11 @@ export const Database = {
         filename: `${teacher.staff_code || teacher.id}.jpg`,
         data: rawTeacherImg
       });
-      teacher.avatar = `/api/media/${mediaId}`;
-      teacher.photo = `/api/media/${mediaId}`;
+      const onlineBlobUrl = (savedMedia && typeof savedMedia === 'object' && savedMedia.blob_url && savedMedia.blob_url.startsWith('http'))
+        ? savedMedia.blob_url
+        : `/api/media/${mediaId}?v=${Date.now()}`;
+      teacher.avatar = onlineBlobUrl;
+      teacher.photo = onlineBlobUrl;
     }
 
     try {
@@ -1559,15 +1568,18 @@ export const Database = {
       ((sanitizedUpdates.avatar && sanitizedUpdates.avatar.startsWith('data:')) ? sanitizedUpdates.avatar : null);
     if (rawTeacherUpdateImg) {
       const mediaId = `MEDIA-TCH-${teacherId}`;
-      await saveMediaVaultFile({
+      const savedMedia = await saveMediaVaultFile({
         id: mediaId,
         school_id: sanitizedUpdates.school_id || 'DPS2026',
         entity_type: 'TEACHER_PHOTO',
         entity_id: teacherId,
         data: rawTeacherUpdateImg
       });
-      sanitizedUpdates.avatar = `/api/media/${mediaId}`;
-      sanitizedUpdates.photo = `/api/media/${mediaId}`;
+      const onlineBlobUrl = (savedMedia && typeof savedMedia === 'object' && savedMedia.blob_url && savedMedia.blob_url.startsWith('http'))
+        ? savedMedia.blob_url
+        : `/api/media/${mediaId}?v=${Date.now()}`;
+      sanitizedUpdates.avatar = onlineBlobUrl;
+      sanitizedUpdates.photo = onlineBlobUrl;
 
       // If updating the Principal's teacher record, also sync school.principal_avatar
       if (teacherId === 'PRIN01' || teacherId === 'TCH-PRIN-DPS2026' || (sanitizedUpdates.full_name && sanitizedUpdates.full_name.includes('Abhishek'))) {
@@ -1576,14 +1588,14 @@ export const Database = {
           if (db) {
             await db.collection('schools').updateOne(
               { school_code: sanitizedUpdates.school_id || 'DPS2026' },
-              { $set: { principal_avatar: `/api/media/${mediaId}`, avatar: `/api/media/${mediaId}`, photo: `/api/media/${mediaId}` } }
+              { $set: { principal_avatar: onlineBlobUrl, avatar: onlineBlobUrl, photo: onlineBlobUrl } }
             );
           }
           const sch = memoryStore.schools.find(s => s.school_code === (sanitizedUpdates.school_id || 'DPS2026') || s.id === sanitizedUpdates.school_id);
           if (sch) {
-            sch.principal_avatar = `/api/media/${mediaId}`;
-            sch.avatar = `/api/media/${mediaId}`;
-            sch.photo = `/api/media/${mediaId}`;
+            sch.principal_avatar = onlineBlobUrl;
+            sch.avatar = onlineBlobUrl;
+            sch.photo = onlineBlobUrl;
           }
         } catch (e) {}
       }

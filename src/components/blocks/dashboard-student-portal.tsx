@@ -234,8 +234,20 @@ export function DashboardStudentPortal({
         </div>
 
         <div className="relative z-10 flex items-center gap-4">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-display font-bold text-2xl shadow-md border-2 border-white shrink-0">
-            {(student.full_name || 'S')[0]}
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-display font-bold text-2xl shadow-md border-2 border-white shrink-0 overflow-hidden relative">
+            {(student.photo || student.avatar || currentUser?.photo || currentUser?.avatar) ? (
+              <img
+                src={student.photo || student.avatar || currentUser?.photo || currentUser?.avatar}
+                alt={student.full_name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            ) : null}
+            <span className={(student.photo || student.avatar || currentUser?.photo || currentUser?.avatar) ? 'hidden' : ''}>
+              {(student.full_name || 'S')[0]}
+            </span>
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
