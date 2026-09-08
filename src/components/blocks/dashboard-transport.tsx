@@ -95,7 +95,7 @@ export const ROUTE_SHIFTS_METADATA: Record<ShiftType, RouteShiftConfig> = {
     shortLabel: 'Pickup to School',
     timing: '07:15 AM – 08:30 AM',
     type: 'PICKUP',
-    description: 'Residential Terminals &rarr; City Stops &rarr; School Main Gate'
+    description: 'Residential Terminals → City Stops → School Main Gate'
   },
   AFTERNOON: {
     id: 'AFTERNOON',
@@ -103,7 +103,7 @@ export const ROUTE_SHIFTS_METADATA: Record<ShiftType, RouteShiftConfig> = {
     shortLabel: 'Junior School Drop',
     timing: '01:45 PM – 03:00 PM',
     type: 'DROP',
-    description: 'School Main Gate &rarr; Reverse Residential Drops'
+    description: 'School Main Gate → Reverse Residential Drops'
   },
   EVENING: {
     id: 'EVENING',
@@ -111,7 +111,7 @@ export const ROUTE_SHIFTS_METADATA: Record<ShiftType, RouteShiftConfig> = {
     shortLabel: 'Senior & Remedial',
     timing: '04:30 PM – 05:30 PM',
     type: 'DROP',
-    description: 'School Main Gate &rarr; Senior & Sports Hub Drops'
+    description: 'School Main Gate → Senior & Sports Hub Drops'
   }
 };
 
@@ -1228,80 +1228,76 @@ export function DashboardTransport({
           1. TOP HERO & MODE CONTROLLER TOOLBAR (For Admins / Managers)
           ───────────────────────────────────────────────────────────── */}
       {!isDriverUser && (
-        <div className="bg-[#122A24] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-white/10 relative overflow-hidden">
-          {/* Background Watermark Behind Header Text */}
-          <div 
-            aria-hidden="true" 
-            className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-white/[0.08] sm:text-white/[0.12] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
-          >
-            TRANSPORT
-          </div>
+        <div className="bg-gradient-to-br from-[#122A24] via-[#163830] to-[#122A24] text-white rounded-3xl p-6 sm:p-7 shadow-xl border border-white/10 relative overflow-hidden">
+          {/* Subtle glow accent */}
+          <div className="absolute -right-20 -top-20 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Subtle grid watermark */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-600/20 via-transparent to-transparent opacity-60 pointer-events-none" />
-          
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold uppercase tracking-wider">
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+            <div className="space-y-1.5">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs font-semibold uppercase tracking-wider">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                Live Fleet Telematics &bull; GPS Engine
+                <span>Live Fleet Radar &bull; GPS Engine</span>
               </div>
-              <h1 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight text-white">
-                Transport &amp; Live GPS Fleet Radar
+              <h1 className="font-display font-extrabold text-2xl sm:text-3xl tracking-tight text-white m-0">
+                Transport &amp; Fleet Telematics
               </h1>
-              <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-                Real-time vehicle tracking, custom route builder (e.g. <em>Rajajipuram to Chowk</em>), driver smartphone GPS transmitter, and instant parent ETA radar.
+              <p className="text-xs sm:text-sm text-emerald-100/70 max-w-2xl leading-relaxed m-0">
+                Real-time satellite GPS tracking, multi-shift route progression, driver telemetry, and live parent transit radar.
               </p>
             </div>
 
             {/* Mode Navigation Tabs */}
-            <div className="flex items-center bg-black/40 p-1.5 rounded-2xl border border-white/10 gap-1 overflow-x-auto shrink-0">
+            <div className="inline-flex items-center bg-black/40 p-1.5 rounded-2xl border border-white/10 gap-1 self-start lg:self-center shrink-0">
               <button
+                type="button"
                 onClick={() => setViewMode('FLEET')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
                   viewMode === 'FLEET'
                     ? 'bg-emerald-500 text-[#122A24] shadow-md font-extrabold'
                     : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >
-                <Radio className="w-3.5 h-3.5" />
-                <span>Live Fleet Radar</span>
+                <Radio className="w-3.5 h-3.5 shrink-0" />
+                <span>Live Radar</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => setViewMode('ROUTES')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
                   viewMode === 'ROUTES'
                     ? 'bg-emerald-500 text-[#122A24] shadow-md font-extrabold'
                     : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >
-                <Navigation className="w-3.5 h-3.5" />
-                <span>Route Management</span>
+                <Navigation className="w-3.5 h-3.5 shrink-0" />
+                <span>Routes</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => setViewMode('DRIVER')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
                   viewMode === 'DRIVER'
                     ? 'bg-emerald-500 text-[#122A24] shadow-md font-extrabold'
                     : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>Driver Mobile App</span>
+                <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                <span>Driver App</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => setViewMode('PARENT')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-none ${
                   viewMode === 'PARENT'
                     ? 'bg-emerald-500 text-[#122A24] shadow-md font-extrabold'
                     : 'text-slate-300 hover:text-white hover:bg-white/10'
                 }`}
               >
-                <MapPin className="w-3.5 h-3.5" />
-                <span>Parent Bus Radar</span>
+                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                <span>Parent View</span>
               </button>
             </div>
           </div>
@@ -1333,32 +1329,36 @@ export function DashboardTransport({
           {/* Left Column: Master Google Maps Console & Telemetry */}
           <div className="lg:col-span-8 space-y-6">
 
-            {/* 1. ACTIVE BUS SHIFT SELECTOR BAR FOR ADMIN */}
-            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#DCE8E0] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
+            {/* 1. ACTIVE BUS SHIFT SELECTOR BAR */}
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#DCE8E0] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5 min-w-0">
                 <div className="w-11 h-11 rounded-2xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center shrink-0 border border-[#C5E2CF]">
-                  <Repeat className="w-6 h-6 text-emerald-700" />
+                  <Repeat className="w-5 h-5 text-emerald-700" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-[#122A24] uppercase tracking-wider">
-                      {activeRoute.code} &bull; Fleet Transit Shift
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-[#122A24] uppercase tracking-wider font-mono">
+                      {activeRoute.code}
+                    </span>
+                    <span className="w-1 h-1 rounded-full bg-slate-300" />
+                    <span className="text-xs font-semibold text-slate-500">
+                      {ROUTE_SHIFTS_METADATA[activeShift].timing}
                     </span>
                     <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-extrabold font-mono uppercase">
                       {ROUTE_SHIFTS_METADATA[activeShift].shortLabel}
                     </span>
                   </div>
-                  <h4 className="font-bold text-sm sm:text-base text-[#122A24] mt-0.5">
-                    {ROUTE_SHIFTS_METADATA[activeShift].name} ({ROUTE_SHIFTS_METADATA[activeShift].timing})
+                  <h4 className="font-bold text-sm sm:text-base text-[#122A24] mt-0.5 truncate">
+                    {ROUTE_SHIFTS_METADATA[activeShift].name}
                   </h4>
-                  <p className="text-xs text-slate-500 font-medium">
+                  <p className="text-xs text-slate-500 font-medium truncate mt-0.5">
                     {ROUTE_SHIFTS_METADATA[activeShift].description}
                   </p>
                 </div>
               </div>
 
               {/* 3 Shift Switcher Buttons */}
-              <div className="flex items-center gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] self-start md:self-auto overflow-x-auto max-w-full">
+              <div className="flex items-center gap-1 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shrink-0 self-start md:self-auto">
                 {(['MORNING', 'AFTERNOON', 'EVENING'] as ShiftType[]).map((shiftKey) => {
                   const shift = ROUTE_SHIFTS_METADATA[shiftKey];
                   const isActive = activeShift === shiftKey;
@@ -1369,32 +1369,32 @@ export function DashboardTransport({
                       onClick={() => handleShiftChange(shiftKey)}
                       className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none flex items-center gap-1.5 whitespace-nowrap ${
                         isActive
-                          ? 'bg-[#122A24] text-white shadow-sm ring-2 ring-emerald-500/40'
+                          ? 'bg-[#122A24] text-white shadow-xs'
                           : 'bg-transparent text-slate-600 hover:text-[#122A24] hover:bg-white/80'
                       }`}
                       title={`Switch to ${shift.name}`}
                     >
-                      <span>{shiftKey === 'MORNING' ? '🌅' : shiftKey === 'AFTERNOON' ? '☀️' : '🌙'}</span>
-                      <span>{shiftKey === 'MORNING' ? 'Morning Pickup' : shiftKey === 'AFTERNOON' ? 'Afternoon Drop' : 'Evening Transit'}</span>
+                      <span className="text-sm">{shiftKey === 'MORNING' ? '🌅' : shiftKey === 'AFTERNOON' ? '☀️' : '🌙'}</span>
+                      <span>{shiftKey === 'MORNING' ? 'Morning' : shiftKey === 'AFTERNOON' ? 'Afternoon' : 'Evening'}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* 2. MASTER GOOGLE MAPS FLEET RADAR CONSOLE (REPLACES SYNTHETIC SVG & OPENSTREETMAP) */}
-            <div className={`bg-white rounded-3xl p-5 sm:p-6 border border-[#DCE8E0] shadow-sm space-y-4 transition-all ${
+            {/* 2. MASTER GOOGLE MAPS FLEET RADAR CONSOLE */}
+            <div className={`bg-white rounded-3xl p-5 sm:p-6 border border-[#DCE8E0] shadow-xs space-y-4 transition-all ${
               isMapFullscreen ? 'fixed inset-0 z-50 rounded-none p-4 sm:p-6 bg-slate-900 border-none flex flex-col overflow-auto' : ''
             }`}>
               {/* Header Bar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-2xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center shrink-0 border border-[#C5E2CF]">
-                    <Bus className="w-5 h-5" />
+                    <Bus className="w-5 h-5 text-emerald-800" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className={`font-bold text-base ${isMapFullscreen ? 'text-white' : 'text-[#122A24]'}`}>
+                      <h3 className={`font-bold text-base m-0 ${isMapFullscreen ? 'text-white' : 'text-[#122A24]'}`}>
                         {activeRoute.name}
                       </h3>
                       <span className="px-2 py-0.5 rounded-md bg-[#122A24] text-emerald-300 font-mono text-[10px] font-bold">
@@ -1406,14 +1406,14 @@ export function DashboardTransport({
                         </span>
                       )}
                     </div>
-                    <p className={`text-xs ${isMapFullscreen ? 'text-slate-300' : 'text-slate-500'}`}>
+                    <p className={`text-xs m-0 mt-0.5 ${isMapFullscreen ? 'text-slate-300' : 'text-slate-500'}`}>
                       Vehicle: <strong className="font-mono">{activeRoute.vehicleNo}</strong> &bull; Driver: {activeRoute.driver} ({activeRoute.driverPhone})
                     </p>
                   </div>
                 </div>
 
                 {/* Right Action Buttons */}
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   {/* Streaming Status Pill */}
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold font-mono border ${
                     adminBusCoords.isStreaming
@@ -1421,7 +1421,7 @@ export function DashboardTransport({
                       : 'bg-slate-100 text-slate-600 border-slate-200'
                   }`}>
                     <span className={`w-2 h-2 rounded-full ${adminBusCoords.isStreaming ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
-                    <span>{adminBusCoords.isStreaming ? 'LIVE GPS STREAMING' : 'GPS STANDBY'}</span>
+                    <span>{adminBusCoords.isStreaming ? 'LIVE GPS' : 'STANDBY'}</span>
                   </span>
 
                   {/* Refresh Telemetry */}
@@ -1434,32 +1434,6 @@ export function DashboardTransport({
                   >
                     <RefreshCw className={`w-4 h-4 ${isRefreshingTelemetry ? 'animate-spin text-emerald-600' : ''}`} />
                   </button>
-
-                  {/* Map Size Buttons */}
-                  <div className="hidden sm:flex items-center bg-[#F4F8F5] p-1 rounded-xl border border-[#DCE8E0] gap-0.5">
-                    <button
-                      type="button"
-                      onClick={() => { setMapSize('STANDARD'); setIsMapFullscreen(false); }}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border-none ${
-                        mapSize === 'STANDARD' && !isMapFullscreen
-                          ? 'bg-[#122A24] text-white shadow-xs'
-                          : 'bg-transparent text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      540px
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setMapSize('THEATER'); setIsMapFullscreen(false); }}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border-none ${
-                        mapSize === 'THEATER' && !isMapFullscreen
-                          ? 'bg-[#122A24] text-white shadow-xs'
-                          : 'bg-transparent text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      780px
-                    </button>
-                  </div>
 
                   {/* Fullscreen Toggle */}
                   <button
@@ -1485,54 +1459,58 @@ export function DashboardTransport({
                 </div>
               </div>
 
-              {/* 4 Interactive Map Mode Tabs */}
+              {/* 4 Interactive Map Mode Tabs (Clean Enterprise Design) */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] text-xs">
                 <button
                   type="button"
                   onClick={() => setGoogleMapMode('ROUTE_PATH')}
-                  className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                  className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 ${
                     googleMapMode === 'ROUTE_PATH'
-                      ? 'bg-[#122A24] text-white shadow-sm'
-                      : 'bg-transparent text-slate-600 hover:text-slate-900'
+                      ? 'bg-[#122A24] text-white shadow-xs'
+                      : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-white/70'
                   }`}
                 >
-                  🗺️ Marked Driving Route
+                  <Navigation className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Route Path</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setGoogleMapMode('LIVE_PIN')}
-                  className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                  className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 ${
                     googleMapMode === 'LIVE_PIN'
-                      ? 'bg-[#122A24] text-white shadow-sm'
-                      : 'bg-transparent text-slate-600 hover:text-slate-900'
+                      ? 'bg-[#122A24] text-white shadow-xs'
+                      : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-white/70'
                   }`}
                 >
-                  📍 Live Bus GPS Pin
+                  <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Live GPS Pin</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setGoogleMapMode('LIVE_NAV')}
-                  className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                  className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 ${
                     googleMapMode === 'LIVE_NAV'
-                      ? 'bg-[#122A24] text-white shadow-sm'
-                      : 'bg-transparent text-slate-600 hover:text-slate-900'
+                      ? 'bg-[#122A24] text-white shadow-xs'
+                      : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-white/70'
                   }`}
                 >
-                  🎯 Nav to Current Stop ({nextDriverStop?.name?.replace('Stop', '').trim() || 'Next'})
+                  <CornerDownRight className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Next Stop Nav</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setGoogleMapMode('RADAR_CANVAS')}
-                  className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none text-center ${
+                  className={`py-2 px-3 rounded-xl font-bold transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 ${
                     googleMapMode === 'RADAR_CANVAS'
-                      ? 'bg-[#122A24] text-white shadow-sm'
-                      : 'bg-transparent text-slate-600 hover:text-slate-900'
+                      ? 'bg-[#122A24] text-white shadow-xs'
+                      : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-white/70'
                   }`}
                 >
-                  🧭 Stops Radar Canvas
+                  <Activity className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Stops Radar</span>
                 </button>
               </div>
 
@@ -1822,14 +1800,14 @@ export function DashboardTransport({
           <div className="lg:col-span-4 space-y-6">
             
             {/* Active Fleet Selector */}
-            <div className="bg-white rounded-3xl p-6 border border-[#DCE8E0] shadow-sm space-y-4">
+            <div className="bg-white rounded-2xl p-5 border border-[#DCE8E0] shadow-xs space-y-3.5">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-display font-bold text-sm text-[#122A24]">
                     Active School Fleet
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Select a bus to track live
+                    Select a vehicle to track live telemetry
                   </p>
                 </div>
                 <span className="px-2.5 py-1 rounded-full bg-[#EBF5EF] text-[#1C443A] font-mono text-xs font-bold border border-[#C5E2CF]">
@@ -1837,7 +1815,7 @@ export function DashboardTransport({
                 </span>
               </div>
 
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {routes.map(r => {
                   const isSelected = r.id === selectedRouteId;
                   const busTele = allTelemetries[r.id] || Object.values(allTelemetries).find((t: any) => t.vehicleNo === r.vehicleNo || t.routeId === r.id);
@@ -1850,23 +1828,23 @@ export function DashboardTransport({
                         setSelectedRouteId(r.id);
                         setCompletedStopIds([]);
                       }}
-                      className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-[#122A24] text-white border-[#122A24] shadow-md ring-2 ring-emerald-500/40'
-                          : 'bg-[#F4F8F5] text-[#122A24] border-[#DCE8E0] hover:bg-[#EBF5EF]'
+                          ? 'bg-[#122A24] text-white border-[#122A24] shadow-sm ring-2 ring-emerald-400/30'
+                          : 'bg-white text-slate-700 border-[#E2ECE5] hover:border-emerald-300 hover:bg-[#F8FAF9]'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <div className="font-bold text-xs">
+                        <div className={`font-semibold text-xs leading-tight ${isSelected ? 'text-white' : 'text-[#122A24]'}`}>
                           {r.name}
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           {isBusOnline ? (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold font-mono bg-emerald-500 text-white animate-pulse">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded font-bold font-mono bg-emerald-500 text-white animate-pulse">
                               LIVE
                             </span>
                           ) : (
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold font-mono ${isSelected ? 'bg-white/10 text-slate-400' : 'bg-slate-200 text-slate-600'}`}>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold font-mono ${isSelected ? 'bg-white/15 text-slate-300' : 'bg-slate-100 text-slate-500 border border-slate-200/60'}`}>
                               STANDBY
                             </span>
                           )}
@@ -1876,7 +1854,7 @@ export function DashboardTransport({
                                 ? 'bg-emerald-400 text-[#122A24]'
                                 : r.status === 'ON_ROUTE'
                                 ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-slate-200 text-slate-700'
+                                : 'bg-slate-100 text-slate-600 border border-slate-200'
                             }`}
                           >
                             {r.code}
@@ -1884,17 +1862,17 @@ export function DashboardTransport({
                         </div>
                       </div>
 
-                      <div className={`text-[11px] mt-1.5 flex items-center justify-between ${isSelected ? 'text-slate-300' : 'text-slate-600'}`}>
-                        <span>Driver: {r.substituteDriver ? `Relief: ${r.substituteDriver}` : r.driver}</span>
-                        <span className="font-mono">{r.vehicleNo}</span>
+                      <div className={`text-[11px] mt-2 flex items-center justify-between gap-2 ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                        <span className="truncate">Driver: {r.substituteDriver ? `Relief: ${r.substituteDriver}` : r.driver}</span>
+                        <span className={`font-mono text-[10.5px] shrink-0 ${isSelected ? 'text-emerald-300' : 'text-slate-700 font-semibold'}`}>{r.vehicleNo}</span>
                       </div>
 
-                      <div className={`text-[10px] mt-1 flex items-center justify-between ${isSelected ? 'text-emerald-300' : 'text-emerald-700 font-semibold'}`}>
+                      <div className={`text-[10px] mt-1.5 pt-1.5 border-t flex items-center justify-between ${isSelected ? 'border-white/10 text-emerald-300/90' : 'border-slate-100 text-slate-500'}`}>
                         <div className="flex items-center gap-1.5">
                           <span className={`w-1.5 h-1.5 rounded-full ${isBusOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
                           <span>{r.stops.length} Stops &bull; {r.capacity}</span>
                         </div>
-                        <span className="font-mono text-[9.5px] opacity-80">
+                        <span className="font-medium text-[10px]">
                           {ROUTE_SHIFTS_METADATA[activeShift].shortLabel}
                         </span>
                       </div>
@@ -1905,7 +1883,7 @@ export function DashboardTransport({
 
               <button
                 onClick={() => setViewMode('ROUTES')}
-                className="w-full py-2.5 rounded-xl bg-[#EBF5EF] hover:bg-[#D8EEDF] text-[#1C443A] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors border border-[#C5E2CF] cursor-pointer"
+                className="w-full py-2 rounded-xl bg-[#F0F6F2] hover:bg-[#E3EEE6] text-[#1C443A] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-[#C5E2CF]/70 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Manage &amp; Add Routes</span>
@@ -1913,27 +1891,31 @@ export function DashboardTransport({
             </div>
 
             {/* Emergency Broadcast / Delay Alert Trigger */}
-            <div className="bg-[#122A24] text-white rounded-3xl p-6 border border-white/10 shadow-sm space-y-3">
-              <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
-                <AlertTriangle className="w-4 h-4" />
-                <span>Instant Delay / Traffic Notice</span>
+            <div className="bg-gradient-to-br from-amber-50/70 to-orange-50/40 rounded-2xl p-4.5 border border-amber-200/80 shadow-2xs space-y-2.5">
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-xs uppercase tracking-wide">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Instant Delay &amp; Traffic Notice</span>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-[11.5px] text-amber-950/75 leading-relaxed">
                 Broadcast traffic congestion, road blockage, or weather delay directly to parents on this route.
               </p>
               
-              <div className="space-y-2">
+              <div className="space-y-1.5 pt-1">
                 <button
+                  type="button"
                   onClick={() => setActiveAlert(`Traffic Jam at Charbagh for ${activeRoute.name} — delay of ~15 mins.`)}
-                  className="w-full text-left p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs text-white border border-white/10 transition-colors cursor-pointer"
+                  className="w-full text-left p-2.5 rounded-xl bg-white/90 hover:bg-white text-xs text-amber-950 border border-amber-200/70 transition-all shadow-2xs cursor-pointer flex items-center justify-between gap-2 group"
                 >
-                  &bull; Heavy Traffic at Charbagh (+15m)
+                  <span className="font-medium truncate group-hover:text-amber-800">Heavy Traffic at Charbagh</span>
+                  <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 shrink-0">+15m</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setActiveAlert(`Chowk road diversion active for ${activeRoute.name} — ETA updated by 10 mins.`)}
-                  className="w-full text-left p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs text-white border border-white/10 transition-colors cursor-pointer"
+                  className="w-full text-left p-2.5 rounded-xl bg-white/90 hover:bg-white text-xs text-amber-950 border border-amber-200/70 transition-all shadow-2xs cursor-pointer flex items-center justify-between gap-2 group"
                 >
-                  &bull; Road Diversion at Chowk (+10m)
+                  <span className="font-medium truncate group-hover:text-amber-800">Road Diversion at Chowk</span>
+                  <span className="text-[10px] font-bold font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 shrink-0">+10m</span>
                 </button>
               </div>
             </div>
