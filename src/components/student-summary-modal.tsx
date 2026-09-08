@@ -283,7 +283,7 @@ export function StudentSummaryModal({
                   Edit Profile
                 </button>
               )}
-              {onCollectFee && activeStudent.fee_status !== 'PAID' && (
+              {onCollectFee && (
                 <button
                   onClick={() => { onCollectFee(activeStudent); onClose(); }}
                   className="px-4 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-bold shadow-xs transition-all cursor-pointer"
@@ -858,7 +858,7 @@ export function StudentSummaryModal({
                 Edit Profile
               </button>
             )}
-            {onCollectFee && activeStudent.fee_status !== 'PAID' && (
+            {onCollectFee && (
               <button
                 onClick={() => { onCollectFee(activeStudent); onClose(); }}
                 className="px-3.5 py-1.5 bg-[#EBF5EF] hover:bg-[#D5EBDC] text-[#1C443A] border border-[#C5E2CF] rounded-full text-xs font-bold shadow-2xs transition-all cursor-pointer"

@@ -338,6 +338,7 @@ function ERPWorkspaceContent() {
   const [showExportMenu, setShowExportMenu] = useState<string | null>(null);
   const [feeMenuOpen, setFeeMenuOpen] = useState(true);
   const [feeSubTab, setFeeSubTab] = useState<'overview' | 'monthly' | 'collect' | 'calendar' | 'structure' | 'payroll'>('overview');
+  const [feeCollectTarget, setFeeCollectTarget] = useState<{ studentId: string; ts: number } | null>(null);
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [overview, setOverview] = useState<SchoolOverview | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
@@ -3321,20 +3322,14 @@ function ERPWorkspaceContent() {
   };
 
   const handleQuickCollectFee = (s: Student) => {
-    setInvoiceForm({
-      student_id: s.id,
-      student_name: s.full_name,
-      admission_no: s.admission_no,
-      class_name: `${s.class_name} - ${s.section}`,
-      tuition_fee: 12000,
-      transport_fee: s.transport_opted === 'YES' ? 2000 : 0,
-      exam_fee: 1000,
-      amount: s.transport_opted === 'YES' ? 15000 : 13000,
-      payment_mode: 'UPI / Online',
-      due_date: new Date().toISOString().split('T')[0],
-      status: 'PAID'
-    });
-    setShowAddInvoice(true);
+    setSummaryStudent(null);
+    setActiveStudentMenuId(null);
+    setFeeCollectTarget({ studentId: s.id, ts: Date.now() });
+    setFeeSubTab('collect');
+    setActiveTab('fees');
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   // Helper to reliably resolve faculty gender
@@ -8247,6 +8242,9 @@ function ERPWorkspaceContent() {
                 classes={classes}
                 teachers={teachers}
                 selectedSession={selectedSession}
+                subTab={feeSubTab}
+                preselectedStudentId={feeCollectTarget?.studentId}
+                preselectedTimestamp={feeCollectTarget?.ts}
                 onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession)}
                 showAdminToast={showAdminToast}
               />

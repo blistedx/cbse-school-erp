@@ -64,7 +64,9 @@ export interface DashboardFeesProps {
   classes: ClassRoom[];
   teachers: Teacher[];
   selectedSession: string;
-  subTab?: 'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'slips' | 'payroll';
+  subTab?: 'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'slips' | 'payroll' | 'calendar';
+  preselectedStudentId?: string;
+  preselectedTimestamp?: number;
   onRefresh?: () => void;
   showAdminToast?: (msg: string) => void;
 }
@@ -114,6 +116,8 @@ export function DashboardFees({
   teachers,
   selectedSession,
   subTab = 'reports',
+  preselectedStudentId,
+  preselectedTimestamp,
   onRefresh,
   showAdminToast
 }: DashboardFeesProps) {
@@ -1208,6 +1212,29 @@ export function DashboardFees({
   React.useEffect(() => {
     setInvoices(initialInvoices || []);
   }, [initialInvoices]);
+
+  // Sync feeTab if subTab changes from parent
+  React.useEffect(() => {
+    if (subTab) {
+      setFeeTab(subTab as any);
+    }
+  }, [subTab]);
+
+  // Handle external student preselection (e.g. from Student Directory "Collect Fees")
+  React.useEffect(() => {
+    if (preselectedStudentId) {
+      const target = students.find(s => s.id === preselectedStudentId || s.admission_no === preselectedStudentId);
+      if (target) {
+        setFeeTab('collect');
+        setCollectFilterClass('ALL');
+        setCollectSearchQuery(target.full_name || target.admission_no || '');
+        setCollectStudentId(target.id);
+        if (typeof window !== 'undefined') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    }
+  }, [preselectedStudentId, preselectedTimestamp, students]);
 
   const [feeToastMsg, setFeeToastMsg] = useState('');
   const notify = (msg: string) => {
