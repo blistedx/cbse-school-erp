@@ -4103,24 +4103,36 @@ function ERPWorkspaceContent() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* Universal Omni-Search Trigger Bar */}
+          {/* Universal Omni-Search Trigger Button / Bar */}
           {effectiveRole !== 'DRIVER' && (
-            <div
-              onClick={() => setIsOmniSearchOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[#F4F8F5] hover:bg-[#EBF5EF]/80 border border-[#DCE8E0] text-[#122A24] rounded-xl text-xs font-medium shadow-2xs transition-all cursor-pointer group w-36 sm:w-56 md:w-64 shrink-0"
-              title="Search Scholars, Staff, Invoices, Classes (Ctrl+K)"
-            >
-              <Search className="h-3.5 w-3.5 text-[#2D5A4E]/80 shrink-0 group-hover:text-[#122A24] transition-colors" />
-              <span className="hidden sm:inline text-[#2D5A4E]/60 text-xs truncate flex-1 select-none">
-                Search scholars, staff, fees...
-              </span>
-              <span className="sm:hidden text-[#2D5A4E]/60 text-xs truncate flex-1 select-none">
-                Search...
-              </span>
-              <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9.5px] font-mono bg-white border border-[#DCE8E0] rounded text-[#122A24] shrink-0 shadow-2xs">
-                ⌘K
-              </kbd>
-            </div>
+            <>
+              {/* Mobile Search Icon Button */}
+              <button
+                type="button"
+                onClick={() => setIsOmniSearchOpen(true)}
+                className="sm:hidden p-2 rounded-xl bg-white hover:bg-[#EBF5EF] border border-[#DCE8E0] text-[#122A24] transition-colors cursor-pointer shadow-2xs flex items-center justify-center shrink-0"
+                title="Search scholars, staff, fees (Ctrl+K)"
+                aria-label="Search"
+              >
+                <Search className="h-4 w-4 text-[#122A24]" />
+              </button>
+
+              {/* Desktop Omni-Search Trigger Bar */}
+              <button
+                type="button"
+                onClick={() => setIsOmniSearchOpen(true)}
+                className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#F4F8F5] hover:bg-[#EBF5EF]/80 border border-[#DCE8E0] text-[#122A24] rounded-xl text-xs font-medium shadow-2xs transition-all cursor-pointer group sm:w-56 md:w-64 shrink-0 text-left"
+                title="Search Scholars, Staff, Invoices, Classes (Ctrl+K)"
+              >
+                <Search className="h-3.5 w-3.5 text-[#2D5A4E]/80 shrink-0 group-hover:text-[#122A24] transition-colors" />
+                <span className="text-[#2D5A4E]/60 text-xs truncate flex-1 select-none">
+                  Search scholars, staff, fees...
+                </span>
+                <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9.5px] font-mono bg-white border border-[#DCE8E0] rounded text-[#122A24] shrink-0 shadow-2xs">
+                  ⌘K
+                </kbd>
+              </button>
+            </>
           )}
 
           {/* Academic Session Switcher */}
