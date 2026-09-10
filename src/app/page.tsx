@@ -406,27 +406,29 @@ export default async function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[var(--line)] py-9 bg-white" id="contact">
-        <div className="max-w-[1160px] mx-auto px-6 sm:px-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
-          <p className="m-0">Giterp · School ERP for multiple schools, one platform</p>
-          <div className="flex gap-6 text-[13.5px]">
-            <Link href="/login" className="hover:text-[var(--ink-navy)] no-underline">
+      <footer className="border-t border-[var(--line)] py-8 sm:py-9 bg-white" id="contact">
+        <div className="max-w-[1160px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
+          <p className="m-0 text-center sm:text-left text-xs text-slate-500">
+            Giterp · School ERP for multiple schools, one platform
+          </p>
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-5 gap-y-2.5 text-xs sm:text-[13px]">
+            <Link href="/login" className="text-slate-600 hover:text-[var(--ink-navy)] no-underline whitespace-nowrap transition-colors">
               School Login
             </Link>
-            <Link href="/request-demo" className="hover:text-[var(--ink-navy)] no-underline">
+            <Link href="/request-demo" className="text-slate-600 hover:text-[var(--ink-navy)] no-underline whitespace-nowrap transition-colors">
               Request a Demo
             </Link>
-            <a href="#faq" className="hover:text-[var(--ink-navy)] no-underline">
+            <a href="#faq" className="text-slate-600 hover:text-[var(--ink-navy)] no-underline whitespace-nowrap transition-colors">
               FAQs
             </a>
-            <Link href="/privacy" className="hover:text-[var(--ink-navy)] no-underline">
+            <Link href="/privacy" className="text-slate-600 hover:text-[var(--ink-navy)] no-underline whitespace-nowrap transition-colors">
               Privacy Policy
             </Link>
-            <Link href="/terms" className="hover:text-[var(--ink-navy)] no-underline">
+            <Link href="/terms" className="text-slate-600 hover:text-[var(--ink-navy)] no-underline whitespace-nowrap transition-colors">
               Terms of Service
             </Link>
-            <CookiePreferencesButton className="hover:text-[var(--ink-navy)] no-underline cursor-pointer border-none bg-transparent p-0 text-slate-500 font-sans" />
-            <a href="#top" className="hover:text-[var(--ink-navy)] no-underline">
+            <CookiePreferencesButton className="text-slate-600 hover:text-[var(--ink-navy)] no-underline cursor-pointer border-none bg-transparent p-0 text-slate-600 font-sans whitespace-nowrap text-xs sm:text-[13px] transition-colors" />
+            <a href="#top" className="text-slate-600 hover:text-[var(--ink-navy)] no-underline whitespace-nowrap transition-colors">
               Back to top ↑
             </a>
           </div>
