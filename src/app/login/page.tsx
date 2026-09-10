@@ -300,7 +300,7 @@ export default function LoginPage() {
 
 
   return (
-    <div className="auth-split-layout relative overflow-hidden min-h-screen">
+    <main id="main-content" tabIndex={-1} className="auth-split-layout relative overflow-hidden min-h-screen focus:outline-none">
       {/* Light Green Matrix Rain ONLY on Mobile Screen (< md) */}
       <div className="md:hidden">
         <MatrixRain theme="light" />
@@ -626,9 +626,19 @@ export default function LoginPage() {
           )}
 
           <Link className="back" href="/">← Back to Giterp</Link>
-          <Link className="back" href="/request-demo" style={{ marginTop: '8px' }}>
-            New school? Request a demo →
-          </Link>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', flexWrap: 'wrap', gap: '8px' }}>
+            <Link className="back" href="/request-demo" style={{ margin: 0 }}>
+              New school? Request a demo →
+            </Link>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <Link href="/privacy" style={{ fontSize: '12px', color: '#52796F', textDecoration: 'none' }}>
+                Privacy
+              </Link>
+              <Link href="/terms" style={{ fontSize: '12px', color: '#52796F', textDecoration: 'none' }}>
+                Terms
+              </Link>
+            </div>
+          </div>
 
           <div
             style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid #E2ECE5', textAlign: 'center', fontFamily: 'monospace', fontSize: '11px', color: '#52796F' }}
@@ -638,6 +648,6 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

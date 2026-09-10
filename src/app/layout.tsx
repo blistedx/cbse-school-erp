@@ -2,13 +2,42 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import PWAProvider from '@/components/pwa-provider';
+import { Analytics } from '@vercel/analytics/react';
+import CookieConsent from '@/components/ui/cookie-consent';
+import { organizationSchema, softwareApplicationSchema } from '@/lib/json-ld';
 
 export const metadata: Metadata = {
-  title: 'Giterp — School ERP Platform',
-  description: 'Giterp runs attendance, fees, timetables, examinations, transport GPS and CBSE report cards for schools — all on one unified platform.',
-  keywords: 'Giterp, School ERP, CBSE school software, student information system, fees management, school management',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://giterp.com'),
+  title: {
+    default: 'Giterp — Multi-School Enterprise CBSE ERP Platform',
+    template: '%s | Giterp ERP'
+  },
+  description: 'Giterp runs attendance, fees, timetables, examinations, transport GPS and CBSE report cards for schools — all on one unified multi-tenant platform.',
+  keywords: 'Giterp, School ERP, CBSE school software, student information system, fees management, school management, APAAR ID, UDISE+',
   applicationName: 'Giterp ERP',
   authors: [{ name: 'Giterp Technologies' }],
+  openGraph: {
+    type: 'website',
+    locale: 'en_IN',
+    url: 'https://giterp.com',
+    siteName: 'Giterp CBSE School ERP',
+    title: 'Giterp — Multi-School Enterprise CBSE ERP Platform',
+    description: 'High-performance multi-tenant CBSE School ERP suite. Automate attendance roll calls, term fee invoicing, 9-point grading report cards, and transport GPS tracking in one unified register.',
+    images: [
+      {
+        url: '/giterp-logo.png',
+        width: 800,
+        height: 800,
+        alt: 'Giterp CBSE School ERP Official Emblem'
+      }
+    ]
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Giterp — Multi-School Enterprise CBSE ERP Platform',
+    description: 'Automate attendance roll calls, term fees, 9-point grading report cards, and transport GPS tracking for CBSE schools.',
+    images: ['/giterp-logo.png']
+  },
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
@@ -45,7 +74,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -72,11 +101,27 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="theme-color" content="#122A24" />
         <meta name="msapplication-TileColor" content="#122A24" />
+
+        {/* Structured Schema (Schema.org JSON-LD) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify([organizationSchema, softwareApplicationSchema])
+          }}
+        />
       </head>
       <body className="antialiased font-sans" suppressHydrationWarning>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[9999] focus:px-4 focus:py-2.5 focus:rounded-lg focus:bg-[#122A24] focus:text-white focus:shadow-2xl focus:outline-none focus:ring-2 focus:ring-emerald-400 font-semibold text-xs transition-all no-underline"
+        >
+          Skip to main content
+        </a>
         <PWAProvider>
           {children}
         </PWAProvider>
+        <Analytics />
+        <CookieConsent />
       </body>
     </html>
   );

@@ -3,6 +3,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { trackEvent } from '@/lib/analytics';
 
 export default function RequestDemoPage() {
   const [formData, setFormData] = useState({
@@ -20,6 +21,21 @@ export default function RequestDemoPage() {
   const [status, setStatus] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const school = params.get('school') || params.get('name');
+      const email = params.get('email');
+      if (school || email) {
+        setFormData((prev) => ({
+          ...prev,
+          ...(school ? { schoolName: school } : {}),
+          ...(email ? { email } : {})
+        }));
+      }
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -34,6 +50,7 @@ export default function RequestDemoPage() {
 
       const data = await res.json();
       if (data.success) {
+        trackEvent('demo_form_submitted', { board: formData.board || 'CBSE' });
         setIsSuccess(true);
         setStatus("Thanks — that's on our desk now. Our team will reach out within 2 business days.");
         setFormData({
@@ -59,7 +76,7 @@ export default function RequestDemoPage() {
   };
 
   return (
-    <div className="demo-split-layout">
+    <main id="main-content" tabIndex={-1} className="demo-split-layout focus:outline-none">
       {/* Left chalkboard panel */}
       <div className="panel">
         <Link className="brand" href="/">
@@ -218,11 +235,32 @@ export default function RequestDemoPage() {
                 {status}
               </p>
             )}
+
+            <p style={{ marginTop: '16px', fontSize: '11.5px', color: '#64748b', textAlign: 'center' }}>
+              By submitting, you agree to our{' '}
+              <Link href="/terms" style={{ color: '#122A24', fontWeight: 600, textDecoration: 'underline' }}>
+                Terms
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" style={{ color: '#122A24', fontWeight: 600, textDecoration: 'underline' }}>
+                Privacy Policy
+              </Link>. We never sell or share school data.
+            </p>
           </form>
 
-          <Link className="back" href="/">← Back to Giterp</Link>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap', gap: '8px' }}>
+            <Link className="back" href="/" style={{ margin: 0 }}>← Back to Giterp</Link>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <Link href="/privacy" style={{ fontSize: '12.5px', color: '#52796F', textDecoration: 'none' }}>
+                Privacy
+              </Link>
+              <Link href="/terms" style={{ fontSize: '12.5px', color: '#52796F', textDecoration: 'none' }}>
+                Terms
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

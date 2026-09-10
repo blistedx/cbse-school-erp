@@ -2,8 +2,20 @@
 import React from 'react';
 import Link from 'next/link';
 import { Database } from '@/lib/db';
+import { ClearCTABanner } from '@/components/landing/clear-cta';
+import { FAQSection } from '@/components/landing/faq-section';
+import CookiePreferencesButton from '@/components/ui/cookie-preferences-button';
+import { faqPageSchema } from '@/lib/json-ld';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata = {
+  title: 'Giterp — One ERP for Multiple Schools (Attendance, Fees & CBSE Reports)',
+  description: 'High-performance multi-tenant CBSE School ERP suite. Automate attendance roll calls, term fee invoicing, 9-point grading report cards, and transport GPS tracking in one unified register.',
+  alternates: {
+    canonical: '/'
+  }
+};
 
 export default async function HomePage() {
   // Load registered schools with zero-delay fallback
@@ -14,6 +26,12 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased">
+      {/* Search Engine Structured Data for Google Rich Snippets */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageSchema) }}
+      />
+
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-[var(--line)] shadow-2xs">
         <div className="max-w-[1160px] mx-auto px-3.5 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between gap-2">
@@ -36,6 +54,9 @@ export default async function HomePage() {
             </a>
             <a href="#modules" className="opacity-75 hover:opacity-100 transition-opacity no-underline">
               Modules
+            </a>
+            <a href="#faq" className="opacity-75 hover:opacity-100 transition-opacity no-underline">
+              FAQs
             </a>
             <Link href="/agency" className="opacity-75 hover:opacity-100 transition-opacity no-underline">
               Agency Hub
@@ -60,7 +81,7 @@ export default async function HomePage() {
       </header>
 
       {/* Main Content */}
-      <main>
+      <main id="main-content" tabIndex={-1} className="focus:outline-none">
         {/* Hero Section */}
         <section className="relative overflow-hidden bg-[radial-gradient(ellipse_at_20%_-10%,var(--board-2),var(--board-1)_60%)] text-white pt-20 sm:pt-24 pb-0" id="top">
           {/* Decorative Stamp Seal */}
@@ -97,16 +118,31 @@ export default async function HomePage() {
             <div className="flex flex-wrap items-center gap-4 pt-2">
               <Link
                 href="/request-demo"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-md text-[14px] font-semibold text-white bg-[var(--red-pen)] hover:bg-[#b03a24] transition-all shadow-md hover:-translate-y-0.5 no-underline"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg text-[14.5px] font-semibold text-white bg-[var(--red-pen)] hover:bg-[#b03a24] transition-all shadow-md hover:-translate-y-0.5 no-underline"
               >
-                Request a Demo
+                <span>Schedule a Free 15-Min Demo</span>
+                <span>→</span>
               </Link>
               <a
                 href="#how"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-md text-[14px] font-semibold text-white border border-white/40 hover:bg-white/10 hover:border-white transition-all no-underline hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg text-[14.5px] font-semibold text-white border border-white/40 hover:bg-white/10 hover:border-white transition-all no-underline hover:-translate-y-0.5"
               >
-                See how onboarding works →
+                See how onboarding works ↓
               </a>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4 pt-4 text-xs font-mono text-slate-300">
+              <span className="flex items-center gap-1.5 text-emerald-300">
+                <span>✓</span> Zero setup fee
+              </span>
+              <span className="text-white/30">•</span>
+              <span className="flex items-center gap-1.5 text-emerald-300">
+                <span>✓</span> 48-Hour onboarding
+              </span>
+              <span className="text-white/30">•</span>
+              <span className="flex items-center gap-1.5 text-emerald-300">
+                <span>✓</span> Free data migration
+              </span>
             </div>
           </div>
 
@@ -361,23 +397,11 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* CTA Banner */}
-          <div className="bg-[var(--board-1)] text-white rounded-[10px] p-10 sm:p-14 mb-20 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-md border border-white/10">
-            <div>
-              <h2 className="font-display font-semibold text-2xl sm:text-3xl text-white mb-2">
-                Ready to bring your school on board?
-              </h2>
-              <p className="text-slate-200 text-[14.5px] max-w-md m-0">
-                Tell us about your school and our team will reach out to set things up.
-              </p>
-            </div>
-            <Link
-              href="/request-demo"
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-md text-[14px] font-semibold text-[var(--board-1)] bg-white hover:bg-slate-100 transition-all no-underline shadow hover:-translate-y-0.5 shrink-0"
-            >
-              Request a Demo
-            </Link>
-          </div>
+          {/* Comprehensive Categorized FAQ Section */}
+          <FAQSection />
+
+          {/* Clear High-Converting CTA Banner */}
+          <ClearCTABanner />
         </section>
       </main>
 
@@ -392,6 +416,16 @@ export default async function HomePage() {
             <Link href="/request-demo" className="hover:text-[var(--ink-navy)] no-underline">
               Request a Demo
             </Link>
+            <a href="#faq" className="hover:text-[var(--ink-navy)] no-underline">
+              FAQs
+            </a>
+            <Link href="/privacy" className="hover:text-[var(--ink-navy)] no-underline">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:text-[var(--ink-navy)] no-underline">
+              Terms of Service
+            </Link>
+            <CookiePreferencesButton className="hover:text-[var(--ink-navy)] no-underline cursor-pointer border-none bg-transparent p-0 text-slate-500 font-sans" />
             <a href="#top" className="hover:text-[var(--ink-navy)] no-underline">
               Back to top ↑
             </a>
