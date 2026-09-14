@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { School, Student, FeeInvoice, AttendanceRecord, User as UserType } from '@/lib/types';
 import { getStudentMonthlyFeeSchedule, MonthlyFeeItem, CBSE_ACADEMIC_MONTHS } from '@/lib/monthly-fee-helper';
+import { StudentAttendanceHistory } from '@/components/student-attendance-history';
 
 export interface StudentPortalProps {
   currentUser: UserType | null;
@@ -670,113 +671,14 @@ export function DashboardStudentPortal({
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl p-5 sm:p-7 border border-[#DCE8E0] shadow-xs space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-              <div>
-                <h2 className="font-display font-bold text-lg text-[#122A24]">
-                  Monthly Attendance Calendar
-                </h2>
-                <p className="text-xs text-[#2D5A4E]">
-                  Verified daily presence logged via RFID &amp; classroom roll-call
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (selectedMonth === 0) {
-                      setSelectedMonth(11);
-                      setSelectedYear(prev => prev - 1);
-                    } else {
-                      setSelectedMonth(prev => prev - 1);
-                    }
-                  }}
-                  className="w-8 h-8 rounded-xl bg-[#F4F8F5] border border-[#DCE8E0] flex items-center justify-center hover:bg-[#EBF5EF] cursor-pointer text-[#122A24]"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="font-display font-bold text-sm text-[#122A24] px-2 font-mono">
-                  {monthNames[selectedMonth]} {selectedYear}
-                </span>
-                <button
-                  onClick={() => {
-                    if (selectedMonth === 11) {
-                      setSelectedMonth(0);
-                      setSelectedYear(prev => prev + 1);
-                    } else {
-                      setSelectedMonth(prev => prev + 1);
-                    }
-                  }}
-                  className="w-8 h-8 rounded-xl bg-[#F4F8F5] border border-[#DCE8E0] flex items-center justify-center hover:bg-[#EBF5EF] cursor-pointer text-[#122A24]"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => window.print()}
-                  className="ml-2 px-3 py-1.5 bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Print Slip</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 text-xs font-mono flex-wrap pt-1">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span className="text-slate-600">Present (On-Time)</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                <span className="text-slate-600">Absent</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                <span className="text-slate-600">Approved Leave</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                <span className="text-slate-600">Holiday / Sunday</span>
-              </span>
-            </div>
-
-            <div className="grid grid-cols-7 gap-2 sm:gap-3 text-center">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dw, i) => (
-                <div key={i} className="font-mono text-xs font-bold text-slate-400 py-1 uppercase">
-                  {dw}
-                </div>
-              ))}
-
-              {calendarDays.map((cd, i) => {
-                if (cd.status === 'EMPTY') {
-                  return <div key={i} className="h-12 sm:h-14 rounded-2xl bg-transparent" />;
-                }
-
-                return (
-                  <div
-                    key={i}
-                    className={`h-12 sm:h-14 rounded-2xl p-1.5 flex flex-col justify-between items-center transition-all ${
-                      cd.isToday
-                        ? 'ring-2 ring-[#122A24] bg-emerald-50/80 shadow-xs'
-                        : cd.status === 'PRESENT'
-                        ? 'bg-[#EBF5EF] hover:bg-emerald-100 text-[#122A24]'
-                        : cd.status === 'ABSENT'
-                        ? 'bg-rose-50 text-rose-800'
-                        : cd.status === 'LEAVE'
-                        ? 'bg-blue-50 text-blue-800'
-                        : cd.status === 'HOLIDAY' || cd.status === 'SUNDAY'
-                        ? 'bg-slate-100 text-slate-500'
-                        : 'bg-slate-50 text-slate-400 opacity-60'
-                    }`}
-                  >
-                    <span className="font-mono font-bold text-xs">{cd.dayNumber}</span>
-                    <span className="text-[9px] font-mono font-semibold">
-                      {cd.status === 'PRESENT' ? '✓ Present' : cd.status === 'ABSENT' ? '✕ Absent' : cd.status === 'LEAVE' ? 'Leave' : cd.status === 'SUNDAY' ? 'Sun' : cd.status === 'HOLIDAY' ? 'Holiday' : '—'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+          {/* Exact Monthly Calendar & Breakdown from Screenshot */}
+          <div className="bg-white rounded-3xl p-3 sm:p-6 border border-[#DCE8E0] shadow-xs">
+            <StudentAttendanceHistory
+              student={student}
+              attendanceRecords={attendance}
+              initialMonth={selectedMonth}
+              initialYear={selectedYear}
+            />
           </div>
         </div>
       )}

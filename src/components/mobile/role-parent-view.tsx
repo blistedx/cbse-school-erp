@@ -30,6 +30,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import BroadcastInboxModal from '@/components/broadcast-inbox-modal';
+import { StudentAttendanceHistoryModal } from '@/components/student-attendance-history';
 
 export interface RoleParentViewProps {
   activeTab: string;
@@ -56,6 +57,7 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
 
   // Fee Receipt Preview Modal
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showAttendanceHistoryModal, setShowAttendanceHistoryModal] = useState(false);
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [recentBroadcasts, setRecentBroadcasts] = useState<any[]>([]);
   const [liveDriverTelemetry, setLiveDriverTelemetry] = useState<any>(null);
@@ -317,11 +319,15 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
 
           {/* Key Metrics Grid (Attendance & Fees) */}
           <div className="grid grid-cols-2 gap-3">
-            {/* Attendance Card */}
-            <div className="p-4 bg-white rounded-2xl border border-neutral-200 shadow-sm flex flex-col justify-between">
+            {/* Attendance Card (Clickable to open Attendance History) */}
+            <div
+              onClick={() => setShowAttendanceHistoryModal(true)}
+              className="p-4 bg-white rounded-2xl border border-neutral-200 shadow-sm flex flex-col justify-between cursor-pointer hover:border-emerald-300 hover:shadow-md transition-all group"
+              title="Click to view month-wise attendance calendar history"
+            >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Attendance</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider group-hover:text-emerald-700 transition-colors">Attendance</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 group-hover:scale-125 transition-transform" />
               </div>
               <div className="my-2 flex items-baseline gap-1">
                 <span className="text-2xl font-black text-emerald-800 tracking-tight">{currentStudent.attendance}%</span>
@@ -330,9 +336,9 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
               <div className="w-full bg-neutral-100 h-2 rounded-full overflow-hidden">
                 <div className="bg-emerald-600 h-full rounded-full" style={{ width: `${currentStudent.attendance}%` }} />
               </div>
-              <div className="text-[10px] text-neutral-500 mt-2 flex justify-between">
+              <div className="text-[10px] text-neutral-500 mt-2 flex justify-between items-center">
                 <span>{currentStudent.presentDays} Days Attended</span>
-                <span className="font-semibold text-emerald-700">Excellent</span>
+                <span className="font-semibold text-emerald-700 group-hover:underline">History →</span>
               </div>
             </div>
 
@@ -1154,6 +1160,25 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
         userRole="PARENT"
         userName="Parent"
       />
+
+      {/* Individual Child Monthly Attendance History Modal */}
+      {showAttendanceHistoryModal && (
+        <StudentAttendanceHistoryModal
+          isOpen={showAttendanceHistoryModal}
+          onClose={() => setShowAttendanceHistoryModal(false)}
+          student={{
+            id: selectedStudent === 'aarav' ? 'aarav-1' : 'ananya-1',
+            admission_no: currentStudent.admNo,
+            full_name: currentStudent.name,
+            class_name: currentStudent.class,
+            section: 'A',
+            roll_no: currentStudent.rollNo,
+            attendance_percent: currentStudent.attendance,
+            school_id: 'DPS2026',
+            status: 'ACTIVE'
+          } as any}
+        />
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Student, FeeInvoice, AttendanceRecord } from '@/lib/types';
 import { getStudentSiblings, getStudentAssessmentReport } from '@/lib/student-helper';
 import { getStudentMonthlyFeeSchedule } from '@/lib/monthly-fee-helper';
 import { compressImageFile } from '@/lib/image-compress';
+import { StudentAttendanceHistory } from '@/components/student-attendance-history';
 
 interface StudentSummaryModalProps {
   isOpen: boolean;
@@ -636,16 +637,16 @@ export function StudentSummaryModal({
             </div>
           )}
 
-          {/* TAB 4: ATTENDANCE */}
+          {/* TAB 4: ATTENDANCE (INDIVIDUAL MONTHLY ATTENDANCE HISTORY) */}
           {activeTab === 'attendance' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-display font-bold text-base text-[#122A24]">
-                    Annual Biometric &amp; Classroom Turnout
+                    Monthly Attendance &amp; Classroom Turnout
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    CBSE 75% Mandatory Attendance Rule Compliance
+                    Official CBSE 75% Mandatory Attendance Record &amp; Day-wise Matrix
                   </p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-mono font-bold border ${
@@ -655,30 +656,19 @@ export function StudentSummaryModal({
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div className="p-4 rounded-2xl bg-[#F8FAF9] border border-[#DCE8E0]">
-                  <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wide font-medium block">Working Sessions</span>
-                  <span className="font-bold text-lg text-slate-900 mt-0.5 block font-mono">184 Days</span>
-                </div>
-                <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200">
-                  <span className="text-[10px] font-mono text-emerald-800 uppercase tracking-wide font-medium block">Attended Sessions</span>
-                  <span className="font-bold text-lg text-emerald-900 mt-0.5 block font-mono">
-                    {Math.round(184 * (attendancePercent / 100))} Days
-                  </span>
-                </div>
-                <div className="p-4 rounded-2xl bg-rose-50/60 border border-rose-200">
-                  <span className="text-[10px] font-mono text-rose-800 uppercase tracking-wide font-medium block">Leaves &amp; Absences</span>
-                  <span className="font-bold text-lg text-rose-900 mt-0.5 block font-mono">
-                    {184 - Math.round(184 * (attendancePercent / 100))} Days
-                  </span>
-                </div>
-              </div>
-
               {isDefaulter && (
-                <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900">
-                  <span className="font-bold">CBSE 75% Shortage Alert:</span> Scholar is currently below the CBSE prescribed 75% attendance threshold. Guardian notification advised.
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-center gap-2">
+                  <span className="font-bold">⚠️ CBSE 75% Shortage Alert:</span> Scholar is currently below the CBSE prescribed 75% attendance threshold. Guardian notification advised.
                 </div>
               )}
+
+              {/* Exact Screenshot UI: Individual Student Monthly Attendance History */}
+              <div className="rounded-2xl border border-[#DCE8E0] bg-white p-2 sm:p-4 shadow-xs">
+                <StudentAttendanceHistory
+                  student={activeStudent}
+                  attendanceRecords={attendanceRecords}
+                />
+              </div>
             </div>
           )}
 

@@ -50,6 +50,7 @@ import { openWhatsAppDirect, buildMorningAbsentText } from '@/lib/whatsapp';
 import { sendLocalPushNotification } from '@/lib/push-notifications';
 import { apiFetch } from '@/lib/api-client';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
+import { StudentAttendanceHistoryModal } from '@/components/student-attendance-history';
 
 export function normalizeClassName(name?: string): string {
   if (!name) return '';
@@ -96,6 +97,7 @@ export function DashboardAttendance({
   const [attendanceTab, setAttendanceTab] = useState<'mark_attendance' | 'monthly_sheet' | 'attendance_summary' | 'holiday_calendar'>('mark_attendance');
   
   // Official Institutional Printable Report Modal State
+  const [historyModalStudent, setHistoryModalStudent] = useState<Student | null>(null);
   const [activeAttendanceReportModal, setActiveAttendanceReportModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -1787,7 +1789,19 @@ export function DashboardAttendance({
                             {item.admission_no || item.staff_code || `ID-${idx + 1}`}
                           </td>
                           <td className="py-3 px-4">
-                            <div className="font-bold text-[#122A24]">{item.full_name}</div>
+                            {attendanceType === 'STUDENT' ? (
+                              <button
+                                type="button"
+                                onClick={() => setHistoryModalStudent(item)}
+                                className="text-left font-bold text-[#122A24] hover:text-emerald-700 hover:underline flex items-center gap-1.5 transition-colors bg-transparent border-none cursor-pointer p-0 group"
+                                title="Click to view individual monthly attendance history"
+                              >
+                                <span>{item.full_name}</span>
+                                <Calendar className="w-3 h-3 text-emerald-600 opacity-40 group-hover:opacity-100" />
+                              </button>
+                            ) : (
+                              <div className="font-bold text-[#122A24]">{item.full_name}</div>
+                            )}
                             <div className="text-[11px] font-mono text-slate-500">
                               {attendanceType === 'STUDENT' ? `Gender: ${item.gender || 'N/A'}` : `Email: ${item.email || 'N/A'}`}
                             </div>
@@ -2113,7 +2127,15 @@ export function DashboardAttendance({
                             {stu.roll_no || sIdx + 1}
                           </td>
                           <td className={`py-2.5 px-4 font-sans font-bold text-[#122A24] sticky left-10 ${rowBg} border-r border-[#E8F0EA] truncate max-w-[180px]`}>
-                            {stu.full_name}
+                            <button
+                              type="button"
+                              onClick={() => setHistoryModalStudent(stu)}
+                              className="text-left font-bold text-[#122A24] hover:text-emerald-700 hover:underline flex items-center gap-1.5 transition-colors bg-transparent border-none cursor-pointer p-0 group"
+                              title="Click to view individual monthly attendance history"
+                            >
+                              <span className="truncate">{stu.full_name}</span>
+                              <Calendar className="w-3 h-3 text-emerald-600 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
+                            </button>
                           </td>
                           {daysArray.map(d => {
                             const dateStr = `${sheetYear}-${String(sheetMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -3154,7 +3176,6 @@ export function DashboardAttendance({
       )}
 
       {/* Official CBSE Institutional Printable Report Modal for Attendance Hub */}
-
       {activeAttendanceReportModal && (
         <InstitutionalReportModal
           isOpen={activeAttendanceReportModal.isOpen}
@@ -3168,6 +3189,18 @@ export function DashboardAttendance({
           columns={activeAttendanceReportModal.columns}
           data={activeAttendanceReportModal.data}
           onDownloadCSV={activeAttendanceReportModal.onDownloadCSV}
+        />
+      )}
+
+      {/* Individual Student Monthly Attendance History Modal (As per Screenshot UI) */}
+      {historyModalStudent && (
+        <StudentAttendanceHistoryModal
+          isOpen={!!historyModalStudent}
+          onClose={() => setHistoryModalStudent(null)}
+          student={historyModalStudent}
+          attendanceRecords={effectiveAttendance}
+          initialMonth={sheetMonth - 1}
+          initialYear={sheetYear}
         />
       )}
     </div>
