@@ -29,6 +29,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { Student, HostelRoom, HostelFeeHead } from '@/lib/types';
+import { getSchoolInitials } from '@/lib/utils';
 import {
   DEFAULT_HOSTEL_FEES,
   DEFAULT_ONE_TIME_FEES,
@@ -409,8 +410,18 @@ export function DashboardHostel({
           ───────────────────────────────────────────────────────────── */}
       <div className="bg-[#122A24] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-emerald-800/30 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-emerald-500/20 via-transparent to-transparent opacity-60 pointer-events-none" />
-        <div aria-hidden="true" className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-white/[0.08] sm:text-white/[0.12] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight">
-          HOSTEL
+        {/* Editorial Watermark Typography */}
+        <div 
+          aria-hidden="true" 
+          className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-white/[0.07] sm:text-white/[0.09] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
+        >
+          Hostel
+        </div>
+        <div 
+          aria-hidden="true" 
+          className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-white/[0.05] sm:text-white/[0.07] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+        >
+          {getSchoolInitials(schoolName)}
         </div>
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">

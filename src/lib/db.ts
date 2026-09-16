@@ -2228,8 +2228,8 @@ export const Database = {
   async createFeeInvoice(data: Partial<FeeInvoice>): Promise<FeeInvoice> {
     await ensureIndexes();
     const id = data.id || `INV-${Date.now()}`;
-    const academic_session = data.academic_session || '2026-27';
-    const amount = Number(data.amount) || 15000;
+    const calculatedAmount = (Number(data.tuition_fee) || 0) + (Number(data.annual_fee) || 0) + (Number(data.transport_fee) || 0) + (Number(data.exam_fee) || 0);
+    const amount = Number(data.amount) || (calculatedAmount > 0 ? calculatedAmount : 6400);
     const paidAmount = Number(data.paid_amount) !== undefined && !isNaN(Number(data.paid_amount))
       ? Number(data.paid_amount)
       : (data.status === 'PAID' ? amount : 0);
@@ -2421,12 +2421,37 @@ export const Database = {
       }
     } catch (e) {}
 
-
     const rawList = (targetId || schoolId)
-      ? (memoryStore.holidays || []).filter(h => [targetId, targetCode, schoolId, cleanId].filter(Boolean).includes(h.school_id) && matchesSession(h, targetSession))
+      ? (memoryStore.holidays || []).filter(h => [targetId, targetCode, schoolId, cleanId, 'ALL'].filter(Boolean).includes(h.school_id) && matchesSession(h, targetSession))
       : (memoryStore.holidays || []).filter(h => matchesSession(h, targetSession));
 
-    return rawList.sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''));
+    if (rawList.length > 0) {
+      return rawList.sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''));
+    }
+
+    // Default standard CBSE gazetted academic calendar holidays for 2026-27
+    const defaultHolidays: Holiday[] = [
+      { id: 'HOL-DEF-01', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Dr. Ambedkar Jayanti', start_date: '2026-04-14', end_date: '2026-04-14', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Birth Anniversary of Dr. B.R. Ambedkar', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-04-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-02', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Mahavir Jayanti', start_date: '2026-04-17', end_date: '2026-04-17', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Bhagwan Mahavir Janma Kalyanak', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-04-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-03', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Summer Vacation', start_date: '2026-05-21', end_date: '2026-06-30', total_days: 41, applicable_to: 'STUDENTS_ONLY', category: 'VACATION', reason: 'Annual Summer Break', declared_by: 'Directorate of Education', auto_notice_published: true, created_at: '2026-05-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-04', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Muharram', start_date: '2026-07-28', end_date: '2026-07-28', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Observance of Muharram', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-07-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-05', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'PTM', start_date: '2026-08-13', end_date: '2026-08-13', total_days: 1, applicable_to: 'STUDENTS_ONLY', category: 'EVENT', reason: 'Mid-Term Parent Teacher Meeting', declared_by: 'Academic Council', auto_notice_published: true, created_at: '2026-08-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-06', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Independence Day', start_date: '2026-08-15', end_date: '2026-08-15', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'National Independence Day Celebration', declared_by: 'Government of India', auto_notice_published: true, created_at: '2026-08-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-07', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Bara Vafat', start_date: '2026-08-26', end_date: '2026-08-26', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Milad-un-Nabi (Eid-e-Milad)', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-08-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-08', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Raksha Bandhan', start_date: '2026-08-28', end_date: '2026-08-28', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Raksha Bandhan Celebration', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-08-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-09', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Janmashtami', start_date: '2026-09-04', end_date: '2026-09-04', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Shri Krishna Janmashtami', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-09-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-10', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Gandhi Jayanti', start_date: '2026-10-02', end_date: '2026-10-02', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Mahatma Gandhi Birthday', declared_by: 'Government of India', auto_notice_published: true, created_at: '2026-10-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-11', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Dussehra Break', start_date: '2026-10-19', end_date: '2026-10-21', total_days: 3, applicable_to: 'ALL', category: 'VACATION', reason: 'Vijayadashami & Dussehra Festive Holidays', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-10-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-12', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Diwali Break', start_date: '2026-11-08', end_date: '2026-11-12', total_days: 5, applicable_to: 'ALL', category: 'VACATION', reason: 'Deepawali, Govardhan Puja & Bhai Dooj', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-11-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-13', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Guru Nanak Jayanti', start_date: '2026-11-24', end_date: '2026-11-24', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Prakash Utsav Guru Nanak Dev Ji', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-11-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-14', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Winter Vacation', start_date: '2026-12-25', end_date: '2027-01-05', total_days: 12, applicable_to: 'ALL', category: 'VACATION', reason: 'Christmas & Winter Holiday Break', declared_by: 'Directorate of Education', auto_notice_published: true, created_at: '2026-12-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-15', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Republic Day', start_date: '2027-01-26', end_date: '2027-01-26', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'National Republic Day Celebration', declared_by: 'Government of India', auto_notice_published: true, created_at: '2027-01-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-16', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Maha Shivratri', start_date: '2027-02-15', end_date: '2027-02-15', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Maha Shivratri Celebration', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2027-02-01T00:00:00.000Z' },
+      { id: 'HOL-DEF-17', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Holi Break', start_date: '2027-03-22', end_date: '2027-03-23', total_days: 2, applicable_to: 'ALL', category: 'VACATION', reason: 'Festival of Colors - Holi & Dhulandi', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2027-03-01T00:00:00.000Z' }
+    ];
+
+    memoryStore.holidays = defaultHolidays;
+    return defaultHolidays;
   },
 
   async createHoliday(data: Partial<Holiday>, autoCreateNotice: boolean = true): Promise<Holiday> {

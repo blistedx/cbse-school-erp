@@ -30,6 +30,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { Teacher, School, SubstitutionItem, AttendanceRecord } from '@/lib/types';
+import { getSchoolInitials } from '@/lib/utils';
 
 export interface LeaveApplication {
   id: string;
@@ -448,12 +449,18 @@ export function DashboardApprovals({
           TOP BANNER: EMPLOYEE LEAVE & APPROVALS STUDIO
           ───────────────────────────────────────────────────────────── */}
       <div className="rounded-3xl p-6 sm:p-8 bg-[#122A24] text-white border border-[#1C443A] shadow-lg relative overflow-hidden">
-        {/* Background Watermark Behind Header Text */}
+        {/* Editorial Watermark Typography */}
         <div 
           aria-hidden="true" 
-          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-white/[0.08] sm:text-white/[0.12] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+          className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-white/[0.07] sm:text-white/[0.09] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
         >
-          APPROVALS
+          Approvals
+        </div>
+        <div 
+          aria-hidden="true" 
+          className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-white/[0.05] sm:text-white/[0.07] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+        >
+          {getSchoolInitials(selectedSchool)}
         </div>
         <div className="absolute -right-12 -top-12 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
         <div className="absolute right-20 -bottom-10 w-48 h-48 rounded-full bg-[#34D399]/10 blur-2xl pointer-events-none" />

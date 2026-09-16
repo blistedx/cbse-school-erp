@@ -92,6 +92,7 @@ import { TaskCompletionOverlay, TaskCelebrationData, TaskCelebrationType } from 
 import { getAllSiblingGroups, SiblingGroup } from '@/lib/student-helper';
 import { ANTIGRAVITY_THEMES, applyAntigravityTheme, getSavedThemeId } from '@/lib/themes';
 import { compressImageFile } from '@/lib/image-compress';
+import { getSchoolInitials } from '@/lib/utils';
 
 const DashboardOverview = dynamic(
   () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
@@ -335,9 +336,6 @@ function ERPWorkspaceContent() {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [studentSubTab, setStudentSubTab] = useState<'directory' | 'siblings'>('directory');
   const [summaryStudent, setSummaryStudent] = useState<Student | null>(null);
-  const [studentNameActionTarget, setStudentNameActionTarget] = useState<Student | null>(null);
-  const [isUploadingStudentDp, setIsUploadingStudentDp] = useState(false);
-  const [studentDpSuccess, setStudentDpSuccess] = useState(false);
   const [availableSchools, setAvailableSchools] = useState<School[]>([]);
   const [showExportMenu, setShowExportMenu] = useState<string | null>(null);
   const [feeMenuOpen, setFeeMenuOpen] = useState(true);
@@ -5219,12 +5217,18 @@ function ERPWorkspaceContent() {
             <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
               {/* Main Card Container */}
               <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
-                {/* Background Watermark Behind Header Text */}
+                {/* Editorial Watermark Typography */}
                 <div 
                   aria-hidden="true" 
-                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                  className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
                 >
-                  STUDENTS
+                  Students
+                </div>
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+                >
+                  {getSchoolInitials(selectedSchool)}
                 </div>
 
                 {/* Top Breadcrumb & Action Toolbar */}
@@ -5897,14 +5901,14 @@ function ERPWorkspaceContent() {
                                         src={s.photo || s.avatar}
                                         alt={s.full_name}
                                         className="w-8 h-8 rounded-full object-cover border shrink-0 shadow-2xs cursor-pointer hover:ring-2 hover:ring-emerald-500 transition-all"
-                                        onClick={() => setStudentNameActionTarget(s)}
-                                        title="Click to View Profile or Change DP"
+                                        onClick={() => setSummaryStudent(s)}
+                                        title="Click to View Student Dossier"
                                       />
                                     ) : (
                                       <div
                                         className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border shrink-0 shadow-2xs font-mono cursor-pointer hover:ring-2 hover:ring-emerald-500 transition-all ${avatarStyle}`}
-                                        onClick={() => setStudentNameActionTarget(s)}
-                                        title="Click to View Profile or Change DP"
+                                        onClick={() => setSummaryStudent(s)}
+                                        title="Click to View Student Dossier"
                                       >
                                         {initials}
                                       </div>
@@ -5912,8 +5916,8 @@ function ERPWorkspaceContent() {
                                     <div>
                                       <div
                                         className="font-semibold text-[#122A24] hover:text-emerald-700 cursor-pointer transition-colors flex items-center gap-1.5"
-                                        onClick={() => setStudentNameActionTarget(s)}
-                                        title="Click to View Profile or Change DP"
+                                        onClick={() => setSummaryStudent(s)}
+                                        title="Click to View Student Dossier"
                                       >
                                         <span>{s.full_name}</span>
                                         <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-mono font-normal">360°</span>
@@ -6216,8 +6220,8 @@ function ERPWorkspaceContent() {
                               <div className="flex items-center gap-2.5">
                                 <div 
                                   className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border shrink-0 font-mono overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-500 transition-all ${avatarStyle}`}
-                                  onClick={() => setStudentNameActionTarget(s)}
-                                  title="Click to View Profile or Change DP"
+                                  onClick={() => setSummaryStudent(s)}
+                                  title="Click to View Student Dossier"
                                 >
                                   {s.photo || s.avatar ? (
                                     <img src={s.photo || s.avatar} alt={s.full_name} className="w-full h-full object-cover" />
@@ -6228,8 +6232,8 @@ function ERPWorkspaceContent() {
                                 <div>
                                   <h3 
                                     className="font-semibold text-[#122A24] text-sm leading-tight hover:text-emerald-700 cursor-pointer" 
-                                    onClick={() => setStudentNameActionTarget(s)}
-                                    title="Click to View Profile"
+                                    onClick={() => setSummaryStudent(s)}
+                                    title="Click to View Student Dossier"
                                   >
                                     {s.full_name}
                                   </h3>
@@ -6389,12 +6393,18 @@ function ERPWorkspaceContent() {
           {activeTab === 'siblings' && (
             <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
               <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
-                {/* Background Watermark */}
+                {/* Editorial Watermark Typography */}
                 <div 
                   aria-hidden="true" 
-                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                  className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
                 >
-                  SIBLINGS
+                  Siblings
+                </div>
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+                >
+                  {getSchoolInitials(selectedSchool)}
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
@@ -6430,12 +6440,18 @@ function ERPWorkspaceContent() {
             <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
               {/* Main Card Container */}
               <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
-                {/* Background Watermark Behind Header Text */}
+                {/* Editorial Watermark Typography */}
                 <div 
                   aria-hidden="true" 
-                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                  className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
                 >
-                  FACULTY
+                  Faculty
+                </div>
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+                >
+                  {getSchoolInitials(selectedSchool)}
                 </div>
 
                 {/* Top Breadcrumb & Action Toolbar */}
@@ -7522,12 +7538,18 @@ function ERPWorkspaceContent() {
             <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
               {/* Main Card Container */}
               <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
-                {/* Background Watermark Behind Header Text */}
+                {/* Editorial Watermark Typography */}
                 <div 
                   aria-hidden="true" 
-                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                  className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
                 >
-                  CLASSES
+                  Classes
+                </div>
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+                >
+                  {getSchoolInitials(selectedSchool)}
                 </div>
 
                 {/* Top Breadcrumb & Action Toolbar */}
@@ -8330,6 +8352,8 @@ function ERPWorkspaceContent() {
                 teachers={teachers}
                 selectedSession={selectedSession}
                 subTab={feeSubTab}
+                userRole={effectiveRole}
+                currentUser={currentUser}
                 preselectedStudentId={feeCollectTarget?.studentId}
                 preselectedTimestamp={feeCollectTarget?.ts}
                 onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession)}
@@ -8355,12 +8379,18 @@ function ERPWorkspaceContent() {
           {activeTab === 'notices' && (
             <div className="space-y-5 max-w-7xl mx-auto animate-fade-in">
               <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
-                {/* Background Watermark Behind Header Text */}
+                {/* Editorial Watermark Typography */}
                 <div 
                   aria-hidden="true" 
-                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                  className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
                 >
-                  CIRCULARS
+                  Notices
+                </div>
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+                >
+                  {getSchoolInitials(selectedSchool)}
                 </div>
                 {/* Header & Primary Action */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
@@ -8647,12 +8677,18 @@ function ERPWorkspaceContent() {
             <div className="space-y-6 max-w-5xl mx-auto animate-fade-in">
               {/* Header Card */}
               <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 relative overflow-hidden">
-                {/* Background Watermark Behind Header Text */}
+                {/* Editorial Watermark Typography */}
                 <div 
                   aria-hidden="true" 
-                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                  className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
                 >
-                  SETTINGS
+                  Settings
+                </div>
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+                >
+                  {getSchoolInitials(selectedSchool)}
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
                   <div>
@@ -9466,12 +9502,18 @@ function ERPWorkspaceContent() {
 
               {/* Profile Identity Hero Banner */}
               <div className="bg-gradient-to-r from-[#122A24] to-[#1C443A] text-white p-6 sm:p-7 rounded-3xl shadow-md flex flex-col sm:flex-row items-center sm:items-start justify-between gap-5 relative overflow-hidden">
-                {/* Background Watermark Behind Header Text */}
+                {/* Editorial Watermark Typography */}
                 <div 
                   aria-hidden="true" 
-                  className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-white/[0.08] sm:text-white/[0.12] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+                  className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-white/[0.07] sm:text-white/[0.09] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
                 >
-                  PROFILE
+                  Profile
+                </div>
+                <div 
+                  aria-hidden="true" 
+                  className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-white/[0.05] sm:text-white/[0.07] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+                >
+                  {getSchoolInitials(selectedSchool)}
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left relative z-10">
                   <div className="w-20 h-20 rounded-2xl bg-white/15 border-2 border-white/30 text-white font-display font-bold text-3xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden relative group">
@@ -13882,138 +13924,6 @@ function ERPWorkspaceContent() {
           setSummaryStudent(updated);
         }}
       />
-
-      {/* STUDENT QUICK ACTION MODAL (VIEW PROFILE & CHANGE DP) */}
-      {studentNameActionTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-fade-in"
-          onClick={() => {
-            if (!isUploadingStudentDp) setStudentNameActionTarget(null);
-          }}
-        >
-          <div
-            className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl border border-[#DCE8E0] space-y-5 animate-in zoom-in-95 duration-150 relative text-center"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Close Button */}
-            <button
-              type="button"
-              disabled={isUploadingStudentDp}
-              onClick={() => setStudentNameActionTarget(null)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center cursor-pointer border-none transition-colors"
-            >
-              ✕
-            </button>
-
-            {/* Avatar & Identity Header */}
-            <div className="flex flex-col items-center gap-3 pt-2">
-              <div className="relative group">
-                <div className="w-20 h-20 rounded-full overflow-hidden border-3 border-emerald-600/30 shadow-md bg-emerald-950 flex items-center justify-center text-white font-display font-bold text-2xl">
-                  {studentNameActionTarget.photo || studentNameActionTarget.avatar ? (
-                    <img
-                      src={studentNameActionTarget.photo || studentNameActionTarget.avatar}
-                      alt={studentNameActionTarget.full_name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span>{(studentNameActionTarget.full_name || 'S')[0]}</span>
-                  )}
-                </div>
-                {isUploadingStudentDp && (
-                  <div className="absolute inset-0 bg-black/70 rounded-full flex flex-col items-center justify-center text-white text-[10px] font-bold">
-                    <Loader2 className="w-6 h-6 animate-spin text-emerald-400 mb-1" />
-                    <span>Uploading...</span>
-                  </div>
-                )}
-                {studentDpSuccess && (
-                  <div className="absolute inset-0 bg-emerald-700/90 rounded-full flex flex-col items-center justify-center text-white text-[11px] font-bold">
-                    <Check className="w-7 h-7 text-white mb-0.5" />
-                    <span>Updated!</span>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h3 className="font-display font-bold text-lg text-[#122A24] tracking-tight">
-                  {studentNameActionTarget.full_name}
-                </h3>
-                <div className="flex items-center justify-center gap-2 mt-1 text-xs text-[#2D5A4E] font-mono">
-                  <span className="bg-[#EBF5EF] px-2 py-0.5 rounded-md border border-[#C5E2CF] font-bold text-[#1C443A]">
-                    Adm: {studentNameActionTarget.admission_no}
-                  </span>
-                  <span>•</span>
-                  <span>{studentNameActionTarget.class_name} ({studentNameActionTarget.section || 'A'})</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Options: 1) View 2) Change DP */}
-            <div className="space-y-2.5 pt-1">
-              {/* OPTION 1: VIEW (View Profile & 360° Dossier) */}
-              <button
-                type="button"
-                disabled={isUploadingStudentDp}
-                onClick={() => {
-                  const target = studentNameActionTarget;
-                  setStudentNameActionTarget(null);
-                  setSummaryStudent(target);
-                }}
-                className="w-full p-3.5 rounded-2xl bg-[#F8FAF9] hover:bg-[#EBF5EF] border border-[#DCE8E0] hover:border-[#10B981] flex items-center gap-3.5 transition-all cursor-pointer text-left group shadow-2xs"
-              >
-                <div className="w-10 h-10 rounded-xl bg-white border border-[#DCE8E0] text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-[#122A24] group-hover:text-white transition-colors">
-                  <Eye className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-[#122A24] group-hover:text-emerald-900 flex items-center justify-between">
-                    <span>View Profile</span>
-                    <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/80">360° Dossier</span>
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5 truncate">
-                    Inspect academics, attendance, ledger &amp; siblings
-                  </div>
-                </div>
-              </button>
-
-              {/* OPTION 2: CHANGE DP */}
-              <label
-                className={`w-full p-3.5 rounded-2xl bg-[#F8FAF9] hover:bg-[#EBF5EF] border border-[#DCE8E0] hover:border-[#10B981] flex items-center gap-3.5 transition-all cursor-pointer text-left group shadow-2xs ${
-                  isUploadingStudentDp ? 'opacity-60 pointer-events-none' : ''
-                }`}
-              >
-                <div className="w-10 h-10 rounded-xl bg-white border border-[#DCE8E0] text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-[#122A24] group-hover:text-white transition-colors">
-                  <Camera className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-[#122A24] group-hover:text-emerald-900 flex items-center justify-between">
-                    <span>Change DP</span>
-                    <span className="text-[10px] font-mono text-[#0D652D] bg-[#E6F4EA] px-1.5 py-0.5 rounded border border-[#CEEAD6]">Vercel Blob</span>
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5 truncate">
-                    Upload photo directly to online cloud storage
-                  </div>
-                </div>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  disabled={isUploadingStudentDp}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f && studentNameActionTarget) {
-                      handleDirectStudentDpUpload(f, studentNameActionTarget);
-                    }
-                    e.target.value = '';
-                  }}
-                />
-              </label>
-            </div>
-
-            <div className="text-[10.5px] text-slate-400">
-              Photos are auto-compressed &amp; synced directly to central cloud storage.
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* UNIVERSAL TASK COMPLETION OVERLAY (1 SEC CENTERED BACKDROP BLUR) */}
       <TaskCompletionOverlay data={celebrationData} />

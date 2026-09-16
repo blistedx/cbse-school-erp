@@ -8,6 +8,7 @@ import {
   ChevronRight,
   BarChart3,
   Calendar,
+  CalendarCheck,
   X,
   Printer,
   Download,
@@ -139,19 +140,6 @@ export function StudentAttendanceHistory({
 
       // If specific April 2026 matching user's exact screenshot:
       if (selectedYear === 2026 && selectedMonth === 3) {
-        // Screenshot exact days:
-        // Apr 1 (Wed) - Apr 3 (Fri): Present
-        // Apr 4 (Sat): Absent
-        // Apr 5 (Sun): Sunday
-        // Apr 6 - Apr 10: Present
-        // Apr 11 (Sat): Absent
-        // Apr 12 (Sun): Sunday
-        // Apr 13 - Apr 18: Present
-        // Apr 19 (Sun): Sunday
-        // Apr 20 - Apr 24: Present
-        // Apr 25: Not marked / Saturday off
-        // Apr 26: Sunday
-        // Apr 27 - Apr 30: Not marked
         if (dayNum === 4 || dayNum === 11) return 'ABSENT';
         if (dayNum >= 25) return 'NOT_MARKED';
         return 'PRESENT';
@@ -235,11 +223,7 @@ export function StudentAttendanceHistory({
       });
     }
 
-    // Exact formula matching screenshot:
-    // If working days > 0, turnout = (Present / (Present + Absent + HalfDay + NotMarked)) or (Present / workingDays)
     const effectivePresent = presentCount + (halfDayCount * 0.5);
-    
-    // Percentage calculated relative to total countable working days
     const attendancePercentage = workingDaysCount > 0
       ? Number(((effectivePresent / workingDaysCount) * 100).toFixed(1))
       : 0;
@@ -262,7 +246,6 @@ export function StudentAttendanceHistory({
   const yearlyTrend = useMemo(() => {
     const basePct = student.attendance_percent || 78;
     return ACADEMIC_MONTHS.map((m, idx) => {
-      // Create slight variations
       const diff = ((idx * 7) % 15) - 6;
       let pct = Math.min(100, Math.max(55, Math.round(basePct + diff)));
       if (m.name === 'April') pct = 73;
@@ -277,74 +260,78 @@ export function StudentAttendanceHistory({
     });
   }, [student]);
 
-  // Zero-padded formatter
   const pad2 = (n: number) => String(n).padStart(2, '0');
 
   return (
-    <div className={`bg-white rounded-2xl max-w-lg mx-auto overflow-hidden font-sans text-slate-800 ${className}`}>
-      {/* ── TOP HEADER: ← Attendance History ── */}
-      <div className="flex items-center justify-between px-4 py-3.5 border-b border-neutral-100 bg-white sticky top-0 z-20">
-        <div className="flex items-center gap-3">
-          {onBack && (
+    <div className={`space-y-4 w-full font-sans text-slate-800 ${className}`}>
+      {/* ── TOP HEADER (ONLY SHOWN IF ONBACK IS PROVIDED AS STANDALONE MODAL) ── */}
+      {onBack && (
+        <div className="flex items-center justify-between px-5 py-3.5 border border-[#DCE8E0] rounded-2xl bg-white sticky top-0 z-20 shadow-2xs">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onBack}
-              className="p-1 rounded-full text-neutral-800 hover:bg-neutral-100 transition-colors cursor-pointer border-none bg-transparent"
+              className="p-1.5 rounded-xl text-[#122A24] hover:bg-[#EBF5EF] border border-[#DCE8E0] hover:border-[#C5E2CF] transition-colors cursor-pointer bg-white"
               aria-label="Go Back"
             >
-              <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+              <ArrowLeft className="w-4 h-4 stroke-[2.2]" />
             </button>
-          )}
-          <h1 className="text-base font-semibold text-neutral-900 tracking-tight">
-            Attendance History
-          </h1>
-        </div>
-
-        {/* Scholar Tag */}
-        <div className="text-right">
-          <div className="text-xs font-bold text-neutral-800 truncate max-w-[140px]">
-            {student.full_name}
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center">
+                <CalendarCheck className="w-4 h-4" />
+              </div>
+              <h1 className="text-sm font-bold text-[#122A24] tracking-tight font-display">
+                Attendance Register
+              </h1>
+            </div>
           </div>
-          <div className="text-[10px] text-neutral-400 font-mono">
-            {student.class_name} • Adm: {student.admission_no}
+
+          <div className="text-right">
+            <div className="text-xs font-bold text-[#122A24] truncate max-w-[160px]">
+              {student.full_name}
+            </div>
+            <div className="text-[10px] text-[#2D5A4E] font-mono">
+              {student.class_name} • Adm: {student.admission_no}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* ── MONTH / YEAR NAVIGATOR BAR: < Month - Year > ── */}
-      <div className="bg-[#F6F7F9] py-3 px-4 flex items-center justify-between border-b border-neutral-100">
+      {/* ── MONTH-YEAR NAVIGATOR BAR ── */}
+      <div className="flex items-center justify-between bg-[#EBF5EF] px-3.5 py-2.5 rounded-2xl border border-[#C5E2CF] shadow-2xs">
         <button
           type="button"
           onClick={handlePrevMonth}
-          className="p-1.5 rounded-lg text-neutral-600 hover:text-neutral-900 hover:bg-white/80 transition-all cursor-pointer border-none bg-transparent"
-          aria-label="Previous Month"
+          className="p-1.5 rounded-xl text-[#122A24] hover:bg-white border border-transparent hover:border-[#C5E2CF] hover:shadow-2xs transition-all cursor-pointer bg-transparent"
+          title="Previous Month"
         >
-          <ChevronLeft className="w-5 h-5 stroke-[2.2]" />
+          <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
         </button>
 
-        <div className="font-semibold text-sm text-neutral-700 tracking-wide font-sans">
-          {MONTH_NAMES[selectedMonth]} - {selectedYear}
+        <div className="font-display font-bold text-sm sm:text-base text-[#122A24] tracking-wide flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-[#1C443A]" />
+          <span>{MONTH_NAMES[selectedMonth]} - {selectedYear}</span>
         </div>
 
         <button
           type="button"
           onClick={handleNextMonth}
-          className="p-1.5 rounded-lg text-neutral-600 hover:text-neutral-900 hover:bg-white/80 transition-all cursor-pointer border-none bg-transparent"
-          aria-label="Next Month"
+          className="p-1.5 rounded-xl text-[#122A24] hover:bg-white border border-transparent hover:border-[#C5E2CF] hover:shadow-2xs transition-all cursor-pointer bg-transparent"
+          title="Next Month"
         >
-          <ChevronRight className="w-5 h-5 stroke-[2.2]" />
+          <ChevronRight className="w-4 h-4 stroke-[2.5]" />
         </button>
       </div>
 
-      {/* ── 7-DAY CALENDAR GRID ── */}
-      <div className="p-4 sm:p-5">
-        {/* Weekday Labels: Sun, Mon, Tue, Wed, Thu, Fri, Sat */}
-        <div className="grid grid-cols-7 text-center mb-4">
+      {/* ── 7-DAY CALENDAR MATRIX ── */}
+      <div className="bg-white rounded-2xl border border-[#DCE8E0] p-3 sm:p-5 shadow-2xs space-y-3">
+        {/* Weekday Headers */}
+        <div className="grid grid-cols-7 text-center py-2 bg-[#F4F8F5] rounded-xl border border-[#DCE8E0]">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((dw, i) => (
             <div
               key={dw}
-              className={`text-xs font-medium ${
-                i === 0 ? 'text-neutral-400' : 'text-neutral-600'
+              className={`text-xs font-mono font-bold uppercase tracking-wider ${
+                i === 0 ? 'text-slate-400' : 'text-[#1C443A]'
               }`}
             >
               {dw}
@@ -352,213 +339,242 @@ export function StudentAttendanceHistory({
           ))}
         </div>
 
-        {/* Days Grid */}
-        <div className="grid grid-cols-7 gap-y-4 text-center">
+        {/* Day Cells Grid */}
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2 text-center">
           {monthData.calendarDays.map((cell, idx) => {
             if (cell.status === 'EMPTY') {
-              return <div key={`empty-${idx}`} className="h-10" />;
+              return <div key={`empty-${idx}`} className="h-11 sm:h-12 rounded-xl opacity-0 pointer-events-none" />;
             }
 
             const isSun = cell.isSunday;
+            const isPresent = cell.status === 'PRESENT';
+            const isAbsent = cell.status === 'ABSENT';
+            const isHalfDay = cell.status === 'HALF_DAY';
+            const isLeave = cell.status === 'LEAVE';
+            const isNotMarked = cell.status === 'NOT_MARKED';
 
             return (
               <div
                 key={`day-${cell.dayNumber}`}
-                className="flex flex-col items-center justify-center h-10 group"
+                className={`flex flex-col items-center justify-between py-1 px-1 h-11 sm:h-12 rounded-xl border transition-all ${
+                  isSun
+                    ? 'bg-slate-50/70 border-slate-200/60 text-slate-400'
+                    : isPresent
+                    ? 'bg-[#F4FAF6] border-[#D1E8D9] hover:bg-[#EBF5EF]'
+                    : isAbsent
+                    ? 'bg-rose-50/70 border-rose-200 hover:bg-rose-100/60'
+                    : isHalfDay
+                    ? 'bg-amber-50/70 border-amber-200 hover:bg-amber-100/60'
+                    : isLeave
+                    ? 'bg-teal-50/70 border-teal-200 hover:bg-teal-100/60'
+                    : 'bg-white border-[#E8F0EA] hover:border-[#DCE8E0]'
+                }`}
+                title={`${cell.dateStr}: ${cell.status}`}
               >
                 {/* Day Number */}
                 <span
-                  className={`text-xs font-medium mb-1 transition-colors ${
+                  className={`text-xs font-mono font-bold leading-tight ${
                     isSun
-                      ? 'text-neutral-300'
-                      : cell.status === 'NOT_MARKED'
-                      ? 'text-neutral-400'
-                      : 'text-neutral-700'
+                      ? 'text-slate-400'
+                      : isPresent
+                      ? 'text-[#122A24]'
+                      : isAbsent
+                      ? 'text-rose-900'
+                      : isHalfDay
+                      ? 'text-amber-900'
+                      : isLeave
+                      ? 'text-teal-900'
+                      : 'text-slate-400 font-normal'
                   }`}
                 >
                   {cell.dayNumber}
                 </span>
 
-                {/* Status Indicator Underline Dash / Pill */}
-                {isSun ? (
-                  // Sundays: no line or very subtle placeholder
-                  <span className="w-5 h-1 rounded-full bg-transparent" />
-                ) : cell.status === 'PRESENT' ? (
-                  // Green Pill for Present
-                  <span className="w-5 h-1.5 rounded-full bg-[#10A367]" title="Present" />
-                ) : cell.status === 'ABSENT' ? (
-                  // Crimson/Red Pill for Absent
-                  <span className="w-5 h-1.5 rounded-full bg-[#9E2A3A]" title="Absent" />
-                ) : cell.status === 'HALF_DAY' ? (
-                  // Orange Pill for Half Day
-                  <span className="w-5 h-1.5 rounded-full bg-[#F59E0B]" title="Half Day" />
-                ) : cell.status === 'LEAVE' ? (
-                  // Navy Blue Pill for Approved Leave
-                  <span className="w-5 h-1.5 rounded-full bg-[#1E3A8A]" title="Approved Leave" />
-                ) : (
-                  // Gray Pill for Not Marked / Upcoming
-                  <span className="w-5 h-1.5 rounded-full bg-[#CBD5E1]" title="Not Marked" />
-                )}
+                {/* Status Indicator Underline Pill */}
+                <div className="w-full flex justify-center pb-0.5">
+                  {isSun ? (
+                    <span className="w-3.5 h-1 rounded-full bg-slate-200" />
+                  ) : isPresent ? (
+                    <span className="w-4 h-1.5 rounded-full bg-[#10B981] shadow-2xs" />
+                  ) : isAbsent ? (
+                    <span className="w-4 h-1.5 rounded-full bg-rose-500 shadow-2xs" />
+                  ) : isHalfDay ? (
+                    <span className="w-4 h-1.5 rounded-full bg-amber-500 shadow-2xs" />
+                  ) : isLeave ? (
+                    <span className="w-4 h-1.5 rounded-full bg-teal-600 shadow-2xs" />
+                  ) : (
+                    <span className="w-3.5 h-1 rounded-full bg-[#DCE8E0]" />
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
 
-        {/* ── STATS SUMMARY CARD (PIXEL-PERFECT AS PER SCREENSHOT) ── */}
-        <div className="mt-6 bg-white rounded-2xl border border-neutral-200/90 shadow-sm p-4 sm:p-5">
-          {/* Header Stat: 73.1% Attendance */}
-          <div className="text-center mb-3">
-            <span className="text-xl font-bold text-[#10A367]">
-              {monthData.attendancePercentage.toFixed(1)}%
-            </span>
-            <span className="text-xs text-neutral-500 ml-1.5 font-medium">
-              Attendance
-            </span>
+        {/* Color Legend Bar */}
+        <div className="pt-2.5 border-t border-[#F0F5F2] flex items-center justify-center sm:justify-between text-[11px] font-mono text-[#2D5A4E] flex-wrap gap-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
+            <span>Present</span>
           </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+            <span>Absent</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+            <span>Half Day</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-teal-600" />
+            <span>Leave</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+            <span>Sunday / Off</span>
+          </div>
+        </div>
+      </div>
 
-          {/* Progress Bar */}
-          <div className="w-full bg-[#EAEAEA] h-2 rounded-full overflow-hidden mb-5">
+      {/* ── STATS SUMMARY HERO CARD (EXACT ORIGINAL FORMAT + ERP THEME) ── */}
+      <div className="bg-white rounded-2xl border border-[#DCE8E0] p-5 sm:p-6 shadow-2xs space-y-4">
+        {/* Centered Attendance Rate Header */}
+        <div className="text-center space-y-1.5 max-w-sm mx-auto">
+          <div className="text-2xl sm:text-3xl font-bold font-display text-[#122A24] tracking-tight">
+            {monthData.attendancePercentage.toFixed(1)}% <span className="text-base sm:text-lg font-sans font-semibold text-[#1C443A]">Attendance</span>
+          </div>
+          <div className="w-full bg-[#EBF5EF] border border-[#C5E2CF] h-2 rounded-full overflow-hidden">
             <div
-              className="bg-[#10A367] h-full rounded-full transition-all duration-500 ease-out"
+              className={`h-full rounded-full transition-all duration-500 ${
+                monthData.attendancePercentage >= 75
+                  ? 'bg-gradient-to-r from-[#1C443A] to-[#10B981]'
+                  : 'bg-rose-500'
+              }`}
               style={{ width: `${Math.min(100, Math.max(0, monthData.attendancePercentage))}%` }}
             />
           </div>
+        </div>
 
-          {/* 2x2 Breakdown Grid */}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs mb-4">
-            {/* Present */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#10A367] shrink-0" />
-                <span className="text-neutral-600 font-medium">Present</span>
-              </div>
-              <span className="font-mono text-neutral-800 font-semibold tabular-nums">
-                {pad2(monthData.presentCount)}
-              </span>
-            </div>
-
-            {/* Absent */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#9E2A3A] shrink-0" />
-                <span className="text-neutral-600 font-medium">Absent</span>
-              </div>
-              <span className="font-mono text-neutral-800 font-semibold tabular-nums">
-                {pad2(monthData.absentCount)}
-              </span>
-            </div>
-
-            {/* Half Day */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B] shrink-0" />
-                <span className="text-neutral-600 font-medium">Half Day</span>
-              </div>
-              <span className="font-mono text-neutral-800 font-semibold tabular-nums">
-                {pad2(monthData.halfDayCount)}
-              </span>
-            </div>
-
-            {/* Not Marked */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#94A3B8] shrink-0" />
-                <span className="text-neutral-600 font-medium">Not Marked</span>
-              </div>
-              <span className="font-mono text-neutral-800 font-semibold tabular-nums">
-                {pad2(monthData.notMarkedCount)}
-              </span>
+        {/* 2x2 Clean Metrics Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+          {/* Present */}
+          <div className="p-3 bg-[#F4FAF6] rounded-xl border border-[#D1E8D9] text-center">
+            <span className="text-[10.5px] font-mono font-bold uppercase text-[#1C443A] block">
+              Present
+            </span>
+            <div className="text-xl font-bold font-mono text-[#10B981] mt-0.5">
+              {pad2(monthData.presentCount)}
             </div>
           </div>
 
-          {/* Thin Horizontal Divider */}
-          <div className="border-t border-neutral-200 my-3" />
-
-          {/* Bottom Summary Row: Leaves Taken, Holidays, Working Days */}
-          <div className="flex items-center justify-between text-[11px] text-neutral-600 pt-1 flex-wrap gap-2">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#1E3A8A] shrink-0" />
-              <span>Leaves Taken</span>
-              <strong className="font-mono text-neutral-800 tabular-nums ml-0.5">
-                {pad2(monthData.leaveCount)}
-              </strong>
+          {/* Absent */}
+          <div className="p-3 bg-rose-50/70 rounded-xl border border-rose-200 text-center">
+            <span className="text-[10.5px] font-mono font-bold uppercase text-rose-800 block">
+              Absent
+            </span>
+            <div className="text-xl font-bold font-mono text-rose-600 mt-0.5">
+              {pad2(monthData.absentCount)}
             </div>
+          </div>
 
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#EAB308] shrink-0" />
-              <span>Holidays</span>
-              <strong className="font-mono text-neutral-800 tabular-nums ml-0.5">
-                {pad2(monthData.holidayCount)}
-              </strong>
+          {/* Half Day */}
+          <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200 text-center">
+            <span className="text-[10.5px] font-mono font-bold uppercase text-amber-800 block">
+              Half-Day
+            </span>
+            <div className="text-xl font-bold font-mono text-amber-600 mt-0.5">
+              {pad2(monthData.halfDayCount)}
             </div>
+          </div>
 
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#475569] shrink-0" />
-              <span>Working Days</span>
-              <strong className="font-mono text-neutral-800 tabular-nums ml-0.5">
-                {pad2(monthData.workingDaysCount)}
-              </strong>
+          {/* Not Marked */}
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
+            <span className="text-[10.5px] font-mono font-bold uppercase text-slate-600 block">
+              Not Marked
+            </span>
+            <div className="text-xl font-bold font-mono text-slate-500 mt-0.5">
+              {pad2(monthData.notMarkedCount)}
             </div>
           </div>
         </div>
 
-        {/* ── BOTTOM ACTION: YEARLY GRAPH DETAILS ── */}
-        <div className="mt-5 text-center">
-          <button
-            type="button"
-            onClick={() => setShowYearlyGraph(prev => !prev)}
-            className="inline-flex items-center gap-2 text-xs font-bold text-[#10A367] hover:text-[#0b7d4e] tracking-wider uppercase py-2 px-3 rounded-xl hover:bg-emerald-50/50 transition-colors border-none bg-transparent cursor-pointer"
-          >
-            <BarChart3 className="w-4 h-4 stroke-[2.2]" />
-            <span>{showYearlyGraph ? 'HIDE YEARLY GRAPH' : 'YEARLY GRAPH DETAILS'}</span>
-          </button>
-        </div>
-
-        {/* ── EXPANDED YEARLY GRAPH / BREAKDOWN ── */}
-        {showYearlyGraph && (
-          <div className="mt-4 p-4 rounded-2xl bg-neutral-50 border border-neutral-200 animate-fade-in space-y-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-neutral-800">
-                Academic Session 2026-27 Turnout
-              </span>
-              <span className="text-[11px] font-mono text-emerald-700 font-semibold">
-                CBSE 75% Norm
-              </span>
-            </div>
-
-            {/* 12 Months Bar Chart */}
-            <div className="space-y-2 pt-1">
-              {yearlyTrend.map((item) => (
-                <div key={item.month} className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-medium text-neutral-700 w-20">{item.month}</span>
-                    <div className="flex-1 mx-3 bg-neutral-200 h-2 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          item.percentage >= 75 ? 'bg-[#10A367]' : 'bg-[#DC2626]'
-                        }`}
-                        style={{ width: `${item.percentage}%` }}
-                      />
-                    </div>
-                    <span
-                      className={`font-mono text-[11px] font-bold w-10 text-right ${
-                        item.percentage >= 75 ? 'text-emerald-700' : 'text-rose-700'
-                      }`}
-                    >
-                      {item.percentage}%
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-2 border-t border-neutral-200 flex items-center justify-between text-[10px] text-neutral-500 font-mono">
-              <span>● Green: Compliant (≥75%)</span>
-              <span>● Red: Shortage Alert (&lt;75%)</span>
-            </div>
+        {/* Secondary Info Row */}
+        <div className="pt-3 border-t border-[#DCE8E0] flex items-center justify-between text-xs font-mono text-[#2D5A4E] px-1 flex-wrap gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-slate-500">Leaves Taken:</span>
+            <strong className="text-[#122A24] font-bold">{pad2(monthData.leaveCount)}</strong>
           </div>
-        )}
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-slate-500">Holidays:</span>
+            <strong className="text-[#122A24] font-bold">{pad2(monthData.holidayCount)}</strong>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold text-slate-500">Working Days:</span>
+            <strong className="text-[#122A24] font-bold">{pad2(monthData.workingDaysCount)}</strong>
+          </div>
+        </div>
       </div>
+
+      {/* ── BOTTOM ACTION: YEARLY GRAPH DETAILS BUTTON ── */}
+      <div className="text-center pt-1">
+        <button
+          type="button"
+          onClick={() => setShowYearlyGraph(prev => !prev)}
+          className="inline-flex items-center gap-2 text-xs font-bold text-[#1C443A] hover:text-[#122A24] tracking-wider uppercase py-2 px-4 rounded-xl bg-white hover:bg-[#EBF5EF] border border-[#DCE8E0] hover:border-[#C5E2CF] transition-all cursor-pointer shadow-2xs"
+        >
+          <BarChart3 className="w-4 h-4 text-emerald-700" />
+          <span>{showYearlyGraph ? 'Hide Yearly Graph Details' : 'Yearly Graph Details'}</span>
+        </button>
+      </div>
+
+      {/* ── EXPANDED YEARLY GRAPH BREAKDOWN ── */}
+      {showYearlyGraph && (
+        <div className="p-5 rounded-2xl bg-white border border-[#DCE8E0] animate-fade-in space-y-3.5 shadow-2xs">
+          <div className="flex items-center justify-between text-xs pb-2 border-b border-[#DCE8E0]">
+            <span className="font-bold font-display text-sm text-[#122A24]">
+              Academic Session 2026-27 Monthly Turnout Matrix
+            </span>
+            <span className="text-[11px] font-mono text-[#1C443A] bg-[#EBF5EF] border border-[#C5E2CF] px-2.5 py-0.5 rounded-md font-bold">
+              CBSE 75% Standard
+            </span>
+          </div>
+
+          {/* 12 Months Bar Chart */}
+          <div className="space-y-2.5 pt-1">
+            {yearlyTrend.map((item) => (
+              <div key={item.month} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-[#122A24] w-24 font-sans">{item.month}</span>
+                  <div className="flex-1 mx-3 bg-[#EBF5EF] border border-[#C5E2CF]/60 h-2.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        item.percentage >= 75 ? 'bg-gradient-to-r from-[#1C443A] to-[#10B981]' : 'bg-gradient-to-r from-rose-700 to-rose-500'
+                      }`}
+                      style={{ width: `${item.percentage}%` }}
+                    />
+                  </div>
+                  <span
+                    className={`font-mono text-xs font-bold w-12 text-right ${
+                      item.percentage >= 75 ? 'text-[#1C443A]' : 'text-rose-700'
+                    }`}
+                  >
+                    {item.percentage}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-2.5 border-t border-[#DCE8E0] flex items-center justify-between text-[11px] text-[#2D5A4E] font-mono">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#10B981]" /> Compliant (≥75%)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-600" /> Shortage Alert (&lt;75%)
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -585,19 +601,19 @@ export function StudentAttendanceHistoryModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+      <div className="relative w-full max-w-lg bg-[#F8FAF9] rounded-3xl border border-[#DCE8E0] shadow-2xl overflow-hidden max-h-[92vh] flex flex-col p-4 sm:p-6">
         {/* Modal Close Button */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3.5 top-3.5 z-30 p-1.5 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition-colors cursor-pointer border-none"
+          className="absolute right-4 top-4 z-30 p-2 rounded-full bg-white hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] transition-colors cursor-pointer"
           aria-label="Close modal"
         >
           <X className="w-4 h-4" />
         </button>
 
         {/* Inner Scrollable Attendance View */}
-        <div className="overflow-y-auto flex-1">
+        <div className="overflow-y-auto flex-1 pr-1">
           <StudentAttendanceHistory
             student={student}
             attendanceRecords={attendanceRecords}

@@ -60,6 +60,7 @@ import {
   Minimize2
 } from 'lucide-react';
 import { Student } from '@/lib/types';
+import { getSchoolInitials } from '@/lib/utils';
 
 export interface DashboardTransportProps {
   students?: Student[];
@@ -1448,12 +1449,18 @@ export function DashboardTransport({
           ───────────────────────────────────────────────────────────── */}
       {!isDriverUser && (
         <div className="bg-white rounded-xl sm:rounded-3xl border border-[#DCE8E0] shadow-xs p-2.5 sm:p-6 lg:p-7 space-y-3 sm:space-y-5 relative overflow-hidden">
-          {/* Subtle Background Watermark */}
+          {/* Editorial Watermark Typography */}
           <div 
             aria-hidden="true" 
-            className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+            className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
           >
-            TRANSPORT
+            Fleet
+          </div>
+          <div 
+            aria-hidden="true" 
+            className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+          >
+            {getSchoolInitials(schoolName)}
           </div>
 
           {/* Top Header Row */}

@@ -41,6 +41,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { School, Student, Teacher, ClassRoom, FeeInvoice, AttendanceRecord, SchoolOverview, User, Notice } from '@/lib/types';
+import { getSchoolInitials } from '@/lib/utils';
 
 interface DashboardOverviewProps {
   selectedSchool: School | null;
@@ -842,14 +843,14 @@ export function DashboardOverview({
       {/* ─────────────────────────────────────────────────────────────
           1. WELCOME HEADER ROW WITH FILTERS & EXPORT BUTTON
           ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 relative z-20">
-        {/* Background Watermark Behind Header Text - isolated in overflow-hidden layer */}
-        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 relative z-20 overflow-hidden">
+        {/* Editorial Watermark Typography - accurately reproducing the reference showcase aesthetic */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none select-none">
           <div 
             aria-hidden="true" 
-            className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+            className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
           >
-            OVERVIEW
+            Overview
           </div>
         </div>
 

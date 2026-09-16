@@ -2,12 +2,13 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Users, Award, CreditCard, CalendarCheck, ShieldCheck, FileText, ChevronRight, Phone, MapPin, Camera, Loader2, Check } from 'lucide-react';
+import { X, Users, Award, CreditCard, CalendarCheck, ShieldCheck, FileText, ChevronRight, Phone, MapPin, Camera, Loader2, Check, Eye, Download, ZoomIn, Upload, Mail, User, Calendar, BadgeCheck, Sparkles } from 'lucide-react';
 import { Student, FeeInvoice, AttendanceRecord } from '@/lib/types';
-import { getStudentSiblings, getStudentAssessmentReport } from '@/lib/student-helper';
+import { getStudentSiblings, getStudentAssessmentReport, AVAILABLE_EXAMS } from '@/lib/student-helper';
 import { getStudentMonthlyFeeSchedule } from '@/lib/monthly-fee-helper';
 import { compressImageFile } from '@/lib/image-compress';
 import { StudentAttendanceHistory } from '@/components/student-attendance-history';
+import { getSchoolInitials } from '@/lib/utils';
 
 interface StudentSummaryModalProps {
   isOpen: boolean;
@@ -52,6 +53,7 @@ export function StudentSummaryModal({
   const [localStudent, setLocalStudent] = useState<Student | null>(student);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [showFullPhoto, setShowFullPhoto] = useState(false);
 
   useEffect(() => {
     setLocalStudent(student);
@@ -131,6 +133,8 @@ export function StudentSummaryModal({
     }
   };
 
+  const [selectedExamId, setSelectedExamId] = useState<string>('TERM1');
+
   const siblings = useMemo(() => {
     if (!activeStudent) return [];
     return getStudentSiblings(activeStudent, allStudents);
@@ -138,8 +142,8 @@ export function StudentSummaryModal({
 
   const assessmentReport = useMemo(() => {
     if (!activeStudent) return null;
-    return getStudentAssessmentReport(activeStudent);
-  }, [activeStudent]);
+    return getStudentAssessmentReport(activeStudent, selectedExamId);
+  }, [activeStudent, selectedExamId]);
 
   const monthlySchedule = useMemo(() => {
     if (!activeStudent) return null;
@@ -190,23 +194,37 @@ export function StudentSummaryModal({
             1. Scholar Identity Hero Card — Matches Dashboard Portal & SIS Banner
             ───────────────────────────────────────────────────────────── */}
         <div className="bg-gradient-to-br from-[#EBF5EF] via-[#E2F1E8] to-[#D5EBDC] border-b border-[#C5E2CF] p-5 sm:p-6 relative overflow-hidden shrink-0">
-          {/* Background Watermark Behind Header Text */}
+          {/* Editorial Watermark Typography */}
           <div 
             aria-hidden="true" 
-            className="pointer-events-none select-none absolute right-4 sm:right-8 -top-1 font-poster font-black uppercase text-[#122A24]/[0.05] sm:text-[#122A24]/[0.07] text-7xl sm:text-8xl leading-none z-0 tracking-tight"
+            className="pointer-events-none select-none absolute -top-3 sm:-top-6 -left-2 sm:-left-4 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
           >
-            DOSSIER
+            Dossier
+          </div>
+          <div 
+            aria-hidden="true" 
+            className="pointer-events-none select-none absolute -bottom-3 sm:-bottom-6 -right-2 sm:-right-4 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[60px] sm:text-[90px] md:text-[110px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+          >
+            {getSchoolInitials((activeStudent as any)?.school_id || 'DPS')}
           </div>
 
           <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5 sm:gap-4">
-              {/* Scholar Profile Picture / Monogram Badge with Direct Upload */}
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-display font-bold text-xl sm:text-2xl shadow-md border-2 border-white shrink-0 overflow-hidden relative group">
+              {/* Scholar Profile Picture / Monogram Badge */}
+              <div 
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-display font-bold text-xl sm:text-2xl shadow-md border-2 border-white shrink-0 overflow-hidden relative group cursor-pointer"
+                onClick={() => {
+                  if (studentPhotoUrl && !imgError) {
+                    setShowFullPhoto(true);
+                  }
+                }}
+                title={studentPhotoUrl && !imgError ? "Click to view full photo" : "Scholar Profile"}
+              >
                 {studentPhotoUrl && !imgError ? (
                   <img
                     src={studentPhotoUrl}
                     alt={activeStudent.full_name || 'Scholar Profile'}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
                     onError={() => setImgError(true)}
                   />
                 ) : studentEmoji ? (
@@ -215,35 +233,12 @@ export function StudentSummaryModal({
                   <span>{(activeStudent.full_name || 'S')[0]}</span>
                 )}
 
-                {/* Direct 1-Click DP Upload Trigger Overlay */}
-                <label 
-                  className={`absolute inset-0 bg-black/65 flex flex-col items-center justify-center cursor-pointer transition-opacity text-white text-[9.5px] font-sans font-semibold gap-1 ${uploadingPhoto ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                  title="Click to Upload / Change Student Photo"
-                >
-                  {uploadingPhoto ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
-                      <span className="text-[9px]">Saving...</span>
-                    </>
-                  ) : uploadSuccess ? (
-                    <>
-                      <Check className="w-4 h-4 text-emerald-400" />
-                      <span className="text-[9px] text-emerald-300">Updated!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Camera className="w-4 h-4 text-white" />
-                      <span className="text-[9px]">Change DP</span>
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    disabled={uploadingPhoto}
-                    onChange={handleDirectPhotoUpload}
-                  />
-                </label>
+                {/* Hover overlay hint */}
+                {studentPhotoUrl && !imgError && (
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <ZoomIn className="w-5 h-5 text-white drop-shadow" />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -270,6 +265,50 @@ export function StudentSummaryModal({
                   <span>Roll: <strong>#{activeStudent.roll_no || '16'}</strong></span>
                   <span>•</span>
                   <span>Session: <strong>{activeStudent.academic_session || '2026-27'}</strong></span>
+                </div>
+
+                {/* Photo Action Bar: View Photo & Change DP */}
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  {studentPhotoUrl && !imgError && (
+                    <button
+                      type="button"
+                      onClick={() => setShowFullPhoto(true)}
+                      className="px-2.5 py-1 bg-white hover:bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF] rounded-lg text-[11px] font-semibold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer hover:border-[#10B981]"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>View Photo</span>
+                    </button>
+                  )}
+
+                  <label
+                    className={`px-2.5 py-1 bg-white hover:bg-[#EBF5EF] text-[#122A24] border border-[#C5E2CF] rounded-lg text-[11px] font-semibold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer hover:border-[#10B981] ${
+                      uploadingPhoto ? 'opacity-60 pointer-events-none' : ''
+                    }`}
+                  >
+                    {uploadingPhoto ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                        <span className="text-emerald-700">Uploading...</span>
+                      </>
+                    ) : uploadSuccess ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-700">Updated!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Change DP</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      disabled={uploadingPhoto}
+                      onChange={handleDirectPhotoUpload}
+                    />
+                  </label>
                 </div>
               </div>
             </div>
@@ -342,10 +381,10 @@ export function StudentSummaryModal({
                   Fee Account
                 </span>
                 <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
-                  {student.fee_status === 'PAID' ? 'Clear' : `₹${(totalPending || 0).toLocaleString('en-IN')}`}
+                  {totalPending === 0 ? 'Clear' : `₹${(totalPending || 0).toLocaleString('en-IN')}`}
                 </div>
                 <p className="text-[11px] text-white/60">
-                  {student.fee_status === 'PAID' ? '✓ Paid in Full' : '⚠️ Dues Pending'}
+                  {totalPending === 0 ? '✓ Paid in Full' : '⚠️ Dues Pending'}
                 </p>
               </div>
 
@@ -366,20 +405,20 @@ export function StudentSummaryModal({
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
-            3. Sub-tab Pill Switcher — Exactly matching ERP Dashboard Pill Switchers
+            3. Sub-tab Pill Switcher — Matching ERP Signature Tab Bars
             ───────────────────────────────────────────────────────────── */}
-        <div className="px-4 sm:px-5 py-3 border-b border-[#DCE8E0] bg-white flex items-center justify-between gap-2 overflow-x-auto no-scrollbar shrink-0">
-          <div className="flex items-center bg-[#F4F8F5] p-1 rounded-full border border-[#DCE8E0] shadow-2xs shrink-0 w-full sm:w-auto">
+        <div className="px-5 sm:px-6 py-3 border-b border-[#DCE8E0] bg-[#F9FCFA] flex items-center justify-between gap-3 overflow-x-auto no-scrollbar shrink-0">
+          <div className="flex items-center gap-1.5 bg-[#EBF5EF] p-1.5 rounded-2xl border border-[#C5E2CF]/70 shadow-2xs w-full sm:w-auto">
             {tabs.map(tab => {
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex-1 sm:flex-initial px-4 py-1.5 rounded-full text-xs font-semibold border-none cursor-pointer transition-all whitespace-nowrap ${
+                  className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-semibold border-none cursor-pointer transition-all whitespace-nowrap flex items-center justify-center gap-1.5 ${
                     isActive
-                      ? 'bg-[#122A24] text-white shadow-xs'
-                      : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24]'
+                      ? 'bg-[#122A24] text-white shadow-sm font-bold'
+                      : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60'
                   }`}
                 >
                   {tab.label}
@@ -387,99 +426,165 @@ export function StudentSummaryModal({
               );
             })}
           </div>
+
+          <div className="hidden sm:flex items-center gap-2 text-[11px] font-mono text-[#2D5A4E]/80">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>CBSE Session {activeStudent.academic_session || '2026-27'}</span>
+          </div>
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
             4. Modal Body Content (Consistent with ERP Portal & Modules)
             ───────────────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {/* TAB 1: OVERVIEW & PROFILE */}
           {activeTab === 'overview' && (
             <div className="space-y-4">
               {/* Parents & Guardian Box */}
-              <div className="p-4 sm:p-5 bg-[#F9FCFA] rounded-2xl border border-[#DCE8E0] space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-[#DCE8E0]">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-emerald-700" />
-                    <h3 className="font-display font-bold text-sm sm:text-base text-[#122A24]">
-                      Parents &amp; Guardian Record
-                    </h3>
+              <div className="bg-[#F8FAF9] rounded-3xl border border-[#DCE8E0] p-5 sm:p-6 space-y-4 shadow-2xs">
+                <div className="flex items-center justify-between pb-3 border-b border-[#DCE8E0]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-display font-bold text-base text-[#122A24]">
+                        Parents &amp; Guardian Record
+                      </h3>
+                      <p className="text-[11px] text-[#2D5A4E]">
+                        Authorized primary contacts for official communications
+                      </p>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-mono font-bold uppercase text-[#1C443A] bg-[#EBF5EF] px-2.5 py-0.5 rounded-full border border-[#C5E2CF]">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#1C443A] bg-[#EBF5EF] px-3 py-1 rounded-full border border-[#C5E2CF]">
                     Primary Contact
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
-                  <div className="p-3 bg-white rounded-xl border border-[#DCE8E0]">
-                    <span className="text-[10px] uppercase font-mono text-slate-400 font-bold block">Father&apos;s Name</span>
-                    <strong className="text-slate-900 font-sans text-sm block mt-0.5">
-                      {student.father_name || student.guardian_name || 'Mr. Amit Agarwal'}
-                    </strong>
-                    <span className="text-slate-500 text-[11px] block mt-0.5">
-                      {student.father_occupation || 'Business / Professional'}
-                    </span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                  {/* Father's Card */}
+                  <div className="p-4 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs hover:border-[#10B981] transition-colors flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase font-mono text-[#2D5A4E] font-bold tracking-wider mb-1.5">
+                        <User className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Father&apos;s Name</span>
+                      </div>
+                      <h4 className="text-sm sm:text-base font-bold text-[#122A24] leading-tight">
+                        {activeStudent.father_name || activeStudent.guardian_name || 'Mr. Rajesh Chatterjee'}
+                      </h4>
+                    </div>
+                    <div className="mt-2.5 pt-2 border-t border-[#F0F5F2] text-xs text-[#2D5A4E]">
+                      <span className="text-[10px] text-slate-400 block font-mono">Occupation</span>
+                      <span className="font-medium text-slate-700">{activeStudent.father_occupation || 'Business / Professional'}</span>
+                    </div>
                   </div>
 
-                  <div className="p-3 bg-white rounded-xl border border-[#DCE8E0]">
-                    <span className="text-[10px] uppercase font-mono text-slate-400 font-bold block">Mother&apos;s Name</span>
-                    <strong className="text-slate-900 font-sans text-sm block mt-0.5">
-                      {student.mother_name || 'Mrs. Neha Agarwal'}
-                    </strong>
-                    <span className="text-slate-500 text-[11px] block mt-0.5">
-                      {student.mother_occupation || 'Educator / Homemaker'}
-                    </span>
+                  {/* Mother's Card */}
+                  <div className="p-4 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs hover:border-[#10B981] transition-colors flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase font-mono text-[#2D5A4E] font-bold tracking-wider mb-1.5">
+                        <User className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Mother&apos;s Name</span>
+                      </div>
+                      <h4 className="text-sm sm:text-base font-bold text-[#122A24] leading-tight">
+                        {activeStudent.mother_name || 'Mrs. Sunita Chatterjee'}
+                      </h4>
+                    </div>
+                    <div className="mt-2.5 pt-2 border-t border-[#F0F5F2] text-xs text-[#2D5A4E]">
+                      <span className="text-[10px] text-slate-400 block font-mono">Occupation</span>
+                      <span className="font-medium text-slate-700">{activeStudent.mother_occupation || 'Educator / Homemaker'}</span>
+                    </div>
                   </div>
 
-                  <div className="p-3 bg-white rounded-xl border border-[#DCE8E0]">
-                    <span className="text-[10px] uppercase font-mono text-slate-400 font-bold block">Guardian Contact</span>
-                    <strong className="text-emerald-800 font-mono text-sm block mt-0.5">
-                      {student.guardian_phone || student.phone || '+91 9811402127'}
-                    </strong>
-                    <span className="text-slate-500 text-[11px] truncate block mt-0.5">
-                      {student.guardian_email || `${student.full_name?.toLowerCase().replace(/\s+/g, '')}@gmail.com`}
-                    </span>
+                  {/* Guardian Contact Card */}
+                  <div className="p-4 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs hover:border-[#10B981] transition-colors flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase font-mono text-[#2D5A4E] font-bold tracking-wider mb-1.5">
+                        <Phone className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Guardian Contact</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <a 
+                          href={`tel:${activeStudent.guardian_phone || activeStudent.phone || '+919811402121'}`}
+                          className="text-sm sm:text-base font-mono font-bold text-[#122A24] hover:text-emerald-700 transition-colors tracking-tight"
+                        >
+                          {activeStudent.guardian_phone || activeStudent.phone || '+91 9811402121'}
+                        </a>
+                      </div>
+                    </div>
+                    <div className="mt-2.5 pt-2 border-t border-[#F0F5F2] text-xs text-[#2D5A4E]">
+                      <span className="text-[10px] text-slate-400 block font-mono">Email Channel</span>
+                      <a 
+                        href={`mailto:${activeStudent.guardian_email || activeStudent.email || 'guardian@school.edu'}`}
+                        className="font-medium text-[#2D5A4E] hover:text-[#122A24] truncate block"
+                      >
+                        {activeStudent.guardian_email || activeStudent.email || `${activeStudent.full_name?.toLowerCase().replace(/\s+/g, '')}@gmail.com`}
+                      </a>
+                    </div>
                   </div>
                 </div>
 
-                <div className="p-3 bg-white rounded-xl border border-[#DCE8E0] text-xs">
-                  <span className="text-[10px] uppercase font-mono text-slate-400 font-bold block">Permanent Residential Address</span>
-                  <p className="text-slate-700 font-medium mt-1 leading-relaxed text-xs sm:text-sm">
-                    {student.residential_address || student.address || 'Plot 137, Vasant Kunj, New Delhi'}
+                {/* Permanent Residential Address */}
+                <div className="p-4 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase font-mono text-[#2D5A4E] font-bold tracking-wider mb-1">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Permanent Residential Address</span>
+                  </div>
+                  <p className="text-slate-800 font-medium text-xs sm:text-sm leading-relaxed mt-1">
+                    {activeStudent.residential_address || activeStudent.address || 'Plot 131, Vasant Kunj, New Delhi'}
                   </p>
                 </div>
               </div>
 
               {/* CBSE Demographic & Regulatory Profile */}
-              <div className="p-4 sm:p-5 bg-[#F9FCFA] rounded-2xl border border-[#DCE8E0] space-y-3">
-                <div className="flex items-center justify-between pb-2 border-b border-[#DCE8E0]">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                    <h3 className="font-display font-bold text-sm sm:text-base text-[#122A24]">
-                      CBSE Demographic &amp; Regulatory Profile
-                    </h3>
+              <div className="bg-[#F8FAF9] rounded-3xl border border-[#DCE8E0] p-5 sm:p-6 space-y-4 shadow-2xs">
+                <div className="flex items-center justify-between pb-3 border-b border-[#DCE8E0]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#EBF5EF] text-[#1C443A] flex items-center justify-center">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-display font-bold text-base text-[#122A24]">
+                        CBSE Demographic &amp; Regulatory Profile
+                      </h3>
+                      <p className="text-[11px] text-[#2D5A4E]">
+                        Statutory identifiers verified with CBSE OASIS portal
+                      </p>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-mono font-bold uppercase text-[#1C443A] bg-[#EBF5EF] px-2.5 py-0.5 rounded-full border border-[#C5E2CF]">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#1C443A] bg-[#EBF5EF] px-3 py-1 rounded-full border border-[#C5E2CF]">
                     Statutory OASIS
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div className="p-3 bg-white rounded-xl border border-[#DCE8E0]">
-                    <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Date of Birth</span>
-                    <strong className="text-slate-900 mt-1 block">{student.dob || '15 May 2014'}</strong>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                  <div className="p-4 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs">
+                    <span className="text-[10px] font-mono uppercase text-[#2D5A4E] font-bold tracking-wider block">Date of Birth</span>
+                    <strong className="text-slate-900 text-sm sm:text-base font-bold font-mono mt-1.5 block">
+                      {activeStudent.dob || '2014-05-15'}
+                    </strong>
                   </div>
-                  <div className="p-3 bg-white rounded-xl border border-[#DCE8E0]">
-                    <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Blood Group</span>
-                    <strong className="text-slate-900 mt-1 block">{student.blood_group || 'O+'}</strong>
+                  <div className="p-4 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs">
+                    <span className="text-[10px] font-mono uppercase text-[#2D5A4E] font-bold tracking-wider block">Blood Group</span>
+                    <div className="mt-1.5">
+                      <span className="px-2.5 py-1 rounded-lg font-bold text-xs font-mono bg-rose-50 text-rose-800 border border-rose-200 inline-block">
+                        {activeStudent.blood_group || 'O+'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="p-3 bg-white rounded-xl border border-[#DCE8E0]">
-                    <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Aadhaar / APAAR</span>
-                    <strong className="text-slate-900 mt-1 block font-mono">{student.aadhaar_no || '9874-5612-3401'}</strong>
+                  <div className="p-4 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs">
+                    <span className="text-[10px] font-mono uppercase text-[#2D5A4E] font-bold tracking-wider block">Aadhaar / APAAR</span>
+                    <strong className="text-slate-900 text-xs sm:text-sm font-bold font-mono mt-1.5 block tracking-wider truncate">
+                      {activeStudent.aadhaar_no || activeStudent.apaar_id || '9874-5612-3401'}
+                    </strong>
                   </div>
-                  <div className="p-3 bg-white rounded-xl border border-[#DCE8E0]">
-                    <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">House Matrix</span>
-                    <strong className="text-slate-900 mt-1 block">{student.house || '—'}</strong>
+                  <div className="p-4 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs">
+                    <span className="text-[10px] font-mono uppercase text-[#2D5A4E] font-bold tracking-wider block">House Matrix</span>
+                    <div className="mt-1.5">
+                      <span className="px-2.5 py-1 rounded-lg font-bold text-xs font-mono bg-emerald-50 text-emerald-800 border border-emerald-200 inline-block">
+                        {activeStudent.house || 'Courage House'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -579,60 +684,212 @@ export function StudentSummaryModal({
             </div>
           )}
 
-          {/* TAB 3: ACADEMICS */}
+          {/* TAB 3: ACADEMICS (WITH EXAM / TEST SELECTOR) */}
           {activeTab === 'academics' && assessmentReport && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-display font-bold text-base text-[#122A24]">
-                    {assessmentReport.term}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    CBSE Formative &amp; Summative Academic Ledger.
-                  </p>
+              {/* Top Header & Exam Selector Controls */}
+              <div className="p-4 rounded-2xl bg-[#F8FAF9] border border-[#DCE8E0] space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <h3 className="font-display font-bold text-base text-[#122A24]">
+                        {assessmentReport.term}
+                      </h3>
+                    </div>
+                    <p className="text-xs text-[#2D5A4E] mt-0.5 font-mono">
+                      {assessmentReport.cycle} • Evaluation Date: {assessmentReport.examDate}
+                    </p>
+                  </div>
+
+                  {/* Exam Selector Dropdown */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono font-bold text-slate-500 uppercase shrink-0">
+                      Select Exam:
+                    </span>
+                    <select
+                      value={selectedExamId}
+                      onChange={(e) => setSelectedExamId(e.target.value)}
+                      className="bg-white border border-[#DCE8E0] hover:border-emerald-600 text-xs font-bold text-[#122A24] rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer shadow-2xs"
+                    >
+                      {AVAILABLE_EXAMS.map(exam => (
+                        <option key={exam.id} value={exam.id}>
+                          {exam.name} ({exam.month})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div className="px-3.5 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-right">
-                  <span className="text-[10px] text-amber-800 uppercase font-semibold block">Overall Score</span>
-                  <span className="font-display font-bold text-base text-amber-900">
-                    {assessmentReport.percentage}% (Grade {assessmentReport.grade})
-                  </span>
+
+                {/* Quick Exam Switch Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-0.5">
+                  {AVAILABLE_EXAMS.map(exam => {
+                    const isSelected = selectedExamId === exam.id;
+                    return (
+                      <button
+                        key={exam.id}
+                        type="button"
+                        onClick={() => setSelectedExamId(exam.id)}
+                        className={`px-3 py-1 rounded-full text-xs font-mono font-bold border transition-all shrink-0 cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#122A24] text-white border-[#122A24] shadow-2xs'
+                            : 'bg-white text-[#2D5A4E] border-[#DCE8E0] hover:bg-[#EBF5EF]'
+                        }`}
+                      >
+                        {exam.shortName}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Subject Breakdown Table */}
-              <div className="rounded-2xl border border-[#DCE8E0] overflow-hidden bg-white shadow-xs">
-                <table className="w-full text-xs text-left border-collapse">
-                  <thead className="bg-[#EBF5EF] border-b border-[#DCE8E0] text-[11px] font-mono text-[#122A24] uppercase font-bold">
-                    <tr>
-                      <th className="p-3">Curricular Subject</th>
-                      <th className="p-3 text-center">Max Marks</th>
-                      <th className="p-3 text-center">Marks Obtained</th>
-                      <th className="p-3 text-center">CBSE Grade</th>
-                      <th className="p-3 text-right">Performance</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {assessmentReport.subjects.map(subj => (
-                      <tr key={subj.subject} className="hover:bg-slate-50/80">
-                        <td className="p-3 font-semibold text-slate-900">{subj.subject}</td>
-                        <td className="p-3 text-center text-slate-500 font-mono">{subj.maxMarks}</td>
-                        <td className="p-3 text-center font-bold text-[#122A24] font-mono">{subj.obtainedMarks}</td>
-                        <td className="p-3 text-center">
-                          <span className="px-2 py-0.5 rounded font-bold text-[11px] font-mono bg-emerald-100 text-emerald-800 border border-emerald-300">
-                            {subj.grade}
-                          </span>
+              {/* 4 Top KPI Score Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                {/* Total Marks */}
+                <div className="p-3.5 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs">
+                  <span className="text-[10px] font-mono uppercase text-slate-500 font-bold tracking-wider block">
+                    Marks Scored
+                  </span>
+                  <div className="text-lg sm:text-xl font-bold font-mono text-[#122A24] mt-0.5 tabular-nums">
+                    {assessmentReport.totalObtained} <span className="text-xs font-normal text-slate-400">/ {assessmentReport.totalMax}</span>
+                  </div>
+                </div>
+
+                {/* Percentage & Grade */}
+                <div className="p-3.5 bg-emerald-50/60 rounded-2xl border border-emerald-200 shadow-2xs">
+                  <span className="text-[10px] font-mono uppercase text-emerald-800 font-bold tracking-wider block">
+                    Percentage &amp; Grade
+                  </span>
+                  <div className="text-lg sm:text-xl font-bold font-display text-emerald-950 mt-0.5 flex items-center gap-1.5">
+                    <span>{assessmentReport.percentage}%</span>
+                    <span className="px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-emerald-600 text-white">
+                      {assessmentReport.grade}
+                    </span>
+                  </div>
+                </div>
+
+                {/* CBSE CGPA */}
+                <div className="p-3.5 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs">
+                  <span className="text-[10px] font-mono uppercase text-slate-500 font-bold tracking-wider block">
+                    CBSE CGPA
+                  </span>
+                  <div className="text-lg sm:text-xl font-bold font-mono text-[#1C443A] mt-0.5 tabular-nums">
+                    {assessmentReport.cgpa} <span className="text-xs font-normal text-slate-400">/ 10.0</span>
+                  </div>
+                </div>
+
+                {/* Rank & Standing */}
+                <div className="p-3.5 bg-amber-50/60 rounded-2xl border border-amber-200 shadow-2xs">
+                  <span className="text-[10px] font-mono uppercase text-amber-800 font-bold tracking-wider block">
+                    Class Rank / Standing
+                  </span>
+                  <div className="text-lg sm:text-xl font-bold font-display text-amber-950 mt-0.5">
+                    Rank #{assessmentReport.classRank}
+                  </div>
+                </div>
+              </div>
+
+              {/* Scholastic Subject Breakdown Table */}
+              <div className="rounded-2xl border border-[#DCE8E0] overflow-hidden bg-white shadow-2xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse min-w-[550px]">
+                    <thead className="bg-[#EBF5EF] border-b-2 border-[#DCE8E0] text-[11px] font-mono text-[#122A24] uppercase font-bold sticky top-0">
+                      <tr>
+                        <th className="py-3 px-3 w-16 text-center">Code</th>
+                        <th className="py-3 px-3">Curricular Subject</th>
+                        {assessmentReport.subjects.some(s => s.theoryMarks !== undefined) && (
+                          <>
+                            <th className="py-3 px-2.5 text-center">Theory (80)</th>
+                            <th className="py-3 px-2.5 text-center">Internal (20)</th>
+                          </>
+                        )}
+                        <th className="py-3 px-3 text-center">Max Marks</th>
+                        <th className="py-3 px-3 text-center">Marks Obtained</th>
+                        <th className="py-3 px-3 text-center">CBSE Grade</th>
+                        <th className="py-3 px-3 text-center">Grade Point</th>
+                        <th className="py-3 px-3 text-left">Teacher Remark</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#EBF2ED] text-xs font-mono">
+                      {assessmentReport.subjects.map(subj => (
+                        <tr key={subj.code} className="hover:bg-[#F9FCFA] transition-colors">
+                          <td className="py-2.5 px-3 text-center font-bold text-slate-400">{subj.code}</td>
+                          <td className="py-2.5 px-3 font-sans font-bold text-[#122A24]">{subj.subject}</td>
+                          {assessmentReport.subjects.some(s => s.theoryMarks !== undefined) && (
+                            <>
+                              <td className="py-2.5 px-2.5 text-center text-slate-700 font-semibold">{subj.theoryMarks ?? '—'}</td>
+                              <td className="py-2.5 px-2.5 text-center text-slate-700 font-semibold">{subj.practicalMarks ?? '—'}</td>
+                            </>
+                          )}
+                          <td className="py-2.5 px-3 text-center text-slate-500">{subj.maxMarks}</td>
+                          <td className="py-2.5 px-3 text-center font-bold text-[#122A24] text-sm bg-[#F4FAF6]">
+                            {subj.obtainedMarks}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className="px-2 py-0.5 rounded font-bold text-[11px] bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              {subj.grade}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center font-bold text-[#1C443A]">{subj.gp.toFixed(1)}</td>
+                          <td className="py-2.5 px-3 font-sans text-slate-600 text-[11px] truncate max-w-[200px]" title={subj.remark}>
+                            {subj.remark}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-[#F8FAF9] border-t-2 border-[#DCE8E0] font-bold text-xs text-[#122A24] font-mono">
+                      <tr>
+                        <td colSpan={assessmentReport.subjects.some(s => s.theoryMarks !== undefined) ? 4 : 2} className="py-3 px-3 uppercase tracking-wider font-sans">
+                          Grand Total / Overall Evaluation:
                         </td>
-                        <td className="p-3 text-right font-medium text-emerald-700 font-mono">
-                          {subj.obtainedMarks >= 85 ? 'Distinction' : subj.obtainedMarks >= 70 ? 'Proficient' : 'Standard'}
+                        <td className="py-3 px-3 text-center tabular-nums text-slate-500">{assessmentReport.totalMax}</td>
+                        <td className="py-3 px-3 text-center tabular-nums text-emerald-900 bg-emerald-100/60 font-black text-sm">
+                          {assessmentReport.totalObtained}
+                        </td>
+                        <td className="py-3 px-3 text-center text-emerald-800 font-bold">{assessmentReport.grade}</td>
+                        <td className="py-3 px-3 text-center text-[#1C443A] font-bold">{assessmentReport.cgpa} CGPA</td>
+                        <td className="py-3 px-3 text-emerald-800 font-sans font-bold">
+                          {assessmentReport.status === 'PASSED_DISTINCTION' ? '✓ Passed with Distinction' : '✓ Passed'}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-amber-950">
-                <span className="font-bold">Faculty Remarks:</span> {assessmentReport.remarks}
+              {/* Co-Scholastic & Discipline Matrix */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3.5 bg-white rounded-2xl border border-[#DCE8E0] space-y-2 shadow-2xs">
+                  <span className="font-bold text-xs text-[#122A24] block uppercase font-mono tracking-wider">
+                    Part 2: Co-Scholastic &amp; Life Skills
+                  </span>
+                  <div className="space-y-1.5 text-xs">
+                    {assessmentReport.coScholastic.map(cs => (
+                      <div key={cs.skill} className="flex items-center justify-between py-1 border-b border-slate-100 last:border-none">
+                        <span className="text-slate-700">{cs.skill}</span>
+                        <span className="px-2 py-0.5 rounded font-bold font-mono text-[10px] bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                          Grade {cs.grade}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Faculty Remarks & Verification */}
+                <div className="p-3.5 bg-amber-50/60 rounded-2xl border border-amber-200 flex flex-col justify-between space-y-2 shadow-2xs text-xs">
+                  <div>
+                    <span className="font-bold text-amber-950 uppercase font-mono tracking-wider block mb-1">
+                      Homeroom Teacher Remarks &amp; Feedback:
+                    </span>
+                    <p className="text-slate-700 italic leading-relaxed">
+                      &ldquo;{assessmentReport.remarks}&rdquo;
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-amber-200/80 flex items-center justify-between text-[10.5px] font-mono text-amber-900">
+                    <span>Evaluated by: Homeroom Directorate</span>
+                    <span className="font-bold text-emerald-800">✓ CBSE Formative Verified</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -640,35 +897,17 @@ export function StudentSummaryModal({
           {/* TAB 4: ATTENDANCE (INDIVIDUAL MONTHLY ATTENDANCE HISTORY) */}
           {activeTab === 'attendance' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-display font-bold text-base text-[#122A24]">
-                    Monthly Attendance &amp; Classroom Turnout
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Official CBSE 75% Mandatory Attendance Record &amp; Day-wise Matrix
-                  </p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-mono font-bold border ${
-                  isDefaulter ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                }`}>
-                  {attendancePercent}% Total Turnout
-                </span>
-              </div>
-
               {isDefaulter && (
-                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-center gap-2">
-                  <span className="font-bold">⚠️ CBSE 75% Shortage Alert:</span> Scholar is currently below the CBSE prescribed 75% attendance threshold. Guardian notification advised.
+                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-center gap-2.5 shadow-2xs">
+                  <span className="font-bold">⚠️ CBSE 75% Shortage Alert:</span> Scholar attendance ({attendancePercent}%) is currently below the CBSE prescribed 75% statutory threshold.
                 </div>
               )}
 
-              {/* Exact Screenshot UI: Individual Student Monthly Attendance History */}
-              <div className="rounded-2xl border border-[#DCE8E0] bg-white p-2 sm:p-4 shadow-xs">
-                <StudentAttendanceHistory
-                  student={activeStudent}
-                  attendanceRecords={attendanceRecords}
-                />
-              </div>
+              {/* Exact Attendance Calendar History with ERP theme */}
+              <StudentAttendanceHistory
+                student={activeStudent}
+                attendanceRecords={attendanceRecords}
+              />
             </div>
           )}
 
@@ -687,9 +926,9 @@ export function StudentSummaryModal({
 
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`px-3 py-1 rounded-full text-xs font-mono font-semibold border ${
-                    student.fee_status === 'PAID' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+                    totalPending === 0 || student.fee_status === 'PAID' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
                   }`}>
-                    Status: {student.fee_status || 'REGULAR'}
+                    Status: {totalPending === 0 || student.fee_status === 'PAID' ? 'PAID' : (student.fee_status || 'PENDING')}
                   </span>
                   {onCollectFee && totalPending > 0 && (
                     <button
@@ -833,30 +1072,34 @@ export function StudentSummaryModal({
         {/* ─────────────────────────────────────────────────────────────
             5. Footer Bottom Bar — Matching Dashboard UI Theme
             ───────────────────────────────────────────────────────────── */}
-        <div className="p-3.5 sm:p-4 bg-[#F4F8F5] border-t border-[#DCE8E0] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
+        <div className="p-4 sm:p-5 bg-[#F4F8F5] border-t border-[#DCE8E0] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
           <div className="flex items-center gap-2 text-xs font-mono text-[#2D5A4E]">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0 shadow-xs" />
             <span>Institutional Scholar Record • Adm: <strong className="text-[#122A24] font-bold">{activeStudent.admission_no}</strong> • OASIS Verified</span>
           </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-auto">
+          <div className="flex items-center gap-2.5 self-end sm:self-auto flex-wrap">
             {onEditStudent && (
               <button
+                type="button"
                 onClick={() => { onEditStudent(activeStudent); onClose(); }}
-                className="px-3.5 py-1.5 bg-white hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-full text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+                className="px-4 py-2 bg-white hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] hover:border-[#10B981] rounded-full text-xs font-bold shadow-2xs transition-all cursor-pointer"
               >
                 Edit Profile
               </button>
             )}
             {onCollectFee && (
               <button
+                type="button"
                 onClick={() => { onCollectFee(activeStudent); onClose(); }}
-                className="px-3.5 py-1.5 bg-[#EBF5EF] hover:bg-[#D5EBDC] text-[#1C443A] border border-[#C5E2CF] rounded-full text-xs font-bold shadow-2xs transition-all cursor-pointer"
+                className="px-4 py-2 bg-[#EBF5EF] hover:bg-[#D5EBDC] text-[#1C443A] border border-[#C5E2CF] rounded-full text-xs font-bold shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
               >
-                Collect Fee
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Collect Fee</span>
               </button>
             )}
             <button
+              type="button"
               onClick={onClose}
               className="px-5 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white font-display font-bold rounded-full text-xs cursor-pointer transition-all shadow-md hover:scale-[1.02]"
             >
@@ -865,6 +1108,91 @@ export function StudentSummaryModal({
           </div>
         </div>
       </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          FULL-SCREEN PHOTO LIGHTBOX MODAL (VIEW & DOWNLOAD HIGH-RES DP)
+          ───────────────────────────────────────────────────────────── */}
+      {showFullPhoto && studentPhotoUrl && !imgError && (
+        <div 
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
+          onClick={() => setShowFullPhoto(false)}
+        >
+          <div 
+            className="bg-[#122A24] text-white rounded-3xl p-5 sm:p-6 max-w-lg w-full border border-[#1C443A] shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 relative text-center"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Top Bar with Title & Close */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#1C443A]/80">
+              <div className="text-left">
+                <h3 className="font-display font-bold text-base text-white">
+                  {activeStudent.full_name}
+                </h3>
+                <p className="text-xs text-emerald-300/80 font-mono">
+                  Adm: {activeStudent.admission_no} • {cleanClass(activeStudent.class_name)}-{activeStudent.section || 'A'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFullPhoto(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer border-none transition-colors"
+                title="Close Photo Viewer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* High-Res Image Display */}
+            <div className="relative rounded-2xl overflow-hidden bg-black/40 border border-[#1C443A] flex items-center justify-center max-h-[60vh]">
+              <img
+                src={studentPhotoUrl}
+                alt={activeStudent.full_name || 'Scholar Full Photo'}
+                className="w-full h-auto max-h-[58vh] object-contain rounded-xl"
+              />
+            </div>
+
+            {/* Action Buttons: Download & Change */}
+            <div className="flex items-center justify-between gap-3 pt-1 text-xs">
+              <a
+                href={studentPhotoUrl}
+                download={`${activeStudent.full_name.replace(/\s+/g, '_')}_photo.jpg`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 py-2 px-3.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-full font-medium flex items-center justify-center gap-1.5 transition-colors no-underline"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Save / Download</span>
+              </a>
+
+              <label
+                className={`flex-1 py-2 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-sm ${
+                  uploadingPhoto ? 'opacity-60 pointer-events-none' : ''
+                }`}
+              >
+                {uploadingPhoto ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Uploading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>Upload New Photo</span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={uploadingPhoto}
+                  onChange={(e) => {
+                    handleDirectPhotoUpload(e);
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

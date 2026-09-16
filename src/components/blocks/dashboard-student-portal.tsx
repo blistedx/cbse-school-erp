@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 import { School, Student, FeeInvoice, AttendanceRecord, User as UserType } from '@/lib/types';
 import { getStudentMonthlyFeeSchedule, MonthlyFeeItem, CBSE_ACADEMIC_MONTHS } from '@/lib/monthly-fee-helper';
+import { getStudentAssessmentReport, AVAILABLE_EXAMS } from '@/lib/student-helper';
+import { getSchoolInitials } from '@/lib/utils';
 import { StudentAttendanceHistory } from '@/components/student-attendance-history';
 
 export interface StudentPortalProps {
@@ -169,19 +171,17 @@ export function DashboardStudentPortal({
   // ─────────────────────────────────────────────────────────────
   // 3. CBSE REPORT CARD & MARKS FOR LOGGED-IN STUDENT ONLY
   // ─────────────────────────────────────────────────────────────
-  const studentMarks = [
-    { code: '101', subject: 'English Language & Literature', periodic: 19, term: 76, total: 95, grade: 'A1', gp: 10.0, remark: 'Outstanding fluency & comprehension' },
-    { code: '002', subject: 'Hindi Course A', periodic: 18, term: 72, total: 90, grade: 'A2', gp: 9.0, remark: 'Excellent vocabulary & expression' },
-    { code: '041', subject: 'Mathematics Standard', periodic: 20, term: 78, total: 98, grade: 'A1', gp: 10.0, remark: 'Exceptional problem-solving speed' },
-    { code: '086', subject: 'Environmental Studies / Science', periodic: 18, term: 74, total: 92, grade: 'A1', gp: 10.0, remark: 'Very strong scientific concepts' },
-    { code: '165', subject: 'Computer Applications & Coding', periodic: 19, term: 77, total: 96, grade: 'A1', gp: 10.0, remark: 'Excellent logical aptitude' },
-    { code: '501', subject: 'General Knowledge & Values', periodic: 20, term: 75, total: 95, grade: 'A1', gp: 10.0, remark: 'High awareness & active participation' }
-  ];
+  const [selectedPortalExamId, setSelectedPortalExamId] = useState<string>('TERM1');
 
-  const totalMarksObtained = studentMarks.reduce((acc, curr) => acc + curr.total, 0);
-  const maxPossibleMarks = studentMarks.length * 100;
-  const overallPercentage = Number(((totalMarksObtained / maxPossibleMarks) * 100).toFixed(1));
-  const overallGpa = (studentMarks.reduce((acc, curr) => acc + curr.gp, 0) / studentMarks.length).toFixed(1);
+  const assessmentReport = useMemo(() => {
+    return getStudentAssessmentReport(student, selectedPortalExamId);
+  }, [student, selectedPortalExamId]);
+
+  const studentMarks = assessmentReport.subjects;
+  const totalMarksObtained = assessmentReport.totalObtained;
+  const maxPossibleMarks = assessmentReport.totalMax;
+  const overallPercentage = assessmentReport.percentage;
+  const overallGpa = assessmentReport.cgpa.toFixed(1);
 
   // Scheduled datesheet strictly for student's class
   const classDatesheet = [
@@ -226,12 +226,19 @@ export function DashboardStudentPortal({
     <div className="space-y-6 max-w-7xl mx-auto animate-fade-in pb-12">
       {/* Scholar Identity Hero Card */}
       <div className="bg-gradient-to-br from-[#EBF5EF] via-[#E2F1E8] to-[#D5EBDC] rounded-3xl p-5 sm:p-7 border border-[#C5E2CF] shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden">
-        {/* Background Watermark Behind Header Text */}
+        {/* Editorial Watermark Typography */}
         <div 
           aria-hidden="true" 
-          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+          className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
         >
-          PORTAL
+          Scholar
+        </div>
+        {/* School Initials Bottom-Right Watermark */}
+        <div 
+          aria-hidden="true" 
+          className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+        >
+          {getSchoolInitials(selectedSchool)}
         </div>
 
         <div className="relative z-10 flex items-center gap-4">
@@ -370,7 +377,63 @@ export function DashboardStudentPortal({
                   {selectedSchool?.address || 'Sector 12, R.K. Puram, New Delhi'} • CBSE Affil No: <strong>{selectedSchool?.affiliation_no || '2130001'}</strong> • School Code: <strong>{selectedSchool?.school_code || 'DPS2026'}</strong>
                 </div>
                 <div className="inline-block mt-2 px-4 py-1 rounded-full bg-[#122A24] text-white font-mono text-xs font-bold tracking-wider">
-                  ANNUAL ACADEMIC PROGRESS REPORT • SESSION {selectedSession}
+                  CBSE ACADEMIC EVALUATION • SESSION {selectedSession}
+                </div>
+              </div>
+
+              {/* Exam / Test Selection Toolbar */}
+              <div className="p-4 rounded-2xl bg-[#F8FAF9] border border-[#DCE8E0] space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <h3 className="font-display font-bold text-sm sm:text-base text-[#122A24]">
+                        {assessmentReport.term}
+                      </h3>
+                    </div>
+                    <p className="text-xs text-[#2D5A4E] mt-0.5 font-mono">
+                      {assessmentReport.cycle} • Evaluation Date: {assessmentReport.examDate}
+                    </p>
+                  </div>
+
+                  {/* Exam Selector Dropdown */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono font-bold text-slate-500 uppercase shrink-0">
+                      Select Exam:
+                    </span>
+                    <select
+                      value={selectedPortalExamId}
+                      onChange={(e) => setSelectedPortalExamId(e.target.value)}
+                      className="bg-white border border-[#DCE8E0] hover:border-emerald-600 text-xs font-bold text-[#122A24] rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 cursor-pointer shadow-2xs"
+                    >
+                      {AVAILABLE_EXAMS.map(exam => (
+                        <option key={exam.id} value={exam.id}>
+                          {exam.name} ({exam.month})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Quick Exam Switch Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-0.5">
+                  {AVAILABLE_EXAMS.map(exam => {
+                    const isSelected = selectedPortalExamId === exam.id;
+                    return (
+                      <button
+                        key={exam.id}
+                        type="button"
+                        onClick={() => setSelectedPortalExamId(exam.id)}
+                        className={`px-3 py-1 rounded-full text-xs font-mono font-bold border transition-all shrink-0 cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#122A24] text-white border-[#122A24] shadow-2xs'
+                            : 'bg-white text-[#2D5A4E] border-[#DCE8E0] hover:bg-[#EBF5EF]'
+                        }`}
+                      >
+                        {exam.shortName}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -414,16 +477,21 @@ export function DashboardStudentPortal({
               <div className="space-y-2">
                 <div className="text-xs font-bold text-[#122A24] uppercase font-mono tracking-wider flex items-center justify-between">
                   <span>Part 1: Scholastic Assessment (CBSE 9-Point Scale)</span>
-                  <span className="text-[10px] text-slate-500 font-normal">Max Marks: 100 per Subject</span>
+                  <span className="text-[10px] text-slate-500 font-normal">Max Marks: {assessmentReport.subjects[0]?.maxMarks || 100} per Subject</span>
                 </div>
                 <div className="overflow-x-auto w-full border border-slate-200 rounded-2xl overflow-hidden">
                   <table className="w-full text-left text-xs border-collapse min-w-[650px]">
                     <thead className="bg-[#EBF5EF] text-[#122A24] font-mono text-[11px] uppercase">
                       <tr className="border-b border-slate-200">
                         <th className="py-2.5 px-3">Subject Code &amp; Title</th>
-                        <th className="py-2.5 px-3 text-center">Periodic Test (20)</th>
-                        <th className="py-2.5 px-3 text-center">Term Exam (80)</th>
-                        <th className="py-2.5 px-3 text-center">Total (100)</th>
+                        {assessmentReport.subjects.some(s => s.theoryMarks !== undefined) && (
+                          <>
+                            <th className="py-2.5 px-3 text-center">Theory (80)</th>
+                            <th className="py-2.5 px-3 text-center">Internal (20)</th>
+                          </>
+                        )}
+                        <th className="py-2.5 px-3 text-center">Max Marks</th>
+                        <th className="py-2.5 px-3 text-center">Total Scored</th>
                         <th className="py-2.5 px-3 text-center">Grade</th>
                         <th className="py-2.5 px-3 text-center">Grade Point</th>
                         <th className="py-2.5 px-3">Teacher Assessment Remark</th>
@@ -436,10 +504,15 @@ export function DashboardStudentPortal({
                             <span className="font-bold text-[#122A24] font-sans block">{m.subject}</span>
                             <span className="text-[10px] text-slate-400">Code: {m.code}</span>
                           </td>
-                          <td className="py-3 px-3 text-center font-bold">{m.periodic}</td>
-                          <td className="py-3 px-3 text-center font-bold">{m.term}</td>
+                          {m.theoryMarks !== undefined && (
+                            <>
+                              <td className="py-3 px-3 text-center font-bold text-slate-700">{m.theoryMarks}</td>
+                              <td className="py-3 px-3 text-center font-bold text-slate-700">{m.practicalMarks}</td>
+                            </>
+                          )}
+                          <td className="py-3 px-3 text-center font-mono text-slate-500">{m.maxMarks}</td>
                           <td className="py-3 px-3 text-center font-extrabold text-[#122A24] text-sm bg-emerald-50/40">
-                            {m.total}
+                            {m.obtainedMarks}
                           </td>
                           <td className="py-3 px-3 text-center">
                             <span className="px-2 py-0.5 rounded font-bold text-xs bg-emerald-100 text-emerald-800">
@@ -453,12 +526,14 @@ export function DashboardStudentPortal({
                     </tbody>
                     <tfoot className="bg-[#F8FAF9] font-mono font-bold text-[#122A24] border-t-2 border-slate-200 text-xs">
                       <tr>
-                        <td className="py-3 px-3 font-sans">Grand Aggregate:</td>
-                        <td colSpan={2} className="text-center font-sans text-slate-500 text-[11px]">Marks Scored / Total</td>
-                        <td className="py-3 px-3 text-center text-sm font-extrabold text-emerald-800 bg-emerald-100/50">
-                          {totalMarksObtained} / {maxPossibleMarks}
+                        <td colSpan={assessmentReport.subjects.some(s => s.theoryMarks !== undefined) ? 3 : 1} className="py-3 px-3 font-sans">
+                          Grand Aggregate:
                         </td>
-                        <td className="py-3 px-3 text-center text-emerald-800 text-xs">Grade A1</td>
+                        <td className="py-3 px-3 text-center text-slate-500">{maxPossibleMarks}</td>
+                        <td className="py-3 px-3 text-center text-sm font-extrabold text-emerald-800 bg-emerald-100/50">
+                          {totalMarksObtained}
+                        </td>
+                        <td className="py-3 px-3 text-center text-emerald-800 text-xs">Grade {assessmentReport.grade}</td>
                         <td className="py-3 px-3 text-center text-xs">{overallGpa} CGPA</td>
                         <td className="py-3 px-3 text-emerald-800 font-sans">Overall Percentage: {overallPercentage}%</td>
                       </tr>

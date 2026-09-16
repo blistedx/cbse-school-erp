@@ -42,7 +42,7 @@ export const CBSE_ACADEMIC_MONTHS = [
   { name: 'May 2026', short: 'May', index: 2, quarter: 'Q1' as const, cycleName: 'Cycle 2: May Tuition & Transport', hasAnnual: false, hasExam: false, defaultDueDate: '2026-05-15' },
   { name: 'June 2026', short: 'Jun', index: 3, quarter: 'Q1' as const, cycleName: 'Cycle 3: June Tuition & Summer Lab', hasAnnual: false, hasExam: false, defaultDueDate: '2026-06-15' },
   { name: 'July 2026', short: 'Jul', index: 4, quarter: 'Q2' as const, cycleName: 'Cycle 4: July Tuition & Transport', hasAnnual: false, hasExam: false, defaultDueDate: '2026-07-15' },
-  { name: 'August 2026', short: 'Aug', index: 5, quarter: 'Q2' as const, cycleName: 'Cycle 5: August Tuition & Independence Sports', hasAnnual: false, hasExam: false, defaultDueDate: '2026-08-15' },
+  { name: 'August 2026', short: 'Aug', index: 5, quarter: 'Q2' as const, cycleName: 'Cycle 5: August Tuition & Sports Term', hasAnnual: false, hasExam: false, defaultDueDate: '2026-08-15' },
   { name: 'September 2026', short: 'Sep', index: 6, quarter: 'Q2' as const, cycleName: 'Cycle 6: September Half-Yearly Exam Fee', hasAnnual: false, hasExam: true, defaultDueDate: '2026-09-15' },
   { name: 'October 2026', short: 'Oct', index: 7, quarter: 'Q3' as const, cycleName: 'Cycle 7: October Tuition & Transport', hasAnnual: false, hasExam: false, defaultDueDate: '2026-10-15' },
   { name: 'November 2026', short: 'Nov', index: 8, quarter: 'Q3' as const, cycleName: 'Cycle 8: November Tuition & Lab Term', hasAnnual: false, hasExam: false, defaultDueDate: '2026-11-15' },
@@ -98,7 +98,9 @@ export function getStandardTransportRate(student: Student): number {
 }
 
 /**
- * Computes or resolves a student's full 12-month CBSE academic fee schedule
+ * Computes or resolves a student's full 12-month CBSE academic fee schedule.
+ * Implements strict FIFO water-flow ledger accounting so that monthly paid amounts
+ * never exceed the monthly demand, and total paid strictly balances with actual receipts.
  */
 export function getStudentMonthlyFeeSchedule(
   student: Student,
@@ -120,7 +122,7 @@ export function getStudentMonthlyFeeSchedule(
     const invId = (inv.student_id || '').toLowerCase().trim();
     const invName = (inv.student_name || '').toLowerCase().trim();
     return (
-      (studentAdmNo && invAdm && studentAdmNo === invAdm) ||
+      (studentAdmNo && invAdm && (studentAdmNo === invAdm || invAdm.includes(studentAdmNo) || studentAdmNo.includes(invAdm))) ||
       (studentId && invId && studentId === invId) ||
       (studentName && invName && studentName === invName)
     );
@@ -129,44 +131,61 @@ export function getStudentMonthlyFeeSchedule(
   const baseTuition = options.baseTuition ?? getStandardTuitionRate(student.class_name);
   const annualFeeDefault = options.annualFee ?? getStandardAnnualFeeRate(student.class_name);
   const transportRate = options.transportFee ?? getStandardTransportRate(student);
-
-  // Overall student status flag
-  const isFullyPaidStudent = student.fee_status === 'PAID';
   const admDigits = (student.admission_no || '').replace(/[^0-9]/g, '').slice(-4) || '0128';
 
-  // Compute total actual money collected / deposited for this student across all invoices
-  let totalStudentPaid = 0;
-  studentInvoices.forEach(inv => {
-    const invAmount = Number(inv.amount) || 0;
-    if (inv.status === 'PAID') {
-      totalStudentPaid += (typeof inv.paid_amount === 'number' ? inv.paid_amount : invAmount);
-    } else if (typeof inv.paid_amount === 'number' && inv.paid_amount > 0) {
-      totalStudentPaid += inv.paid_amount;
-    }
-  });
-
-  // Chronological allocation of payments across the 12 months
-  let unallocatedPaid = totalStudentPaid;
-
-  const monthlyItems: MonthlyFeeItem[] = CBSE_ACADEMIC_MONTHS.map((mConfig) => {
-    // Check if there is an exact matching single-month invoice
-    const matchedInvoice = studentInvoices.find(inv => {
-      const invMonth = (inv.month || '').toLowerCase();
-      const targetMonthName = mConfig.name.toLowerCase();
-      const targetShort = mConfig.short.toLowerCase();
-      return invMonth === targetShort || invMonth === targetMonthName || invMonth.includes(targetShort);
-    });
-
+  // 1. Build initial demands for each of the 12 months
+  const rawMonths = CBSE_ACADEMIC_MONTHS.map(mConfig => {
     const tuitionFee = baseTuition;
     const annualFee = mConfig.hasAnnual ? annualFeeDefault : 0;
-    const transportFee = transportRate; // Uniform monthly transport fee for every month
+    const transportFee = transportRate;
     const examFee = mConfig.hasExam ? 1000 : 0;
     const totalBilled = tuitionFee + annualFee + transportFee + examFee;
 
+    // Single-month invoice lookup (if any invoice specifically matches this month only)
+    const matchedInvoice = studentInvoices.find(inv => {
+      const invMonth = (inv.month || '').toLowerCase().trim();
+      const targetMonthName = mConfig.name.toLowerCase().trim();
+      const targetShort = mConfig.short.toLowerCase().trim();
+      return invMonth === targetShort || invMonth === targetMonthName || (invMonth.includes(targetShort) && !invMonth.includes('-'));
+    });
+
+    return {
+      mConfig,
+      tuitionFee,
+      annualFee,
+      transportFee,
+      examFee,
+      totalBilled,
+      matchedInvoice
+    };
+  });
+
+  const totalAnnualBilled = rawMonths.reduce((acc, m) => acc + m.totalBilled, 0);
+
+  // 2. Calculate actual total paid money deposited by this student
+  let totalCollectedMoney = 0;
+  let hasExplicitInvoices = studentInvoices.length > 0;
+
+  studentInvoices.forEach(inv => {
+    const invAmount = Number(inv.amount) || 0;
+    const invPaid = typeof inv.paid_amount === 'number' ? inv.paid_amount : (inv.status === 'PAID' ? invAmount : 0);
+    totalCollectedMoney += invPaid;
+  });
+
+  const isProfilePaid = (student.fee_status || '').toUpperCase() === 'PAID';
+
+  // If student profile is marked PAID in full but has no individual invoice records:
+  let availablePaymentPool = hasExplicitInvoices
+    ? totalCollectedMoney
+    : (isProfilePaid ? totalAnnualBilled : 0);
+
+  // 3. Distribute available payment pool strictly using FIFO (Water-flow) Allocation
+  // This guarantees that for ANY month, paidAmount is capped at totalBilled, and no month shows "Billed 6400 Paid 15000"
+  let unallocatedPaid = availablePaymentPool;
+
+  const monthlyItems: MonthlyFeeItem[] = rawMonths.map(({ mConfig, tuitionFee, annualFee, transportFee, examFee, totalBilled, matchedInvoice }) => {
     let paidAmount = 0;
-    if (isFullyPaidStudent) {
-      paidAmount = totalBilled;
-    } else if (unallocatedPaid >= totalBilled) {
+    if (unallocatedPaid >= totalBilled) {
       paidAmount = totalBilled;
       unallocatedPaid -= totalBilled;
     } else if (unallocatedPaid > 0) {
@@ -184,7 +203,9 @@ export function getStudentMonthlyFeeSchedule(
       status = 'PAID';
     } else if (paidAmount > 0) {
       status = 'PARTIAL';
-    } else if (isPastOrCurrent) {
+    } else if (matchedInvoice?.status === 'OVERDUE') {
+      status = 'OVERDUE';
+    } else if (isPastOrCurrent || matchedInvoice?.status === 'PENDING') {
       status = 'PENDING';
     } else {
       status = 'UPCOMING';
@@ -218,9 +239,8 @@ export function getStudentMonthlyFeeSchedule(
     };
   });
 
-  const totalAnnualBilled = monthlyItems.reduce((acc, item) => acc + item.totalBilled, 0);
-  const totalPaidToDate = isFullyPaidStudent ? totalAnnualBilled : monthlyItems.reduce((acc, item) => acc + item.paidAmount, 0);
-  const currentBalanceDue = Math.max(0, totalAnnualBilled - totalPaidToDate);
+  const totalPaidToDate = monthlyItems.reduce((acc, item) => acc + item.paidAmount, 0);
+  const currentBalanceDue = monthlyItems.reduce((acc, item) => acc + (item.monthIndex <= 6 ? item.balanceDue : 0), 0);
 
   return {
     studentId: student.id,

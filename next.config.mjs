@@ -11,6 +11,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  allowedDevOrigins: ['localhost', '127.0.0.1', '192.168.1.100', '192.168.*.*'],
   async headers() {
     return [
       {

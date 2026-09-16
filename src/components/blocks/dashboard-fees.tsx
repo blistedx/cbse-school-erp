@@ -49,12 +49,15 @@ import {
   RotateCcw,
   Upload,
   AlertTriangle,
-  MessageCircle
+  MessageCircle,
+  Lock
 } from 'lucide-react';
 import { FeeInvoice, Student, School, ClassRoom, Teacher } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
 import { openWhatsAppDirect, buildFeeReminderText, buildFeeReceiptText } from '@/lib/whatsapp';
 import { apiFetch } from '@/lib/api-client';
+import { getStudentMonthlyFeeSchedule } from '@/lib/monthly-fee-helper';
+import { getSchoolInitials } from '@/lib/utils';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 
 export interface DashboardFeesProps {
@@ -65,6 +68,8 @@ export interface DashboardFeesProps {
   teachers: Teacher[];
   selectedSession: string;
   subTab?: 'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'slips' | 'payroll' | 'calendar';
+  userRole?: string;
+  currentUser?: any;
   preselectedStudentId?: string;
   preselectedTimestamp?: number;
   onRefresh?: () => void;
@@ -116,11 +121,27 @@ export function DashboardFees({
   teachers,
   selectedSession,
   subTab = 'reports',
+  userRole,
+  currentUser,
   preselectedStudentId,
   preselectedTimestamp,
   onRefresh,
   showAdminToast
 }: DashboardFeesProps) {
+  // Superadmin Access Check: Only Superadmin can update Fee Master
+  const normalizedRole = String(userRole || currentUser?.role || '').toUpperCase();
+  const isSuperAdmin = useMemo(() => {
+    return (
+      normalizedRole === 'SUPERADMIN' ||
+      normalizedRole === 'AGENCY_SUPERADMIN' ||
+      currentUser?.is_god_admin === true ||
+      currentUser?.is_superadmin === true ||
+      currentUser?.username === 'superadmin' ||
+      currentUser?.email === 'superadmin@cbse.digital' ||
+      currentUser?.email === 'superadmin@antigravity.in'
+    );
+  }, [normalizedRole, currentUser]);
+
   // Navigation Tabs (Fees Report Engine, Quick Collect, Month-Wise Sheet, Fee Master, Ledger, Payroll)
   const [feeTab, setFeeTab] = useState<'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'payroll'>((subTab as any) || 'reports');
   const [invoices, setInvoices] = useState<FeeInvoice[]>(initialInvoices || []);
@@ -393,8 +414,12 @@ export function DashboardFees({
   const [isSavingStructure, setIsSavingStructure] = useState(false);
   const [structureSaveSuccess, setStructureSaveSuccess] = useState(false);
 
-  // Save all fee structure changes
+  // Save all fee structure changes (Superadmin Only)
   const handleSaveFeeStructure = () => {
+    if (!isSuperAdmin) {
+      notify('🔒 Fee Master ko update koi nahi kar sakta, sirf Superadmin kar sakta hai. Ise edit karne ke liye officials se contact karein (Revisions scheduled in MARCH & APRIL).');
+      return;
+    }
     setIsSavingStructure(true);
     try {
       localStorage.setItem('cbse_one_time_fees', JSON.stringify(oneTimeFees));
@@ -411,8 +436,12 @@ export function DashboardFees({
     }
   };
 
-  // Reset to CBSE standard defaults
+  // Reset to CBSE standard defaults (Superadmin Only)
   const handleResetFeeStructure = () => {
+    if (!isSuperAdmin) {
+      notify('🔒 Fee Master ko reset sirf Superadmin kar sakta hai.');
+      return;
+    }
     if (confirm('Are you sure you want to reset all fee structures and installment cycles to CBSE defaults?')) {
       setOneTimeFees(DEFAULT_ONE_TIME_FEES);
       setTuitionFees(DEFAULT_TUITION_FEES);
@@ -432,6 +461,10 @@ export function DashboardFees({
   const [uploadFeedback, setUploadFeedback] = useState<string | null>(null);
 
   const handleUploadFeeStructure = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isSuperAdmin) {
+      notify('🔒 Fee Master upload sirf Superadmin kar sakta hai.');
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -1056,15 +1089,19 @@ export function DashboardFees({
         regFee = 4000;
       }
 
-      const hasTransport = s.transport_opted === 'YES' || !!s.bus_route_no || (index % 3 === 0);
+      const hasTransport = s.transport_opted === 'YES' || (!!s.bus_route_no && s.bus_route_no !== 'NONE');
       const monthlyTransport = hasTransport ? 1800 : 0;
       const totalTuition = monthlyTuition * numMonths;
       const totalTransport = monthlyTransport * numMonths;
       const totalRequired = regFee + annualFee + totalTransport + totalTuition;
 
       // Invoices matching
-      const studentInvoices = invoices.filter(inv => inv.student_id === s.id || (inv.student_name && s.full_name && inv.student_name.toLowerCase() === s.full_name.toLowerCase()));
-      const paidFromInvoices = studentInvoices.reduce((acc, inv) => acc + (inv.paid_amount ?? (inv.status === 'PAID' ? inv.amount : 0)), 0);
+      const studentInvoices = invoices.filter(inv => 
+        (inv.student_id && s.id && inv.student_id === s.id) || 
+        (inv.admission_no && s.admission_no && inv.admission_no === s.admission_no) ||
+        (inv.student_name && s.full_name && inv.student_name.toLowerCase().trim() === s.full_name.toLowerCase().trim())
+      );
+      const paidFromInvoices = studentInvoices.reduce((acc, inv) => acc + (inv.paid_amount ?? (inv.status === 'PAID' ? Number(inv.amount) || 0 : 0)), 0);
 
       let paidAmount = 0;
       if (paidFromInvoices > 0) {
@@ -1074,16 +1111,9 @@ export function DashboardFees({
       } else if (s.fee_status === 'OVERDUE') {
         paidAmount = 0;
       } else if (s.fee_status === 'PARTIAL') {
-        paidAmount = Math.round(totalRequired * 0.6);
+        paidAmount = Math.round(totalRequired * 0.5);
       } else {
-        const seed = (index * 17 + 7) % 10;
-        if (seed > 4) {
-          paidAmount = totalRequired;
-        } else if (seed > 1) {
-          paidAmount = Math.round(totalRequired * 0.62);
-        } else {
-          paidAmount = 0;
-        }
+        paidAmount = 0;
       }
 
       const remainingDue = Math.max(0, totalRequired - paidAmount);
@@ -2081,12 +2111,19 @@ export function DashboardFees({
           1. HEADER & DEDICATED RESPONSIVE TABS BAR (MATCHING ATTENDANCE HUB)
           ───────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
-        {/* Background Watermark Behind Header Text */}
+        {/* Editorial Watermark Typography */}
         <div 
           aria-hidden="true" 
-          className="pointer-events-none select-none absolute right-2 sm:right-6 top-1 font-poster font-black uppercase text-[#122A24]/[0.06] sm:text-[#122A24]/[0.08] text-7xl sm:text-9xl lg:text-[130px] leading-none z-0 tracking-tight"
+          className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
         >
-          FINANCE
+          Finance
+        </div>
+        {/* School Initials Bottom-Right Watermark */}
+        <div 
+          aria-hidden="true" 
+          className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+        >
+          {getSchoolInitials(selectedSchool)}
         </div>
         
         {/* Top Header */}
@@ -2240,8 +2277,12 @@ export function DashboardFees({
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
             }`}
           >
-            <FileText className="h-4 w-4 stroke-[1.75] shrink-0" />
-            <span className="truncate">Fee Master &amp; Upload</span>
+            {isSuperAdmin ? (
+              <FileText className="h-4 w-4 stroke-[1.75] shrink-0" />
+            ) : (
+              <Lock className="h-4 w-4 stroke-[1.75] shrink-0 text-amber-500" />
+            )}
+            <span className="truncate">{isSuperAdmin ? 'Fee Master & Upload' : 'Fee Master (View Only)'}</span>
           </button>
 
           {/* Tab 5: Month-Wise Sheet */}
@@ -4155,7 +4196,133 @@ export function DashboardFees({
           TAB 4: INSTITUTIONAL FEE STRUCTURE (ADMIN ENGINE)
           ───────────────────────────────────────────────────────────── */}
       {feeTab === 'structure' && (
-        <div className="space-y-6 animate-fade-in">
+        <div className="relative space-y-6 animate-fade-in overflow-hidden rounded-3xl">
+
+          {/* Full Page Security Watermark Motif (Background Lock Aura) */}
+          {!isSuperAdmin && (
+            <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden select-none">
+              {/* Giant Top-Right Lock Watermark */}
+              <div className="absolute -top-12 -right-12 text-[#122A24]/[0.035] transform rotate-12 transition-transform">
+                <Lock className="w-130 h-130 stroke-[1.2]" />
+              </div>
+              {/* Mid-Left Lock Watermark */}
+              <div className="absolute top-1/3 -left-16 text-[#122A24]/[0.03] transform -rotate-12 transition-transform">
+                <Lock className="w-96 h-96 stroke-[1]" />
+              </div>
+              {/* Bottom-Right Lock Watermark */}
+              <div className="absolute -bottom-16 right-1/4 text-[#122A24]/[0.025] transform rotate-6 transition-transform">
+                <Lock className="w-110 h-110 stroke-[0.8]" />
+              </div>
+            </div>
+          )}
+
+          {/* Grand Institutional Statutory Security Advisory Hero Banner */}
+          {!isSuperAdmin ? (
+            <div
+              style={{
+                backgroundColor: '#0B1D17',
+                backgroundImage: 'linear-gradient(135deg, #0B1D17 0%, #14352B 50%, #071511 100%)',
+                color: '#FFFFFF'
+              }}
+              className="relative z-10 text-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-2xl border-2 border-emerald-700/50 overflow-hidden"
+            >
+              {/* Internal ambient glow & subtle watermark */}
+              <div className="absolute -top-24 -right-24 w-96 h-96 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-15 pointer-events-none hidden lg:block text-emerald-300">
+                <Lock className="w-64 h-64 stroke-[1.5]" />
+              </div>
+
+              <div className="relative z-10 space-y-6">
+                {/* Header Badges & Session Tag */}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span className="px-3.5 py-1.5 rounded-xl bg-amber-400 text-slate-950 text-xs font-mono font-black tracking-wider uppercase flex items-center gap-1.5 shadow-md">
+                    <Lock className="w-3.5 h-3.5 text-slate-950 stroke-[2.5]" />
+                    <span>STATUTORY VIEW-ONLY MODE ACTIVE</span>
+                  </span>
+                  <span className="px-3.5 py-1.5 rounded-xl bg-emerald-950/90 text-emerald-200 border border-emerald-500/40 text-xs font-mono font-bold">
+                    CBSE Session {selectedSession || '2026-27'} Governance
+                  </span>
+                  <span className="px-3.5 py-1.5 rounded-xl bg-emerald-400 text-slate-950 text-xs font-mono font-black tracking-wider uppercase shadow-md">
+                    ANNUAL REVISION WINDOW: MARCH &amp; APRIL
+                  </span>
+                </div>
+
+                {/* Grand Typography Title & Subtitle */}
+                <div className="space-y-2.5">
+                  <h1 className="font-display font-black text-2xl sm:text-3xl md:text-4xl text-white tracking-tight leading-tight drop-shadow-sm">
+                    Institutional Fee Master &amp; Tariff Configuration Policy
+                  </h1>
+                  <p className="text-sm sm:text-base text-emerald-100 font-medium leading-relaxed max-w-4xl">
+                    Official statutory rate schedules, one-time institutional dues, distance transport slabs, and sibling concession frameworks are immutably locked for the current active session.
+                  </p>
+                </div>
+
+                {/* 3-Column Policy Directive Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                  {/* Directive 1 */}
+                  <div
+                    style={{ backgroundColor: 'rgba(15, 39, 32, 0.9)', borderColor: 'rgba(251, 191, 36, 0.35)' }}
+                    className="p-5 rounded-2xl border backdrop-blur-md space-y-2 shadow-sm"
+                  >
+                    <div className="flex items-center gap-2 text-amber-300 font-mono text-xs font-black uppercase tracking-wider">
+                      <Lock className="w-4 h-4 text-amber-400 shrink-0 stroke-[2]" />
+                      <span>1. Restricted Access Control</span>
+                    </div>
+                    <p className="text-xs text-slate-100 leading-relaxed font-normal">
+                      The Institutional Fee Master is <strong className="text-white font-bold">strictly locked</strong> and cannot be updated at the school level. Fee modification privileges are exclusively reserved for the <strong className="text-amber-300 font-bold">Institutional Superadmin</strong>.
+                    </p>
+                  </div>
+
+                  {/* Directive 2 */}
+                  <div
+                    style={{ backgroundColor: 'rgba(15, 39, 32, 0.9)', borderColor: 'rgba(52, 211, 153, 0.35)' }}
+                    className="p-5 rounded-2xl border backdrop-blur-md space-y-2 shadow-sm"
+                  >
+                    <div className="flex items-center gap-2 text-emerald-300 font-mono text-xs font-black uppercase tracking-wider">
+                      <CalendarDays className="w-4 h-4 text-emerald-400 shrink-0 stroke-[2]" />
+                      <span>2. Annual Revision Window</span>
+                    </div>
+                    <p className="text-xs text-slate-100 leading-relaxed font-normal">
+                      In compliance with CBSE session regulations, all fee structure adjustments for upcoming academic cycles must be updated strictly during the <strong className="text-emerald-300 font-bold">MARCH &amp; APRIL window</strong> prior to session inauguration.
+                    </p>
+                  </div>
+
+                  {/* Directive 3 */}
+                  <div
+                    style={{ backgroundColor: 'rgba(15, 39, 32, 0.9)', borderColor: 'rgba(56, 189, 248, 0.35)' }}
+                    className="p-5 rounded-2xl border backdrop-blur-md space-y-2 shadow-sm"
+                  >
+                    <div className="flex items-center gap-2 text-sky-300 font-mono text-xs font-black uppercase tracking-wider">
+                      <Building2 className="w-4 h-4 text-sky-400 shrink-0 stroke-[2]" />
+                      <span>3. Official Channel For Revisions</span>
+                    </div>
+                    <p className="text-xs text-slate-100 leading-relaxed font-normal">
+                      To request structural amendments or slab revisions, please <strong className="text-sky-300 font-bold">contact Central Institutional Officials / Antigravity Superadmin</strong>. Current session rates remain in View-Only mode.
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 rounded-2xl bg-[#E6F4EA] border border-[#CEEAD6] text-[#0D652D] text-xs font-semibold flex items-center justify-between gap-3 shadow-xs animate-fade-in">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-xs">
+                  <Sparkles className="w-4 h-4 shrink-0" />
+                </div>
+                <div>
+                  <div className="font-bold text-sm text-[#0D652D]">⚡ Superadmin Master Access Active</div>
+                  <div className="text-xs text-emerald-800 font-normal">
+                    You hold central master administrative privileges to modify, upload, and deploy institutional fee structures. Annual revision schedule: March &amp; April.
+                  </div>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-xl bg-emerald-700 text-white text-[11px] font-mono font-bold shrink-0">
+                SUPERADMIN MASTER
+              </span>
+            </div>
+          )}
 
           {/* Top Admin Action Bar */}
           <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -4165,26 +4332,37 @@ export function DashboardFees({
                   CBSE Master Config
                 </span>
                 <span className="text-xs font-mono text-slate-500">Session {selectedSession || '2026-27'}</span>
+                {!isSuperAdmin && (
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[11px] font-mono font-bold border border-slate-200 flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-slate-500" /> View Mode
+                  </span>
+                )}
               </div>
               <h2 className="font-display font-bold text-lg text-[#122A24] mt-1">
-                Institutional Fee Master &amp; Structure Engine
+                {isSuperAdmin
+                  ? 'Institutional Fee Master & Structure Engine'
+                  : 'Institutional Fee Master (Official Schedule — View Mode)'}
               </h2>
               <p className="text-xs text-[#2D5A4E]">
-                Admins can modify tuition rates, one-time annual heads, transport distance slabs, and fee deposit cycles in real time
+                {isSuperAdmin
+                  ? 'Superadmins can modify tuition rates, one-time annual heads, transport distance slabs, and fee deposit cycles in real time.'
+                  : 'Official institutional fee schedule is active in secure read-only view mode. Rate updates are strictly restricted to Superadmin officials.'}
               </p>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <label className="px-3.5 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all">
-                <Upload className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Upload Structure (CSV/JSON)</span>
-                <input
-                  type="file"
-                  accept=".csv, .json"
-                  onChange={handleUploadFeeStructure}
-                  className="hidden"
-                />
-              </label>
+              {isSuperAdmin && (
+                <label className="px-3.5 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all">
+                  <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Upload Structure (CSV/JSON)</span>
+                  <input
+                    type="file"
+                    accept=".csv, .json"
+                    onChange={handleUploadFeeStructure}
+                    className="hidden"
+                  />
+                </label>
+              )}
 
               <button
                 type="button"
@@ -4195,13 +4373,15 @@ export function DashboardFees({
                 <span>Download Sample CSV</span>
               </button>
 
-              <button
-                type="button"
-                onClick={handleResetFeeStructure}
-                className="px-3.5 py-2 bg-[#F8FAF9] hover:bg-slate-100 text-slate-700 border border-[#DCE8E0] rounded-xl text-xs font-semibold cursor-pointer transition-all"
-              >
-                Reset Defaults
-              </button>
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={handleResetFeeStructure}
+                  className="px-3.5 py-2 bg-[#F8FAF9] hover:bg-slate-100 text-slate-700 border border-[#DCE8E0] rounded-xl text-xs font-semibold cursor-pointer transition-all"
+                >
+                  Reset Defaults
+                </button>
+              )}
 
               <button
                 type="button"
@@ -4211,14 +4391,21 @@ export function DashboardFees({
                 Print Circular
               </button>
 
-              <button
-                type="button"
-                onClick={handleSaveFeeStructure}
-                disabled={isSavingStructure}
-                className="px-4 py-2 bg-[#005A36] hover:bg-[#00472B] text-white rounded-xl text-xs font-bold border-none cursor-pointer shadow-xs transition-all disabled:opacity-50"
-              >
-                {structureSaveSuccess ? 'Saved!' : 'Save All Structure Changes'}
-              </button>
+              {isSuperAdmin ? (
+                <button
+                  type="button"
+                  onClick={handleSaveFeeStructure}
+                  disabled={isSavingStructure}
+                  className="px-4 py-2 bg-[#005A36] hover:bg-[#00472B] text-white rounded-xl text-xs font-bold border-none cursor-pointer shadow-xs transition-all disabled:opacity-50"
+                >
+                  {structureSaveSuccess ? 'Saved!' : 'Save All Structure Changes'}
+                </button>
+              ) : (
+                <div className="px-3.5 py-2 bg-slate-100 text-slate-500 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Modifications Locked</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -4290,7 +4477,10 @@ export function DashboardFees({
             <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 space-y-4 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">
-                  <h3 className="font-display font-bold text-sm text-[#122A24]">One-Time &amp; Annual Fees</h3>
+                  <h3 className="font-display font-bold text-sm text-[#122A24] flex items-center gap-2">
+                    <span>One-Time &amp; Annual Fees</span>
+                    {!isSuperAdmin && <Lock className="w-3.5 h-3.5 text-slate-400" />}
+                  </h3>
                   <span className="text-[11px] font-mono text-slate-500">16 March 2026</span>
                 </div>
 
@@ -4306,38 +4496,48 @@ export function DashboardFees({
                   {/* Table Rows */}
                   <div className="divide-y divide-[#E8F0EA] bg-[#F8FAF9]/50">
                     {oneTimeFees.map((row, idx) => (
-                      <div key={row.id} className="grid grid-cols-12 gap-2 items-center px-3 py-2 text-xs hover:bg-white transition-colors group">
+                      <div key={row.id} className="grid grid-cols-12 gap-2 items-center px-3 py-2.5 text-xs hover:bg-white transition-colors group">
                         <div className="col-span-2 font-mono font-bold text-slate-500 pl-1">{idx + 1}</div>
                         <div className="col-span-7">
-                          <input
-                            type="text"
-                            value={row.particulars}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setOneTimeFees(prev => prev.map(item => item.id === row.id ? { ...item, particulars: val } : item));
-                            }}
-                            className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-medium text-[#122A24] focus:outline-none focus:border-emerald-600 shadow-2xs"
-                          />
+                          {isSuperAdmin ? (
+                            <input
+                              type="text"
+                              value={row.particulars}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setOneTimeFees(prev => prev.map(item => item.id === row.id ? { ...item, particulars: val } : item));
+                              }}
+                              className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-medium text-[#122A24] focus:outline-none focus:border-emerald-600 shadow-2xs"
+                            />
+                          ) : (
+                            <span className="font-medium text-[#122A24]">{row.particulars}</span>
+                          )}
                         </div>
                         <div className="col-span-3 flex items-center justify-end gap-1.5">
-                          <input
-                            type="number"
-                            value={row.amount}
-                            onChange={(e) => {
-                              const val = Number(e.target.value) || 0;
-                              setOneTimeFees(prev => prev.map(item => item.id === row.id ? { ...item, amount: val } : item));
-                            }}
-                            className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-mono font-bold text-[#122A24] text-right focus:outline-none focus:border-emerald-600 shadow-2xs"
-                          />
-                          {oneTimeFees.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => setOneTimeFees(prev => prev.filter(item => item.id !== row.id))}
-                              className="text-slate-400 hover:text-rose-600 px-1 py-0.5 rounded border-none bg-transparent cursor-pointer transition-colors text-xs font-bold"
-                              title="Delete Fee Head"
-                            >
-                              ✕
-                            </button>
+                          {isSuperAdmin ? (
+                            <>
+                              <input
+                                type="number"
+                                value={row.amount}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value) || 0;
+                                  setOneTimeFees(prev => prev.map(item => item.id === row.id ? { ...item, amount: val } : item));
+                                }}
+                                className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-mono font-bold text-[#122A24] text-right focus:outline-none focus:border-emerald-600 shadow-2xs"
+                              />
+                              {oneTimeFees.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setOneTimeFees(prev => prev.filter(item => item.id !== row.id))}
+                                  className="text-slate-400 hover:text-rose-600 px-1 py-0.5 rounded border-none bg-transparent cursor-pointer transition-colors text-xs font-bold"
+                                  title="Delete Fee Head"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <span className="font-mono font-bold text-slate-900 pr-2">₹{row.amount.toLocaleString('en-IN')}</span>
                           )}
                         </div>
                       </div>
@@ -4346,14 +4546,16 @@ export function DashboardFees({
                 </div>
               </div>
 
-              {/* Add New Fee Head */}
-              <button
-                type="button"
-                onClick={() => setOneTimeFees(prev => [...prev, { id: String(Date.now()), particulars: 'New Fee Head', amount: 1000 }])}
-                className="w-full py-2 bg-[#F8FAF9] hover:bg-emerald-50 text-[#122A24] hover:text-emerald-900 border border-dashed border-[#C5E2CF] rounded-xl text-xs font-semibold flex items-center justify-center cursor-pointer transition-all mt-2"
-              >
-                + Add Fee Head
-              </button>
+              {/* Add New Fee Head (Superadmin Only) */}
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setOneTimeFees(prev => [...prev, { id: String(Date.now()), particulars: 'New Fee Head', amount: 1000 }])}
+                  className="w-full py-2 bg-[#F8FAF9] hover:bg-emerald-50 text-[#122A24] hover:text-emerald-900 border border-dashed border-[#C5E2CF] rounded-xl text-xs font-semibold flex items-center justify-center cursor-pointer transition-all mt-2"
+                >
+                  + Add Fee Head
+                </button>
+              )}
             </div>
 
             {/* ─────────────────────────────────────────────────────────────
@@ -4362,7 +4564,10 @@ export function DashboardFees({
             <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 space-y-4 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">
-                  <h3 className="font-display font-bold text-sm text-[#122A24]">Tuition Fee Structure</h3>
+                  <h3 className="font-display font-bold text-sm text-[#122A24] flex items-center gap-2">
+                    <span>Tuition Fee Structure</span>
+                    {!isSuperAdmin && <Lock className="w-3.5 h-3.5 text-slate-400" />}
+                  </h3>
                   <span className="text-[11px] font-mono text-slate-500">Class-Wise</span>
                 </div>
 
@@ -4378,48 +4583,62 @@ export function DashboardFees({
                   {/* Table Rows */}
                   <div className="divide-y divide-[#E8F0EA] bg-[#F8FAF9]/50">
                     {tuitionFees.map((row) => (
-                      <div key={row.id} className="grid grid-cols-12 gap-2 items-center px-3 py-2 text-xs hover:bg-white transition-colors group">
+                      <div key={row.id} className="grid grid-cols-12 gap-2 items-center px-3 py-2.5 text-xs hover:bg-white transition-colors group">
                         <div className="col-span-5">
-                          <input
-                            type="text"
-                            value={row.className}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setTuitionFees(prev => prev.map(item => item.id === row.id ? { ...item, className: val } : item));
-                            }}
-                            className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 shadow-2xs"
-                          />
+                          {isSuperAdmin ? (
+                            <input
+                              type="text"
+                              value={row.className}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setTuitionFees(prev => prev.map(item => item.id === row.id ? { ...item, className: val } : item));
+                              }}
+                              className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 shadow-2xs"
+                            />
+                          ) : (
+                            <span className="font-semibold text-[#122A24]">{row.className}</span>
+                          )}
                         </div>
                         <div className="col-span-3">
-                          <input
-                            type="number"
-                            value={row.monthlyFee}
-                            onChange={(e) => {
-                              const val = Number(e.target.value) || 0;
-                              setTuitionFees(prev => prev.map(item => item.id === row.id ? { ...item, monthlyFee: val, quarterlyFee: val * 3 } : item));
-                            }}
-                            className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-mono font-bold text-[#122A24] text-right focus:outline-none focus:border-emerald-600 shadow-2xs"
-                          />
+                          {isSuperAdmin ? (
+                            <input
+                              type="number"
+                              value={row.monthlyFee}
+                              onChange={(e) => {
+                                const val = Number(e.target.value) || 0;
+                                setTuitionFees(prev => prev.map(item => item.id === row.id ? { ...item, monthlyFee: val, quarterlyFee: val * 3 } : item));
+                              }}
+                              className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-mono font-bold text-[#122A24] text-right focus:outline-none focus:border-emerald-600 shadow-2xs"
+                            />
+                          ) : (
+                            <div className="text-right font-mono font-bold text-slate-900">₹{row.monthlyFee.toLocaleString('en-IN')}</div>
+                          )}
                         </div>
                         <div className="col-span-4 flex items-center justify-end gap-1.5">
-                          <input
-                            type="number"
-                            value={row.quarterlyFee}
-                            onChange={(e) => {
-                              const val = Number(e.target.value) || 0;
-                              setTuitionFees(prev => prev.map(item => item.id === row.id ? { ...item, quarterlyFee: val } : item));
-                            }}
-                            className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-mono font-bold text-emerald-800 text-right focus:outline-none focus:border-emerald-600 shadow-2xs"
-                          />
-                          {tuitionFees.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => setTuitionFees(prev => prev.filter(item => item.id !== row.id))}
-                              className="text-slate-400 hover:text-rose-600 px-1 py-0.5 rounded border-none bg-transparent cursor-pointer transition-colors text-xs font-bold"
-                              title="Delete Class Rate"
-                            >
-                              ✕
-                            </button>
+                          {isSuperAdmin ? (
+                            <>
+                              <input
+                                type="number"
+                                value={row.quarterlyFee}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value) || 0;
+                                  setTuitionFees(prev => prev.map(item => item.id === row.id ? { ...item, quarterlyFee: val } : item));
+                                }}
+                                className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-mono font-bold text-emerald-800 text-right focus:outline-none focus:border-emerald-600 shadow-2xs"
+                              />
+                              {tuitionFees.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setTuitionFees(prev => prev.filter(item => item.id !== row.id))}
+                                  className="text-slate-400 hover:text-rose-600 px-1 py-0.5 rounded border-none bg-transparent cursor-pointer transition-colors text-xs font-bold"
+                                  title="Delete Class Rate"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <span className="font-mono font-bold text-emerald-800 pr-2">₹{row.quarterlyFee.toLocaleString('en-IN')}</span>
                           )}
                         </div>
                       </div>
@@ -4428,14 +4647,16 @@ export function DashboardFees({
                 </div>
               </div>
 
-              {/* Add New Class Grade */}
-              <button
-                type="button"
-                onClick={() => setTuitionFees(prev => [...prev, { id: String(Date.now()), className: 'Class New', monthlyFee: 1500, quarterlyFee: 4500 }])}
-                className="w-full py-2 bg-[#F8FAF9] hover:bg-emerald-50 text-[#122A24] hover:text-emerald-900 border border-dashed border-[#C5E2CF] rounded-xl text-xs font-semibold flex items-center justify-center cursor-pointer transition-all mt-2"
-              >
-                + Add Class Grade
-              </button>
+              {/* Add New Class Grade (Superadmin Only) */}
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setTuitionFees(prev => [...prev, { id: String(Date.now()), className: 'Class New', monthlyFee: 1500, quarterlyFee: 4500 }])}
+                  className="w-full py-2 bg-[#F8FAF9] hover:bg-emerald-50 text-[#122A24] hover:text-emerald-900 border border-dashed border-[#C5E2CF] rounded-xl text-xs font-semibold flex items-center justify-center cursor-pointer transition-all mt-2"
+                >
+                  + Add Class Grade
+                </button>
+              )}
             </div>
 
             {/* ─────────────────────────────────────────────────────────────
@@ -4444,7 +4665,10 @@ export function DashboardFees({
             <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 space-y-4 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">
-                  <h3 className="font-display font-bold text-sm text-[#122A24]">Monthly School Transport Fee</h3>
+                  <h3 className="font-display font-bold text-sm text-[#122A24] flex items-center gap-2">
+                    <span>Monthly School Transport Fee</span>
+                    {!isSuperAdmin && <Lock className="w-3.5 h-3.5 text-slate-400" />}
+                  </h3>
                   <span className="text-[11px] font-mono text-slate-500">Kilometres Slab</span>
                 </div>
 
@@ -4459,37 +4683,47 @@ export function DashboardFees({
                   {/* Table Rows */}
                   <div className="divide-y divide-[#E8F0EA] bg-[#F8FAF9]/50">
                     {transportFees.map((row) => (
-                      <div key={row.id} className="grid grid-cols-12 gap-2 items-center px-3 py-2 text-xs hover:bg-white transition-colors group">
+                      <div key={row.id} className="grid grid-cols-12 gap-2 items-center px-3 py-2.5 text-xs hover:bg-white transition-colors group">
                         <div className="col-span-7">
-                          <input
-                            type="text"
-                            value={row.slab}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setTransportFees(prev => prev.map(item => item.id === row.id ? { ...item, slab: val } : item));
-                            }}
-                            className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 shadow-2xs"
-                          />
+                          {isSuperAdmin ? (
+                            <input
+                              type="text"
+                              value={row.slab}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setTransportFees(prev => prev.map(item => item.id === row.id ? { ...item, slab: val } : item));
+                              }}
+                              className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-semibold text-[#122A24] focus:outline-none focus:border-emerald-600 shadow-2xs"
+                            />
+                          ) : (
+                            <span className="font-semibold text-[#122A24]">{row.slab}</span>
+                          )}
                         </div>
                         <div className="col-span-5 flex items-center justify-end gap-1.5">
-                          <input
-                            type="number"
-                            value={row.monthlyFee}
-                            onChange={(e) => {
-                              const val = Number(e.target.value) || 0;
-                              setTransportFees(prev => prev.map(item => item.id === row.id ? { ...item, monthlyFee: val } : item));
-                            }}
-                            className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-mono font-bold text-[#122A24] text-right focus:outline-none focus:border-emerald-600 shadow-2xs"
-                          />
-                          {transportFees.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => setTransportFees(prev => prev.filter(item => item.id !== row.id))}
-                              className="text-slate-400 hover:text-rose-600 px-1 py-0.5 rounded border-none bg-transparent cursor-pointer transition-colors text-xs font-bold"
-                              title="Delete Slab"
-                            >
-                              ✕
-                            </button>
+                          {isSuperAdmin ? (
+                            <>
+                              <input
+                                type="number"
+                                value={row.monthlyFee}
+                                onChange={(e) => {
+                                  const val = Number(e.target.value) || 0;
+                                  setTransportFees(prev => prev.map(item => item.id === row.id ? { ...item, monthlyFee: val } : item));
+                                }}
+                                className="w-full px-2.5 py-1.5 bg-white border border-[#DCE8E0] rounded-lg text-xs font-mono font-bold text-[#122A24] text-right focus:outline-none focus:border-emerald-600 shadow-2xs"
+                              />
+                              {transportFees.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setTransportFees(prev => prev.filter(item => item.id !== row.id))}
+                                  className="text-slate-400 hover:text-rose-600 px-1 py-0.5 rounded border-none bg-transparent cursor-pointer transition-colors text-xs font-bold"
+                                  title="Delete Slab"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </>
+                          ) : (
+                            <span className="font-mono font-bold text-slate-900 pr-2">₹{row.monthlyFee.toLocaleString('en-IN')} / mo</span>
                           )}
                         </div>
                       </div>
@@ -4498,14 +4732,16 @@ export function DashboardFees({
                 </div>
               </div>
 
-              {/* Add New Transport Slab */}
-              <button
-                type="button"
-                onClick={() => setTransportFees(prev => [...prev, { id: String(Date.now()), slab: '20 to 25 km', monthlyFee: 2000 }])}
-                className="w-full py-2 bg-[#F8FAF9] hover:bg-emerald-50 text-[#122A24] hover:text-emerald-900 border border-dashed border-[#C5E2CF] rounded-xl text-xs font-semibold flex items-center justify-center cursor-pointer transition-all mt-2"
-              >
-                + Add Distance Slab
-              </button>
+              {/* Add New Transport Slab (Superadmin Only) */}
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setTransportFees(prev => [...prev, { id: String(Date.now()), slab: '20 to 25 km', monthlyFee: 2000 }])}
+                  className="w-full py-2 bg-[#F8FAF9] hover:bg-emerald-50 text-[#122A24] hover:text-emerald-900 border border-dashed border-[#C5E2CF] rounded-xl text-xs font-semibold flex items-center justify-center cursor-pointer transition-all mt-2"
+                >
+                  + Add Distance Slab
+                </button>
+              )}
             </div>
 
             {/* ─────────────────────────────────────────────────────────────
@@ -4514,7 +4750,10 @@ export function DashboardFees({
             <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 space-y-4 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">
-                  <h3 className="font-display font-bold text-sm text-[#122A24]">Fee Deposit Scheme Schedule</h3>
+                  <h3 className="font-display font-bold text-sm text-[#122A24] flex items-center gap-2">
+                    <span>Fee Deposit Scheme Schedule</span>
+                    {!isSuperAdmin && <Lock className="w-3.5 h-3.5 text-slate-400" />}
+                  </h3>
                   <span className="text-[11px] font-mono text-slate-500">Installment Cycle</span>
                 </div>
 
@@ -4537,24 +4776,30 @@ export function DashboardFees({
                           isFullWidth ? 'sm:col-span-2' : ''
                         }`}
                       >
-                        <input
-                          type="text"
-                          value={scheme.title}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setDepositSchemes(prev => prev.map(item => item.id === scheme.id ? { ...item, title: val } : item));
-                          }}
-                          className="w-full bg-transparent border-none text-xs font-semibold focus:outline-none focus:bg-white/80 rounded px-1.5 py-0.5"
-                        />
-                        {depositSchemes.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => setDepositSchemes(prev => prev.filter(item => item.id !== scheme.id))}
-                            className="text-slate-400 hover:text-rose-600 px-1 py-0.5 rounded border-none bg-transparent cursor-pointer shrink-0 transition-colors text-xs font-bold"
-                            title="Remove Cycle"
-                          >
-                            ✕
-                          </button>
+                        {isSuperAdmin ? (
+                          <>
+                            <input
+                              type="text"
+                              value={scheme.title}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setDepositSchemes(prev => prev.map(item => item.id === scheme.id ? { ...item, title: val } : item));
+                              }}
+                              className="w-full bg-transparent border-none text-xs font-semibold focus:outline-none focus:bg-white/80 rounded px-1.5 py-0.5"
+                            />
+                            {depositSchemes.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => setDepositSchemes(prev => prev.filter(item => item.id !== scheme.id))}
+                                className="text-slate-400 hover:text-rose-600 px-1 py-0.5 rounded border-none bg-transparent cursor-pointer shrink-0 transition-colors text-xs font-bold"
+                                title="Remove Cycle"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-xs font-semibold px-1 py-0.5">{scheme.title}</span>
                         )}
                       </div>
                     );
@@ -4562,14 +4807,16 @@ export function DashboardFees({
                 </div>
               </div>
 
-              {/* Add New Installment Cycle */}
-              <button
-                type="button"
-                onClick={() => setDepositSchemes(prev => [...prev, { id: String(Date.now()), title: `${prev.length + 1}. Special Installment`, isSpecial: false }])}
-                className="w-full py-2 bg-[#F8FAF9] hover:bg-emerald-50 text-[#122A24] hover:text-emerald-900 border border-dashed border-[#C5E2CF] rounded-xl text-xs font-semibold flex items-center justify-center cursor-pointer transition-all mt-2"
-              >
-                + Add Installment Cycle
-              </button>
+              {/* Add New Installment Cycle (Superadmin Only) */}
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setDepositSchemes(prev => [...prev, { id: String(Date.now()), title: `${prev.length + 1}. Special Installment`, isSpecial: false }])}
+                  className="w-full py-2 bg-[#F8FAF9] hover:bg-emerald-50 text-[#122A24] hover:text-emerald-900 border border-dashed border-[#C5E2CF] rounded-xl text-xs font-semibold flex items-center justify-center cursor-pointer transition-all mt-2"
+                >
+                  + Add Installment Cycle
+                </button>
+              )}
             </div>
 
           </div>
@@ -6138,49 +6385,51 @@ export function DashboardFees({
               </div>
 
               <div className="overflow-x-auto rounded-2xl border border-[#DCE8E0]">
-                <table className="w-full text-xs text-left border-collapse">
-                  <thead>
-                    <tr className="bg-[#F8FAF9] text-[10.5px] font-mono text-slate-500 uppercase border-b border-[#E8F0EA]">
-                      <th className="py-2.5 px-3">MONTH</th>
-                      <th className="py-2.5 px-3">TUITION (₹)</th>
-                      <th className="py-2.5 px-3">TRANSPORT (₹)</th>
-                      <th className="py-2.5 px-3">SPECIAL HEADS</th>
-                      <th className="py-2.5 px-3">TOTAL (₹)</th>
-                      <th className="py-2.5 px-3">STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E8F0EA] font-mono text-[11.5px]">
-                    {ACADEMIC_MONTHS.map((m, mIdx) => {
-                      const isApril = mIdx === 0;
-                      const isPaid = selectedDossierStudent.fee_status === 'PAID' || mIdx < 4;
-                      const tuition = 3500;
-                      const transport = selectedDossierStudent.transport_opted === 'YES' ? 1800 : 0;
-                      const special = isApril ? 8500 : 0;
-                      const total = tuition + transport + special;
-
-                      return (
-                        <tr key={m} className="hover:bg-[#F9FCFA]">
-                          <td className="py-2 px-3 font-sans font-bold text-[#122A24]">{m}</td>
-                          <td className="py-2 px-3">₹{tuition.toLocaleString()}</td>
-                          <td className="py-2 px-3">{transport > 0 ? `₹${transport.toLocaleString()}` : '—'}</td>
-                          <td className="py-2 px-3 text-slate-600 font-sans">
-                            {isApril ? 'Annual & Development' : '—'}
-                          </td>
-                          <td className="py-2 px-3 font-bold text-[#122A24]">₹{total.toLocaleString()}</td>
-                          <td className="py-2 px-3">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              isPaid
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : 'bg-rose-50 text-rose-700 border border-rose-200'
-                            }`}>
-                              {isPaid ? 'PAID' : 'PENDING'}
-                            </span>
-                          </td>
+                {(() => {
+                  const schedule = getStudentMonthlyFeeSchedule(selectedDossierStudent, invoices);
+                  return (
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#F8FAF9] text-[10.5px] font-mono text-slate-500 uppercase border-b border-[#E8F0EA]">
+                          <th className="py-2.5 px-3">MONTH</th>
+                          <th className="py-2.5 px-3">TUITION (₹)</th>
+                          <th className="py-2.5 px-3">TRANSPORT (₹)</th>
+                          <th className="py-2.5 px-3">ANNUAL / SPECIAL</th>
+                          <th className="py-2.5 px-3">TOTAL (₹)</th>
+                          <th className="py-2.5 px-3">STATUS</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody className="divide-y divide-[#E8F0EA] font-mono text-[11.5px]">
+                        {schedule.months.map((m) => {
+                          const isPaid = m.status === 'PAID';
+                          const isPartial = m.status === 'PARTIAL';
+                          return (
+                            <tr key={m.month} className="hover:bg-[#F9FCFA]">
+                              <td className="py-2 px-3 font-sans font-bold text-[#122A24]">{m.month}</td>
+                              <td className="py-2 px-3">₹{m.tuitionFee.toLocaleString('en-IN')}</td>
+                              <td className="py-2 px-3">{m.transportFee > 0 ? `₹${m.transportFee.toLocaleString('en-IN')}` : '—'}</td>
+                              <td className="py-2 px-3 text-slate-600 font-sans">
+                                {m.annualFee > 0 ? `Annual (₹${m.annualFee.toLocaleString('en-IN')})` : '—'}
+                              </td>
+                              <td className="py-2 px-3 font-bold text-[#122A24]">₹{m.totalBilled.toLocaleString('en-IN')}</td>
+                              <td className="py-2 px-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  isPaid
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : isPartial
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                }`}>
+                                  {m.status}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  );
+                })()}
               </div>
             </div>
 
@@ -6198,8 +6447,9 @@ export function DashboardFees({
                 type="button"
                 onClick={() => {
                   const s = selectedDossierStudent;
+                  const sched = getStudentMonthlyFeeSchedule(s, invoices);
                   setSelectedDossierStudent(null);
-                  handleQuickCollectFromMonthly(s, 15000);
+                  handleQuickCollectFromMonthly(s, sched.currentBalanceDue > 0 ? sched.currentBalanceDue : 6400);
                 }}
                 className="px-5 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 border-none cursor-pointer shadow-xs"
               >
