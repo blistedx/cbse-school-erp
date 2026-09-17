@@ -714,6 +714,7 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
   const [docTypeId, setDocTypeId] = useState<string>('ID_CARD');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('T-EMERALD');
   const [showIdBackSide, setShowIdBackSide] = useState<boolean>(false);
+  const [printSideMode, setPrintSideMode] = useState<'BOTH' | 'FRONT' | 'BACK'>('BOTH');
   
   // Custom Parameters
   const [issueDate, setIssueDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -840,7 +841,7 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
   const [photoToast, setPhotoToast] = useState<string | null>(null);
   const photoFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Generate real scannable QR Code Data URL for active ID card preview
+  // Generate real scannable QR Code Data URL for active ID card preview (High-res 400px)
   useEffect(() => {
     if (!isIdCard) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -857,7 +858,7 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
     const scanUrl = `${origin}/attendance/scan?student_id=${encodeURIComponent(sId)}&admission_no=${encodeURIComponent(adm)}&school_id=${encodeURIComponent(sch)}&session=${encodeURIComponent(selectedSession)}`;
 
     QRCode.toDataURL(scanUrl, {
-      width: 280,
+      width: 400,
       margin: 1,
       color: {
         dark: '#122A24',
@@ -872,7 +873,7 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
     setImgLoadError(false);
   }, [isIdCard, targetType, activeStudent, activeTeacher, selectedSchool, selectedSession]);
 
-  // Generate Bulk QR Data URLs when print preview is opened in bulk mode
+  // Generate Bulk QR Data URLs when print preview is opened in bulk mode (High-res 400px)
   useEffect(() => {
     if (!previewOpen || genMode !== 'BULK' || !isIdCard) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -888,7 +889,7 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
         const scanUrl = `${origin}/attendance/scan?student_id=${encodeURIComponent(sId)}&admission_no=${encodeURIComponent(adm)}&school_id=${encodeURIComponent(sch)}&session=${encodeURIComponent(selectedSession)}`;
         try {
           const url = await QRCode.toDataURL(scanUrl, {
-            width: 200,
+            width: 400,
             margin: 1,
             color: { dark: '#122A24', light: '#FFFFFF' }
           });
@@ -1641,33 +1642,33 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
             <div className="p-4 sm:p-8 bg-[#F4F8F5] rounded-2xl border border-[#DCE8E0] flex flex-col items-center justify-center min-h-[480px]">
               
               {/* ─────────────────────────────────────────────────────────────
-                  A. PORTRAIT SMART ID CARD WITH AUTO-ATTENDANCE QR
+                  A. PORTRAIT SMART ID CARD (FRONT: STUDENT INFO | BACK: LARGE QR PASS)
                   ───────────────────────────────────────────────────────────── */}
               {isIdCard && (targetType === 'STUDENT' ? activeStudent : activeTeacher) && (
                 <div className="flex flex-col items-center space-y-4">
                   
                   {/* Portrait Card Container (Standard 54mm x 86mm Ratio) */}
                   <div
-                    className={`w-[300px] h-[480px] rounded-2xl shadow-xl overflow-hidden relative flex flex-col justify-between transition-all ${selectedTemplate.borderStyle} ${selectedTemplate.cardBg}`}
+                    className={`w-[310px] min-h-[500px] rounded-2xl shadow-xl overflow-hidden relative flex flex-col justify-between transition-all ${selectedTemplate.borderStyle} ${selectedTemplate.cardBg}`}
                     style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
                   >
                     
-                    {/* FRONT SIDE */}
+                    {/* FRONT SIDE: COMPLETE STUDENT/STAFF INFO */}
                     {!showIdBackSide ? (
-                      <div className="h-full flex flex-col justify-between p-4 relative z-10 text-slate-800">
+                      <div className="h-full flex flex-col justify-between p-4 relative z-10 text-slate-800 space-y-2">
                         
                         {/* Lanyard Slot Punch hole visual */}
-                        <div className="w-10 h-2 bg-slate-300 rounded-full mx-auto mb-2 opacity-60" />
+                        <div className="w-10 h-2 bg-slate-300 rounded-full mx-auto opacity-60 shrink-0" />
 
                         {/* School Header */}
-                        <div className="text-center pb-2 border-b border-slate-200">
+                        <div className="text-center pb-2 border-b border-slate-200 shrink-0">
                           <div className="font-display font-black text-sm text-[#122A24] uppercase tracking-tight leading-tight">
                             {selectedSchool?.school_name || 'Delhi Public School'}
                           </div>
                           <div className="text-[9px] font-mono text-emerald-800 font-bold">
                             CBSE Affil No: {selectedSchool?.affiliation_no || '2130042'} • Session {selectedSession}
                           </div>
-                          <div className="text-[8px] text-slate-500 font-sans">
+                          <div className="text-[8px] text-slate-500 font-sans truncate">
                             {selectedSchool?.address || 'Dwarka, New Delhi'}
                           </div>
                         </div>
@@ -1681,10 +1682,10 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                           className="hidden"
                         />
 
-                        {/* Photo & Badge */}
-                        <div className="flex flex-col items-center my-2">
+                        {/* Photo & Identity Banner */}
+                        <div className="flex flex-col items-center my-1">
                           <div className="relative group">
-                            <div className="w-24 h-28 rounded-xl bg-slate-100 border-2 border-[#122A24] shadow-sm flex flex-col items-center justify-center text-slate-400 font-mono font-bold text-xs overflow-hidden relative">
+                            <div className="w-22 h-26 rounded-xl bg-slate-100 border-2 border-[#122A24] shadow-sm flex flex-col items-center justify-center text-slate-400 font-mono font-bold text-xs overflow-hidden relative">
                               {activePhoto && !imgLoadError ? (
                                 <img
                                   src={activePhoto}
@@ -1712,136 +1713,148 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                                 className="absolute inset-0 bg-[#122A24]/75 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 cursor-pointer border-none"
                               >
                                 {uploadingPhoto ? (
-                                  <RefreshCw className="w-5 h-5 animate-spin text-emerald-300" />
+                                  <RefreshCw className="w-4 h-4 animate-spin text-emerald-300" />
                                 ) : (
                                   <>
-                                    <Camera className="w-5 h-5 text-emerald-300" />
-                                    <span className="text-[8px] font-mono font-bold">CHANGE</span>
+                                    <Camera className="w-4 h-4 text-emerald-300" />
+                                    <span className="text-[7.5px] font-mono font-bold">CHANGE</span>
                                   </>
                                 )}
                               </button>
                             </div>
 
-                            <span className="absolute -bottom-2 -right-2 px-2 py-0.5 bg-emerald-700 text-white text-[9px] font-mono font-bold rounded-full shadow-xs">
+                            <span className="absolute -bottom-1.5 -right-1.5 px-2 py-0.5 bg-emerald-700 text-white text-[8.5px] font-mono font-bold rounded-full shadow-xs">
                               {targetType === 'STUDENT' ? (activeStudent?.blood_group || 'O+') : (activeTeacher?.blood_group || 'B+')}
                             </span>
                           </div>
 
-                          <h3 className="font-display font-black text-base text-[#122A24] mt-2 tracking-tight text-center truncate max-w-[260px]">
+                          <h3 className="font-display font-black text-base text-[#122A24] mt-1.5 tracking-tight text-center truncate max-w-[270px]">
                             {targetType === 'STUDENT' ? activeStudent?.full_name : activeTeacher?.full_name}
                           </h3>
-                          <div className="inline-block px-2.5 py-0.5 rounded-full bg-[#122A24] text-white text-[10px] font-mono font-bold uppercase tracking-wider mt-0.5">
-                            {targetType === 'STUDENT' ? `${activeStudent?.class_name} - ${activeStudent?.section || 'A'}` : `${activeTeacher?.designation || 'Faculty'} • ${activeTeacher?.department}`}
+                          <div className="inline-block px-2.5 py-0.5 rounded-full bg-[#122A24] text-white text-[9.5px] font-mono font-bold uppercase tracking-wider mt-0.5">
+                            {targetType === 'STUDENT' ? `${activeStudent?.class_name} - ${activeStudent?.section || 'A'} • Roll #${activeStudent?.roll_no || '1'}` : `${activeTeacher?.designation || 'Faculty'} • ${activeTeacher?.department}`}
                           </div>
                         </div>
 
-                        {/* Details Grid */}
-                        <div className="space-y-1 text-[11px] font-mono border-t border-b border-slate-200 py-2">
+                        {/* Comprehensive Student / Staff Info Grid */}
+                        <div className="space-y-1 text-[10.5px] font-mono border-t border-b border-slate-200 py-2">
                           {targetType === 'STUDENT' && activeStudent ? (
                             <>
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">Adm No:</span>
-                                <strong className="text-[#122A24]">{activeStudent.admission_no || activeStudent.id}</strong>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-500 font-medium">Adm No:</span>
+                                <strong className="text-[#122A24] font-bold">{activeStudent.admission_no || activeStudent.id}</strong>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">Roll No:</span>
-                                <strong>{activeStudent.roll_no || '12'}</strong>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-500 font-medium">Date of Birth:</span>
+                                <strong>{activeStudent.dob || '14-Aug-2012'}</strong>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">Guardian:</span>
-                                <strong className="truncate max-w-[140px]">{activeStudent.guardian_name || 'Mr. Sharma'}</strong>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-500 font-medium">Father/Guardian:</span>
+                                <strong className="truncate max-w-[150px]">{activeStudent.father_name || activeStudent.guardian_name || 'Mr. Sharma'}</strong>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">Contact:</span>
-                                <strong>{activeStudent.guardian_phone || activeStudent.phone || '+91 98110 00000'}</strong>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-500 font-medium">Emergency Phone:</span>
+                                <strong>{activeStudent.guardian_phone || activeStudent.parent_phone || activeStudent.phone || '+91 98110 00000'}</strong>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-500 font-medium">Blood Group:</span>
+                                <strong className="text-emerald-800 font-bold">{activeStudent.blood_group || 'O+'}</strong>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-500 font-medium">House / Area:</span>
+                                <strong className="truncate max-w-[150px]">{activeStudent.house ? `${activeStudent.house} • ` : ''}{activeStudent.address || selectedSchool?.city || 'Dwarka, New Delhi'}</strong>
                               </div>
                             </>
                           ) : activeTeacher ? (
                             <>
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">Emp Code:</span>
-                                <strong className="text-[#122A24]">{activeTeacher.employee_code || activeTeacher.id}</strong>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-500 font-medium">Emp Code:</span>
+                                <strong className="text-[#122A24] font-bold">{activeTeacher.employee_code || activeTeacher.id}</strong>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">Department:</span>
-                                <strong className="truncate max-w-[140px]">{activeTeacher.department}</strong>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-500 font-medium">Department:</span>
+                                <strong className="truncate max-w-[150px]">{activeTeacher.department}</strong>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">Phone:</span>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-500 font-medium">Phone:</span>
                                 <strong>{activeTeacher.phone || '+91 98765 00000'}</strong>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-500">Joining Date:</span>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-500 font-medium">Date of Joining:</span>
                                 <strong>{activeTeacher.date_of_joining || '01-Jul-2021'}</strong>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-500 font-medium">Blood Group:</span>
+                                <strong className="text-emerald-800 font-bold">{activeTeacher.blood_group || 'B+'}</strong>
                               </div>
                             </>
                           ) : null}
                         </div>
 
-                        {/* Bottom QR & Auto-Attendance Section */}
-                        <div className="pt-2 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            {/* Scannable Attendance QR */}
-                            <div className="w-14 h-14 bg-white p-0.5 rounded-lg border border-slate-300 shadow-xs flex flex-col items-center justify-center shrink-0 group relative overflow-hidden">
-                              {activeQrDataUrl ? (
-                                <img
-                                  src={activeQrDataUrl}
-                                  alt="Attendance QR"
-                                  className="w-full h-full object-contain"
-                                />
-                              ) : (
-                                <QrCode className="w-12 h-12 text-[#122A24]" />
-                              )}
-                            </div>
-                            <div className="text-left leading-tight">
-                              <span className="text-[9px] font-mono font-bold text-emerald-800 flex items-center gap-0.5">
-                                <ScanLine className="w-2.5 h-2.5" /> SMART QR
-                              </span>
-                              <div className="text-[8.5px] text-slate-500 font-sans">
-                                {targetType === 'STUDENT' ? 'Scan to Mark Today' : 'Faculty Access Pass'}
-                              </div>
-                            </div>
+                        {/* Front Bottom Validation Row (Authorized Seal & Principal Signature) */}
+                        <div className="pt-1 flex items-center justify-between shrink-0">
+                          <div className="flex items-center gap-1 text-[8.5px] font-mono text-emerald-800 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200">
+                            <ShieldCheck className="w-3 h-3 text-emerald-700 shrink-0" />
+                            <span className="font-bold">OFFICIAL ID</span>
                           </div>
 
                           <div className="text-right">
-                            <div className="border-t border-slate-400 pt-0.5 text-[9px] font-mono font-bold text-[#122A24]">
-                              Principal Signature
+                            <div className="w-20 border-t border-slate-400 pt-0.5 text-[8.5px] font-mono font-bold text-[#122A24]">
+                              Principal
                             </div>
                           </div>
                         </div>
 
                       </div>
                     ) : (
-                      /* BACK SIDE */
-                      <div className="h-full flex flex-col justify-between p-4 text-slate-800 bg-slate-50 text-xs">
+                      /* BACK SIDE: LARGE HIGH-DEF SCANNABLE QR CODE & GATE PASS */
+                      <div className="h-full flex flex-col justify-between p-4 text-slate-800 bg-slate-50 text-xs relative z-10 space-y-2">
                         {/* Lanyard Slot Punch hole */}
-                        <div className="w-10 h-2 bg-slate-300 rounded-full mx-auto mb-2 opacity-60" />
+                        <div className="w-10 h-2 bg-slate-300 rounded-full mx-auto opacity-60 shrink-0" />
 
-                        <div className="text-center border-b border-slate-200 pb-2">
-                          <div className="font-display font-bold text-xs uppercase text-[#122A24]">
-                            {targetType === 'STUDENT' ? 'Student Safety Instructions' : 'Faculty Campus Guidelines'}
+                        {/* Back Header */}
+                        <div className="text-center border-b border-slate-200 pb-1.5 shrink-0">
+                          <div className="font-display font-black text-xs uppercase text-[#122A24] tracking-tight">
+                            {selectedSchool?.school_name || 'Delhi Public School'}
                           </div>
-                          <div className="text-[9px] text-slate-500">Valid Academic Session {selectedSession}</div>
-                        </div>
-
-                        <div className="space-y-2 text-[10px] text-slate-600 leading-relaxed">
-                          <p>1. This card is non-transferable and remains institutional property.</p>
-                          <p>2. Mandatory to display during campus hours, transit &amp; examinations.</p>
-                          <p>3. In case of loss, report immediately to the administrative office.</p>
-                          <p>4. <strong>Auto-Attendance:</strong> Present QR at kiosk gate for automatic biometric attendance marking.</p>
-                        </div>
-
-                        {/* Barcode Strip */}
-                        <div className="p-2 bg-white rounded-xl border border-slate-200 text-center">
-                          <div className="font-mono text-[10px] font-bold tracking-widest text-[#122A24]">
-                            ||||| |||| |||||| |||| ||||| |||
+                          <div className="text-[8.5px] font-mono text-emerald-800 font-bold">
+                            SMART GATE PASS &amp; DIGITAL ID • SESSION {selectedSession}
                           </div>
-                          <span className="text-[9px] font-mono text-slate-400">
-                            {targetType === 'STUDENT' ? (activeStudent?.admission_no || activeStudent?.id) : (activeTeacher?.employee_code || activeTeacher?.id)}
-                          </span>
                         </div>
 
-                        <div className="pt-2 border-t border-slate-200 text-center text-[9px] font-mono text-slate-500">
+                        {/* Large Scannable QR Container */}
+                        <div className="flex flex-col items-center justify-center my-auto p-2 bg-white rounded-2xl border-2 border-[#122A24]/20 shadow-xs relative">
+                          <div className="w-40 h-40 bg-white p-1 rounded-xl flex items-center justify-center relative overflow-hidden">
+                            {activeQrDataUrl ? (
+                              <img
+                                src={activeQrDataUrl}
+                                alt="Attendance Gate Pass QR"
+                                className="w-full h-full object-contain"
+                              />
+                            ) : (
+                              <QrCode className="w-32 h-32 text-[#122A24]" />
+                            )}
+                          </div>
+
+                          <div className="text-center mt-1 space-y-0.5">
+                            <div className="font-mono text-[10px] font-black text-[#122A24] tracking-wider">
+                              ADM NO: {targetType === 'STUDENT' ? (activeStudent?.admission_no || activeStudent?.id) : (activeTeacher?.employee_code || activeTeacher?.id)}
+                            </div>
+                            <div className="text-[8px] font-mono text-emerald-800 font-bold uppercase">
+                              SCAN AT GATE / BUS FOR INSTANT ATTENDANCE
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Safety & Institutional Guidelines */}
+                        <div className="space-y-1 text-[8.5px] text-slate-600 leading-tight border-t border-slate-200 pt-1.5 shrink-0">
+                          <p>1. Institutional property. Must be carried and displayed on campus.</p>
+                          <p>2. Present QR code at school gate turnstile &amp; bus for auto-attendance.</p>
+                          <p>3. If lost or found, please report to the administrative office immediately.</p>
+                        </div>
+
+                        {/* Footer Helpline */}
+                        <div className="pt-1 border-t border-slate-200 text-center text-[8.5px] font-mono text-slate-500 shrink-0">
                           Emergency Helpline: {selectedSchool?.phone || '+91 11 2789 0000'}
                           <br />
                           {selectedSchool?.email || 'contact@school.edu'}
@@ -1953,10 +1966,10 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
           ───────────────────────────────────────────────────────────── */}
       {previewOpen && (
         <div id="certificate-print-modal" className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-          <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-scale-in">
+          <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[94vh] flex flex-col animate-scale-in">
             
             {/* Modal Header */}
-            <div className="px-6 py-4 bg-[#122A24] text-white flex items-center justify-between shrink-0 no-print">
+            <div className="px-6 py-4 bg-[#122A24] text-white flex flex-wrap items-center justify-between gap-3 shrink-0 no-print">
               <div className="flex items-center gap-2.5">
                 <Award className="w-5 h-5 text-emerald-400 shrink-0" />
                 <div>
@@ -1968,6 +1981,39 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                   </span>
                 </div>
               </div>
+
+              {/* ID Card Side Print Selector */}
+              {isIdCard && (
+                <div className="flex items-center gap-1 bg-white/10 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setPrintSideMode('BOTH')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border-none cursor-pointer transition-all ${
+                      printSideMode === 'BOTH' ? 'bg-white text-[#122A24] shadow-xs' : 'bg-transparent text-white/80 hover:text-white'
+                    }`}
+                  >
+                    Both Sides (Side-by-Side)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPrintSideMode('FRONT')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border-none cursor-pointer transition-all ${
+                      printSideMode === 'FRONT' ? 'bg-white text-[#122A24] shadow-xs' : 'bg-transparent text-white/80 hover:text-white'
+                    }`}
+                  >
+                    Front Info Only
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPrintSideMode('BACK')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border-none cursor-pointer transition-all ${
+                      printSideMode === 'BACK' ? 'bg-white text-[#122A24] shadow-xs' : 'bg-transparent text-white/80 hover:text-white'
+                    }`}
+                  >
+                    Back QR Only
+                  </button>
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <button
@@ -1993,80 +2039,148 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
               
               {genMode === 'SINGLE' ? (
                 isIdCard ? (
-                  /* Single Portrait ID Card (Student or Faculty) */
-                  <div className={`w-[320px] h-[500px] rounded-2xl shadow-xl overflow-hidden p-5 flex flex-col justify-between ${selectedTemplate.borderStyle} ${selectedTemplate.cardBg} bg-white text-slate-800`}>
-                    <div className="text-center pb-2 border-b border-slate-200">
-                      <div className="font-display font-black text-sm text-[#122A24] uppercase">
-                        {selectedSchool?.school_name || 'Delhi Public School'}
-                      </div>
-                      <div className="text-[9px] font-mono text-emerald-800 font-bold">
-                        CBSE Affil No: {selectedSchool?.affiliation_no || '2130042'} • Session {selectedSession}
-                      </div>
-                    </div>
+                  /* Single ID Card View (Dual Side-by-Side / Front / Back) */
+                  <div className="flex flex-wrap items-center justify-center gap-6">
+                    
+                    {/* FRONT CARD */}
+                    {(printSideMode === 'BOTH' || printSideMode === 'FRONT') && (
+                      <div className={`w-[310px] min-h-[500px] rounded-2xl shadow-xl overflow-hidden p-4 flex flex-col justify-between ${selectedTemplate.borderStyle} ${selectedTemplate.cardBg} bg-white text-slate-800 space-y-2`}>
+                        {/* Punch hole */}
+                        <div className="w-10 h-2 bg-slate-300 rounded-full mx-auto opacity-60 shrink-0" />
 
-                    <div className="flex flex-col items-center my-2">
-                      <div className="w-24 h-28 rounded-xl bg-slate-100 border-2 border-[#122A24] flex flex-col items-center justify-center text-slate-400 font-mono font-bold text-xs overflow-hidden">
-                        {activePhoto && !imgLoadError ? (
-                          <img
-                            src={activePhoto}
-                            alt={targetType === 'STUDENT' ? activeStudent?.full_name : activeTeacher?.full_name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-b from-slate-100 to-slate-200 flex flex-col items-center justify-center text-[#122A24]">
-                            <span className="font-display font-black text-2xl text-emerald-900 tracking-wider">
-                              {activeInitials}
-                            </span>
-                            <span className="text-[8px] font-mono text-emerald-800 font-bold mt-0.5">
-                              {targetType === 'STUDENT' ? 'STUDENT' : 'FACULTY'}
+                        {/* School Header */}
+                        <div className="text-center pb-2 border-b border-slate-200 shrink-0">
+                          <div className="font-display font-black text-sm text-[#122A24] uppercase">
+                            {selectedSchool?.school_name || 'Delhi Public School'}
+                          </div>
+                          <div className="text-[9px] font-mono text-emerald-800 font-bold">
+                            CBSE Affil No: {selectedSchool?.affiliation_no || '2130042'} • Session {selectedSession}
+                          </div>
+                          <div className="text-[8px] text-slate-500 font-sans truncate">
+                            {selectedSchool?.address || 'Dwarka, New Delhi'}
+                          </div>
+                        </div>
+
+                        {/* Photo & Name */}
+                        <div className="flex flex-col items-center my-1">
+                          <div className="relative">
+                            <div className="w-22 h-26 rounded-xl bg-slate-100 border-2 border-[#122A24] flex flex-col items-center justify-center text-slate-400 font-mono font-bold text-xs overflow-hidden">
+                              {activePhoto && !imgLoadError ? (
+                                <img
+                                  src={activePhoto}
+                                  alt={targetType === 'STUDENT' ? activeStudent?.full_name : activeTeacher?.full_name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-b from-slate-100 to-slate-200 flex flex-col items-center justify-center text-[#122A24]">
+                                  <span className="font-display font-black text-2xl text-emerald-900 tracking-wider">
+                                    {activeInitials}
+                                  </span>
+                                  <span className="text-[8px] font-mono text-emerald-800 font-bold mt-0.5">
+                                    {targetType === 'STUDENT' ? 'STUDENT' : 'FACULTY'}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            <span className="absolute -bottom-1.5 -right-1.5 px-2 py-0.5 bg-emerald-700 text-white text-[8.5px] font-mono font-bold rounded-full">
+                              {targetType === 'STUDENT' ? (activeStudent?.blood_group || 'O+') : (activeTeacher?.blood_group || 'B+')}
                             </span>
                           </div>
-                        )}
-                      </div>
-                      <h3 className="font-display font-black text-base text-[#122A24] mt-2 text-center truncate max-w-[260px]">
-                        {targetType === 'STUDENT' ? activeStudent?.full_name : activeTeacher?.full_name}
-                      </h3>
-                      <div className="px-2.5 py-0.5 rounded-full bg-[#122A24] text-white text-[10px] font-mono font-bold uppercase mt-0.5">
-                        {targetType === 'STUDENT' ? `${activeStudent?.class_name} - ${activeStudent?.section || 'A'}` : `${activeTeacher?.designation || 'Faculty'} • ${activeTeacher?.department}`}
-                      </div>
-                    </div>
 
-                    <div className="space-y-1 text-[11px] font-mono border-t border-b border-slate-200 py-2">
-                      {targetType === 'STUDENT' && activeStudent ? (
-                        <>
-                          <div className="flex justify-between"><span>Adm No:</span><strong className="text-[#122A24]">{activeStudent.admission_no || activeStudent.id}</strong></div>
-                          <div className="flex justify-between"><span>Roll No:</span><strong>{activeStudent.roll_no || '12'}</strong></div>
-                          <div className="flex justify-between"><span>Guardian:</span><strong className="truncate max-w-[140px]">{activeStudent.guardian_name || 'Mr. Sharma'}</strong></div>
-                          <div className="flex justify-between"><span>Contact:</span><strong>{activeStudent.guardian_phone || activeStudent.phone || '+91 98110 00000'}</strong></div>
-                        </>
-                      ) : activeTeacher ? (
-                        <>
-                          <div className="flex justify-between"><span>Emp Code:</span><strong className="text-[#122A24]">{activeTeacher.employee_code || activeTeacher.id}</strong></div>
-                          <div className="flex justify-between"><span>Department:</span><strong>{activeTeacher.department}</strong></div>
-                          <div className="flex justify-between"><span>Phone:</span><strong>{activeTeacher.phone || '+91 98765 00000'}</strong></div>
-                          <div className="flex justify-between"><span>Joining:</span><strong>{activeTeacher.date_of_joining || '01-Jul-2021'}</strong></div>
-                        </>
-                      ) : null}
-                    </div>
+                          <h3 className="font-display font-black text-base text-[#122A24] mt-1.5 text-center truncate max-w-[270px]">
+                            {targetType === 'STUDENT' ? activeStudent?.full_name : activeTeacher?.full_name}
+                          </h3>
+                          <div className="px-2.5 py-0.5 rounded-full bg-[#122A24] text-white text-[9.5px] font-mono font-bold uppercase mt-0.5">
+                            {targetType === 'STUDENT' ? `${activeStudent?.class_name} - ${activeStudent?.section || 'A'} • Roll #${activeStudent?.roll_no || '1'}` : `${activeTeacher?.designation || 'Faculty'} • ${activeTeacher?.department}`}
+                          </div>
+                        </div>
 
-                    <div className="pt-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-13 h-13 bg-white p-0.5 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
-                          {activeQrDataUrl ? (
-                            <img src={activeQrDataUrl} alt="Attendance QR" className="w-full h-full object-contain" />
-                          ) : (
-                            <QrCode className="w-10 h-10 text-[#122A24]" />
-                          )}
+                        {/* Detailed Grid */}
+                        <div className="space-y-1 text-[10.5px] font-mono border-t border-b border-slate-200 py-2">
+                          {targetType === 'STUDENT' && activeStudent ? (
+                            <>
+                              <div className="flex justify-between items-center"><span>Adm No:</span><strong className="text-[#122A24]">{activeStudent.admission_no || activeStudent.id}</strong></div>
+                              <div className="flex justify-between items-center"><span>Date of Birth:</span><strong>{activeStudent.dob || '14-Aug-2012'}</strong></div>
+                              <div className="flex justify-between items-center"><span>Guardian:</span><strong className="truncate max-w-[150px]">{activeStudent.father_name || activeStudent.guardian_name || 'Mr. Sharma'}</strong></div>
+                              <div className="flex justify-between items-center"><span>Contact:</span><strong>{activeStudent.guardian_phone || activeStudent.parent_phone || activeStudent.phone || '+91 98110 00000'}</strong></div>
+                              <div className="flex justify-between items-center"><span>Blood Group:</span><strong className="text-emerald-800">{activeStudent.blood_group || 'O+'}</strong></div>
+                              <div className="flex justify-between items-center"><span>House / City:</span><strong className="truncate max-w-[150px]">{activeStudent.house ? `${activeStudent.house} • ` : ''}{activeStudent.address || selectedSchool?.city || 'Dwarka, New Delhi'}</strong></div>
+                            </>
+                          ) : activeTeacher ? (
+                            <>
+                              <div className="flex justify-between items-center"><span>Emp Code:</span><strong className="text-[#122A24]">{activeTeacher.employee_code || activeTeacher.id}</strong></div>
+                              <div className="flex justify-between items-center"><span>Department:</span><strong className="truncate max-w-[150px]">{activeTeacher.department}</strong></div>
+                              <div className="flex justify-between items-center"><span>Phone:</span><strong>{activeTeacher.phone || '+91 98765 00000'}</strong></div>
+                              <div className="flex justify-between items-center"><span>Joining:</span><strong>{activeTeacher.date_of_joining || '01-Jul-2021'}</strong></div>
+                              <div className="flex justify-between items-center"><span>Blood Group:</span><strong className="text-emerald-800">{activeTeacher.blood_group || 'B+'}</strong></div>
+                            </>
+                          ) : null}
                         </div>
-                        <div className="text-[8.5px] font-mono font-bold text-emerald-800 leading-tight">
-                          {targetType === 'STUDENT' ? 'SMART ATTENDANCE' : 'SMART ACCESS'}<br/>
-                          <span className="text-[7.5px] text-slate-500 font-sans">Strictly Today Turnout</span>
+
+                        {/* Front Bottom Signature */}
+                        <div className="pt-1 flex items-center justify-between shrink-0">
+                          <div className="text-[8.5px] font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-bold">
+                            VALID STUDENT ID
+                          </div>
+                          <div className="text-right text-[8.5px] font-mono font-bold text-[#122A24]">
+                            Principal Signature
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right text-[9px] font-mono font-bold text-[#122A24]">
-                        Principal Signature
+                    )}
+
+                    {/* BACK CARD */}
+                    {(printSideMode === 'BOTH' || printSideMode === 'BACK') && (
+                      <div className={`w-[310px] min-h-[500px] rounded-2xl shadow-xl overflow-hidden p-4 flex flex-col justify-between ${selectedTemplate.borderStyle} bg-slate-50 text-slate-800 space-y-2`}>
+                        {/* Punch hole */}
+                        <div className="w-10 h-2 bg-slate-300 rounded-full mx-auto opacity-60 shrink-0" />
+
+                        {/* Header */}
+                        <div className="text-center border-b border-slate-200 pb-1.5 shrink-0">
+                          <div className="font-display font-black text-xs uppercase text-[#122A24]">
+                            {selectedSchool?.school_name || 'Delhi Public School'}
+                          </div>
+                          <div className="text-[8.5px] font-mono text-emerald-800 font-bold">
+                            SMART ATTENDANCE GATE PASS • {selectedSession}
+                          </div>
+                        </div>
+
+                        {/* Large Scannable QR Container */}
+                        <div className="flex flex-col items-center justify-center my-auto p-2 bg-white rounded-2xl border-2 border-[#122A24]/20 shadow-xs">
+                          <div className="w-38 h-38 bg-white p-1 rounded-xl flex items-center justify-center overflow-hidden">
+                            {activeQrDataUrl ? (
+                              <img src={activeQrDataUrl} alt="Attendance QR" className="w-full h-full object-contain" />
+                            ) : (
+                              <QrCode className="w-32 h-32 text-[#122A24]" />
+                            )}
+                          </div>
+
+                          <div className="text-center mt-1 space-y-0.5">
+                            <div className="font-mono text-[10px] font-black text-[#122A24] tracking-wider">
+                              ADM NO: {targetType === 'STUDENT' ? (activeStudent?.admission_no || activeStudent?.id) : (activeTeacher?.employee_code || activeTeacher?.id)}
+                            </div>
+                            <div className="text-[8px] font-mono text-emerald-800 font-bold uppercase">
+                              SCAN AT GATE / BUS FOR INSTANT ATTENDANCE
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Rules */}
+                        <div className="space-y-1 text-[8.5px] text-slate-600 leading-tight border-t border-slate-200 pt-1.5 shrink-0">
+                          <p>1. Institutional property. Must be carried and displayed on campus.</p>
+                          <p>2. Present QR code at school gate turnstile &amp; bus for auto-attendance.</p>
+                          <p>3. If lost or found, please report to the administrative office immediately.</p>
+                        </div>
+
+                        {/* Helpline */}
+                        <div className="pt-1 border-t border-slate-200 text-center text-[8.5px] font-mono text-slate-500 shrink-0">
+                          Emergency Helpline: {selectedSchool?.phone || '+91 11 2789 0000'}
+                          <br />
+                          {selectedSchool?.email || 'contact@school.edu'}
+                        </div>
                       </div>
-                    </div>
+                    )}
+
                   </div>
                 ) : (
                   <FormalCertificateDocument
@@ -2084,47 +2198,65 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                   />
                 )
               ) : (
-                /* Bulk Grid (Multiple Portrait Cards with Pictures & Scannable QR Codes) */
+                /* Bulk Grid Mode */
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
                   {targetType === 'STUDENT' ? (
                     filteredStudents.map(s => {
                       const photo = s.photo || s.avatar || (s as any).profile_picture_url || (s as any).profile_image;
                       const qrUrl = bulkQrDataUrls[s.id];
                       const initials = s.full_name ? s.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'ST';
+                      
                       return (
-                        <div key={s.id} className="bg-white p-4 rounded-2xl border-2 border-[#122A24] shadow-sm flex flex-col justify-between space-y-3">
-                          <div className="text-center pb-1 border-b border-slate-200">
-                            <div className="font-bold text-xs text-[#122A24] truncate">{selectedSchool?.school_name}</div>
-                            <div className="text-[9px] font-mono text-emerald-800">Session {selectedSession}</div>
-                          </div>
+                        <div key={s.id} className="flex flex-col gap-3">
+                          {/* Front Card */}
+                          {(printSideMode === 'BOTH' || printSideMode === 'FRONT') && (
+                            <div className="bg-white p-4 rounded-2xl border-2 border-[#122A24] shadow-sm flex flex-col justify-between space-y-2">
+                              <div className="text-center pb-1 border-b border-slate-200">
+                                <div className="font-bold text-xs text-[#122A24] truncate">{selectedSchool?.school_name}</div>
+                                <div className="text-[8.5px] font-mono text-emerald-800">Session {selectedSession} • Student Identity</div>
+                              </div>
 
-                          <div className="flex items-center gap-3">
-                            <div className="w-14 h-16 rounded-xl bg-slate-100 border border-[#122A24] flex items-center justify-center overflow-hidden shrink-0">
-                              {photo ? (
-                                <img src={photo} alt={s.full_name} className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="font-display font-bold text-xs text-emerald-900">{initials}</span>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-black text-sm text-[#122A24] truncate">{s.full_name}</div>
-                              <div className="text-[10px] font-mono text-slate-500">Adm: {s.admission_no}</div>
-                              <div className="text-[10px] font-mono text-emerald-800 font-semibold">{s.class_name} ({s.section || 'A'}) • Roll #{s.roll_no || '1'}</div>
-                            </div>
-                          </div>
+                              <div className="flex items-center gap-3">
+                                <div className="w-14 h-16 rounded-xl bg-slate-100 border border-[#122A24] flex items-center justify-center overflow-hidden shrink-0">
+                                  {photo ? (
+                                    <img src={photo} alt={s.full_name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="font-display font-bold text-xs text-emerald-900">{initials}</span>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-black text-sm text-[#122A24] truncate">{s.full_name}</div>
+                                  <div className="text-[10px] font-mono text-slate-500">Adm: {s.admission_no}</div>
+                                  <div className="text-[10px] font-mono text-emerald-800 font-semibold">{s.class_name} ({s.section || 'A'}) • Roll #{s.roll_no || '1'}</div>
+                                </div>
+                              </div>
 
-                          <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                            <div className="w-10 h-10 bg-white p-0.5 rounded-lg border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
-                              {qrUrl ? (
-                                <img src={qrUrl} alt="QR" className="w-full h-full object-contain" />
-                              ) : (
-                                <QrCode className="w-8 h-8 text-[#122A24]" />
-                              )}
+                              <div className="space-y-0.5 text-[9.5px] font-mono text-slate-600 border-t border-slate-100 pt-1.5">
+                                <div className="flex justify-between"><span>DOB:</span><strong>{s.dob || '14-Aug-2012'}</strong></div>
+                                <div className="flex justify-between"><span>Guardian:</span><strong className="truncate max-w-[120px]">{s.father_name || s.guardian_name || 'Mr. Sharma'}</strong></div>
+                                <div className="flex justify-between"><span>Phone:</span><strong>{s.guardian_phone || s.phone || '+91 98110 00000'}</strong></div>
+                              </div>
                             </div>
-                            <span className="text-[8.5px] font-mono font-bold text-emerald-800 text-right">
-                              SCAN TO MARK<br/><span className="text-slate-500 font-sans">TODAY ONLY</span>
-                            </span>
-                          </div>
+                          )}
+
+                          {/* Back Card with Large Scannable QR Code */}
+                          {(printSideMode === 'BOTH' || printSideMode === 'BACK') && (
+                            <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-300 shadow-sm flex flex-col justify-between items-center text-center space-y-2">
+                              <div className="text-[9px] font-mono font-bold text-[#122A24]">
+                                {s.full_name} • ADM: {s.admission_no}
+                              </div>
+                              <div className="w-28 h-28 bg-white p-1 rounded-xl border border-slate-200 flex items-center justify-center overflow-hidden shadow-2xs">
+                                {qrUrl ? (
+                                  <img src={qrUrl} alt="QR" className="w-full h-full object-contain" />
+                                ) : (
+                                  <QrCode className="w-24 h-24 text-[#122A24]" />
+                                )}
+                              </div>
+                              <div className="text-[8px] font-mono font-bold text-emerald-800 uppercase">
+                                SMART ATTENDANCE PASS
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })
@@ -2134,39 +2266,55 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                       const qrUrl = bulkQrDataUrls[t.id];
                       const initials = t.full_name ? t.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'TC';
                       return (
-                        <div key={t.id} className="bg-white p-4 rounded-2xl border-2 border-[#122A24] shadow-sm flex flex-col justify-between space-y-3">
-                          <div className="text-center pb-1 border-b border-slate-200">
-                            <div className="font-bold text-xs text-[#122A24] truncate">{selectedSchool?.school_name}</div>
-                            <div className="text-[9px] font-mono text-emerald-800">Session {selectedSession} • Faculty</div>
-                          </div>
+                        <div key={t.id} className="flex flex-col gap-3">
+                          {/* Front Card */}
+                          {(printSideMode === 'BOTH' || printSideMode === 'FRONT') && (
+                            <div className="bg-white p-4 rounded-2xl border-2 border-[#122A24] shadow-sm flex flex-col justify-between space-y-2">
+                              <div className="text-center pb-1 border-b border-slate-200">
+                                <div className="font-bold text-xs text-[#122A24] truncate">{selectedSchool?.school_name}</div>
+                                <div className="text-[8.5px] font-mono text-emerald-800">Session {selectedSession} • Faculty</div>
+                              </div>
 
-                          <div className="flex items-center gap-3">
-                            <div className="w-14 h-16 rounded-xl bg-slate-100 border border-[#122A24] flex items-center justify-center overflow-hidden shrink-0">
-                              {photo ? (
-                                <img src={photo} alt={t.full_name} className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="font-display font-bold text-xs text-emerald-900">{initials}</span>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="font-black text-sm text-[#122A24] truncate">{t.full_name}</div>
-                              <div className="text-[10px] font-mono text-slate-500">Emp: {t.employee_code || t.id}</div>
-                              <div className="text-[10px] font-mono text-emerald-800 font-semibold">{t.designation || 'Teacher'} • {t.department}</div>
-                            </div>
-                          </div>
+                              <div className="flex items-center gap-3">
+                                <div className="w-14 h-16 rounded-xl bg-slate-100 border border-[#122A24] flex items-center justify-center overflow-hidden shrink-0">
+                                  {photo ? (
+                                    <img src={photo} alt={t.full_name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="font-display font-bold text-xs text-emerald-900">{initials}</span>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-black text-sm text-[#122A24] truncate">{t.full_name}</div>
+                                  <div className="text-[10px] font-mono text-slate-500">Emp: {t.employee_code || t.id}</div>
+                                  <div className="text-[10px] font-mono text-emerald-800 font-semibold">{t.designation || 'Teacher'} • {t.department}</div>
+                                </div>
+                              </div>
 
-                          <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                            <div className="w-10 h-10 bg-white p-0.5 rounded-lg border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
-                              {qrUrl ? (
-                                <img src={qrUrl} alt="QR" className="w-full h-full object-contain" />
-                              ) : (
-                                <QrCode className="w-8 h-8 text-[#122A24]" />
-                              )}
+                              <div className="space-y-0.5 text-[9.5px] font-mono text-slate-600 border-t border-slate-100 pt-1.5">
+                                <div className="flex justify-between"><span>Phone:</span><strong>{t.phone || '+91 98765 00000'}</strong></div>
+                                <div className="flex justify-between"><span>Joining:</span><strong>{t.date_of_joining || '01-Jul-2021'}</strong></div>
+                              </div>
                             </div>
-                            <span className="text-[8.5px] font-mono font-bold text-emerald-800 text-right">
-                              FACULTY ACCESS<br/><span className="text-slate-500 font-sans">SMART BADGE</span>
-                            </span>
-                          </div>
+                          )}
+
+                          {/* Back Card */}
+                          {(printSideMode === 'BOTH' || printSideMode === 'BACK') && (
+                            <div className="bg-slate-50 p-4 rounded-2xl border-2 border-slate-300 shadow-sm flex flex-col justify-between items-center text-center space-y-2">
+                              <div className="text-[9px] font-mono font-bold text-[#122A24]">
+                                {t.full_name} • EMP: {t.employee_code || t.id}
+                              </div>
+                              <div className="w-28 h-28 bg-white p-1 rounded-xl border border-slate-200 flex items-center justify-center overflow-hidden shadow-2xs">
+                                {qrUrl ? (
+                                  <img src={qrUrl} alt="QR" className="w-full h-full object-contain" />
+                                ) : (
+                                  <QrCode className="w-24 h-24 text-[#122A24]" />
+                                )}
+                              </div>
+                              <div className="text-[8px] font-mono font-bold text-emerald-800 uppercase">
+                                FACULTY ACCESS BADGE
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })
