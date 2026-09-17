@@ -841,7 +841,7 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
   const [photoToast, setPhotoToast] = useState<string | null>(null);
   const photoFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Generate real scannable QR Code Data URL for active ID card preview (High-res 400px)
+  // Generate real scannable QR Code Data URL for active ID card preview (High-res 400px points to Verification Portal)
   useEffect(() => {
     if (!isIdCard) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -855,7 +855,7 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
       : ((activeTarget as Teacher).employee_code || activeTarget.id);
     const sch = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
 
-    const scanUrl = `${origin}/attendance/scan?student_id=${encodeURIComponent(sId)}&admission_no=${encodeURIComponent(adm)}&school_id=${encodeURIComponent(sch)}&session=${encodeURIComponent(selectedSession)}`;
+    const scanUrl = `${origin}/verify/id?student_id=${encodeURIComponent(sId)}&admission_no=${encodeURIComponent(adm)}&school_id=${encodeURIComponent(sch)}&session=${encodeURIComponent(selectedSession)}&type=${encodeURIComponent(targetType)}`;
 
     QRCode.toDataURL(scanUrl, {
       width: 400,
@@ -873,7 +873,7 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
     setImgLoadError(false);
   }, [isIdCard, targetType, activeStudent, activeTeacher, selectedSchool, selectedSession]);
 
-  // Generate Bulk QR Data URLs when print preview is opened in bulk mode (High-res 400px)
+  // Generate Bulk QR Data URLs when print preview is opened in bulk mode (High-res 400px points to Verification Portal)
   useEffect(() => {
     if (!previewOpen || genMode !== 'BULK' || !isIdCard) return;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -886,7 +886,7 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
       list.map(async (item) => {
         const sId = item.id;
         const adm = isStudent ? ((item as Student).admission_no || item.id) : ((item as Teacher).employee_code || item.id);
-        const scanUrl = `${origin}/attendance/scan?student_id=${encodeURIComponent(sId)}&admission_no=${encodeURIComponent(adm)}&school_id=${encodeURIComponent(sch)}&session=${encodeURIComponent(selectedSession)}`;
+        const scanUrl = `${origin}/verify/id?student_id=${encodeURIComponent(sId)}&admission_no=${encodeURIComponent(adm)}&school_id=${encodeURIComponent(sch)}&session=${encodeURIComponent(selectedSession)}&type=${encodeURIComponent(targetType)}`;
         try {
           const url = await QRCode.toDataURL(scanUrl, {
             width: 400,
@@ -1084,11 +1084,11 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
     }
   };
 
-  // Helper to generate the exact attendance payload URL
+  // Helper to generate the exact verification payload URL
   const getAttendancePayload = (s: Student) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const sch = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
-    return `${origin}/attendance/scan?student_id=${encodeURIComponent(s.id)}&admission_no=${encodeURIComponent(s.admission_no || s.id)}&school_id=${encodeURIComponent(sch)}&session=${encodeURIComponent(selectedSession)}`;
+    return `${origin}/verify/id?student_id=${encodeURIComponent(s.id)}&admission_no=${encodeURIComponent(s.admission_no || s.id)}&school_id=${encodeURIComponent(sch)}&session=${encodeURIComponent(selectedSession)}&type=STUDENT`;
   };
 
   return (

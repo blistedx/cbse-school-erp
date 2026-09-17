@@ -347,15 +347,16 @@ function AttendanceScanContent() {
     }
   };
 
-  // Only auto-execute scan if user is an authorized Staff/Teacher/Admin
+  // Only auto-execute scan if explicitly requested with auto_mark=1 and user is authorized Staff
   useEffect(() => {
-    if (authChecked && isStaffAuthorized() && (studentId || admissionNo)) {
+    const autoMark = searchParams.get('auto_mark') === '1';
+    if (authChecked && isStaffAuthorized() && (studentId || admissionNo) && autoMark) {
       executeScan(studentId, admissionNo);
     }
     return () => {
       stopCamera();
     };
-  }, [studentId, admissionNo, authChecked]);
+  }, [studentId, admissionNo, authChecked, searchParams]);
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
