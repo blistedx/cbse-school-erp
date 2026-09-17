@@ -85,7 +85,8 @@ export function DashboardOverview({
   // Chart & filter controls (Dynamic Timeframe for Fee Realization Trend)
   const [salesTimeframe, setSalesTimeframe] = useState<'quarterly' | 'monthly' | 'yearly'>('monthly');
   const [activeTooltipIndex, setActiveTooltipIndex] = useState<number | null>(5); // default Sep/current
-  const [revenueDateRange, setRevenueDateRange] = useState<string>('Jan 1 - Aug 30');
+  const [revenueDateRange, setRevenueDateRange] = useState<string>('Apr 1 - Sep 17 (YTD)');
+  const [revenueDropdownOpen, setRevenueDropdownOpen] = useState<boolean>(false);
   const [isAiInsightOpen, setIsAiInsightOpen] = useState<boolean>(false);
   const [transactionSearch, setTransactionSearch] = useState<string>('');
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
@@ -94,19 +95,23 @@ export function DashboardOverview({
 
   // Close dropdown when clicking outside
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const revenueDropdownRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setTimeDropdownOpen(false);
       }
+      if (revenueDropdownRef.current && !revenueDropdownRef.current.contains(event.target as Node)) {
+        setRevenueDropdownOpen(false);
+      }
     }
-    if (timeDropdownOpen) {
+    if (timeDropdownOpen || revenueDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [timeDropdownOpen]);
+  }, [timeDropdownOpen, revenueDropdownOpen]);
 
   // Calendar & Operational Hub state
   const [calendarMonthOffset, setCalendarMonthOffset] = useState<number>(0);
@@ -397,9 +402,69 @@ export function DashboardOverview({
     studentProfileAvgAtt
   ]);
 
+  // Current active month fee collection & pending (e.g. September 2026)
+  const currentMonthKey = String(now.getMonth() + 1).padStart(2, '0'); // '09'
+  const currentMonthShort = now.toLocaleString('en-US', { month: 'short' }); // 'Sep'
+  const currentMonthFull = now.toLocaleString('en-US', { month: 'long' }); // 'September'
+
+  const currentMonthInvoices = useMemo(() => {
+    return (invoices || []).filter(inv => {
+      const anyInv = inv as any;
+      const monthText = (inv.month || '').toLowerCase();
+      const dueDate = inv.due_date || anyInv.date || '';
+      const paidDate = inv.paid_date || '';
+      const dueMonthNum = dueDate.length >= 7 ? dueDate.slice(5, 7) : '';
+      const paidMonthNum = paidDate.length >= 7 ? paidDate.slice(5, 7) : '';
+
+      return (
+        monthText.includes(currentMonthShort.toLowerCase()) ||
+        monthText.includes(currentMonthFull.toLowerCase()) ||
+        dueMonthNum === currentMonthKey ||
+        (inv.status === 'PAID' && paidMonthNum === currentMonthKey)
+      );
+    });
+  }, [invoices, currentMonthShort, currentMonthFull, currentMonthKey]);
+
+  const currentMonthPaidAmount = useMemo(() => {
+    return currentMonthInvoices.reduce((acc, inv) => {
+      const amt = Number(inv.amount) || 0;
+      const paid = typeof inv.paid_amount === 'number' ? inv.paid_amount : (inv.status === 'PAID' ? amt : 0);
+      return acc + paid;
+    }, 0);
+  }, [currentMonthInvoices]);
+
+  const currentMonthPendingAmount = useMemo(() => {
+    return currentMonthInvoices.reduce((acc, inv) => {
+      const amt = Number(inv.amount) || 0;
+      const paid = typeof inv.paid_amount === 'number' ? inv.paid_amount : (inv.status === 'PAID' ? amt : 0);
+      return acc + Math.max(0, amt - paid);
+    }, 0);
+  }, [currentMonthInvoices]);
+
+  // Unique Student Counts for Fee Status Relative to Total Students
+  const monthPaidStudentsCount = useMemo(() => {
+    const paidStudentSet = new Set<string>();
+    currentMonthInvoices.forEach(inv => {
+      if (inv.status === 'PAID') {
+        paidStudentSet.add(inv.student_id || inv.admission_no || inv.student_name);
+      }
+    });
+    return paidStudentSet.size;
+  }, [currentMonthInvoices]);
+
+  const monthPendingStudentsCount = useMemo(() => {
+    const pendingStudentSet = new Set<string>();
+    currentMonthInvoices.forEach(inv => {
+      if (inv.status !== 'PAID') {
+        pendingStudentSet.add(inv.student_id || inv.admission_no || inv.student_name);
+      }
+    });
+    return Math.max(pendingStudentSet.size, Math.max(0, totalStudentsCount - monthPaidStudentsCount));
+  }, [currentMonthInvoices, totalStudentsCount, monthPaidStudentsCount]);
+
   const kpiAttendance = activeAttendanceKpi.displayValue;
-  const kpiFeesCollected = formatLakh(livePaidAmount, '₹0');
-  const kpiFeesPending = formatLakh(livePendingAmount, '₹0');
+  const kpiFeesCollected = formatLakh(currentMonthPaidAmount, '₹0');
+  const kpiFeesPending = formatLakh(currentMonthPendingAmount, '₹0');
   const kpiClasses = liveClassCount.toString();
   const kpiExams = '4';
   const kpiEnquiries = students.filter(s => s.status === 'INACTIVE' || /enquiry|provisional/i.test(s.admission_no || '')).length.toString();
@@ -411,7 +476,7 @@ export function DashboardOverview({
     : (monthlyStudentRate ? `${monthlyStudentRate}%` : 'Not Marked');
 
   // Dynamic Fee Realization & Dues Datasets based on timeframe selection:
-  // Derived from live invoices
+  // Strictly aligned to CBSE Academic Session (April to March)
   const dynamicFeeTrends = useMemo(() => {
     const monthDefs = [
       { key: '04', label: 'APR', full: 'APR' },
@@ -433,22 +498,31 @@ export function DashboardOverview({
       let dues = 0;
       (invoices || []).forEach(inv => {
         const anyInv = inv as any;
-        const d = inv.paid_date || anyInv.date || anyInv.created_at || '';
-        const monthNum = d.length >= 7 ? d.slice(5, 7) : '';
         const monthText = (inv.month || '').toLowerCase();
-        const matchesMonth = monthNum === m.key || monthText.includes(m.label.toLowerCase());
+        const dueDate = inv.due_date || anyInv.date || '';
+        const paidDate = inv.paid_date || '';
+        const dueMonthNum = dueDate.length >= 7 ? dueDate.slice(5, 7) : '';
+        const paidMonthNum = paidDate.length >= 7 ? paidDate.slice(5, 7) : '';
+
+        // Check if invoice belongs to this academic month
+        const matchesMonth = 
+          monthText.includes(m.label.toLowerCase()) || 
+          dueMonthNum === m.key ||
+          (inv.status === 'PAID' && paidMonthNum === m.key);
 
         if (matchesMonth) {
           const amt = Number(inv.amount) || 0;
-          if (inv.status === 'PAID') coll += amt;
-          else dues += amt;
+          const paid = typeof inv.paid_amount === 'number' ? inv.paid_amount : (inv.status === 'PAID' ? amt : 0);
+          coll += paid;
+          dues += Math.max(0, amt - paid);
         }
       });
       const collK = Math.round(coll / 1000);
       const duesK = Math.round(dues / 1000);
+      const yearStr = ['JAN', 'FEB', 'MAR'].includes(m.label) ? '2027' : '2026';
       return {
         label: m.label,
-        period: `${m.full} 2026`,
+        period: `${m.full} ${yearStr}`,
         collected: collK,
         dues: duesK,
         total: Math.max(collK + duesK, 1),
@@ -467,18 +541,18 @@ export function DashboardOverview({
     const q4Dues = monthlyTrend.slice(9, 12).reduce((acc, c) => acc + c.dues, 0);
 
     const quarterlyTrend = [
-      { label: 'Q1', period: 'Q1 (Apr - Jun)', collected: Math.round(q1Coll / 100), dues: Math.round(q1Dues / 100), total: Math.max(Math.round((q1Coll + q1Dues) / 100), 1), collectedDisplay: `₹${(q1Coll / 100).toFixed(1)}L`, duesDisplay: `₹${(q1Dues / 100).toFixed(1)}L` },
-      { label: 'Q2', period: 'Q2 (Jul - Sep)', collected: Math.round(q2Coll / 100), dues: Math.round(q2Dues / 100), total: Math.max(Math.round((q2Coll + q2Dues) / 100), 1), collectedDisplay: `₹${(q2Coll / 100).toFixed(1)}L`, duesDisplay: `₹${(q2Dues / 100).toFixed(1)}L` },
-      { label: 'Q3', period: 'Q3 (Oct - Dec)', collected: Math.round(q3Coll / 100), dues: Math.round(q3Dues / 100), total: Math.max(Math.round((q3Coll + q3Dues) / 100), 1), collectedDisplay: `₹${(q3Coll / 100).toFixed(1)}L`, duesDisplay: `₹${(q3Dues / 100).toFixed(1)}L` },
-      { label: 'Q4', period: 'Q4 (Jan - Mar)', collected: Math.round(q4Coll / 100), dues: Math.round(q4Dues / 100), total: Math.max(Math.round((q4Coll + q4Dues) / 100), 1), collectedDisplay: `₹${(q4Coll / 100).toFixed(1)}L`, duesDisplay: `₹${(q4Dues / 100).toFixed(1)}L` }
+      { label: 'Q1', period: 'Q1 (Apr - Jun)', collected: q1Coll, dues: q1Dues, total: Math.max(q1Coll + q1Dues, 1), collectedDisplay: `₹${(q1Coll / 100).toFixed(1)}L`, duesDisplay: `₹${(q1Dues / 100).toFixed(1)}L` },
+      { label: 'Q2', period: 'Q2 (Jul - Sep)', collected: q2Coll, dues: q2Dues, total: Math.max(q2Coll + q2Dues, 1), collectedDisplay: `₹${(q2Coll / 100).toFixed(1)}L`, duesDisplay: `₹${(q2Dues / 100).toFixed(1)}L` },
+      { label: 'Q3', period: 'Q3 (Oct - Dec)', collected: q3Coll, dues: q3Dues, total: Math.max(q3Coll + q3Dues, 1), collectedDisplay: `₹${(q3Coll / 100).toFixed(1)}L`, duesDisplay: `₹${(q3Dues / 100).toFixed(1)}L` },
+      { label: 'Q4', period: 'Q4 (Jan - Mar)', collected: q4Coll, dues: q4Dues, total: Math.max(q4Coll + q4Dues, 1), collectedDisplay: `₹${(q4Coll / 100).toFixed(1)}L`, duesDisplay: `₹${(q4Dues / 100).toFixed(1)}L` }
     ];
 
-    const curPaidL = livePaidAmount / 100000;
-    const curDueL = livePendingAmount / 100000;
+    const curPaidK = Math.round(livePaidAmount / 1000);
+    const curDueK = Math.round(livePendingAmount / 1000);
     const yearlyTrend = [
-      { label: "'24-25", period: 'Academic 2024-25', collected: 668, dues: 95, total: 763, collectedDisplay: '₹66.8L', duesDisplay: '₹9.5L' },
-      { label: "'25-26", period: 'Academic 2025-26', collected: 705, dues: 84, total: 789, collectedDisplay: '₹70.5L', duesDisplay: '₹8.4L' },
-      { label: "'26-27", period: 'Academic 2026-27 (Current)', collected: Math.round(curPaidL * 10), dues: Math.round(curDueL * 10), total: Math.max(Math.round((curPaidL + curDueL) * 10), 1), collectedDisplay: `₹${curPaidL.toFixed(1)}L`, duesDisplay: `₹${curDueL.toFixed(1)}L` }
+      { label: "'24-25", period: 'Academic 2024-25', collected: 6680, dues: 950, total: 7630, collectedDisplay: '₹66.8L', duesDisplay: '₹9.5L' },
+      { label: "'25-26", period: 'Academic 2025-26', collected: 7050, dues: 840, total: 7890, collectedDisplay: '₹70.5L', duesDisplay: '₹8.4L' },
+      { label: "'26-27", period: 'Academic 2026-27 (Current)', collected: curPaidK, dues: curDueK, total: Math.max(curPaidK + curDueK, 1), collectedDisplay: `₹${(curPaidK / 100).toFixed(1)}L`, duesDisplay: `₹${(curDueK / 100).toFixed(1)}L` }
     ];
 
     return { monthlyTrend, quarterlyTrend, yearlyTrend };
@@ -496,20 +570,71 @@ export function DashboardOverview({
   }, [currentTrendData]);
 
   const trendTotalCollectedDisplay = useMemo(() => {
-    if (salesTimeframe === 'quarterly') return '₹69,20,000';
-    if (salesTimeframe === 'yearly') return '₹72,80,000';
+    if (salesTimeframe === 'monthly' || salesTimeframe === 'quarterly') {
+      const sum = currentTrendData.reduce((acc, curr) => acc + (curr.collected * 1000), 0);
+      return `₹${sum.toLocaleString('en-IN')}`;
+    }
     return displayRevenue;
-  }, [salesTimeframe, displayRevenue]);
+  }, [salesTimeframe, currentTrendData, displayRevenue]);
 
   const yAxisLabels = useMemo(() => {
-    if (salesTimeframe === 'quarterly') {
-      return ['240k', '200k', '160k', '120k', '80k', '40k', '0k'];
+    const maxValK = maxTrendTotal;
+    const steps = [1, 0.85, 0.7, 0.5, 0.35, 0.2, 0];
+    return steps.map(pct => {
+      const valK = Math.round(maxValK * pct);
+      if (valK === 0) return '0';
+      if (valK >= 100) {
+        const inL = (valK / 100);
+        return `${inL % 1 === 0 ? inL.toFixed(0) : inL.toFixed(1)}L`;
+      }
+      return `${valK}k`;
+    });
+  }, [maxTrendTotal]);
+
+  // Dynamic Fee Breakdown calculation based on selected Academic Range
+  const breakdownRangeBilled = useMemo(() => {
+    if (!invoices || invoices.length === 0) return totalBilled;
+    
+    if (revenueDateRange.includes('Q1')) {
+      return invoices.filter(inv => {
+        const m = (inv.month || '').toLowerCase();
+        const d = inv.due_date || (inv as any).created_at || '';
+        return m.includes('apr') || m.includes('may') || m.includes('jun') || /-(04|05|06)-/.test(d);
+      }).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
     }
-    if (salesTimeframe === 'yearly') {
-      return ['800k', '650k', '500k', '350k', '200k', '100k', '0k'];
+    if (revenueDateRange.includes('Q2')) {
+      return invoices.filter(inv => {
+        const m = (inv.month || '').toLowerCase();
+        const d = inv.due_date || (inv as any).created_at || '';
+        return m.includes('jul') || m.includes('aug') || m.includes('sep') || /-(07|08|09)-/.test(d);
+      }).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
     }
-    return ['80k', '70k', '60k', '50k', '40k', '20k', '0k'];
-  }, [salesTimeframe]);
+    if (revenueDateRange.includes('Q3')) {
+      return invoices.filter(inv => {
+        const m = (inv.month || '').toLowerCase();
+        const d = inv.due_date || (inv as any).created_at || '';
+        return m.includes('oct') || m.includes('nov') || m.includes('dec') || /-(10|11|12)-/.test(d);
+      }).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    }
+    if (revenueDateRange.includes('Q4')) {
+      return invoices.filter(inv => {
+        const m = (inv.month || '').toLowerCase();
+        const d = inv.due_date || (inv as any).created_at || '';
+        return m.includes('jan') || m.includes('feb') || m.includes('mar') || /-(01|02|03)-/.test(d);
+      }).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    }
+    if (revenueDateRange.includes('YTD') || revenueDateRange.includes('Sep 17')) {
+      // April to September YTD
+      return invoices.filter(inv => {
+        const m = (inv.month || '').toLowerCase();
+        const d = inv.due_date || (inv as any).created_at || '';
+        return m.includes('apr') || m.includes('may') || m.includes('jun') || m.includes('jul') || m.includes('aug') || m.includes('sep') || /-(04|05|06|07|08|09)-/.test(d);
+      }).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    }
+    
+    // Full session
+    return totalBilled;
+  }, [invoices, revenueDateRange, totalBilled]);
 
   // High-Density Revenue Breakdown Bars (17 dense bars matching reference image)
   const breakdownBars = [
@@ -975,7 +1100,7 @@ export function DashboardOverview({
             </div>
           </div>
 
-          {/* Row 1, Col 4: Fees collected */}
+          {/* Row 1, Col 4: Fees collected (Monthly) */}
           <div 
             onClick={() => setActiveTab('fees')}
             className="cursor-pointer group select-none transition-transform active:scale-95"
@@ -983,25 +1108,35 @@ export function DashboardOverview({
             <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
               <CreditCard className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
               <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">
-                {timeFilter === 'Daily' ? 'Fees collected today' : timeFilter === 'Weekly' ? 'Fees collected (week)' : 'Fees collected (month)'}
+                Fees collected ({currentMonthShort})
               </span>
             </div>
             <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
               {kpiFeesCollected}
             </div>
+            <div className="text-[11px] text-emerald-300/70 mt-1 font-medium truncate flex items-center gap-1.5">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+              <span>{monthPaidStudentsCount}/{totalStudentsCount} students paid</span>
+            </div>
           </div>
 
-          {/* Row 2, Col 1: Fees pending */}
+          {/* Row 2, Col 1: Fees pending (Monthly) */}
           <div 
             onClick={() => setActiveTab('fees')}
             className="cursor-pointer group select-none transition-transform active:scale-95"
           >
             <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
               <AlertCircle className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
-              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Fees pending</span>
+              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">
+                Fees pending ({currentMonthShort})
+              </span>
             </div>
             <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
               {kpiFeesPending}
+            </div>
+            <div className="text-[11px] text-emerald-300/70 mt-1 font-medium truncate flex items-center gap-1.5">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+              <span>{monthPendingStudentsCount}/{totalStudentsCount} students pending</span>
             </div>
           </div>
 
@@ -1211,16 +1346,55 @@ export function DashboardOverview({
                 </div>
               </div>
 
-              {/* Date Filter Dropdown */}
-              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-[#DCE8E0] text-[11px] font-medium text-[#122A24] shadow-2xs">
-                <span>{revenueDateRange}</span>
-                <ChevronDown className="w-3 h-3 text-[#2D5A4E]/60" />
+              {/* Academic Session Date Filter Dropdown */}
+              <div className="relative" ref={revenueDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setRevenueDropdownOpen(!revenueDropdownOpen)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-[#DCE8E0] text-[11px] font-semibold text-[#122A24] shadow-2xs hover:bg-[#F4F8F5] transition-colors cursor-pointer"
+                >
+                  <span>{revenueDateRange}</span>
+                  <ChevronDown className={`w-3 h-3 text-[#2D5A4E]/60 transition-transform duration-150 ${revenueDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {revenueDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 bg-white border border-[#DCE8E0] rounded-xl shadow-xl z-50 py-1.5 min-w-[210px] text-xs font-medium animate-in fade-in zoom-in-95 duration-100">
+                    <div className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                      Academic Session 2026-27
+                    </div>
+                    {[
+                      { label: 'Apr 1 - Sep 17 (YTD)', desc: 'Session to date (Q1 + Q2)' },
+                      { label: 'Apr 1 - Jun 30 (Q1)', desc: 'Quarter 1: Admission & Tuition' },
+                      { label: 'Jul 1 - Sep 30 (Q2)', desc: 'Quarter 2: Mid-Term & Labs' },
+                      { label: 'Oct 1 - Dec 31 (Q3)', desc: 'Quarter 3: Winter Session' },
+                      { label: 'Jan 1 - Mar 31 (Q4)', desc: 'Quarter 4: CBSE Annual Exams' },
+                      { label: 'Full Session (2026-27)', desc: '1st April 2026 – 31st March 2027' }
+                    ].map(opt => (
+                      <button
+                        key={opt.label}
+                        type="button"
+                        onClick={() => {
+                          setRevenueDateRange(opt.label);
+                          setRevenueDropdownOpen(false);
+                        }}
+                        className={`w-full px-3 py-2 text-left border-none cursor-pointer flex flex-col transition-colors ${
+                          revenueDateRange === opt.label ? 'bg-[#EBF5EF] text-[#122A24]' : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className={revenueDateRange === opt.label ? 'font-bold text-[#122A24]' : 'font-medium'}>{opt.label}</span>
+                          {revenueDateRange === opt.label && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 ml-1" />}
+                        </div>
+                        <span className="text-[10px] text-gray-400 mt-0.5">{opt.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Bold Big Value */}
+            {/* Bold Big Value (Dynamic to Selected Range) */}
             <div className="text-2xl sm:text-[28px] font-bold text-[#122A24] tracking-tight my-2">
-              {totalBilled > 0 ? `₹${totalBilled.toLocaleString('en-IN')}` : '₹28,50,000'}
+              {breakdownRangeBilled > 0 ? `₹${breakdownRangeBilled.toLocaleString('en-IN')}` : '₹0'}
             </div>
 
             {/* High-Density Vertical Bars (17 Bars) */}

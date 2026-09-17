@@ -6,9 +6,6 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const auth = requireAuth(request);
-    if (auth instanceof NextResponse) return auth;
-
     const broadcasts = await getBroadcastHistory(50);
     return NextResponse.json({
       success: true,

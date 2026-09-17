@@ -761,7 +761,15 @@ export function DashboardFees({
       let annualPaid = 0;
       let examPaid = 0;
 
-      if (stu.fee_status === 'PAID') {
+      if (matchingInvoices.length > 0) {
+        const invoicePaidSum = matchingInvoices.reduce((sum, inv) => sum + (inv.paid_amount ?? (inv.status === 'PAID' ? Number(inv.amount) || 0 : 0)), 0);
+        totalPaid = Math.min(totalDue, invoicePaidSum);
+        const ratio = totalDue > 0 ? (totalPaid / totalDue) : 0;
+        tuitionPaid = Math.round(netTuitionDue * ratio);
+        transportPaid = Math.round(transportDue * ratio);
+        annualPaid = Math.round(annualDue * ratio);
+        examPaid = Math.round(examDue * ratio);
+      } else if (stu.fee_status === 'PAID') {
         totalPaid = totalDue;
         tuitionPaid = netTuitionDue;
         transportPaid = transportDue;
@@ -773,14 +781,6 @@ export function DashboardFees({
         transportPaid = Math.round(transportDue * 0.5);
         annualPaid = Math.round(annualDue * 0.5);
         examPaid = Math.round(examDue * 0.5);
-      } else if (matchingInvoices.length > 0) {
-        const invoicePaidSum = matchingInvoices.reduce((sum, inv) => sum + (inv.paid_amount ?? (inv.status === 'PAID' ? inv.amount : 0)), 0);
-        totalPaid = Math.min(totalDue, invoicePaidSum);
-        const ratio = totalDue > 0 ? (totalPaid / totalDue) : 0;
-        tuitionPaid = Math.round(netTuitionDue * ratio);
-        transportPaid = Math.round(transportDue * ratio);
-        annualPaid = Math.round(annualDue * ratio);
-        examPaid = Math.round(examDue * ratio);
       } else {
         totalPaid = 0;
       }
