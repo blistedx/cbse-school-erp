@@ -357,6 +357,53 @@ export function isSameClass(classA?: string, classB?: string): boolean {
   return normalizeClassName(classA) === normalizeClassName(classB);
 }
 
+export function isHolidayApplicableToClass(holiday: Holiday, className: string, isFaculty: boolean = false): boolean {
+  if (!holiday) return false;
+  const aud = (holiday.applicable_to || 'ALL').toUpperCase().trim();
+
+  if (isFaculty) {
+    return aud === 'ALL' || aud === 'TEACHERS_AND_STUDENTS' || aud === 'TEACHERS_ONLY' || aud === 'TEACHERS';
+  }
+
+  // Student classes
+  if (aud === 'ALL' || aud === 'STUDENTS_ONLY' || aud === 'TEACHERS_AND_STUDENTS' || aud === 'STUDENTS') {
+    return true;
+  }
+
+  const cleanClass = (className || '').toLowerCase().trim();
+  const numMatch = cleanClass.match(/\d+/);
+  const classNum = numMatch ? parseInt(numMatch[0], 10) : 0;
+  const isPrePrimary = /nursery|lkg|ukg|pg|playgroup|prep|kindergarten/i.test(cleanClass);
+
+  if (aud === 'PRE_PRIMARY') {
+    return isPrePrimary;
+  }
+  if (aud === 'PRIMARY' || aud === 'PRIMARY_ONLY') {
+    return classNum >= 1 && classNum <= 5;
+  }
+  if (aud === 'NURSERY_TO_PRIMARY') {
+    return isPrePrimary || (classNum >= 1 && classNum <= 5);
+  }
+  if (aud === 'MIDDLE') {
+    return classNum >= 6 && classNum <= 8;
+  }
+  if (aud === 'NURSERY_TO_MIDDLE') {
+    return isPrePrimary || (classNum >= 1 && classNum <= 8);
+  }
+  if (aud === 'SECONDARY') {
+    return classNum >= 9 && classNum <= 10;
+  }
+  if (aud === 'SENIOR_SECONDARY' || aud === 'SENIOR_ONLY') {
+    return classNum >= 11 && classNum <= 12;
+  }
+  if (aud.startsWith('CUSTOM:')) {
+    const list = aud.replace(/^CUSTOM:\s*/i, '').toLowerCase();
+    return list.includes(cleanClass) || isSameClass(list, cleanClass);
+  }
+
+  return true;
+}
+
 export function getClassNameRegex(className: string): RegExp {
   const norm = normalizeClassName(className);
   if (norm === 'playgroup') {
@@ -2575,18 +2622,147 @@ export const Database = {
       }
     }
 
+    // Automatically record official HOLIDAY attendance across all applicable classes & faculty
+    this.autoRecordHolidayAttendance(holiday.school_id, holiday.academic_session, holiday).catch(err => {
+      console.warn('[autoRecordHolidayAttendance background error]:', err);
+    });
+
     return holiday;
   },
 
+  async autoRecordHolidayAttendance(schoolId: string, session: string, holiday: Holiday): Promise<void> {
+    try {
+      const targetSchoolId = schoolId || 'DPS2026';
+      const targetSession = session || '2026-27';
+      const classes = await this.getClasses(targetSchoolId);
+      const students = await this.getStudents(targetSchoolId, targetSession);
+      const teachers = await this.getTeachers(targetSchoolId, targetSession);
+
+      // Generate date array from start_date to end_date
+      const curDate = new Date(holiday.start_date);
+      const endDate = new Date(holiday.end_date);
+      const dates: string[] = [];
+      while (curDate <= endDate) {
+        dates.push(curDate.toISOString().split('T')[0]);
+        curDate.setDate(curDate.getDate() + 1);
+      }
+
+      for (const dStr of dates) {
+        // 1. Process Student Classes
+        for (const cls of classes) {
+          if (!isHolidayApplicableToClass(holiday, cls.class_name, false)) continue;
+
+          const cSec = (cls.section || 'A').toUpperCase().trim();
+          const clsStudents = students.filter(s => {
+            const sSec = (s.section || 'A').toUpperCase().trim();
+            return isSameClass(s.class_name, cls.class_name) && (!cSec || !sSec || sSec === cSec);
+          });
+          const totalStu = clsStudents.length || 30;
+
+          // Check if manual attendance already exists
+          const existing = memoryStore.attendance.find(a =>
+            [targetSchoolId, 'DPS2026'].includes(a.school_id) &&
+            matchesSession(a, targetSession) &&
+            a.date === dStr &&
+            isSameClass(a.class_name, cls.class_name) &&
+            (!cSec || (a.section || 'A').toUpperCase().trim() === cSec)
+          );
+
+          // Only auto-mark if no attendance exists or if previous attendance was also a system-generated holiday
+          if (!existing || (existing.marked_by && existing.marked_by.startsWith('System (Holiday:'))) {
+            const studentRecords = clsStudents.map(s => ({
+              student_id: s.id,
+              admission_no: s.admission_no,
+              full_name: s.full_name,
+              roll_no: s.roll_no,
+              status: 'HOLIDAY' as const
+            }));
+
+            await this.recordAttendance({
+              school_id: targetSchoolId,
+              academic_session: targetSession,
+              date: dStr,
+              class_name: cls.class_name,
+              section: cls.section || 'A',
+              total_students: totalStu,
+              present_count: 0,
+              absent_count: 0,
+              leave_count: totalStu,
+              holiday_count: totalStu,
+              marked_by: `System (Holiday: ${holiday.title})`,
+              student_records: studentRecords
+            });
+          }
+        }
+
+        // 2. Process Faculty if applicable
+        if (isHolidayApplicableToClass(holiday, 'Faculty', true)) {
+          const totalTch = teachers.length || 10;
+          const existingFaculty = memoryStore.attendance.find(a =>
+            [targetSchoolId, 'DPS2026'].includes(a.school_id) &&
+            matchesSession(a, targetSession) &&
+            a.date === dStr &&
+            (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
+          );
+
+          if (!existingFaculty || (existingFaculty.marked_by && existingFaculty.marked_by.startsWith('System (Holiday:'))) {
+            const teacherRecords = teachers.map(t => ({
+              teacher_id: t.id,
+              staff_code: t.staff_code,
+              full_name: t.full_name,
+              status: 'HOLIDAY' as const
+            }));
+
+            await this.recordAttendance({
+              school_id: targetSchoolId,
+              academic_session: targetSession,
+              date: dStr,
+              class_name: 'Faculty',
+              section: 'Staff',
+              total_students: totalTch,
+              present_count: 0,
+              absent_count: 0,
+              leave_count: totalTch,
+              holiday_count: totalTch,
+              marked_by: `System (Holiday: ${holiday.title})`,
+              teacher_records: teacherRecords
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[autoRecordHolidayAttendance error]:', err);
+    }
+  },
+
   async deleteHoliday(id: string): Promise<boolean> {
+    const targetHol = Array.isArray(memoryStore.holidays) ? memoryStore.holidays.find(h => h.id === id) : null;
+    
     try {
       const db = await getDatabase();
       if (db) {
         await db.collection('holidays').deleteOne({ id });
+        if (targetHol) {
+          const holTag = `System (Holiday: ${targetHol.title})`;
+          await db.collection('attendance').deleteMany({
+            marked_by: holTag,
+            date: { $gte: targetHol.start_date, $lte: targetHol.end_date }
+          });
+        }
       }
     } catch (e) {}
 
     invalidateServerCache('holidays');
+
+    if (targetHol) {
+      const holTag = `System (Holiday: ${targetHol.title})`;
+      memoryStore.attendance = (memoryStore.attendance || []).filter(a => {
+        const isTargetHol = a.marked_by === holTag && a.date >= targetHol.start_date && a.date <= targetHol.end_date;
+        return !isTargetHol;
+      });
+      invalidateServerCache('attendance');
+      invalidateServerCache('overview');
+    }
 
     if (Array.isArray(memoryStore.holidays)) {
       const idx = memoryStore.holidays.findIndex(h => h.id === id);

@@ -68,6 +68,53 @@ export function isSameClass(classA?: string, classB?: string): boolean {
   return normalizeClassName(classA) === normalizeClassName(classB);
 }
 
+export function isHolidayApplicableToClass(holiday: Holiday | null, className: string, isFaculty: boolean = false): boolean {
+  if (!holiday) return false;
+  const aud = (holiday.applicable_to || 'ALL').toUpperCase().trim();
+
+  if (isFaculty) {
+    return aud === 'ALL' || aud === 'TEACHERS_AND_STUDENTS' || aud === 'TEACHERS_ONLY' || aud === 'TEACHERS';
+  }
+
+  // Student classes
+  if (aud === 'ALL' || aud === 'STUDENTS_ONLY' || aud === 'TEACHERS_AND_STUDENTS' || aud === 'STUDENTS') {
+    return true;
+  }
+
+  const cleanClass = (className || '').toLowerCase().trim();
+  const numMatch = cleanClass.match(/\d+/);
+  const classNum = numMatch ? parseInt(numMatch[0], 10) : 0;
+  const isPrePrimary = /nursery|lkg|ukg|pg|playgroup|prep|kindergarten/i.test(cleanClass);
+
+  if (aud === 'PRE_PRIMARY') {
+    return isPrePrimary;
+  }
+  if (aud === 'PRIMARY' || aud === 'PRIMARY_ONLY') {
+    return classNum >= 1 && classNum <= 5;
+  }
+  if (aud === 'NURSERY_TO_PRIMARY') {
+    return isPrePrimary || (classNum >= 1 && classNum <= 5);
+  }
+  if (aud === 'MIDDLE') {
+    return classNum >= 6 && classNum <= 8;
+  }
+  if (aud === 'NURSERY_TO_MIDDLE') {
+    return isPrePrimary || (classNum >= 1 && classNum <= 8);
+  }
+  if (aud === 'SECONDARY') {
+    return classNum >= 9 && classNum <= 10;
+  }
+  if (aud === 'SENIOR_SECONDARY' || aud === 'SENIOR_ONLY') {
+    return classNum >= 11 && classNum <= 12;
+  }
+  if (aud.startsWith('CUSTOM:')) {
+    const list = aud.replace(/^CUSTOM:\s*/i, '').toLowerCase();
+    return list.includes(cleanClass) || isSameClass(list, cleanClass);
+  }
+
+  return true;
+}
+
 interface DashboardAttendanceProps {
   selectedSchool: School | null;
   students: Student[];
@@ -397,6 +444,18 @@ export function DashboardAttendance({
     return selectableClasses.find(c => c.id === selectedClassId) || selectableClasses[0] || null;
   }, [selectableClasses, selectedClassId]);
 
+  const activeDateHoliday = useMemo(() => {
+    return getHolidayForDate(attendanceDate);
+  }, [getHolidayForDate, attendanceDate]);
+
+  const isCurrentTargetHoliday = useMemo(() => {
+    if (!activeDateHoliday) return false;
+    if (attendanceType === 'FACULTY') {
+      return isHolidayApplicableToClass(activeDateHoliday, 'Faculty', true);
+    }
+    return isHolidayApplicableToClass(activeDateHoliday, selectedClass?.class_name || '', false);
+  }, [activeDateHoliday, attendanceType, selectedClass]);
+
   const classStudents = useMemo(() => {
     if (!selectedClass) return [];
     const cSec = (selectedClass.section || '').toLowerCase().trim();
@@ -433,8 +492,13 @@ export function DashboardAttendance({
     if (loadedContextKeyRef.current === currentContextKey) return;
     loadedContextKeyRef.current = currentContextKey;
 
+    const activeHol = getHolidayForDate(attendanceDate);
+
     if (attendanceType === 'STUDENT') {
+      const isHol = activeHol ? isHolidayApplicableToClass(activeHol, selectedClass?.class_name || '', false) : false;
+      const defaultStatus = isHol ? 'HOLIDAY' : 'PRESENT';
       const initialMap: Record<string, 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE'> = {};
+
       if (match && Array.isArray((match as any).student_records) && (match as any).student_records.length > 0) {
         classStudents.forEach(stu => {
           const rec = (match as any).student_records.find((r: any) => 
@@ -442,22 +506,29 @@ export function DashboardAttendance({
             (r.admission_no && stu.admission_no && r.admission_no.trim().toUpperCase() === stu.admission_no.trim().toUpperCase()) ||
             (r.full_name && stu.full_name && r.full_name.trim().toLowerCase() === stu.full_name.trim().toLowerCase())
           );
-          initialMap[stu.id] = rec ? (rec.status === 'LEAVE' ? 'HOLIDAY' : rec.status) : 'PRESENT';
+          initialMap[stu.id] = rec ? (rec.status === 'LEAVE' ? 'HOLIDAY' : rec.status) : defaultStatus;
+        });
+      } else if (match && (Number(match.holiday_count) || 0) > 0 && (Number(match.present_count) || 0) === 0) {
+        classStudents.forEach(stu => {
+          initialMap[stu.id] = 'HOLIDAY';
         });
       } else if (match && (Number(match.absent_count) || 0) > 0) {
         const absCount = Number(match.absent_count) || 0;
         classStudents.forEach((stu, idx) => {
-          initialMap[stu.id] = idx >= (classStudents.length - absCount) ? 'ABSENT' : 'PRESENT';
+          initialMap[stu.id] = idx >= (classStudents.length - absCount) ? 'ABSENT' : defaultStatus;
         });
       } else {
         classStudents.forEach(stu => {
-          initialMap[stu.id] = 'PRESENT';
+          initialMap[stu.id] = defaultStatus;
         });
       }
       setStudentStatuses(initialMap);
     } else {
       // Faculty Roll Call
+      const isHol = activeHol ? isHolidayApplicableToClass(activeHol, 'Faculty', true) : false;
+      const defaultStatus = isHol ? 'HOLIDAY' : 'PRESENT';
       const initialMap: Record<string, 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE'> = {};
+
       if (match && Array.isArray((match as any).teacher_records) && (match as any).teacher_records.length > 0) {
         teachers.forEach(t => {
           const rec = (match as any).teacher_records.find((r: any) => 
@@ -465,21 +536,25 @@ export function DashboardAttendance({
             (r.staff_code && t.staff_code && r.staff_code.trim().toUpperCase() === t.staff_code.trim().toUpperCase()) ||
             (r.full_name && t.full_name && r.full_name.trim().toLowerCase() === t.full_name.trim().toLowerCase())
           );
-          initialMap[t.id] = rec ? (rec.status === 'LEAVE' ? 'HOLIDAY' : rec.status) : 'PRESENT';
+          initialMap[t.id] = rec ? (rec.status === 'LEAVE' ? 'HOLIDAY' : rec.status) : defaultStatus;
+        });
+      } else if (match && (Number(match.holiday_count) || 0) > 0 && (Number(match.present_count) || 0) === 0) {
+        teachers.forEach(t => {
+          initialMap[t.id] = 'HOLIDAY';
         });
       } else if (match && (Number(match.absent_count) || 0) > 0) {
         const absCount = Number(match.absent_count) || 0;
         teachers.forEach((t, idx) => {
-          initialMap[t.id] = idx >= (teachers.length - absCount) ? 'ABSENT' : 'PRESENT';
+          initialMap[t.id] = idx >= (teachers.length - absCount) ? 'ABSENT' : defaultStatus;
         });
       } else {
         teachers.forEach(t => {
-          initialMap[t.id] = 'PRESENT';
+          initialMap[t.id] = defaultStatus;
         });
       }
       setStudentStatuses(initialMap);
     }
-  }, [selectedClass, attendanceDate, attendanceType, classStudents, teachers, effectiveAttendance]);
+  }, [selectedClass, attendanceDate, attendanceType, classStudents, teachers, effectiveAttendance, getHolidayForDate]);
 
 
   const handleStatusChange = (id: string, status: 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE') => {
@@ -683,9 +758,6 @@ export function DashboardAttendance({
   const rosterTurnoutPercent = currentRosterList.length > 0
     ? Math.round((presentCount / currentRosterList.length) * 100)
     : 0;
-
-  // Selected date holiday status
-  const activeDateHoliday = useMemo(() => getHolidayForDate(attendanceDate), [getHolidayForDate, attendanceDate]);
 
   // Check if roll call is recorded for current roster and date
   const isRosterDateMarked = useMemo(() => {
@@ -1346,21 +1418,46 @@ export function DashboardAttendance({
             <>
             {/* Holiday Alert Notification Banner if active date is declared holiday */}
             {activeDateHoliday && (
-              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
-                <div className="flex items-center gap-3">
-                  <Palmtree className="h-5 w-5 text-amber-700 shrink-0" />
+              <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-900 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-amber-100 text-amber-800 shrink-0">
+                    <Palmtree className="h-5 w-5 text-amber-700" />
+                  </div>
                   <div>
-                    <div className="font-bold text-xs sm:text-sm">
-                      Official Holiday Declared: {activeDateHoliday.title} ({activeDateHoliday.start_date} to {activeDateHoliday.end_date})
+                    <div className="font-bold text-xs sm:text-sm flex flex-wrap items-center gap-2">
+                      <span>🌴 Official Holiday: {activeDateHoliday.title}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-200/80 text-amber-900 border border-amber-400">
+                        {activeDateHoliday.category}
+                      </span>
                     </div>
-                    <div className="text-[11px] font-mono text-amber-800">
-                      Applicable For: <span className="font-bold">{(activeDateHoliday.applicable_to || 'ALL').replace(/_/g, ' ')}</span> • Reason: {activeDateHoliday.reason}
+                    <div className="text-[11px] font-medium text-amber-800/90 mt-0.5">
+                      {isCurrentTargetHoliday ? (
+                        <>✨ Attendance is <strong>auto-marked as HOLIDAY</strong> for all members. If conducting an extra class or special session, change statuses below and click <strong>&quot;Save Attendance&quot;</strong> to overwrite.</>
+                      ) : (
+                        <>Holiday applies to: <span className="font-bold">{(activeDateHoliday.applicable_to || 'ALL').replace(/_/g, ' ')}</span></>
+                      )}
                     </div>
                   </div>
                 </div>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-200/80 text-amber-900 border border-amber-400 shrink-0">
-                  {activeDateHoliday.category}
-                </span>
+                {isCurrentTargetHoliday && (
+                  <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                    <button
+                      type="button"
+                      onClick={() => handleMarkAll('PRESENT')}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer border-none"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>Conduct Class (Mark All Present)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMarkAll('HOLIDAY')}
+                      className="px-3 py-1.5 rounded-xl bg-amber-200 hover:bg-amber-300 text-amber-900 text-xs font-bold transition-all border border-amber-400 cursor-pointer"
+                    >
+                      <span>Reset to Holiday</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
