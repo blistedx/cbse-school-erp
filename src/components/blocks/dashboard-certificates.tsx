@@ -722,10 +722,8 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
   const [signatoryTitle, setSignatoryTitle] = useState<string>('Principal / Head of School');
   const [customRemarks, setCustomRemarks] = useState<string>('');
 
-  // Modals & QR Scan Simulator
+  // Modals
   const [previewOpen, setPreviewOpen] = useState<boolean>(false);
-  const [qrScanModalStudent, setQrScanModalStudent] = useState<Student | null>(null);
-  const [scanSuccessMessage, setScanSuccessMessage] = useState<string>('');
 
   // Unique Chronologically Sorted Class Names
   const uniqueClasses = useMemo(() => {
@@ -836,7 +834,6 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
   const [activeQrDataUrl, setActiveQrDataUrl] = useState<string>('');
   const [bulkQrDataUrls, setBulkQrDataUrls] = useState<Record<string, string>>({});
   const [imgLoadError, setImgLoadError] = useState(false);
-  const [isScanningQr, setIsScanningQr] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoToast, setPhotoToast] = useState<string | null>(null);
   const photoFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1043,52 +1040,6 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
         }, 3000);
       }
     }, 500);
-  };
-
-  // Real Auto-Attendance QR Scan Execution
-  const handleTestScanAttendance = async (student: Student) => {
-    setIsScanningQr(true);
-    const sch = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
-    try {
-      const res = await fetch('/api/attendance/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          student_id: student.id,
-          admission_no: student.admission_no,
-          school_id: sch,
-          academic_session: selectedSession
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setQrScanModalStudent(student);
-        setScanSuccessMessage(
-          `✅ Attendance Marked PRESENT for Today (${data.attendance_summary?.date || new Date().toISOString().split('T')[0]})!\n\n` +
-          `• Scholar: ${student.full_name} (${student.admission_no || student.id})\n` +
-          `• Class & Section: ${student.class_name} - ${student.section || 'A'} (Roll #${student.roll_no || '1'})\n` +
-          `• Scan Time: ${data.attendance_summary?.time || new Date().toLocaleTimeString()}\n` +
-          `• Turnout Status: PRESENT (Recorded in Official Database)\n` +
-          `• Class Turnout: ${data.attendance_summary?.total_present} / ${data.attendance_summary?.total_students} Scholars Present\n` +
-          `• Verification: Biometric QR Check-In Authorized by CBSE Cloud Engine`
-        );
-      } else {
-        setQrScanModalStudent(student);
-        setScanSuccessMessage(`⚠️ Attendance Verification Alert: ${data.error || 'Could not log attendance'}`);
-      }
-    } catch (err: any) {
-      setQrScanModalStudent(student);
-      setScanSuccessMessage(`⚠️ Network Error: ${err?.message || 'Failed to communicate with attendance server'}`);
-    } finally {
-      setIsScanningQr(false);
-    }
-  };
-
-  // Helper to generate the exact verification payload URL
-  const getAttendancePayload = (s: Student) => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const sch = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
-    return `${origin}/verify/id?student_id=${encodeURIComponent(s.id)}&admission_no=${encodeURIComponent(s.admission_no || s.id)}&school_id=${encodeURIComponent(sch)}&session=${encodeURIComponent(selectedSession)}&type=STUDENT`;
   };
 
   return (
@@ -1863,31 +1814,6 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                     )}
                   </div>
 
-                  {/* QR Scan Simulator & Live Camera Scan Buttons */}
-                  {targetType === 'STUDENT' && activeStudent && (
-                    <div className="flex flex-wrap items-center gap-2 justify-center">
-                      <button
-                        type="button"
-                        onClick={() => handleTestScanAttendance(activeStudent)}
-                        disabled={isScanningQr}
-                        className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm border-none cursor-pointer flex items-center gap-2 transition-all disabled:opacity-50"
-                      >
-                        {isScanningQr ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ScanLine className="w-4 h-4" />}
-                        <span>{isScanningQr ? 'Marking Attendance in Database...' : '⚡ Test Scan QR (Mark Attendance)'}</span>
-                      </button>
-
-                      <a
-                        href="/attendance/scan"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-4 py-2.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold shadow-sm border-none cursor-pointer flex items-center gap-2 transition-all no-underline"
-                      >
-                        <Camera className="w-4 h-4 text-emerald-400" />
-                        <span>📷 Open Live Camera Gate Scanner</span>
-                      </a>
-                    </div>
-                  )}
-
                 </div>
               )}
 
@@ -1917,49 +1843,6 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
         </div>
 
       </div>
-
-      {/* ─────────────────────────────────────────────────────────────
-          3. QR AUTO-ATTENDANCE SCAN MODAL SIMULATOR
-          ───────────────────────────────────────────────────────────── */}
-      {qrScanModalStudent && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 relative space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">
-              <div className="flex items-center gap-2">
-                <ScanLine className="w-5 h-5 text-emerald-600" />
-                <h3 className="font-display font-bold text-base text-[#122A24]">QR Attendance Scan Result</h3>
-              </div>
-              <button
-                onClick={() => setQrScanModalStudent(null)}
-                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 border-none cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-[#EBF5EF] border border-[#C5E2CF] space-y-2">
-              <div className="flex items-center gap-2 text-emerald-900 font-bold text-sm">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <span>Attendance Logged in Database</span>
-              </div>
-              <pre className="text-xs font-mono text-emerald-950 whitespace-pre-wrap leading-relaxed">
-                {scanSuccessMessage}
-              </pre>
-            </div>
-
-            <div className="text-[11px] font-mono text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-200 break-all select-all">
-              Payload: {getAttendancePayload(qrScanModalStudent)}
-            </div>
-
-            <button
-              onClick={() => setQrScanModalStudent(null)}
-              className="w-full py-2.5 rounded-xl bg-[#122A24] text-white font-bold text-xs border-none cursor-pointer hover:bg-[#1C443A]"
-            >
-              Done / Close Scanner
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ─────────────────────────────────────────────────────────────
           4. BULK & SINGLE PRINT MODAL (OPTIMIZED FOR CLEAN A4 PRINTING)

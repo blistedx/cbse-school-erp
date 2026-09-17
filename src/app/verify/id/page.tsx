@@ -271,7 +271,7 @@ function VerifyIdContent() {
           <div className="p-3 bg-[#EBF5EF] rounded-xl border border-[#C5E2CF] flex items-start gap-2.5 text-[11px] text-emerald-950 leading-relaxed font-sans">
             <Lock className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
             <div>
-              <strong>Certified Digital Identity Record.</strong> Normal QR scan displays verified scholar details only. To record campus attendance, use the official School Gatekeeper Terminal.
+              <strong>Certified Institutional Identity Record.</strong> This digital credential is authenticated by the central CBSE school registry.
             </div>
           </div>
 
@@ -281,25 +281,6 @@ function VerifyIdContent() {
             <span>{school.email}</span>
           </div>
 
-        </div>
-
-        {/* Staff Gate Scanner Access Button */}
-        <div className="pt-2 flex flex-col gap-2">
-          <a
-            href="/attendance/scan"
-            className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md border-none flex items-center justify-center gap-2 no-underline transition-colors"
-          >
-            <ScanLine className="w-4 h-4 text-emerald-200" />
-            <span>Open Staff ERP Attendance Gate Scanner</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </a>
-
-          <a
-            href="/app"
-            className="w-full py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-slate-300 font-bold text-xs border border-white/10 flex items-center justify-center gap-2 no-underline transition-colors"
-          >
-            <span>Return to ERP Dashboard</span>
-          </a>
         </div>
 
       </main>
