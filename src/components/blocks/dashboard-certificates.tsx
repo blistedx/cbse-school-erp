@@ -35,10 +35,7 @@ import {
   Barcode,
   IdCard,
   Palette,
-  GraduationCap,
-  Camera,
-  Upload,
-  Image as ImageIcon
+  GraduationCap
 } from 'lucide-react';
 import { School, Student, Teacher, ClassRoom } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
@@ -833,9 +830,6 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
   const [activeQrDataUrl, setActiveQrDataUrl] = useState<string>('');
   const [bulkQrDataUrls, setBulkQrDataUrls] = useState<Record<string, string>>({});
   const [imgLoadError, setImgLoadError] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [photoToast, setPhotoToast] = useState<string | null>(null);
-  const photoFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Generate real scannable QR Code Data URL for active ID card preview (High-res 400px points to Verification Portal)
   useEffect(() => {
@@ -911,49 +905,6 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
     if (!name) return 'ID';
     return name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
   }, [targetType, activeStudent, activeTeacher]);
-
-  // Direct Photo Upload for ID Card
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const isStudent = targetType === 'STUDENT';
-    const target = isStudent ? activeStudent : activeTeacher;
-    if (!target) return;
-
-    try {
-      setUploadingPhoto(true);
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result as string;
-        const endpoint = isStudent ? '/api/students' : '/api/teachers';
-        const sch = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
-
-        const res = await fetch(endpoint, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: target.id,
-            photo: base64,
-            avatar: base64,
-            school_id: sch
-          })
-        });
-        const data = await res.json();
-        if (data.success) {
-          (target as any).photo = base64;
-          (target as any).avatar = base64;
-          setImgLoadError(false);
-          setPhotoToast(`Picture attached to ${target.full_name}'s ID card!`);
-          setTimeout(() => setPhotoToast(null), 3500);
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (err: any) {
-      console.error('Photo upload error:', err);
-    } finally {
-      setUploadingPhoto(false);
-    }
-  };
 
   const handlePrint = () => {
     let content = document.getElementById('printable-id-card-content');
@@ -1662,18 +1613,9 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                         </div>
                       </div>
 
-                      {/* Hidden Photo Upload File Input */}
-                      <input
-                        type="file"
-                        ref={photoFileInputRef}
-                        accept="image/*"
-                        onChange={handlePhotoUpload}
-                        className="hidden"
-                      />
-
                       {/* Photo & Identity Banner */}
                       <div className="flex flex-col items-center my-1">
-                        <div className="relative group">
+                        <div className="relative">
                           <div className="w-22 h-26 rounded-xl bg-slate-100 border-2 border-[#122A24] shadow-sm flex flex-col items-center justify-center text-slate-400 font-mono font-bold text-xs overflow-hidden relative">
                             {activePhoto && !imgLoadError ? (
                               <img
@@ -1692,24 +1634,6 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                                 </span>
                               </div>
                             )}
-
-                            {/* Upload/Change Photo Hover Action */}
-                            <button
-                              type="button"
-                              onClick={() => photoFileInputRef.current?.click()}
-                              disabled={uploadingPhoto}
-                              title="Upload Picture for ID Card"
-                              className="absolute inset-0 bg-[#122A24]/75 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 cursor-pointer border-none"
-                            >
-                              {uploadingPhoto ? (
-                                <RefreshCw className="w-4 h-4 animate-spin text-emerald-300" />
-                              ) : (
-                                <>
-                                  <Camera className="w-4 h-4 text-emerald-300" />
-                                  <span className="text-[7.5px] font-mono font-bold">CHANGE</span>
-                                </>
-                              )}
-                            </button>
                           </div>
 
                           <span className="absolute -bottom-1.5 -right-1.5 px-2 py-0.5 bg-emerald-700 text-white text-[8.5px] font-mono font-bold rounded-full shadow-xs">

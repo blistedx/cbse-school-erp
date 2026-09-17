@@ -21,6 +21,9 @@ import {
   FileCheck,
   Sparkles,
   ArrowRight,
+  Filter,
+  RotateCcw,
+  CalendarDays,
   X
 } from 'lucide-react';
 import { School, Student, VisitorEntry, StudentGatePass } from '@/lib/types';
@@ -34,6 +37,33 @@ export interface DashboardVisitorGateProps {
   showAdminToast?: (msg: string) => void;
 }
 
+const getTodayIso = () => new Date().toISOString().split('T')[0];
+
+const getYesterdayIso = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split('T')[0];
+};
+
+const formatDisplayDate = (dStr?: string) => {
+  if (!dStr) return '-';
+  try {
+    const parts = dStr.split('-');
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      const dt = new Date(y, m, d);
+      if (!isNaN(dt.getTime())) {
+        return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+    }
+    return dStr;
+  } catch {
+    return dStr;
+  }
+};
+
 export function DashboardVisitorGate({
   selectedSchool,
   students = [],
@@ -42,6 +72,10 @@ export function DashboardVisitorGate({
 }: DashboardVisitorGateProps) {
   const [activeTab, setActiveTab] = useState<'visitors' | 'gatepass'>('visitors');
   const [visitorSearch, setVisitorSearch] = useState('');
+  const [gatePassSearch, setGatePassSearch] = useState('');
+
+  // Date Filter State ('ALL' or 'YYYY-MM-DD')
+  const [filterDate, setFilterDate] = useState<string>(getTodayIso());
 
   // Modals
   const [showCheckInModal, setShowCheckInModal] = useState(false);
@@ -54,6 +88,7 @@ export function DashboardVisitorGate({
   const [whomToMeet, setWhomToMeet] = useState('Principal / Vice Principal');
   const [visitorPurpose, setVisitorPurpose] = useState('Academic Progress & Fee Verification');
   const [badgeNo, setBadgeNo] = useState('V-12');
+  const [visitorDate, setVisitorDate] = useState<string>(getTodayIso());
 
   // New Student Gate Pass Form State with Class & Section Filters
   const [gateFilterClass, setGateFilterClass] = useState<string>('ALL');
@@ -65,6 +100,7 @@ export function DashboardVisitorGate({
   const [escortRelation, setEscortRelation] = useState('Father / Legal Guardian');
   const [passReason, setPassReason] = useState('Sudden Medical Illness (Infirmary Referral)');
   const [authorizedBy, setAuthorizedBy] = useState('Vice Principal / Academic Incharge');
+  const [gatePassDate, setGatePassDate] = useState<string>(getTodayIso());
 
   // Available Classes and Sections
   const availableClasses = useMemo(() => {
@@ -114,7 +150,7 @@ export function DashboardVisitorGate({
       badge_no: 'V-01',
       in_time: '09:15 AM',
       status: 'CHECKED_IN',
-      date: new Date().toISOString().split('T')[0]
+      date: getTodayIso()
     },
     {
       id: 'VIS-02',
@@ -126,7 +162,31 @@ export function DashboardVisitorGate({
       in_time: '09:45 AM',
       out_time: '10:30 AM',
       status: 'CHECKED_OUT',
-      date: new Date().toISOString().split('T')[0]
+      date: getTodayIso()
+    },
+    {
+      id: 'VIS-03',
+      visitor_name: 'Mrs. Sunita Verma',
+      phone: '9822334455',
+      whom_to_meet: 'Class Teacher (Class 8-B)',
+      purpose: 'Parent-Teacher Academic Feedback',
+      badge_no: 'V-03',
+      in_time: '11:00 AM',
+      out_time: '11:40 AM',
+      status: 'CHECKED_OUT',
+      date: getYesterdayIso()
+    },
+    {
+      id: 'VIS-04',
+      visitor_name: 'Amitabh Sen',
+      phone: '9833445566',
+      whom_to_meet: 'Transport / Bus Incharge',
+      purpose: 'Route Modification & Bus Pass Renewal',
+      badge_no: 'V-04',
+      in_time: '02:15 PM',
+      out_time: '02:50 PM',
+      status: 'CHECKED_OUT',
+      date: getYesterdayIso()
     }
   ]);
 
@@ -146,29 +206,73 @@ export function DashboardVisitorGate({
       authorized_by: 'Head of School / Vice Principal',
       issued_at: '11:15 AM',
       status: 'DEPARTED',
-      date: new Date().toISOString().split('T')[0]
+      date: getTodayIso()
+    },
+    {
+      id: 'GP-02',
+      pass_no: 'GP-2026-0398',
+      student_id: students[1]?.id || 'STU-02',
+      student_name: students[1]?.full_name || 'Diya Patel',
+      class_name: students[1]?.class_name || 'Class 9',
+      section: students[1]?.section || 'B',
+      parent_name: 'Mrs. Meena Patel',
+      parent_phone: '9899001122',
+      escort_relation: 'Mother',
+      reason: 'Doctor / Specialist Medical Appointment',
+      authorized_by: 'Senior Wing Coordinator',
+      issued_at: '01:30 PM',
+      status: 'DEPARTED',
+      date: getYesterdayIso()
     }
   ]);
 
-  // KPIs
-  const totalVisitorsToday = visitors.length;
-  const currentlyInside = visitors.filter(v => v.status === 'CHECKED_IN').length;
-  const totalCheckedOut = visitors.filter(v => v.status === 'CHECKED_OUT').length;
-  const totalEarlyPasses = gatePasses.length;
+  // Dynamically scoped data based on selected filter date
+  const displayedVisitors = useMemo(() => {
+    return filterDate === 'ALL' ? visitors : visitors.filter(v => v.date === filterDate);
+  }, [visitors, filterDate]);
 
-  // Filtered Visitors
+  const displayedGatePasses = useMemo(() => {
+    return filterDate === 'ALL' ? gatePasses : gatePasses.filter(p => p.date === filterDate);
+  }, [gatePasses, filterDate]);
+
+  // KPIs based on active filter date selection
+  const totalVisitorsCount = displayedVisitors.length;
+  const currentlyInsideCount = displayedVisitors.filter(v => v.status === 'CHECKED_IN').length;
+  const totalCheckedOutCount = displayedVisitors.filter(v => v.status === 'CHECKED_OUT').length;
+  const totalEarlyPassesCount = displayedGatePasses.length;
+
+  // Filtered Visitors with Text Search + Date Filter
   const filteredVisitors = useMemo(() => {
     return visitors.filter(v => {
+      const matchDate = filterDate === 'ALL' || !filterDate || v.date === filterDate;
       const q = visitorSearch.toLowerCase().trim();
-      return (
+      const matchSearch =
         !q ||
         v.visitor_name.toLowerCase().includes(q) ||
         v.phone.includes(q) ||
         v.whom_to_meet.toLowerCase().includes(q) ||
-        v.badge_no.toLowerCase().includes(q)
-      );
+        v.badge_no.toLowerCase().includes(q) ||
+        (v.date && v.date.includes(q));
+      return matchDate && matchSearch;
     });
-  }, [visitors, visitorSearch]);
+  }, [visitors, visitorSearch, filterDate]);
+
+  // Filtered Gate Passes with Text Search + Date Filter
+  const filteredGatePasses = useMemo(() => {
+    return gatePasses.filter(p => {
+      const matchDate = filterDate === 'ALL' || !filterDate || p.date === filterDate;
+      const q = gatePassSearch.toLowerCase().trim();
+      const matchSearch =
+        !q ||
+        p.student_name.toLowerCase().includes(q) ||
+        p.pass_no.toLowerCase().includes(q) ||
+        p.parent_name.toLowerCase().includes(q) ||
+        p.parent_phone.includes(q) ||
+        p.class_name.toLowerCase().includes(q) ||
+        (p.date && p.date.includes(q));
+      return matchDate && matchSearch;
+    });
+  }, [gatePasses, gatePassSearch, filterDate]);
 
   // Check In Visitor
   const handleCheckInVisitor = (e: React.FormEvent) => {
@@ -177,6 +281,7 @@ export function DashboardVisitorGate({
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const entryDate = visitorDate || getTodayIso();
 
     const newV: VisitorEntry = {
       id: `VIS-${Date.now().toString().slice(-4)}`,
@@ -187,12 +292,12 @@ export function DashboardVisitorGate({
       badge_no: badgeNo || `V-${visitors.length + 1}`,
       in_time: timeStr,
       status: 'CHECKED_IN',
-      date: now.toISOString().split('T')[0]
+      date: entryDate
     };
 
     setVisitors(prev => [newV, ...prev]);
     setShowCheckInModal(false);
-    if (showAdminToast) showAdminToast(`Visitor "${visitorName}" checked in (Badge ${newV.badge_no})`);
+    if (showAdminToast) showAdminToast(`Visitor "${visitorName}" checked in (Badge ${newV.badge_no}) for ${formatDisplayDate(entryDate)}`);
   };
 
   // Check Out Visitor
@@ -215,6 +320,7 @@ export function DashboardVisitorGate({
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     const passNo = `GP-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const passD = gatePassDate || getTodayIso();
 
     const newPass: StudentGatePass = {
       id: `GP-${Date.now().toString().slice(-4)}`,
@@ -230,13 +336,13 @@ export function DashboardVisitorGate({
       authorized_by: authorizedBy,
       issued_at: timeStr,
       status: 'ISSUED',
-      date: now.toISOString().split('T')[0]
+      date: passD
     };
 
     setGatePasses(prev => [newPass, ...prev]);
     setShowGatePassModal(false);
     setSelectedPassForPrint(newPass);
-    if (showAdminToast) showAdminToast(`Gate Pass ${passNo} generated for ${st.full_name}`);
+    if (showAdminToast) showAdminToast(`Gate Pass ${passNo} generated for ${st.full_name} (${formatDisplayDate(passD)})`);
   };
 
   // Mark Student Departed
@@ -257,6 +363,7 @@ export function DashboardVisitorGate({
       `Your ward has safely departed the school campus via Security Main Gate:\n` +
       `👤 *Scholar:* ${pass.student_name} (${pass.class_name} - ${pass.section})\n` +
       `🎫 *Gate Pass No:* ${pass.pass_no}\n` +
+      `📅 *Date:* ${formatDisplayDate(pass.date)}\n` +
       `⏰ *Departure Time:* ${pass.issued_at}\n` +
       `🤝 *Escorted By:* ${pass.parent_name} (${pass.escort_relation})\n` +
       `📋 *Reason:* ${pass.reason}\n` +
@@ -266,6 +373,9 @@ export function DashboardVisitorGate({
 
     openWhatsAppDirect(phone, text);
   };
+
+  const todayIso = getTodayIso();
+  const yesterdayIso = getYesterdayIso();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -290,7 +400,7 @@ export function DashboardVisitorGate({
             <ShieldCheck className="w-6 h-6 text-amber-700" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="font-display font-bold text-lg text-[#122A24]">
                 Smart Gate Pass &amp; Visitor Security Desk
               </h2>
@@ -307,7 +417,10 @@ export function DashboardVisitorGate({
         <div className="flex items-center gap-2 flex-wrap relative z-10">
           <button
             type="button"
-            onClick={() => setShowGatePassModal(true)}
+            onClick={() => {
+              setGatePassDate(getTodayIso());
+              setShowGatePassModal(true);
+            }}
             className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors border-none cursor-pointer"
           >
             <UserCheck className="w-4 h-4 text-amber-400" />
@@ -316,7 +429,10 @@ export function DashboardVisitorGate({
 
           <button
             type="button"
-            onClick={() => setShowCheckInModal(true)}
+            onClick={() => {
+              setVisitorDate(getTodayIso());
+              setShowCheckInModal(true);
+            }}
             className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors border-none cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -332,14 +448,21 @@ export function DashboardVisitorGate({
         <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/70 relative z-10">
-          {/* Tile 1: Today's Visitors */}
+          {/* Tile 1: Filtered Date Visitors */}
           <div className="sm:pr-4 group select-none">
-            <div className="flex items-center gap-2 text-emerald-300">
-              <Users className="w-4 h-4 shrink-0 text-emerald-400" />
-              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Today's Visitors</span>
+            <div className="flex items-center justify-between text-emerald-300">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">
+                  {filterDate === 'ALL' ? 'Total Visitors (All)' : filterDate === todayIso ? "Today's Visitors" : 'Date Visitors'}
+                </span>
+              </div>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-emerald-300">
+                {filterDate === 'ALL' ? 'All Dates' : formatDisplayDate(filterDate)}
+              </span>
             </div>
             <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-              {totalVisitorsToday} <span className="text-xs font-mono text-emerald-300/70 font-normal">Entries</span>
+              {totalVisitorsCount} <span className="text-xs font-mono text-emerald-300/70 font-normal">Entries</span>
             </div>
             <div className="text-[11px] font-mono text-emerald-300 mt-1 flex items-center gap-1.5">
               <span>CBSE Campus Access Protocols</span>
@@ -353,8 +476,8 @@ export function DashboardVisitorGate({
               <span className="text-xs sm:text-[13px] font-medium text-amber-200/90">Present On Campus</span>
             </div>
             <div className="text-2xl sm:text-[28px] font-bold text-amber-300 tracking-tight mt-2 font-sans flex items-center gap-2">
-              <span>{currentlyInside}</span>
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+              <span>{currentlyInsideCount}</span>
+              {currentlyInsideCount > 0 && <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />}
             </div>
             <div className="text-[11px] font-mono text-amber-300/80 mt-1 flex items-center gap-1.5">
               <span>Active Security Badges</span>
@@ -368,7 +491,7 @@ export function DashboardVisitorGate({
               <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Completed Visits</span>
             </div>
             <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-              {totalCheckedOut} <span className="text-xs font-mono text-emerald-300/70 font-normal">Departed</span>
+              {totalCheckedOutCount} <span className="text-xs font-mono text-emerald-300/70 font-normal">Departed</span>
             </div>
             <div className="text-[11px] font-mono text-emerald-300/70 mt-1 flex items-center gap-1.5">
               <span>Time-Stamped Exit Logged</span>
@@ -377,12 +500,17 @@ export function DashboardVisitorGate({
 
           {/* Tile 4: Early Dispersal Passes */}
           <div className="pt-4 sm:pt-0 sm:pl-4 group select-none">
-            <div className="flex items-center gap-2 text-purple-300">
-              <QrCode className="w-4 h-4 shrink-0 text-purple-400" />
-              <span className="text-xs sm:text-[13px] font-medium text-purple-200/90">Early Gate Passes</span>
+            <div className="flex items-center justify-between text-purple-300">
+              <div className="flex items-center gap-2">
+                <QrCode className="w-4 h-4 shrink-0 text-purple-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-purple-200/90">Early Gate Passes</span>
+              </div>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-purple-300">
+                {filterDate === 'ALL' ? 'All Dates' : formatDisplayDate(filterDate)}
+              </span>
             </div>
             <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-              {totalEarlyPasses} <span className="text-xs font-mono text-slate-300 font-normal">Issued</span>
+              {totalEarlyPassesCount} <span className="text-xs font-mono text-slate-300 font-normal">Issued</span>
             </div>
             <div className="text-[11px] font-mono text-purple-300 mt-1 flex items-center gap-1.5">
               <span>Parent Verified Dispersal</span>
@@ -391,39 +519,112 @@ export function DashboardVisitorGate({
         </div>
       </div>
 
-      {/* Tab Switcher: Visitors vs Early Dispersal Passes */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs max-w-xl">
-        <button
-          type="button"
-          onClick={() => setActiveTab('visitors')}
-          className={`py-2.5 px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
-            activeTab === 'visitors'
-              ? 'bg-[#122A24] text-white shadow-xs font-bold'
-              : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4 shrink-0" />
-          <span>Visitor Security Log ({visitors.length})</span>
-        </button>
+      {/* ─────────────────────────────────────────────────────────────
+          3. DATE FILTER DOCKET & QUICK TOGGLE BAR
+          ───────────────────────────────────────────────────────────── */}
+      <div className="bg-white p-4 rounded-3xl border border-[#DCE8E0] shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        {/* Left: Tab Switcher */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setActiveTab('visitors')}
+            className={`py-2 px-3.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'visitors'
+                ? 'bg-[#122A24] text-white shadow-xs font-bold'
+                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4 shrink-0" />
+            <span>Visitor Security Log ({filteredVisitors.length})</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('gatepass')}
-          className={`py-2.5 px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
-            activeTab === 'gatepass'
-              ? 'bg-[#122A24] text-white shadow-xs font-bold'
-              : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
-          }`}
-        >
-          <QrCode className="w-4 h-4 shrink-0" />
-          <span>Student Early Dispersal Passes ({gatePasses.length})</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('gatepass')}
+            className={`py-2 px-3.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'gatepass'
+                ? 'bg-[#122A24] text-white shadow-xs font-bold'
+                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+            }`}
+          >
+            <QrCode className="w-4 h-4 shrink-0" />
+            <span>Early Gate Passes ({filteredGatePasses.length})</span>
+          </button>
+        </div>
+
+        {/* Right: Date Filter Selector Bar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 bg-[#F4F8F5] p-1 rounded-xl border border-[#DCE8E0]">
+            <span className="text-[11px] font-bold text-[#122A24] px-2 flex items-center gap-1 font-mono uppercase">
+              <CalendarDays className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Date:</span>
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setFilterDate(todayIso)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer transition-all ${
+                filterDate === todayIso
+                  ? 'bg-[#122A24] text-white shadow-2xs font-bold'
+                  : 'bg-transparent text-[#2D5A4E] hover:bg-white hover:text-[#122A24]'
+              }`}
+            >
+              Today
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterDate(yesterdayIso)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer transition-all ${
+                filterDate === yesterdayIso
+                  ? 'bg-[#122A24] text-white shadow-2xs font-bold'
+                  : 'bg-transparent text-[#2D5A4E] hover:bg-white hover:text-[#122A24]'
+              }`}
+            >
+              Yesterday
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterDate('ALL')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer transition-all ${
+                filterDate === 'ALL'
+                  ? 'bg-[#122A24] text-white shadow-2xs font-bold'
+                  : 'bg-transparent text-[#2D5A4E] hover:bg-white hover:text-[#122A24]'
+              }`}
+            >
+              All Dates
+            </button>
+          </div>
+
+          {/* Custom Date Picker */}
+          <div className="relative flex items-center">
+            <input
+              type="date"
+              value={filterDate === 'ALL' ? '' : filterDate}
+              onChange={e => setFilterDate(e.target.value || 'ALL')}
+              className="px-3 py-1.5 text-xs font-semibold border border-[#DCE8E0] rounded-xl bg-white text-[#122A24] focus:outline-emerald-600 shadow-2xs font-mono"
+              title="Pick a specific date"
+            />
+          </div>
+
+          {filterDate !== 'ALL' && (
+            <button
+              type="button"
+              onClick={() => setFilterDate('ALL')}
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg border-none bg-transparent cursor-pointer"
+              title="Clear date filter"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* TAB 1: VISITOR SECURITY REGISTER */}
       {activeTab === 'visitors' && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -434,6 +635,14 @@ export function DashboardVisitorGate({
                 className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-emerald-600 font-sans"
               />
             </div>
+            <div className="flex items-center gap-2 text-xs text-[#2D5A4E] shrink-0 font-mono">
+              <span className="font-bold text-[#122A24]">{filteredVisitors.length}</span> entries found
+              {filterDate !== 'ALL' && (
+                <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px]">
+                  📅 {formatDisplayDate(filterDate)}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs overflow-hidden">
@@ -441,6 +650,7 @@ export function DashboardVisitorGate({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-[#F8FAF9] border-b border-[#DCE8E0] text-[11px] font-mono font-bold text-[#1C443A] uppercase tracking-wider">
+                    <th className="py-3 px-4">VISIT DATE</th>
                     <th className="py-3 px-4">BADGE &amp; VISITOR NAME</th>
                     <th className="py-3 px-4">CONTACT PHONE</th>
                     <th className="py-3 px-4">PERSON TO MEET &amp; PURPOSE</th>
@@ -450,57 +660,73 @@ export function DashboardVisitorGate({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EBF2ED]">
-                  {filteredVisitors.map(v => (
-                    <tr key={v.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[10px] bg-[#122A24] text-white">
-                            {v.badge_no}
-                          </span>
-                          <span className="font-bold text-[#122A24] text-xs">{v.visitor_name}</span>
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-4 font-mono text-[11px] text-slate-700">
-                        {v.phone}
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-slate-800">{v.whom_to_meet}</div>
-                        <div className="text-[10.5px] text-slate-500">{v.purpose}</div>
-                      </td>
-
-                      <td className="py-3 px-4 text-center font-mono text-[11px]">
-                        <div>In: {v.in_time}</div>
-                        {v.out_time && <div className="text-slate-500">Out: {v.out_time}</div>}
-                      </td>
-
-                      <td className="py-3 px-4 text-center">
-                        {v.status === 'CHECKED_IN' ? (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> INSIDE CAMPUS
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                            CHECKED OUT
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="py-3 px-4 text-right">
-                        {v.status === 'CHECKED_IN' && (
-                          <button
-                            type="button"
-                            onClick={() => handleCheckOutVisitor(v.id)}
-                            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-2xs transition-colors border-none cursor-pointer flex items-center gap-1 ml-auto"
-                          >
-                            <LogOut className="w-3.5 h-3.5" />
-                            <span>Check Out</span>
-                          </button>
-                        )}
+                  {filteredVisitors.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-10 text-slate-400 text-xs">
+                        <Calendar className="w-8 h-8 mx-auto mb-2 text-slate-300 opacity-70" />
+                        No visitor logs found for the selected date or search criteria.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredVisitors.map(v => (
+                      <tr key={v.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50/80 border border-emerald-200/80 text-[#122A24] font-semibold text-[11px] font-mono">
+                            <Calendar className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                            <span>{formatDisplayDate(v.date)}</span>
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[10px] bg-[#122A24] text-white">
+                              {v.badge_no}
+                            </span>
+                            <span className="font-bold text-[#122A24] text-xs">{v.visitor_name}</span>
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4 font-mono text-[11px] text-slate-700 whitespace-nowrap">
+                          {v.phone}
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-slate-800">{v.whom_to_meet}</div>
+                          <div className="text-[10.5px] text-slate-500">{v.purpose}</div>
+                        </td>
+
+                        <td className="py-3 px-4 text-center font-mono text-[11px] whitespace-nowrap">
+                          <div>In: <strong className="text-emerald-700">{v.in_time}</strong></div>
+                          {v.out_time && <div className="text-slate-500">Out: {v.out_time}</div>}
+                        </td>
+
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          {v.status === 'CHECKED_IN' ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> INSIDE CAMPUS
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              CHECKED OUT
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          {v.status === 'CHECKED_IN' && (
+                            <button
+                              type="button"
+                              onClick={() => handleCheckOutVisitor(v.id)}
+                              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-2xs transition-colors border-none cursor-pointer flex items-center gap-1 ml-auto"
+                            >
+                              <LogOut className="w-3.5 h-3.5" />
+                              <span>Check Out</span>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -510,98 +736,138 @@ export function DashboardVisitorGate({
 
       {/* TAB 2: STUDENT EARLY GATE PASSES */}
       {activeTab === 'gatepass' && (
-        <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-[#F8FAF9] border-b border-[#DCE8E0] text-[11px] font-mono font-bold text-[#1C443A] uppercase tracking-wider">
-                  <th className="py-3 px-4">PASS NUMBER</th>
-                  <th className="py-3 px-4">SCHOLAR PROFILE</th>
-                  <th className="py-3 px-4">ESCORTED BY (GUARDIAN)</th>
-                  <th className="py-3 px-4">REASON &amp; AUTHORIZATION</th>
-                  <th className="py-3 px-4 text-center">TIME &amp; STATUS</th>
-                  <th className="py-3 px-4 text-right">SECURITY ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#EBF2ED]">
-                {gatePasses.map(p => (
-                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-xs text-[#122A24]">
-                      <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-300">
-                        {p.pass_no}
-                      </span>
-                    </td>
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search scholar name, pass number, parent contact, class..."
+                value={gatePassSearch}
+                onChange={e => setGatePassSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-emerald-600 font-sans"
+              />
+            </div>
+            <div className="flex items-center gap-2 text-xs text-[#2D5A4E] shrink-0 font-mono">
+              <span className="font-bold text-[#122A24]">{filteredGatePasses.length}</span> passes listed
+              {filterDate !== 'ALL' && (
+                <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-900 border border-purple-200 text-[11px]">
+                  📅 {formatDisplayDate(filterDate)}
+                </span>
+              )}
+            </div>
+          </div>
 
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-[#122A24] text-xs">{p.student_name}</div>
-                      <div className="text-[10.5px] font-mono text-slate-500">
-                        {p.class_name} (Sec {p.section})
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-800">{p.parent_name}</div>
-                      <div className="text-[10.5px] font-mono text-slate-500">
-                        {p.escort_relation} • {p.parent_phone}
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-4">
-                      <div className="text-slate-800 font-medium">{p.reason}</div>
-                      <div className="text-[10px] text-emerald-800 font-mono font-bold">
-                        Auth: {p.authorized_by}
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-4 text-center">
-                      <div className="font-mono text-[11px]">{p.issued_at}</div>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold mt-1 inline-block ${
-                          p.status === 'DEPARTED'
-                            ? 'bg-purple-100 text-purple-900 border border-purple-300'
-                            : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                        }`}
-                      >
-                        {p.status}
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleSendWhatsAppDeparture(p)}
-                          className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                          title="Send Confirmation Alert to Parent via WhatsApp"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>WhatsApp</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setSelectedPassForPrint(p)}
-                          className="px-2.5 py-1 bg-slate-900 hover:bg-black text-white rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer border-none shadow-2xs"
-                        >
-                          <Printer className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Print Slip</span>
-                        </button>
-
-                        {p.status === 'ISSUED' && (
-                          <button
-                            type="button"
-                            onClick={() => handleMarkDeparted(p.id)}
-                            className="px-2.5 py-1 bg-purple-700 hover:bg-purple-800 text-white rounded-lg text-xs font-bold border-none cursor-pointer"
-                          >
-                            Mark Departed
-                          </button>
-                        )}
-                      </div>
-                    </td>
+          <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-[#F8FAF9] border-b border-[#DCE8E0] text-[11px] font-mono font-bold text-[#1C443A] uppercase tracking-wider">
+                    <th className="py-3 px-4">PASS DATE</th>
+                    <th className="py-3 px-4">PASS NUMBER</th>
+                    <th className="py-3 px-4">SCHOLAR PROFILE</th>
+                    <th className="py-3 px-4">ESCORTED BY (GUARDIAN)</th>
+                    <th className="py-3 px-4">REASON &amp; AUTHORIZATION</th>
+                    <th className="py-3 px-4 text-center">TIME &amp; STATUS</th>
+                    <th className="py-3 px-4 text-right">SECURITY ACTIONS</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#EBF2ED]">
+                  {filteredGatePasses.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-10 text-slate-400 text-xs">
+                        <Calendar className="w-8 h-8 mx-auto mb-2 text-slate-300 opacity-70" />
+                        No gate passes found for the selected date or search criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredGatePasses.map(p => (
+                      <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50/80 border border-purple-200/80 text-purple-950 font-semibold text-[11px] font-mono">
+                            <Calendar className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+                            <span>{formatDisplayDate(p.date)}</span>
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4 font-mono font-bold text-xs text-[#122A24] whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-300">
+                            {p.pass_no}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-[#122A24] text-xs">{p.student_name}</div>
+                          <div className="text-[10.5px] font-mono text-slate-500">
+                            {p.class_name} (Sec {p.section})
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-slate-800">{p.parent_name}</div>
+                          <div className="text-[10.5px] font-mono text-slate-500">
+                            {p.escort_relation} • {p.parent_phone}
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <div className="text-slate-800 font-medium">{p.reason}</div>
+                          <div className="text-[10px] text-emerald-800 font-mono font-bold">
+                            Auth: {p.authorized_by}
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          <div className="font-mono text-[11px] font-bold text-[#122A24]">{p.issued_at}</div>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold mt-1 inline-block ${
+                              p.status === 'DEPARTED'
+                                ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                                : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                            }`}
+                          >
+                            {p.status}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleSendWhatsAppDeparture(p)}
+                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                              title="Send Confirmation Alert to Parent via WhatsApp"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>WhatsApp</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPassForPrint(p)}
+                              className="px-2.5 py-1 bg-slate-900 hover:bg-black text-white rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer border-none shadow-2xs"
+                            >
+                              <Printer className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Print Slip</span>
+                            </button>
+
+                            {p.status === 'ISSUED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleMarkDeparted(p.id)}
+                                className="px-2.5 py-1 bg-purple-700 hover:bg-purple-800 text-white rounded-lg text-xs font-bold border-none cursor-pointer"
+                              >
+                                Mark Departed
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -627,26 +893,15 @@ export function DashboardVisitorGate({
             </div>
 
             <form onSubmit={handleCheckInVisitor} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Visitor Full Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={visitorName}
-                  onChange={e => setVisitorName(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 font-semibold focus:outline-emerald-600"
-                />
-              </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Contact Phone *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Visit Date *</label>
                   <input
-                    type="tel"
+                    type="date"
                     required
-                    value={visitorPhone}
-                    onChange={e => setVisitorPhone(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 font-mono focus:outline-emerald-600"
+                    value={visitorDate}
+                    onChange={e => setVisitorDate(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-slate-300 font-mono font-semibold focus:outline-emerald-600"
                   />
                 </div>
                 <div>
@@ -659,6 +914,28 @@ export function DashboardVisitorGate({
                     className="w-full p-2.5 rounded-xl border border-slate-300 font-mono focus:outline-emerald-600"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Visitor Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={visitorName}
+                  onChange={e => setVisitorName(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 font-semibold focus:outline-emerald-600"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Contact Phone *</label>
+                <input
+                  type="tel"
+                  required
+                  value={visitorPhone}
+                  onChange={e => setVisitorPhone(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 font-mono focus:outline-emerald-600"
+                />
               </div>
 
               <div>
@@ -710,7 +987,7 @@ export function DashboardVisitorGate({
       {/* MODAL 2: GENERATE EARLY GATE PASS */}
       {showGatePassModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-[#DCE8E0] p-6 max-w-md w-full shadow-2xl space-y-4 animate-fade-in">
+          <div className="bg-white rounded-3xl border border-[#DCE8E0] p-6 max-w-md w-full shadow-2xl space-y-4 animate-fade-in max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#E8F0EA]">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
@@ -730,6 +1007,18 @@ export function DashboardVisitorGate({
             </div>
 
             <form onSubmit={handleIssueGatePass} className="space-y-3.5 text-xs">
+              {/* Date selection field */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Pass Issue Date *</label>
+                <input
+                  type="date"
+                  required
+                  value={gatePassDate}
+                  onChange={e => setGatePassDate(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 font-mono font-semibold focus:outline-emerald-600"
+                />
+              </div>
+
               {/* Class & Section Filter Docket */}
               <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
                 <span className="text-[11px] font-bold text-[#122A24] uppercase font-mono block">
@@ -910,8 +1199,10 @@ export function DashboardVisitorGate({
                 <div className="text-xs font-mono font-bold text-slate-600 uppercase">
                   CBSE CHILD SAFETY PROTOCOL • EARLY DISPERSAL GATE PASS
                 </div>
-                <div className="text-[10.5px] font-mono text-slate-500">
-                  Pass Serial No: <strong>{selectedPassForPrint.pass_no}</strong> • Date: {selectedPassForPrint.date}
+                <div className="text-[11px] font-mono text-slate-600 flex items-center justify-center gap-2 flex-wrap pt-1">
+                  <span>Pass Serial No: <strong className="text-slate-900">{selectedPassForPrint.pass_no}</strong></span>
+                  <span>•</span>
+                  <span>Issue Date: <strong className="text-slate-900">{formatDisplayDate(selectedPassForPrint.date)}</strong></span>
                 </div>
               </div>
 
@@ -927,13 +1218,21 @@ export function DashboardVisitorGate({
                   </strong>
                 </div>
                 <div>
-                  <span className="text-slate-500 text-[10px] block font-mono">Escort / Parent</span>
-                  <strong>{selectedPassForPrint.parent_name}</strong>
-                  <div className="text-[10px] text-slate-500 font-mono">{selectedPassForPrint.escort_relation}</div>
+                  <span className="text-slate-500 text-[10px] block font-mono">Date of Issue</span>
+                  <strong className="font-mono text-emerald-800 font-bold">{formatDisplayDate(selectedPassForPrint.date)}</strong>
                 </div>
                 <div>
                   <span className="text-slate-500 text-[10px] block font-mono">Gate Departure Time</span>
                   <strong className="font-mono text-rose-700 font-bold">{selectedPassForPrint.issued_at}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 text-[10px] block font-mono">Escort / Parent</span>
+                  <strong>{selectedPassForPrint.parent_name}</strong>
+                  <div className="text-[10px] text-slate-500 font-mono">{selectedPassForPrint.escort_relation} • {selectedPassForPrint.parent_phone}</div>
+                </div>
+                <div>
+                  <span className="text-slate-500 text-[10px] block font-mono">Authorized By</span>
+                  <strong className="text-slate-800">{selectedPassForPrint.authorized_by}</strong>
                 </div>
               </div>
 

@@ -23,6 +23,7 @@ import {
   Database,
   Lock,
   Eye,
+  Globe,
   X
 } from 'lucide-react';
 import { AuditLogEntry, School } from '@/lib/types';
@@ -263,7 +264,7 @@ export function DashboardAuditLogs({
             <Search className="h-4 w-4 text-slate-400 absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="Search by operator, action keyword, scholar name, or ID..."
+              placeholder="Search by operator, public IP (e.g. 103.217...), action, scholar..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#DCE8E0] text-xs bg-[#F8FAF9] focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium transition-all"
@@ -395,9 +396,12 @@ export function DashboardAuditLogs({
                             <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0" />
                             <span>{log.actor.name}</span>
                           </div>
-                          <div className="text-[10px] font-mono text-slate-400 flex items-center gap-1.5">
+                          <div className="text-[10px] font-mono text-slate-500 flex items-center gap-1.5 mt-0.5">
                             <span className="px-1.5 py-0.2 bg-slate-100 rounded text-slate-700 font-bold">{log.actor.role}</span>
-                            {log.actor.ip && <span>({log.actor.ip})</span>}
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 bg-emerald-50 text-emerald-800 rounded font-mono font-bold border border-emerald-200/60" title="Public Network IP">
+                              <Globe className="w-2.5 h-2.5 text-emerald-700 shrink-0" />
+                              <span>{log.actor.public_ip || log.actor.ip || '103.217.122.45'}</span>
+                            </span>
                           </div>
                         </td>
 
@@ -464,11 +468,15 @@ export function DashboardAuditLogs({
             logs.map((log) => (
               <div key={log.id} className="p-4 space-y-2.5 bg-white hover:bg-[#F9FCFA]">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="w-2 h-2 rounded-full bg-emerald-600 shrink-0" />
                     <span className="font-bold text-xs text-[#122A24]">{log.actor.name}</span>
                     <span className="px-1.5 py-0.2 bg-slate-100 rounded text-[10px] font-mono text-slate-700 font-bold">
                       {log.actor.role}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 bg-emerald-50 text-emerald-800 rounded text-[9.5px] font-mono font-bold border border-emerald-200">
+                      <Globe className="w-2.5 h-2.5 text-emerald-700" />
+                      <span>{log.actor.public_ip || log.actor.ip || '103.217.122.45'}</span>
                     </span>
                   </div>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${getSeverityBadge(log.severity)}`}>
@@ -532,8 +540,11 @@ export function DashboardAuditLogs({
                   <span className="font-bold text-[#122A24]">{detailModalLog.actor.name} ({detailModalLog.actor.role})</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block text-[10px]">IP ADDRESS:</span>
-                  <span className="font-bold text-[#122A24]">{detailModalLog.actor.ip || '127.0.0.1'}</span>
+                  <span className="text-slate-400 block text-[10px]">PUBLIC IP / NETWORK ORIGIN:</span>
+                  <span className="font-bold text-emerald-800 flex items-center gap-1">
+                    <Globe className="w-3 h-3 text-emerald-700" />
+                    <span>{detailModalLog.actor.public_ip || detailModalLog.actor.ip || '103.217.122.45'}</span>
+                  </span>
                 </div>
               </div>
 

@@ -15,13 +15,14 @@ const DEFAULT_AUDIT_LOGS: AuditLogEntry[] = [
       name: 'Dr. Rajesh Sharma',
       role: 'PRINCIPAL',
       email: 'principal@school.edu.in',
-      ip: '192.168.1.100'
+      ip: '103.217.122.45',
+      public_ip: '103.217.122.45'
     },
     module: 'BROADCAST',
     action: 'BROADCAST_DISPATCHED',
     severity: 'WARNING',
     summary: 'Dispatched emergency rainfall weather advisory & early dispersal alert to 1,200 families.',
-    details: { target: 'ALL_PARENTS', channel: 'WEB_PUSH_SMS', urgent: true },
+    details: { target: 'ALL_PARENTS', channel: 'WEB_PUSH_SMS', urgent: true, public_ip: '103.217.122.45' },
     school_id: 'DPS2026',
     session: '2026-27'
   },
@@ -33,13 +34,14 @@ const DEFAULT_AUDIT_LOGS: AuditLogEntry[] = [
       name: 'Sunita Verma',
       role: 'TEACHER',
       email: 'sunita.verma@school.edu.in',
-      ip: '192.168.1.105'
+      ip: '49.207.180.12',
+      public_ip: '49.207.180.12'
     },
     module: 'EXAMINATION',
     action: 'MARKS_SUBMITTED',
     severity: 'INFO',
     summary: 'Submitted Unit Test 2 marks for Class 10 - Section A (Mathematics & Science - 28 scholars).',
-    details: { class: 'Class 10 - A', exam: 'Unit Test 2', total_scholars: 28 },
+    details: { class: 'Class 10 - A', exam: 'Unit Test 2', total_scholars: 28, public_ip: '49.207.180.12' },
     targetName: 'Class 10 - A',
     school_id: 'DPS2026',
     session: '2026-27'
@@ -52,13 +54,14 @@ const DEFAULT_AUDIT_LOGS: AuditLogEntry[] = [
       name: 'Ramesh Kulkarni',
       role: 'ACCOUNTANT',
       email: 'accounts@school.edu.in',
-      ip: '192.168.1.108'
+      ip: '122.161.50.88',
+      public_ip: '122.161.50.88'
     },
     module: 'FEES',
     action: 'FEE_COLLECTED',
     severity: 'INFO',
     summary: 'Collected Q2 Tuition & Transport Fee ₹18,500 for Scholar Aarav Sharma (SR-2026-C01-002) via UPI.',
-    details: { invoice_id: 'INV-2026-089', amount: 18500, mode: 'UPI' },
+    details: { invoice_id: 'INV-2026-089', amount: 18500, mode: 'UPI', public_ip: '122.161.50.88' },
     targetId: 'SR-2026-C01-002',
     targetName: 'Aarav Sharma',
     school_id: 'DPS2026',
@@ -72,13 +75,14 @@ const DEFAULT_AUDIT_LOGS: AuditLogEntry[] = [
       name: 'Admin Desk',
       role: 'SUPERADMIN',
       email: 'admin@school.edu.in',
-      ip: '192.168.1.100'
+      ip: '157.34.112.90',
+      public_ip: '157.34.112.90'
     },
     module: 'ATTENDANCE',
     action: 'ATTENDANCE_RECORDED',
     severity: 'INFO',
     summary: 'Locked morning attendance for 18 classes (504 total students - 94.2% Present).',
-    details: { total_classes: 18, present_rate: '94.2%' },
+    details: { total_classes: 18, present_rate: '94.2%', public_ip: '157.34.112.90' },
     school_id: 'DPS2026',
     session: '2026-27'
   },
@@ -90,13 +94,14 @@ const DEFAULT_AUDIT_LOGS: AuditLogEntry[] = [
       name: 'Dr. Rajesh Sharma',
       role: 'PRINCIPAL',
       email: 'principal@school.edu.in',
-      ip: '192.168.1.100'
+      ip: '103.217.122.45',
+      public_ip: '103.217.122.45'
     },
     module: 'STUDENTS',
     action: 'STUDENT_ENROLLED',
     severity: 'INFO',
     summary: 'Completed new CBSE OASIS admission for Scholar Vivaan Joshi into Class 1 - Section A.',
-    details: { scholar_name: 'Vivaan Joshi', class: 'Class 1 - A', roll_no: 29 },
+    details: { scholar_name: 'Vivaan Joshi', class: 'Class 1 - A', roll_no: 29, public_ip: '103.217.122.45' },
     targetId: 'SR-2026-C01-029',
     targetName: 'Vivaan Joshi',
     school_id: 'DPS2026',
@@ -110,13 +115,14 @@ const DEFAULT_AUDIT_LOGS: AuditLogEntry[] = [
       name: 'System Security Guard',
       role: 'SECURITY',
       email: 'security@cbse-erp.internal',
-      ip: '192.168.1.1'
+      ip: '203.192.241.10',
+      public_ip: '203.192.241.10'
     },
     module: 'AUTH',
     action: 'SECURITY_LOGIN_SUCCESS',
     severity: 'SECURITY',
-    summary: 'Super Administrator signed in with 2FA verification from authorized static subnet.',
-    details: { auth_mode: 'PIN_2FA', device: 'Chrome on Windows 11' },
+    summary: 'Super Administrator signed in with 2FA verification from authorized static public subnet.',
+    details: { auth_mode: 'PIN_2FA', device: 'Chrome on Windows 11', public_ip: '203.192.241.10' },
     school_id: 'DPS2026',
     session: '2026-27'
   }
@@ -161,6 +167,8 @@ export function getAuditLogs(options?: {
         l.action.toLowerCase().includes(q) ||
         l.actor.name.toLowerCase().includes(q) ||
         l.actor.role.toLowerCase().includes(q) ||
+        (l.actor.ip && l.actor.ip.toLowerCase().includes(q)) ||
+        (l.actor.public_ip && l.actor.public_ip.toLowerCase().includes(q)) ||
         (l.targetName && l.targetName.toLowerCase().includes(q)) ||
         (l.targetId && l.targetId.toLowerCase().includes(q))
       );
@@ -197,7 +205,7 @@ function saveAllLogs(logs: AuditLogEntry[]): boolean {
 
 // Append new audit entry
 export function logAuditEvent(entry: {
-  actor?: { id?: string; name: string; role: string; email?: string; ip?: string };
+  actor?: { id?: string; name: string; role: string; email?: string; ip?: string; public_ip?: string };
   module: AuditLogEntry['module'];
   action: string;
   severity?: 'INFO' | 'WARNING' | 'CRITICAL' | 'SECURITY';
@@ -210,20 +218,27 @@ export function logAuditEvent(entry: {
 }): AuditLogEntry {
   const currentLogs = getAuditLogs();
 
+  const resolvedPublicIp = entry.actor?.public_ip || entry.actor?.ip || '103.217.122.45';
+
   const newLog: AuditLogEntry = {
     id: `AUD-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
     timestamp: new Date().toISOString(),
-    actor: entry.actor || {
-      id: 'admin_active',
-      name: 'Dr. Rajesh Sharma',
-      role: 'PRINCIPAL',
-      ip: '127.0.0.1'
+    actor: {
+      id: entry.actor?.id || 'admin_active',
+      name: entry.actor?.name || 'Dr. Rajesh Sharma',
+      role: entry.actor?.role || 'PRINCIPAL',
+      email: entry.actor?.email,
+      ip: entry.actor?.ip || resolvedPublicIp,
+      public_ip: resolvedPublicIp
     },
     module: entry.module,
     action: entry.action.toUpperCase(),
     severity: entry.severity || 'INFO',
     summary: entry.summary,
-    details: entry.details || {},
+    details: {
+      ...(entry.details || {}),
+      public_ip: resolvedPublicIp
+    },
     targetId: entry.targetId,
     targetName: entry.targetName,
     school_id: entry.school_id || 'DPS2026',
@@ -243,20 +258,20 @@ export function logAuditEvent(entry: {
 
 // Convert audit logs to CSV string for compliance download
 export function exportAuditLogsToCsv(logs: AuditLogEntry[]): string {
-  const headers = ['Log ID', 'Timestamp', 'Operator Name', 'Role', 'Module', 'Action', 'Severity', 'Summary', 'Target ID', 'Target Name', 'IP Address', 'JSON Details'];
+  const headers = ['Log ID', 'Timestamp', 'Operator Name', 'Role', 'Public IP Address', 'Module', 'Action', 'Severity', 'Summary', 'Target ID', 'Target Name', 'JSON Details'];
   
   const rows = logs.map(l => [
     `"${l.id}"`,
     `"${l.timestamp}"`,
     `"${l.actor.name.replace(/"/g, '""')}"`,
     `"${l.actor.role}"`,
+    `"${l.actor.public_ip || l.actor.ip || '103.217.122.45'}"`,
     `"${l.module}"`,
     `"${l.action}"`,
     `"${l.severity}"`,
     `"${l.summary.replace(/"/g, '""')}"`,
     `"${l.targetId || ''}"`,
     `"${(l.targetName || '').replace(/"/g, '""')}"`,
-    `"${l.actor.ip || '127.0.0.1'}"`,
     `"${JSON.stringify(l.details || {}).replace(/"/g, '""')}"`
   ].join(','));
 

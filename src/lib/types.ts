@@ -421,8 +421,9 @@ export interface AuditLogEntry {
     role: string;
     email?: string;
     ip?: string;
+    public_ip?: string;
   };
-  module: 'AUTH' | 'ATTENDANCE' | 'EXAMINATION' | 'FEES' | 'STUDENTS' | 'TEACHERS' | 'BROADCAST' | 'SETTINGS' | 'APPROVALS' | 'TRANSPORT' | 'PROMOTION' | 'CLASSES';
+  module: 'AUTH' | 'ATTENDANCE' | 'EXAMINATION' | 'FEES' | 'STUDENTS' | 'TEACHERS' | 'BROADCAST' | 'SETTINGS' | 'APPROVALS' | 'TRANSPORT' | 'PROMOTION' | 'CLASSES' | 'CERTIFICATES' | 'SECURITY';
   action: string; // e.g. 'MARKS_SUBMITTED', 'STUDENT_ENROLLED', 'FEE_COLLECTED', 'ATTENDANCE_MARKED', etc.
   severity: 'INFO' | 'WARNING' | 'CRITICAL' | 'SECURITY';
   summary: string; // Human readable description

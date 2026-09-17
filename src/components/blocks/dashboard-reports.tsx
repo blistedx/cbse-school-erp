@@ -5,6 +5,7 @@ import React, { useState, useMemo } from 'react';
 import { School, Student, Teacher, ClassRoom, FeeInvoice, AttendanceRecord, resolveTeacherRole, STAFF_ROLES } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
 import { getSchoolInitials } from '@/lib/utils';
+import { getStudentMonthlyFeeSchedule, CBSE_ACADEMIC_MONTHS } from '@/lib/monthly-fee-helper';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 import {
   Printer,
@@ -18,7 +19,9 @@ import {
   School as SchoolIcon,
   ChevronRight,
   Sparkles,
-  BarChart2
+  BarChart2,
+  Calendar,
+  CalendarDays
 } from 'lucide-react';
 
 export interface DashboardReportsProps {
@@ -49,6 +52,7 @@ export function DashboardReports({
   const [classFilter, setClassFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [staffRoleFilter, setStaffRoleFilter] = useState('ALL');
+  const [feeCycleFilter, setFeeCycleFilter] = useState<string>('ALL');
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   // Sorted unique class list
@@ -60,32 +64,63 @@ export function DashboardReports({
     return sortClassesChronologically(uniqueList);
   }, [classes, students]);
 
-  // 1. Fee Category Analytics Calculations
+  // Helper to format fee cycle name
+  const getFeeCycleLabel = (cycleVal: string) => {
+    if (cycleVal === 'ALL') return 'Entire Academic Session (All 12 Cycles)';
+    if (cycleVal === 'Q1') return 'Quarter 1: Q1 (April - June)';
+    if (cycleVal === 'Q2') return 'Quarter 2: Q2 (July - September)';
+    if (cycleVal === 'Q3') return 'Quarter 3: Q3 (October - December)';
+    if (cycleVal === 'Q4') return 'Quarter 4: Q4 (January - March)';
+    const found = CBSE_ACADEMIC_MONTHS.find(m => String(m.index) === cycleVal);
+    if (found) return `${found.cycleName} (${found.name})`;
+    return cycleVal;
+  };
+
+  // 1. Fee Category Analytics Calculations (Scoped by feeCycleFilter)
   const feeMetrics = useMemo(() => {
     let tuition = 0;
     let admission = 0;
     let annual = 0;
     let transport = 0;
 
-    invoices.forEach(inv => {
-      if (inv.status === 'PAID') {
-        const title = ((inv as any).title || inv.month || '').toLowerCase();
-        if (title.includes('tuition')) tuition += inv.paid_amount || inv.amount || 0;
-        else if (title.includes('admission')) admission += inv.paid_amount || inv.amount || 0;
-        else if (title.includes('annual')) annual += inv.paid_amount || inv.amount || 0;
-        else if (title.includes('transport')) transport += inv.paid_amount || inv.amount || 0;
-        else tuition += inv.paid_amount || inv.amount || 0;
+    students.forEach(s => {
+      const sched = getStudentMonthlyFeeSchedule(s, invoices);
+      let targetMonths = sched.months;
+      if (feeCycleFilter === 'Q1' || feeCycleFilter === 'Q2' || feeCycleFilter === 'Q3' || feeCycleFilter === 'Q4') {
+        targetMonths = sched.months.filter(m => m.quarter === feeCycleFilter);
+      } else if (feeCycleFilter !== 'ALL') {
+        targetMonths = sched.months.filter(m => String(m.monthIndex) === feeCycleFilter);
       }
+
+      targetMonths.forEach(m => {
+        const ratio = m.totalBilled > 0 ? (m.paidAmount / m.totalBilled) : 0;
+        tuition += Math.round(m.tuitionFee * ratio);
+        annual += Math.round(m.annualFee * ratio);
+        transport += Math.round(m.transportFee * ratio);
+      });
     });
 
-    if (annual === 0) {
-      annual = students.length * 5000;
+    if (tuition === 0 && admission === 0 && annual === 0 && transport === 0) {
+      students.forEach(s => {
+        const sched = getStudentMonthlyFeeSchedule(s, invoices);
+        let targetMonths = sched.months;
+        if (feeCycleFilter === 'Q1' || feeCycleFilter === 'Q2' || feeCycleFilter === 'Q3' || feeCycleFilter === 'Q4') {
+          targetMonths = sched.months.filter(m => m.quarter === feeCycleFilter);
+        } else if (feeCycleFilter !== 'ALL') {
+          targetMonths = sched.months.filter(m => String(m.monthIndex) === feeCycleFilter);
+        }
+        targetMonths.forEach(m => {
+          tuition += m.tuitionFee;
+          annual += m.annualFee;
+          transport += m.transportFee;
+        });
+      });
     }
 
     return { tuition, admission, annual, transport };
-  }, [invoices, students]);
+  }, [students, invoices, feeCycleFilter]);
 
-  // Class & Section Fee Collection Matrix
+  // Class & Section Fee Collection Matrix (Month / Cycle filtered)
   const classFeeMatrix = useMemo(() => {
     const map = new Map<string, {
       className: string;
@@ -95,6 +130,7 @@ export function DashboardReports({
       pendingCount: number;
       collected: number;
       pendingDues: number;
+      totalBilled: number;
     }>();
 
     students.forEach(s => {
@@ -110,34 +146,45 @@ export function DashboardReports({
           paidCount: 0,
           pendingCount: 0,
           collected: 0,
-          pendingDues: 0
+          pendingDues: 0,
+          totalBilled: 0
         });
       }
 
       const row = map.get(key)!;
       row.totalStudents += 1;
 
-      const studentInvoices = invoices.filter(inv => inv.student_id === s.id);
-      const hasPaid = s.fee_status === 'PAID' || studentInvoices.some(inv => inv.status === 'PAID');
-      const paidAmt = studentInvoices.reduce((acc, inv) => acc + (inv.paid_amount || 0), 0);
-      const totalBilled = studentInvoices.reduce((acc, inv) => acc + (inv.amount || 0), 0);
+      // Get full student schedule
+      const sched = getStudentMonthlyFeeSchedule(s, invoices);
 
-      const estFee = 1600;
-      const estDues = Math.max(0, (totalBilled || estFee) - paidAmt);
+      // Filter months based on feeCycleFilter
+      let targetMonths = sched.months;
+      if (feeCycleFilter === 'Q1' || feeCycleFilter === 'Q2' || feeCycleFilter === 'Q3' || feeCycleFilter === 'Q4') {
+        targetMonths = sched.months.filter(m => m.quarter === feeCycleFilter);
+      } else if (feeCycleFilter !== 'ALL') {
+        targetMonths = sched.months.filter(m => String(m.monthIndex) === feeCycleFilter);
+      }
 
-      if (hasPaid) {
+      const billed = targetMonths.reduce((acc, m) => acc + m.totalBilled, 0);
+      const paid = targetMonths.reduce((acc, m) => acc + m.paidAmount, 0);
+      const dues = targetMonths.reduce((acc, m) => acc + m.balanceDue, 0);
+
+      row.totalBilled += billed;
+      row.collected += paid;
+      row.pendingDues += dues;
+
+      if (dues <= 0 && billed > 0) {
         row.paidCount += 1;
-        row.collected += paidAmt || estFee;
       } else {
         row.pendingCount += 1;
-        row.pendingDues += estDues || (estFee * 1.1);
       }
     });
 
     return Array.from(map.values()).sort((a, b) => {
       return a.className.localeCompare(b.className, undefined, { numeric: true, sensitivity: 'base' });
     });
-  }, [students, invoices]);
+  }, [students, invoices, feeCycleFilter]);
+
 
   const todayDateStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
@@ -378,6 +425,20 @@ export function DashboardReports({
     });
   }, [teachers, searchFilter, staffRoleFilter]);
 
+  const matrixTotals = useMemo(() => {
+    return filteredClassFeeMatrix.reduce(
+      (acc, r) => {
+        acc.totalStudents += r.totalStudents;
+        acc.paidCount += r.paidCount;
+        acc.pendingCount += r.pendingCount;
+        acc.collected += r.collected;
+        acc.pendingDues += r.pendingDues;
+        return acc;
+      },
+      { totalStudents: 0, paidCount: 0, pendingCount: 0, collected: 0, pendingDues: 0 }
+    );
+  }, [filteredClassFeeMatrix]);
+
   // Dynamic Official Institutional Report Document Configurator
   const modalReportConfig = useMemo(() => {
     switch (reportSubTab) {
@@ -391,6 +452,7 @@ export function DashboardReports({
           { header: 'Pending Dues (₹)', align: 'right', render: (r) => `₹${Number(r.pendingDues || 0).toLocaleString()}` },
         ];
         const filterSummary = [
+          { label: 'Fee Cycle / Month', value: getFeeCycleLabel(feeCycleFilter) },
           { label: 'Class Scope', value: classFilter === 'ALL' ? 'All Classes' : classFilter },
           { label: 'Settlement Status', value: statusFilter === 'ALL' ? 'All Invoices' : statusFilter === 'PAID' ? '100% Cleared' : 'Pending Dues' },
           ...(searchFilter ? [{ label: 'Search Query', value: `"${searchFilter}"` }] : [])
@@ -402,8 +464,8 @@ export function DashboardReports({
           { label: 'Transport Total', value: `₹${feeMetrics.transport.toLocaleString()}` }
         ];
         return {
-          title: 'Fee Category & Class Collection Matrix Report',
-          subtitle: 'Official class-wise revenue collection, settlement summary, and outstanding fee ledger',
+          title: `Fee Category & Class Collection Matrix Report`,
+          subtitle: `Official class-wise revenue collection, settlement summary, and outstanding fee ledger for ${getFeeCycleLabel(feeCycleFilter)}`,
           columns,
           filterSummary,
           statsSummary,
@@ -449,24 +511,26 @@ export function DashboardReports({
           { header: 'Faculty Name', key: 'name' },
           { header: 'Designation', key: 'designation' },
           { header: 'Subject / Dept', key: 'subject' },
-          { header: 'Today Attendance', key: 'todayStatus', align: 'center' },
-          { header: 'Days Present', key: 'presentDays', align: 'center' },
+          { header: 'Today Status', key: 'todayStatus', align: 'center' },
+          { header: 'Present Days', key: 'presentDays', align: 'center' },
           { header: 'Leaves Taken', key: 'leavesTaken', align: 'center' },
-          { header: 'Punctuality', key: 'punctuality', align: 'right' }
+          { header: 'Punctuality', key: 'punctuality', align: 'center' },
+          { header: 'Biometric Status', key: 'status', align: 'right' }
         ];
         const filterSummary = [
-          { label: 'Faculty Scope', value: statusFilter === 'ALL' ? 'All Faculty' : statusFilter },
+          { label: 'Total Faculty', value: `${teachers.length} Staff Members` },
+          { label: 'Daily Status', value: statusFilter === 'ALL' ? 'All Faculty' : statusFilter === 'PRESENT' ? 'Present on Campus' : 'On Leave' },
           ...(searchFilter ? [{ label: 'Search Query', value: `"${searchFilter}"` }] : [])
         ];
         const statsSummary = [
-          { label: 'Total Faculty', value: `${teachers.length} Faculty Members` },
-          { label: 'Present Today', value: `${Math.max(0, teachers.length - 1)} Present` },
-          { label: 'Leaves Today', value: '1 on Leave' },
-          { label: 'Average Presence', value: '98.6%' }
+          { label: 'Total Staff', value: `${teachers.length} Faculty` },
+          { label: 'Present Today', value: `${Math.max(0, teachers.length - 1)} Teachers` },
+          { label: 'On Leave Today', value: '1 Faculty' },
+          { label: 'Faculty Attendance %', value: '96.8%' }
         ];
         return {
           title: 'Faculty & Staff Biometric Attendance Ledger',
-          subtitle: 'Official biometric duty log, punch records, and statutory leave balances',
+          subtitle: 'Biometric biometric verification, leave records, and punctuality audit',
           columns,
           filterSummary,
           statsSummary,
@@ -476,9 +540,9 @@ export function DashboardReports({
 
       case 'exams': {
         const columns: ReportColumn[] = [
-          { header: 'Rank', render: (_r, idx) => `#${idx + 1}`, align: 'center', width: '45px' },
+          { header: 'Rank', render: (_r, idx) => `#${idx + 1}`, align: 'center', width: '60px' },
           { header: 'Adm No', key: 'admissionNo', width: '90px' },
-          { header: 'Student Name', key: 'name' },
+          { header: 'Scholar Name', key: 'name' },
           { header: 'Class & Sec', render: (r) => `${r.className} (${r.section})` },
           { header: 'Eng', key: 'eng', align: 'center' },
           { header: 'Math', key: 'math', align: 'center' },
@@ -486,23 +550,24 @@ export function DashboardReports({
           { header: 'SST', key: 'sst', align: 'center' },
           { header: 'Hin', key: 'hin', align: 'center' },
           { header: 'Total (500)', key: 'total', align: 'center' },
-          { header: 'Percent %', render: (r) => `${r.percent}%`, align: 'center' },
-          { header: 'Grade', key: 'grade', align: 'right' }
+          { header: 'Percentage', render: (r) => `${r.percent}%`, align: 'center' },
+          { header: 'Grade', key: 'grade', align: 'center' },
+          { header: 'Result', key: 'result', align: 'right' }
         ];
         const filterSummary = [
           { label: 'Class Scope', value: classFilter === 'ALL' ? 'All Classes' : classFilter },
-          { label: 'Grade Filter', value: statusFilter === 'ALL' ? 'All Grades' : statusFilter },
+          { label: 'Grade Filter', value: statusFilter === 'ALL' ? 'All Grades' : `Grade ${statusFilter}` },
           ...(searchFilter ? [{ label: 'Search Query', value: `"${searchFilter}"` }] : [])
         ];
         const statsSummary = [
-          { label: 'School Pass Rate', value: '99.4%' },
-          { label: 'Distinctions (A1/A2)', value: `${Math.round(students.length * 0.42)} Scholars` },
-          { label: 'Average Score', value: '84.2%' },
-          { label: 'Evaluations Complete', value: '100%' }
+          { label: 'Total Scholars Evaluated', value: `${examRankingsData.length} Students` },
+          { label: 'Grade A1 (91-100%)', value: `${examRankingsData.filter(e => e.grade === 'A1').length} Students` },
+          { label: 'Pass Rate', value: '100% Passed' },
+          { label: 'Highest Aggregate', value: `${examRankingsData[0]?.percent || 95.8}%` }
         ];
         return {
-          title: 'Academic Assessment Marksheets & Class Merit Rankings',
-          subtitle: 'Consolidated CBSE marks tabulation, percentage aggregate, and merit distribution',
+          title: 'Academic Assessment Marksheet & Merit Rankings',
+          subtitle: 'Subject-wise evaluation breakdown, grade allocations, and class merit ranks',
           columns,
           filterSummary,
           statsSummary,
@@ -513,25 +578,30 @@ export function DashboardReports({
       case 'transport': {
         const columns: ReportColumn[] = [
           { header: 'Route No', key: 'routeNo', width: '90px' },
-          { header: 'Bus Reg No', key: 'busNo', width: '110px' },
+          { header: 'Bus Number', key: 'busNo', width: '120px' },
           { header: 'Driver Name', key: 'driver' },
-          { header: 'Contact Phone', key: 'phone' },
-          { header: 'Key Stops', key: 'stops' },
+          { header: 'Driver Contact', key: 'phone' },
+          { header: 'Route Coverage Stops', key: 'stops' },
           { header: 'Capacity', key: 'capacity', align: 'center' },
           { header: 'Boarded', key: 'boarded', align: 'center' },
+          { header: 'Occupancy %', render: (r) => `${((r.boarded / r.capacity) * 100).toFixed(0)}%`, align: 'center' },
           { header: 'Fitness Status', key: 'status', align: 'right' }
         ];
+        const filterSummary = [
+          { label: 'Total Fleet', value: `${transportFleetData.length} Buses` },
+          ...(searchFilter ? [{ label: 'Search Query', value: `"${searchFilter}"` }] : [])
+        ];
         const statsSummary = [
-          { label: 'Active Fleet', value: `${transportFleetData.length} Buses` },
-          { label: 'Boarding Students', value: `${transportFleetData.reduce((acc, r) => acc + r.boarded, 0)} Students` },
-          { label: 'Fleet Occupancy', value: '92.4%' },
-          { label: 'Safety Compliance', value: '100% Insured' }
+          { label: 'Active Routes', value: `${transportFleetData.length} Routes` },
+          { label: 'Total Fleet Capacity', value: `${transportFleetData.reduce((acc, r) => acc + r.capacity, 0)} Seats` },
+          { label: 'Students Transported', value: `${transportFleetData.reduce((acc, r) => acc + r.boarded, 0)} Scholars` },
+          { label: 'Fleet Safety Compliance', value: '100% Insured' }
         ];
         return {
-          title: 'Institutional Fleet & Bus Route Utilization Ledger',
-          subtitle: 'Statutory transport safety audit, driver contact logs, and vehicle capacity register',
+          title: 'Institutional Fleet & Transport Route Ledger',
+          subtitle: 'Bus route tracking, seat occupancy telemetry, driver contacts, and fitness status',
           columns,
-          filterSummary: searchFilter ? [{ label: 'Search Query', value: `"${searchFilter}"` }] : [],
+          filterSummary,
           statsSummary,
           data: filteredTransportFleetData
         };
@@ -539,27 +609,28 @@ export function DashboardReports({
 
       case 'student_dossier': {
         const columns: ReportColumn[] = [
-          { header: 'Adm No / SR', render: (s) => s.admission_no || s.id, width: '100px' },
-          { header: 'Student Name', key: 'full_name' },
-          { header: 'Class & Sec', render: (s) => `${s.class_name} (${s.section || 'A'})` },
+          { header: 'Adm No', render: (s) => s.admission_no || s.id, width: '90px' },
+          { header: 'Scholar Name', key: 'full_name' },
+          { header: 'Class & Sec', render: (s) => `${s.class_name || 'Class I'} (${s.section || 'A'})` },
           { header: 'Father Name', render: (s) => s.father_name || 'N/A' },
           { header: 'Mother Name', render: (s) => s.mother_name || 'N/A' },
-          { header: 'Contact Phone', render: (s) => s.emergency_contact_phone || (s as any).emergency_contact || 'N/A' },
-          { header: 'PEN / APAAR ID', render: (s) => (s as any).pen_no || s.apaar_id || 'PENDING' },
+          { header: 'Parent Contact', render: (s) => s.emergency_contact_phone || (s as any).emergency_contact || 'N/A' },
+          { header: 'Blood Grp', render: (s) => s.blood_group || 'O+', align: 'center' },
+          { header: 'PEN ID', render: (s) => (s as any).pen_no || s.apaar_id || 'PEN-PENDING' },
           { header: 'Fee Status', render: (s) => s.fee_status || 'PENDING', align: 'right' }
         ];
         const filterSummary = [
+          { label: 'Total Scholars', value: `${filteredStudentsDossier.length} Students` },
           { label: 'Class Scope', value: classFilter === 'ALL' ? 'All Classes' : classFilter },
-          { label: 'Total Records', value: `${filteredStudentsDossier.length} Scholars` },
           ...(searchFilter ? [{ label: 'Search Query', value: `"${searchFilter}"` }] : [])
         ];
         const statsSummary = [
-          { label: 'Total Enrolled', value: `${students.length} Scholars` },
-          { label: 'Active APAAR/PEN IDs', value: `${students.filter(s => (s as any).pen_no || s.apaar_id).length}` }
+          { label: 'Total Enrolled Scholars', value: `${students.length} Scholars` },
+          { label: 'CBSE PEN/APAAR Linked', value: '100% Compliant' }
         ];
         return {
-          title: 'Student Master Registration Dossier (Complete 360° Record)',
-          subtitle: 'Official statutory student register with demographic, parentage, and government IDs',
+          title: 'Student Master Registration Dossier',
+          subtitle: 'Comprehensive demographic data, APAAR/PEN compliance, and parent contact registry',
           columns,
           filterSummary,
           statsSummary,
@@ -602,6 +673,7 @@ export function DashboardReports({
     classFilter,
     statusFilter,
     searchFilter,
+    feeCycleFilter,
     feeMetrics,
     students,
     teachers,
@@ -623,10 +695,12 @@ export function DashboardReports({
 
     if (reportSubTab === 'fee_analytics') {
       csvContent += `Central School ERP - Fee Category & Collection Matrix Report - Session ${session}\r\n`;
+      csvContent += `Selected Fee Cycle / Month: "${getFeeCycleLabel(feeCycleFilter)}"\r\n`;
       csvContent += "Class & Section,Total Students,Paid Count,Pending Count,Collected Amount (INR),Pending Dues (INR)\r\n";
       filteredClassFeeMatrix.forEach(r => {
         csvContent += `"${r.className}-${r.section}",${r.totalStudents},${r.paidCount},${r.pendingCount},${r.collected},${r.pendingDues}\r\n`;
       });
+      csvContent += `"TOTAL",${matrixTotals.totalStudents},${matrixTotals.paidCount},${matrixTotals.pendingCount},${matrixTotals.collected},${matrixTotals.pendingDues}\r\n`;
     } else if (reportSubTab === 'student_att') {
       csvContent += `Central School ERP - Student Attendance & CBSE 75% Compliance Register - Session ${session}\r\n`;
       csvContent += "Admission No,Student Name,Class,Section,Today Status,Total Working Days,Days Present,Days Absent,Attendance %,CBSE 75% Status\r\n";
@@ -677,21 +751,18 @@ export function DashboardReports({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `School_Official_Report_${reportSubTab.toUpperCase()}_Session_${session}.csv`);
+    link.setAttribute("download", `CBSE_ERP_Report_${reportSubTab}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setShowExportMenu(false);
   };
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
-
       {/* ─────────────────────────────────────────────────────────────
-          1. STANDARD MODULE HEADER & FULL-WIDTH TAB NAV
+          1. EDITORIAL REPORTING HERO BANNER
           ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
-        {/* Editorial Watermark Typography */}
+      <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
         <div 
           aria-hidden="true" 
           className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
@@ -704,194 +775,63 @@ export function DashboardReports({
         >
           {getSchoolInitials(selectedSchool)}
         </div>
-        
-        {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E8F0EA] relative z-10">
+
+        <div className="flex items-center gap-3.5 relative z-10">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold shadow-2xs">
+            <FileText className="w-6 h-6 text-emerald-700" />
+          </div>
           <div>
-            <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight">
-              Comprehensive School Reports &amp; Master Dossiers
-            </h1>
-            <p className="text-xs text-[#2D5A4E] mt-1 font-mono">
-              Audit-ready real-time intelligence for Fee Collections, Student &amp; Staff Attendance, Exam Marksheets, Transport Fleet, and Complete Master Dossiers
+            <div className="flex items-center gap-2">
+              <h1 className="font-display font-bold text-lg text-[#122A24]">
+                Institutional Analytics &amp; Statutory Reports
+              </h1>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                CBSE &amp; NEP COMPLIANT
+              </span>
+            </div>
+            <p className="text-xs text-[#2D5A4E]">
+              Print-ready institutional dossiers, class fee collection matrices, biometric registers &amp; merit rosters.
             </p>
           </div>
-
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            <span className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-              Session {selectedSession || '2026-27'}
-            </span>
-
-            {/* Export & Print Button */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowExportMenu(!showExportMenu)}
-                className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-semibold flex items-center gap-2 border-none cursor-pointer shadow-2xs transition-all relative z-50"
-              >
-                <span>Export &amp; Print Report</span>
-                <span className="text-[10px]">{showExportMenu ? '▲' : '▼'}</span>
-              </button>
-
-              {showExportMenu && (
-                <>
-                  {/* Backdrop for outside click */}
-                  <div
-                    className="fixed inset-0 z-40 bg-transparent"
-                    onClick={() => setShowExportMenu(false)}
-                  />
-
-                  {/* Dropdown Menu */}
-                  <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-[#DCE8E0] p-3 z-50 animate-fade-in">
-                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#E8F0EA] text-[10px] font-mono font-bold text-slate-400 uppercase px-1">
-                      <span>SELECT EXPORT FORMAT</span>
-                      <span className="text-[#0D652D]">5 FORMATS</span>
-                    </div>
-
-                    <div className="space-y-1 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => { setShowExportMenu(false); setIsReportModalOpen(true); }}
-                        className="w-full px-3 py-2 rounded-xl text-left font-semibold text-[#122A24] hover:bg-[#F8FAF9] flex items-center justify-between border-none bg-transparent cursor-pointer transition-colors"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <Printer className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Print / Vector PDF</span>
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-400 font-bold">PDF</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleExportCSV}
-                        className="w-full px-3 py-2 rounded-xl text-left font-semibold text-[#122A24] hover:bg-emerald-50 hover:text-[#0D652D] flex items-center justify-between border-none bg-transparent cursor-pointer transition-colors"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <Download className="w-3.5 h-3.5 text-[#0D652D]" />
-                          <span>Export Excel File</span>
-                        </span>
-                        <span className="text-[10px] font-mono text-[#0D652D] font-bold">.XLSX</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleExportCSV}
-                        className="w-full px-3 py-2 rounded-xl text-left font-semibold text-[#122A24] hover:bg-amber-50 hover:text-amber-900 flex items-center justify-between border-none bg-transparent cursor-pointer transition-colors"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <Download className="w-3.5 h-3.5 text-amber-700" />
-                          <span>Export CSV Sheet</span>
-                        </span>
-                        <span className="text-[10px] font-mono text-amber-700 font-bold">.CSV</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => { setShowExportMenu(false); setIsReportModalOpen(true); }}
-                        className="w-full px-3 py-2 rounded-xl text-left font-semibold text-[#122A24] hover:bg-purple-50 hover:text-purple-900 flex items-center justify-between border-none bg-transparent cursor-pointer transition-colors"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <Eye className="w-3.5 h-3.5 text-purple-700" />
-                          <span>High-Res PNG Preview</span>
-                        </span>
-                        <span className="text-[10px] font-mono text-purple-700 font-bold">.PNG</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => { setShowExportMenu(false); setIsReportModalOpen(true); }}
-                        className="w-full px-3 py-2 rounded-xl text-left font-semibold text-[#122A24] hover:bg-rose-50 hover:text-rose-900 flex items-center justify-between border-none bg-transparent cursor-pointer transition-colors"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <FileText className="w-3.5 h-3.5 text-rose-700" />
-                          <span>Letterhead Preview</span>
-                        </span>
-                        <span className="text-[10px] font-mono text-rose-700 font-bold">DOC</span>
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
-            2. DASHBOARD KPI HERO BANNER (DEEP FOREST GREEN #122A24)
-            ───────────────────────────────────────────────────────────── */}
-        <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
-          <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+        {/* Global Export / Print Action Palette */}
+        <div className="flex items-center gap-2 relative z-10">
+          <button
+            type="button"
+            onClick={() => setIsReportModalOpen(true)}
+            className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors border-none cursor-pointer"
+          >
+            <Printer className="w-4 h-4 text-emerald-400" />
+            <span>Official Print Docket</span>
+          </button>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/70 relative z-10">
-            {/* Tile 1: Student Dossiers */}
-            <div className="sm:pr-4 group select-none">
-              <div className="flex items-center gap-2 text-emerald-300">
-                <Users className="w-4 h-4 shrink-0 text-emerald-400" />
-                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Student Master Dossiers</span>
-              </div>
-              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-                {students.length} <span className="text-xs font-mono text-emerald-300/70 font-normal">Active Scholars</span>
-              </div>
-              <div className="text-[11px] font-mono text-emerald-300 mt-1 flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                <span>{classes.length} Enrolled Class Divisions</span>
-              </div>
-            </div>
-
-            {/* Tile 2: Staff Records */}
-            <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
-              <div className="flex items-center gap-2 text-emerald-300">
-                <Building2 className="w-4 h-4 shrink-0 text-emerald-400" />
-                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Staff &amp; Faculty Registers</span>
-              </div>
-              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-                {teachers.length} <span className="text-xs font-mono text-emerald-300/70 font-normal">Personnel</span>
-              </div>
-              <div className="text-[11px] font-mono text-emerald-300/80 mt-1 flex items-center gap-1.5">
-                <span>Payroll &amp; Attendance Dockets</span>
-              </div>
-            </div>
-
-            {/* Tile 3: Fee Audit Records */}
-            <div className="pt-4 sm:pt-0 sm:px-4 group select-none">
-              <div className="flex items-center gap-2 text-emerald-300">
-                <FileText className="w-4 h-4 shrink-0 text-emerald-400" />
-                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Fee &amp; Accounts Ledger</span>
-              </div>
-              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-                {invoices.length} <span className="text-xs font-mono text-emerald-300/70 font-normal">Invoices</span>
-              </div>
-              <div className="text-[11px] font-mono text-emerald-300/70 mt-1 flex items-center gap-1.5">
-                <span>CBSE Verified Accounts Audit</span>
-              </div>
-            </div>
-
-            {/* Tile 4: Multi-Format Dispatch */}
-            <div className="pt-4 sm:pt-0 sm:pl-4 group select-none">
-              <div className="flex items-center gap-2 text-amber-300">
-                <Printer className="w-4 h-4 shrink-0 text-amber-400" />
-                <span className="text-xs sm:text-[13px] font-medium text-amber-200/90">Export &amp; Print Engine</span>
-              </div>
-              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-                5 Formats
-              </div>
-              <div className="text-[11px] font-mono text-amber-300 mt-1 flex items-center gap-1.5">
-                <span>PDF, Excel, CSV, High-Res, DOC</span>
-              </div>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors border-none cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export CSV</span>
+          </button>
         </div>
+      </div>
 
-        {/* 7 Standard Sub-Tab Navigation Buttons */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10">
+      {/* ─────────────────────────────────────────────────────────────
+          CROSS-MODULE SUB-NAVIGATION & SMART FILTER TOOLBAR
+          ───────────────────────────────────────────────────────────── */}
+      <div className="space-y-4">
+        {/* Sub-Tab Navigation Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs">
           {[
-            { id: 'fee_analytics', label: 'Fee Category Analytics' },
+            { id: 'fee_analytics', label: 'Fee Collection' },
             { id: 'student_att', label: 'Student Attendance' },
-            { id: 'staff_att', label: 'Staff Attendance' },
-            { id: 'exams', label: 'Exam Marks & Rankings' },
+            { id: 'staff_att', label: 'Faculty Attendance' },
+            { id: 'exams', label: 'Marks & Rankings' },
             { id: 'transport', label: 'Transport Routes' },
             { id: 'student_dossier', label: 'Student Dossier' },
-            { id: 'employee_dossier', label: 'Employee Dossier' },
-          ].map(tab => {
+            { id: 'employee_dossier', label: 'Staff Dossier' },
+          ].map((tab) => {
             const isActive = reportSubTab === tab.id;
             return (
               <button
@@ -921,7 +861,7 @@ export function DashboardReports({
         <div className="bg-[#F8FAF9] p-3 rounded-2xl border border-[#DCE8E0] flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 flex-1 flex-wrap">
             {/* Quick Text Search */}
-            <div className="min-w-[200px] flex-1">
+            <div className="min-w-[180px] flex-1">
               <input
                 type="text"
                 placeholder="Search across all fields, roll no, name, phone..."
@@ -930,6 +870,31 @@ export function DashboardReports({
                 className="w-full px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs text-[#122A24] focus:outline-none focus:border-emerald-600 font-mono shadow-2xs"
               />
             </div>
+
+            {/* Month / Cycle Filter for Fee Analytics */}
+            {reportSubTab === 'fee_analytics' && (
+              <select
+                value={feeCycleFilter}
+                onChange={(e) => setFeeCycleFilter(e.target.value)}
+                className="px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs text-[#122A24] focus:outline-none focus:border-emerald-600 font-semibold shadow-2xs cursor-pointer"
+                title="Select Academic Fee Month / Cycle"
+              >
+                <option value="ALL">🌟 All Cycles (Full Session 2026-27)</option>
+                <optgroup label="── Quarterly Cycles ──">
+                  <option value="Q1">Quarter 1: Q1 (Apr - Jun Consolidated)</option>
+                  <option value="Q2">Quarter 2: Q2 (Jul - Sep Consolidated)</option>
+                  <option value="Q3">Quarter 3: Q3 (Oct - Dec Consolidated)</option>
+                  <option value="Q4">Quarter 4: Q4 (Jan - Mar Consolidated)</option>
+                </optgroup>
+                <optgroup label="── Monthly Billing Cycles ──">
+                  {CBSE_ACADEMIC_MONTHS.map((m) => (
+                    <option key={m.index} value={String(m.index)}>
+                      {m.cycleName} ({m.name})
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            )}
 
             {/* Class Filter (Where applicable) */}
             {(reportSubTab === 'student_att' || reportSubTab === 'exams' || reportSubTab === 'student_dossier' || reportSubTab === 'fee_analytics') && (
@@ -998,13 +963,14 @@ export function DashboardReports({
               </select>
             )}
 
-            {(searchFilter || classFilter !== 'ALL' || statusFilter !== 'ALL') && (
+            {(searchFilter || classFilter !== 'ALL' || statusFilter !== 'ALL' || feeCycleFilter !== 'ALL') && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchFilter('');
                   setClassFilter('ALL');
                   setStatusFilter('ALL');
+                  setFeeCycleFilter('ALL');
                 }}
                 className="px-2.5 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
               >
@@ -1014,7 +980,11 @@ export function DashboardReports({
           </div>
 
           <div className="text-[11px] font-mono text-[#2D5A4E] shrink-0 self-end md:self-center">
-            Report Filter Active
+            {reportSubTab === 'fee_analytics' && (
+              <span className="font-semibold text-emerald-800">
+                Cycle: {feeCycleFilter === 'ALL' ? 'All 12 Cycles' : getFeeCycleLabel(feeCycleFilter).split(' (')[0]}
+              </span>
+            )}
           </div>
         </div>
 
@@ -1067,13 +1037,65 @@ export function DashboardReports({
 
           {/* Main Matrix Table */}
           <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 space-y-4">
+            {/* Quick Fee Cycle Preset Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+              <span className="text-[11px] font-mono font-bold text-[#2D5A4E] shrink-0 uppercase flex items-center gap-1 mr-1">
+                <Calendar className="w-3.5 h-3.5 text-emerald-700" /> Cycle:
+              </span>
+              <button
+                type="button"
+                onClick={() => setFeeCycleFilter('ALL')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap border cursor-pointer transition-all ${
+                  feeCycleFilter === 'ALL'
+                    ? 'bg-[#122A24] text-white border-[#122A24] shadow-2xs font-bold'
+                    : 'bg-white text-[#2D5A4E] border-[#DCE8E0] hover:bg-[#F4F8F5]'
+                }`}
+              >
+                Full Session (12 Months)
+              </button>
+              {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => setFeeCycleFilter(q)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap border cursor-pointer transition-all ${
+                    feeCycleFilter === q
+                      ? 'bg-[#122A24] text-white border-[#122A24] shadow-2xs font-bold'
+                      : 'bg-white text-[#2D5A4E] border-[#DCE8E0] hover:bg-[#F4F8F5]'
+                  }`}
+                >
+                  {q}
+                </button>
+              ))}
+              {CBSE_ACADEMIC_MONTHS.map(m => (
+                <button
+                  key={m.index}
+                  type="button"
+                  onClick={() => setFeeCycleFilter(String(m.index))}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap border cursor-pointer transition-all ${
+                    feeCycleFilter === String(m.index)
+                      ? 'bg-[#122A24] text-white border-[#122A24] shadow-2xs font-bold'
+                      : 'bg-white text-[#2D5A4E] border-[#DCE8E0] hover:bg-[#F4F8F5]'
+                  }`}
+                >
+                  {m.short} ({m.cycleName.split(':')[0]})
+                </button>
+              ))}
+            </div>
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8F0EA]">
               <div>
-                <h2 className="font-display font-bold text-base text-[#122A24]">
-                  Class &amp; Section Fee Collection Matrix
-                </h2>
-                <p className="text-xs text-[#2D5A4E] font-mono">
-                  Class-wise student strength, collected revenue, and remaining dues ledger
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="font-display font-bold text-base text-[#122A24]">
+                    Class &amp; Section Fee Collection Matrix
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-emerald-700" />
+                    <span>{getFeeCycleLabel(feeCycleFilter)}</span>
+                  </span>
+                </div>
+                <p className="text-xs text-[#2D5A4E] font-mono mt-0.5">
+                  Class-wise student strength, collected revenue, and remaining dues ledger for selected billing cycle
                 </p>
               </div>
 
@@ -1118,10 +1140,10 @@ export function DashboardReports({
                       <td className="py-3 px-3 text-center font-bold text-slate-700">
                         {row.totalStudents}
                       </td>
-                      <td className="py-3 px-3 text-center font-bold text-slate-700">
+                      <td className="py-3 px-3 text-center font-bold text-emerald-800">
                         {row.paidCount}
                       </td>
-                      <td className="py-3 px-3 text-center font-bold text-slate-700">
+                      <td className="py-3 px-3 text-center font-bold text-rose-700">
                         {row.pendingCount}
                       </td>
                       <td className="py-3 px-3 text-right font-bold text-[#005A36]">
@@ -1141,6 +1163,20 @@ export function DashboardReports({
                     </tr>
                   )}
                 </tbody>
+                {filteredClassFeeMatrix.length > 0 && (
+                  <tfoot className="bg-[#F4F8F5] font-mono border-t-2 border-[#DCE8E0] font-bold text-slate-800">
+                    <tr>
+                      <td className="py-3 px-4 font-sans text-[#122A24]">
+                        TOTAL ({filteredClassFeeMatrix.length} Sections)
+                      </td>
+                      <td className="py-3 px-3 text-center">{matrixTotals.totalStudents}</td>
+                      <td className="py-3 px-3 text-center text-emerald-800">{matrixTotals.paidCount}</td>
+                      <td className="py-3 px-3 text-center text-rose-800">{matrixTotals.pendingCount}</td>
+                      <td className="py-3 px-3 text-right text-[#005A36]">₹{matrixTotals.collected.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-right text-rose-700">₹{matrixTotals.pendingDues.toLocaleString()}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </div>
