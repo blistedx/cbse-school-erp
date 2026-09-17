@@ -120,7 +120,7 @@ export const DASHBOARD_FEE_CYCLES: DashboardFeeCycleItem[] = [
     cycleNumber: '5',
     name: 'Cycle 5: September & February',
     shortLabel: 'Cycle 5 (Sep+Feb)',
-    badge: '2 Mo + Term-1 Exam',
+    badge: '2 Months',
     months: ['September', 'February'],
     monthShorts: ['Sep', 'Feb'],
     monthKeys: ['09', '02'],
@@ -128,7 +128,7 @@ export const DASHBOARD_FEE_CYCLES: DashboardFeeCycleItem[] = [
     includesExamFee: true,
     examFeePerStudent: 750,
     quarter: 'Q2',
-    description: '2 Months Tuition (Sep+Feb) + 2 Months Transport + Term-1 Half Yearly Exam'
+    description: '2 Months Tuition (Sep+Feb) + 2 Months Transport + Term-1 Half Yearly Exam Fee (₹750)'
   },
   {
     id: 'cycle-6',
@@ -174,7 +174,7 @@ export const DASHBOARD_FEE_CYCLES: DashboardFeeCycleItem[] = [
     cycleNumber: '9',
     name: 'Cycle 9: January (Pre-Board / Term-2)',
     shortLabel: 'Cycle 9 (January)',
-    badge: '1 Mo + Term-2 Exam',
+    badge: '1 Month',
     months: ['January'],
     monthShorts: ['Jan'],
     monthKeys: ['01'],
@@ -182,7 +182,7 @@ export const DASHBOARD_FEE_CYCLES: DashboardFeeCycleItem[] = [
     includesExamFee: true,
     examFeePerStudent: 750,
     quarter: 'Q4',
-    description: '1 Month Tuition + 1 Month Transport + Term-2 CBSE Exam Fee'
+    description: '1 Month Tuition + 1 Month Transport + Term-2 CBSE Exam Fee (₹750)'
   }
 ];
 
@@ -1377,7 +1377,7 @@ export function DashboardOverview({
             </div>
             <div className="text-[11px] text-emerald-300/70 mt-1 font-medium truncate flex items-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-              <span className="truncate">{dynamicFeeCycleMetrics.paidStudentsCount}/{dynamicFeeCycleMetrics.studentCount} paid ({dynamicFeeCycleMetrics.cycle.badge})</span>
+              <span className="truncate">{dynamicFeeCycleMetrics.paidStudentsCount}/{dynamicFeeCycleMetrics.studentCount} students paid</span>
             </div>
           </div>
 
@@ -1393,16 +1393,13 @@ export function DashboardOverview({
                   Fees pending
                 </span>
               </div>
-              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans flex flex-wrap items-baseline gap-1.5">
-                <span>{kpiFeesPending}</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  {dynamicFeeCycleMetrics.cycle.badge}
-                </span>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {kpiFeesPending}
               </div>
             </div>
             <div className="text-[11px] text-emerald-300/70 mt-1 font-medium truncate flex items-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-              <span className="truncate">{dynamicFeeCycleMetrics.pendingStudentsCount}/{dynamicFeeCycleMetrics.studentCount} pending</span>
+              <span className="truncate">{dynamicFeeCycleMetrics.pendingStudentsCount}/{dynamicFeeCycleMetrics.studentCount} students pending</span>
             </div>
           </div>
 
