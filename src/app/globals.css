@@ -1215,6 +1215,46 @@ a {
     page-break-inside: avoid !important;
     page-break-after: auto !important;
   }
+
+  /* Certificates, Identity Cards & Badges Print Isolation */
+  #certificate-print-modal {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    background: white !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+  }
+
+  #certificate-print-modal > div {
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+
+  #printable-id-card-content {
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    overflow: visible !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────

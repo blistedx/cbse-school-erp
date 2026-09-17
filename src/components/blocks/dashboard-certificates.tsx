@@ -959,7 +959,89 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
   };
 
   const handlePrint = () => {
-    window.print();
+    const content = document.getElementById('printable-id-card-content');
+    if (!content) {
+      window.print();
+      return;
+    }
+
+    // Isolated Hidden Print IFrame Engine (Prevents any ERP background leaking into print dialog)
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = '0';
+    printFrame.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(printFrame);
+
+    const frameDoc = printFrame.contentWindow?.document || printFrame.contentDocument;
+    if (!frameDoc) {
+      window.print();
+      return;
+    }
+
+    // Collect all parent CSS stylesheets and fonts
+    const styleTags = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map(el => el.outerHTML)
+      .join('\n');
+
+    frameDoc.open();
+    frameDoc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${selectedDocMeta?.title || 'Student ID Card'} - Official Document</title>
+          ${styleTags}
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 8mm;
+            }
+            body {
+              background: white !important;
+              color: #122A24 !important;
+              margin: 0 !important;
+              padding: 10px !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            }
+            .no-print { display: none !important; }
+            .print-container {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              width: 100%;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-container">
+            ${content.innerHTML}
+          </div>
+        </body>
+      </html>
+    `);
+    frameDoc.close();
+
+    setTimeout(() => {
+      try {
+        printFrame.contentWindow?.focus();
+        printFrame.contentWindow?.print();
+      } catch (err) {
+        console.error('IFrame print error:', err);
+        window.print();
+      } finally {
+        setTimeout(() => {
+          if (document.body.contains(printFrame)) {
+            document.body.removeChild(printFrame);
+          }
+        }, 3000);
+      }
+    }, 500);
   };
 
   // Real Auto-Attendance QR Scan Execution
@@ -1768,17 +1850,29 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                     )}
                   </div>
 
-                  {/* QR Scan Simulator Test Button */}
+                  {/* QR Scan Simulator & Live Camera Scan Buttons */}
                   {targetType === 'STUDENT' && activeStudent && (
-                    <button
-                      type="button"
-                      onClick={() => handleTestScanAttendance(activeStudent)}
-                      disabled={isScanningQr}
-                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm border-none cursor-pointer flex items-center gap-2 transition-all disabled:opacity-50"
-                    >
-                      {isScanningQr ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ScanLine className="w-4 h-4" />}
-                      <span>{isScanningQr ? 'Marking Attendance in Database...' : '⚡ Test Scan QR (Mark Attendance for Today)'}</span>
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2 justify-center">
+                      <button
+                        type="button"
+                        onClick={() => handleTestScanAttendance(activeStudent)}
+                        disabled={isScanningQr}
+                        className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm border-none cursor-pointer flex items-center gap-2 transition-all disabled:opacity-50"
+                      >
+                        {isScanningQr ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ScanLine className="w-4 h-4" />}
+                        <span>{isScanningQr ? 'Marking Attendance in Database...' : '⚡ Test Scan QR (Mark Attendance)'}</span>
+                      </button>
+
+                      <a
+                        href="/attendance/scan"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-4 py-2.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold shadow-sm border-none cursor-pointer flex items-center gap-2 transition-all no-underline"
+                      >
+                        <Camera className="w-4 h-4 text-emerald-400" />
+                        <span>📷 Open Live Camera Gate Scanner</span>
+                      </a>
+                    </div>
                   )}
 
                 </div>
@@ -1858,11 +1952,11 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
           4. BULK & SINGLE PRINT MODAL (OPTIMIZED FOR CLEAN A4 PRINTING)
           ───────────────────────────────────────────────────────────── */}
       {previewOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+        <div id="certificate-print-modal" className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
           <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[92vh] flex flex-col animate-scale-in">
             
             {/* Modal Header */}
-            <div className="px-6 py-4 bg-[#122A24] text-white flex items-center justify-between shrink-0">
+            <div className="px-6 py-4 bg-[#122A24] text-white flex items-center justify-between shrink-0 no-print">
               <div className="flex items-center gap-2.5">
                 <Award className="w-5 h-5 text-emerald-400 shrink-0" />
                 <div>
@@ -1895,7 +1989,7 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
             </div>
 
             {/* Printable Body Content */}
-            <div className="p-6 sm:p-10 overflow-y-auto bg-slate-100 flex-1 flex justify-center">
+            <div id="printable-id-card-content" className="p-6 sm:p-10 overflow-y-auto bg-slate-100 flex-1 flex justify-center">
               
               {genMode === 'SINGLE' ? (
                 isIdCard ? (
