@@ -279,10 +279,10 @@ export function DashboardStudentPortal({
         </div>
 
         {/* Top Module Switcher */}
-        <div className="relative z-10 flex items-center bg-white/80 backdrop-blur-xs p-1 rounded-2xl border border-[#C5E2CF] shadow-2xs self-stretch sm:self-auto flex-wrap">
+        <div className="relative z-10 grid grid-cols-2 sm:flex sm:items-center gap-1.5 sm:gap-1 bg-white/85 backdrop-blur-xs p-1.5 sm:p-1 rounded-2xl border border-[#C5E2CF] shadow-2xs w-full sm:w-auto">
           <button
             onClick={() => setActiveTab('attendance')}
-            className={`flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 ${
+            className={`px-3 py-2.5 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 ${
               activeView === 'attendance' ? 'bg-[#122A24] text-white shadow-xs' : 'bg-transparent text-slate-600 hover:text-[#122A24]'
             }`}
           >
@@ -291,16 +291,16 @@ export function DashboardStudentPortal({
           </button>
           <button
             onClick={() => setActiveTab('exams')}
-            className={`flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 ${
+            className={`px-3 py-2.5 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 ${
               activeView === 'exams' ? 'bg-[#122A24] text-white shadow-xs' : 'bg-transparent text-slate-600 hover:text-[#122A24]'
             }`}
           >
             <Award className="w-3.5 h-3.5" />
-            <span>My Report Card</span>
+            <span>Report Card</span>
           </button>
           <button
             onClick={() => setActiveTab('fees')}
-            className={`flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 ${
+            className={`px-3 py-2.5 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 ${
               activeView === 'fees' ? 'bg-[#122A24] text-white shadow-xs' : 'bg-transparent text-slate-600 hover:text-[#122A24]'
             }`}
           >
@@ -309,7 +309,7 @@ export function DashboardStudentPortal({
           </button>
           <button
             onClick={() => setActiveTab('certificates')}
-            className={`flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 ${
+            className={`px-3 py-2.5 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border-none flex items-center justify-center gap-1.5 ${
               activeView === 'certificates' ? 'bg-[#122A24] text-white shadow-xs' : 'bg-transparent text-slate-600 hover:text-[#122A24]'
             }`}
           >
@@ -827,7 +827,7 @@ export function DashboardStudentPortal({
 
               <div className="flex items-center gap-2.5 flex-wrap">
                 {/* Quarter & Filter Buttons */}
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs">
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 text-xs overflow-x-auto no-scrollbar max-w-full">
                   {[
                     { id: 'ALL', label: 'All 12 Months' },
                     { id: 'Q1', label: 'Q1 (Apr–Jun)' },
@@ -839,7 +839,7 @@ export function DashboardStudentPortal({
                       key={f.id}
                       type="button"
                       onClick={() => setSelectedFeeFilter(f.id)}
-                      className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer border-none text-xs ${
+                      className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer border-none text-xs shrink-0 ${
                         selectedFeeFilter === f.id
                           ? 'bg-[#122A24] text-white shadow-xs'
                           : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-white'
@@ -1111,8 +1111,8 @@ export function DashboardStudentPortal({
 
       {/* Official Printable Itemized Fee Receipt Modal */}
       {activeReceiptModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-[#DCE8E0] p-6 sm:p-8 max-w-xl w-full shadow-2xl space-y-4 animate-fade-in text-xs">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-[#DCE8E0] p-4 sm:p-7 max-w-xl w-full shadow-2xl space-y-4 animate-fade-in text-xs max-h-[92vh] overflow-y-auto my-auto">
             {/* Receipt Top Header */}
             <div className="flex justify-between items-start pb-3 border-b-2 border-[#122A24]">
               <div>

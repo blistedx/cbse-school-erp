@@ -93,66 +93,91 @@ import { getAllSiblingGroups, SiblingGroup } from '@/lib/student-helper';
 import { ANTIGRAVITY_THEMES, applyAntigravityTheme, getSavedThemeId } from '@/lib/themes';
 import { compressImageFile } from '@/lib/image-compress';
 import { getSchoolInitials } from '@/lib/utils';
+import { ThinkingOrb, ThinkingOrbThinkingDemo, ThinkingOrbSyncPill } from '@/components/ui/thinking-orbs';
+
+// Instant Module Loading Fallback using ThinkingOrb
+const ModuleThinkingFallback = () => (
+  <div className="flex min-h-[360px] w-full items-center justify-center bg-[#070707] rounded-3xl p-8 my-4 border border-white/10 shadow-2xl animate-fade-in">
+    <div
+      className="inline-flex h-[74px] items-center gap-3 rounded-full pl-[9px] pr-8"
+      style={{
+        background: 'rgba(29,29,29,0.42)',
+        boxShadow:
+          'inset 0 0 0 1px rgba(44,47,54,0.31), inset 0 0 50px 0 rgba(255,255,255,0.012)',
+      }}
+    >
+      <span className="[&_canvas]:!size-14">
+        <ThinkingOrb state="composing" size={64} theme="dark" />
+      </span>
+      <span
+        className="whitespace-nowrap text-lg leading-6"
+        style={{ color: 'rgba(251,251,251,0.5)' }}
+      >
+        Thinking….
+      </span>
+    </div>
+  </div>
+);
 
 const DashboardOverview = dynamic(
   () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardSubjects = dynamic(
   () => import('@/components/blocks/dashboard-subjects').then((m) => m.DashboardSubjects),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardAttendance = dynamic(
   () => import('@/components/blocks/dashboard-attendance').then((m) => m.DashboardAttendance),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardTransport = dynamic(
   () => import('@/components/blocks/dashboard-transport').then((m) => m.DashboardTransport),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardExams = dynamic(
   () => import('@/components/blocks/dashboard-exams').then((m) => m.DashboardExams),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardHomework = dynamic(
   () => import('@/components/blocks/dashboard-homework').then((m) => m.DashboardHomework),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardApprovals = dynamic(
   () => import('@/components/blocks/dashboard-approvals').then((m) => m.DashboardApprovals),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardBroadcast = dynamic(
   () => import('@/components/blocks/dashboard-broadcast').then((m) => m.DashboardBroadcast),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardCertificates = dynamic(
   () => import('@/components/blocks/dashboard-certificates').then((m) => m.DashboardCertificates),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardFees = dynamic(
   () => import('@/components/blocks/dashboard-fees').then((m) => m.DashboardFees),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardReports = dynamic(
   () => import('@/components/blocks/dashboard-reports').then((m) => m.DashboardReports),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardAuditLogs = dynamic(
   () => import('@/components/blocks/dashboard-audit-logs').then((m) => m.DashboardAuditLogs),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardDataHub = dynamic(
   () => import('@/components/blocks/dashboard-data-hub').then((m) => m.DashboardDataHub),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardSiblings = dynamic(
   () => import('@/components/blocks/dashboard-siblings').then((m) => m.DashboardSiblings),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardStudentPortal = dynamic(
   () => import('@/components/blocks/dashboard-student-portal').then((m) => m.DashboardStudentPortal),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const OmniSearchModal = dynamic(
   () => import('@/components/omni-search-modal').then((m) => m.OmniSearchModal),
@@ -164,22 +189,70 @@ const StudentSummaryModal = dynamic(
 );
 const DashboardPermissions = dynamic(
   () => import('@/components/blocks/dashboard-permissions').then((m) => m.DashboardPermissions),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardLibrary = dynamic(
   () => import('@/components/blocks/dashboard-library').then((m) => m.DashboardLibrary),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardVisitorGate = dynamic(
   () => import('@/components/blocks/dashboard-visitor-gate').then((m) => m.DashboardVisitorGate),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardHostel = dynamic(
   () => import('@/components/blocks/dashboard-hostel').then((m) => m.DashboardHostel),
-  { ssr: false }
+  { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 import { sendTestNotification, getNotificationPermissionStatus } from '@/lib/push-notifications';
 import BroadcastInboxModal, { getReadBroadcastIds } from '@/components/broadcast-inbox-modal';
+
+// Zero-Latency Module Preloader Map: Eagerly pre-warms JS chunks in background idle time
+const MODULE_PRELOAD_MAP: Record<string, () => Promise<any>> = {
+  overview: () => import('@/components/blocks/dashboard-overview'),
+  students: () => Promise.all([import('@/components/student-summary-modal'), import('@/components/blocks/dashboard-student-portal')]),
+  subjects: () => import('@/components/blocks/dashboard-subjects'),
+  attendance: () => import('@/components/blocks/dashboard-attendance'),
+  transport: () => import('@/components/blocks/dashboard-transport'),
+  exams: () => import('@/components/blocks/dashboard-exams'),
+  homework: () => import('@/components/blocks/dashboard-homework'),
+  approvals: () => import('@/components/blocks/dashboard-approvals'),
+  broadcast: () => import('@/components/blocks/dashboard-broadcast'),
+  certificates: () => import('@/components/blocks/dashboard-certificates'),
+  fees: () => import('@/components/blocks/dashboard-fees'),
+  reports: () => import('@/components/blocks/dashboard-reports'),
+  audit_logs: () => import('@/components/blocks/dashboard-audit-logs'),
+  data_hub: () => import('@/components/blocks/dashboard-data-hub'),
+  siblings: () => import('@/components/blocks/dashboard-siblings'),
+  student_portal: () => import('@/components/blocks/dashboard-student-portal'),
+  permissions: () => import('@/components/blocks/dashboard-permissions'),
+  library: () => import('@/components/blocks/dashboard-library'),
+  visitors: () => import('@/components/blocks/dashboard-visitor-gate'),
+  hostel: () => import('@/components/blocks/dashboard-hostel'),
+  omni: () => import('@/components/omni-search-modal'),
+};
+
+export const preloadModuleByTab = (tab: string) => {
+  try {
+    const fn = MODULE_PRELOAD_MAP[tab];
+    if (fn) fn();
+  } catch (_) {}
+};
+
+export const preloadAllModules = () => {
+  if (typeof window === 'undefined') return;
+  const runner = () => {
+    Object.values(MODULE_PRELOAD_MAP).forEach((fn) => {
+      try {
+        fn();
+      } catch (_) {}
+    });
+  };
+  if ('requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(runner, { timeout: 1000 });
+  } else {
+    setTimeout(runner, 150);
+  }
+};
 
 const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code: string; highlight: string }> = {
   overview: {
@@ -352,6 +425,7 @@ function ERPWorkspaceContent() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isOmniSearchOpen, setIsOmniSearchOpen] = useState(false);
+  const isDataLoadingRef = React.useRef(false);
 
   // Theme Management (Default Emerald vs Black & White Monochrome)
   const [currentTheme, setCurrentTheme] = useState<string>('emerald');
@@ -458,6 +532,9 @@ function ERPWorkspaceContent() {
   const [individualTargetSession, setIndividualTargetSession] = useState<string>('2027-28');
   const [settingsSuccess, setSettingsSuccess] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isUploadingStudentDp, setIsUploadingStudentDp] = useState<boolean>(false);
+  const [studentDpSuccess, setStudentDpSuccess] = useState<boolean>(false);
+  const [studentNameActionTarget, setStudentNameActionTarget] = useState<Student | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const isSuperAdmin = mounted && !!currentUser && (currentUser?.role === 'SUPERADMIN' || currentUser?.role === 'AGENCY_SUPERADMIN' || currentUser?.role === 'GOD_ACCESS' || currentUser?.is_god_admin || currentUser?.username?.toLowerCase() === 'blistedx');
 
@@ -625,7 +702,12 @@ function ERPWorkspaceContent() {
       return ['visitors', 'students', 'transport', 'notices', 'profile'];
     }
     if (effectiveRole === 'TEACHER') {
-      return ['overview', 'attendance', 'exams', 'homework', 'classes', 'subjects', 'students', 'approvals', 'library', 'notices', 'profile'];
+      const teacherConfig = rolePermissions?.TEACHER;
+      const base = ['overview', 'attendance', 'exams', 'homework', 'classes', 'subjects', 'students', 'approvals', 'library', 'notices', 'profile'];
+      if (teacherConfig?.fees?.can_view && !base.includes('fees')) {
+        base.push('fees');
+      }
+      return base;
     }
     if (effectiveRole === 'STUDENT') {
       return ['profile', 'attendance', 'exams', 'homework', 'fees', 'library', 'certificates', 'notices'];
@@ -1026,6 +1108,64 @@ function ERPWorkspaceContent() {
       };
     }
   }, [selectedSchool, selectedSession]);
+
+  // ⚡ Instant Module Preloader: Pre-warms every chunk in background so tabs switch at 0ms!
+  useEffect(() => {
+    const preloadAllModules = () => {
+      import('@/components/blocks/dashboard-overview');
+      import('@/components/blocks/dashboard-fees');
+      import('@/components/blocks/dashboard-attendance');
+      import('@/components/blocks/dashboard-exams');
+      import('@/components/blocks/dashboard-transport');
+      import('@/components/blocks/dashboard-reports');
+      import('@/components/blocks/dashboard-certificates');
+      import('@/components/blocks/dashboard-subjects');
+      import('@/components/blocks/dashboard-homework');
+      import('@/components/blocks/dashboard-library');
+      import('@/components/blocks/dashboard-visitor-gate');
+      import('@/components/blocks/dashboard-hostel');
+      import('@/components/blocks/dashboard-broadcast');
+      import('@/components/blocks/dashboard-approvals');
+      import('@/components/blocks/dashboard-data-hub');
+      import('@/components/blocks/dashboard-audit-logs');
+      import('@/components/blocks/dashboard-permissions');
+      import('@/components/blocks/dashboard-student-portal');
+      import('@/components/blocks/dashboard-siblings');
+      import('@/components/omni-search-modal');
+      import('@/components/student-summary-modal');
+    };
+
+    if (typeof window !== 'undefined') {
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(preloadAllModules);
+      } else {
+        setTimeout(preloadAllModules, 250);
+      }
+    }
+  }, []);
+
+  const preloadModuleByTab = (tab: string) => {
+    switch (tab) {
+      case 'fees': import('@/components/blocks/dashboard-fees'); break;
+      case 'attendance': import('@/components/blocks/dashboard-attendance'); break;
+      case 'exams': import('@/components/blocks/dashboard-exams'); break;
+      case 'transport': import('@/components/blocks/dashboard-transport'); break;
+      case 'reports': import('@/components/blocks/dashboard-reports'); break;
+      case 'certificates': import('@/components/blocks/dashboard-certificates'); break;
+      case 'subjects': import('@/components/blocks/dashboard-subjects'); break;
+      case 'homework': import('@/components/blocks/dashboard-homework'); break;
+      case 'library': import('@/components/blocks/dashboard-library'); break;
+      case 'visitors': import('@/components/blocks/dashboard-visitor-gate'); break;
+      case 'hostel': import('@/components/blocks/dashboard-hostel'); break;
+      case 'broadcast': import('@/components/blocks/dashboard-broadcast'); break;
+      case 'approvals': import('@/components/blocks/dashboard-approvals'); break;
+      case 'data_hub': import('@/components/blocks/dashboard-data-hub'); break;
+      case 'audit_logs': import('@/components/blocks/dashboard-audit-logs'); break;
+      case 'permissions': import('@/components/blocks/dashboard-permissions'); break;
+      case 'siblings': import('@/components/blocks/dashboard-siblings'); break;
+      default: break;
+    }
+  };
 
   // Load User Session & Role from Local Storage on Mount
   useEffect(() => {
@@ -1800,11 +1940,15 @@ function ERPWorkspaceContent() {
 
       if (!hasLocalCache) {
         setLoading(true);
+      } else {
+        setLoading(false);
       }
 
       // Parallelize: Load school data immediately if targetSchool is known without waiting for /api/schools!
+      let initialDataTriggered = false;
       if (targetSchool) {
         loadSchoolData(targetSchool.school_code || targetSchool.id, undefined, true);
+        initialDataTriggered = true;
       }
 
       let schData: any = { success: false, schools: [] };
@@ -1824,6 +1968,7 @@ function ERPWorkspaceContent() {
       // ?school= URL param requests a different one.
       // NEVER replace a valid localStorage school with schData.schools[0] — that picks
       // the wrong school and makes attendance queries return 0 records.
+      let schoolChangedByParam = false;
       if (!targetSchool) {
         if (schData.success && schData.schools && schData.schools.length > 0) {
           if (schoolParam) {
@@ -1845,7 +1990,10 @@ function ERPWorkspaceContent() {
             s.school_code?.replace(/[^A-Z0-9]/gi, '').toUpperCase() === cleanParam ||
             s.id?.replace(/[^A-Z0-9]/gi, '').toUpperCase() === cleanParam
           );
-          if (paramSchool) targetSchool = paramSchool;
+          if (paramSchool) {
+            targetSchool = paramSchool;
+            schoolChangedByParam = true;
+          }
         }
       }
 
@@ -1961,7 +2109,9 @@ function ERPWorkspaceContent() {
           localStorage.setItem('current_school', JSON.stringify(targetSchool));
           localStorage.setItem('last_active_school_id', targetSchool.school_code || targetSchool.id);
         }
-        loadSchoolData(targetSchool.school_code || targetSchool.id || 'DPS2026');
+        if (!initialDataTriggered || schoolChangedByParam) {
+          loadSchoolData(targetSchool.school_code || targetSchool.id || 'DPS2026', undefined, true);
+        }
       } else {
         router.push('/login');
       }
@@ -2107,11 +2257,35 @@ function ERPWorkspaceContent() {
     const cleanId = (rawClean === 'DPS2026' || rawClean.startsWith('DPS') || rawClean === 'SCH1788255333307') ? 'DPS2026' : rawClean;
     const targetSession = sessionParam || selectedSession || '2026-27';
 
-
-    if (!isSilent) {
-      setLoading(true);
+    // ⚡ Step 1: 0ms Instant Cache Hydration from Local Snapshot
+    if (typeof window !== 'undefined') {
+      try {
+        const snapRaw = localStorage.getItem(`giterp_snapshot_${cleanId}_${targetSession}`);
+        if (snapRaw) {
+          const snap = JSON.parse(snapRaw);
+          if (snap) {
+            if (snap.overview) setOverview(snap.overview);
+            if (Array.isArray(snap.students) && snap.students.length > 0) setStudents(snap.students);
+            if (Array.isArray(snap.teachers) && snap.teachers.length > 0) setTeachers(snap.teachers);
+            if (Array.isArray(snap.classes) && snap.classes.length > 0) setClasses(snap.classes);
+            if (Array.isArray(snap.notices) && snap.notices.length > 0) setNotices(snap.notices);
+            if (Array.isArray(snap.attendance) && snap.attendance.length > 0) setAttendance(snap.attendance);
+            if (Array.isArray(snap.invoices) && snap.invoices.length > 0) setInvoices(snap.invoices);
+            setLoading(false);
+          }
+        }
+      } catch (_) {}
     }
 
+    if (!isSilent) {
+      // If we didn't have cached data, setLoading is handled, else keep smooth transition
+    }
+
+    // ⚡ Step 2: Prevent concurrent duplicate network requests for the same payload
+    if (isDataLoadingRef.current) {
+      return;
+    }
+    isDataLoadingRef.current = true;
     setIsSyncingLive(true);
 
     try {
@@ -2188,6 +2362,7 @@ function ERPWorkspaceContent() {
     } catch (e) {
       console.error('Failed to load live school data from MongoDB:', e);
     } finally {
+      isDataLoadingRef.current = false;
       setIsSyncingLive(false);
       setLoading(false);
     }
@@ -4033,6 +4208,14 @@ function ERPWorkspaceContent() {
     }`;
   };
 
+  if (loading && !overview) {
+    return (
+      <div className="h-[100dvh] w-full flex items-center justify-center bg-[#070707]">
+        <ThinkingOrbThinkingDemo text="Connecting CBSE Cloud & Syncing School Records…." />
+      </div>
+    );
+  }
+
   return (
     <div suppressHydrationWarning className="h-[100dvh] max-h-[100dvh] w-full max-w-full flex flex-col overflow-hidden bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased print:h-auto print:max-h-none print:overflow-visible">
       {/* PWA Offline Mode Notice Banner */}
@@ -4101,6 +4284,13 @@ function ERPWorkspaceContent() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          {/* Live Cloud DB Syncing ThinkingOrb Pill */}
+          {isSyncingLive && (
+            <div className="hidden md:flex items-center animate-fade-in">
+              <ThinkingOrbSyncPill compact text="Syncing Master DB…" />
+            </div>
+          )}
+
           {/* Universal Omni-Search Trigger Button / Bar */}
           {effectiveRole !== 'DRIVER' && (
             <>
@@ -4546,7 +4736,7 @@ function ERPWorkspaceContent() {
               >
                 <span className="flex items-center gap-3">
                   <CreditCard className={getNavIconClass('fees')} />
-                  <span>Transactions</span>
+                  <span>Finance & Fees</span>
                 </span>
                 <span className={getNavBadgeClass('fees')}>
                   {invoices.length}
@@ -4920,7 +5110,7 @@ function ERPWorkspaceContent() {
             >
               <span className="flex items-center gap-3">
                 <CreditCard className={getNavIconClass('fees')} />
-                <span>Transactions</span>
+                <span>Finance & Fees</span>
               </span>
               <span className={getNavBadgeClass('fees')}>
                 {invoices.length}
@@ -8331,7 +8521,7 @@ function ERPWorkspaceContent() {
 
           {/* TAB 6: FEES & INVOICE MANAGEMENT (STUDENT vs ADMIN) */}
           {activeTab === 'fees' && (
-            effectiveRole === 'STUDENT' ? (
+            effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? (
               <DashboardStudentPortal
                 currentUser={currentUser}
                 selectedSchool={selectedSchool}
@@ -14102,13 +14292,47 @@ function ERPWorkspaceContent() {
           onDownloadCSV={activeReportModal.onDownloadCSV}
         />
       )}
+      {/* Floating Real-Time Synchronization Indicator */}
+      {isSyncingLive && (
+        <div className="fixed bottom-4 right-4 z-50 animate-bounce-short pointer-events-none select-none">
+          <div
+            className="inline-flex h-[56px] sm:h-[62px] items-center gap-3 rounded-full pl-[8px] pr-6 shadow-2xl backdrop-blur-xl border border-white/20"
+            style={{
+              background: 'rgba(7, 7, 7, 0.90)',
+              boxShadow:
+                'inset 0 0 0 1px rgba(44,47,54,0.4), inset 0 0 40px 0 rgba(255,255,255,0.02), 0 16px 36px rgba(0,0,0,0.5)',
+            }}
+          >
+            <span className="[&_canvas]:!size-11 sm:[&_canvas]:!size-12">
+              <ThinkingOrb state="composing" size={48} theme="dark" />
+            </span>
+            <div className="flex flex-col">
+              <span
+                className="whitespace-nowrap text-xs sm:text-sm font-semibold tracking-tight"
+                style={{ color: 'rgba(251,251,251,0.9)' }}
+              >
+                Syncing Live Database…
+              </span>
+              <span className="text-[10px] font-mono text-emerald-400">
+                CBSE Telemetry Cloud
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function ERPWorkspacePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#122A24] text-white flex items-center justify-center font-mono">Loading Workspace...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#070707] text-white flex items-center justify-center font-mono">
+          <ThinkingOrbThinkingDemo text="Initializing CBSE Enterprise Workspace…" />
+        </div>
+      }
+    >
       <ERPWorkspaceContent />
     </Suspense>
   );

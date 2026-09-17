@@ -91,12 +91,31 @@ const memoryStore: MemoryStore = {
   exams: []
 };
 
-// High-speed in-memory TTL caching engine for instant enterprise ERP performance
+// High-speed in-memory TTL caching engine with SingleFlight promise coalescing
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
 }
 const serverCache = new Map<string, CacheEntry<any>>();
+const inFlightQueries = new Map<string, Promise<any>>();
+
+// Fast in-memory school lookup cache (ID/Code -> School object)
+const schoolLookupCache = new Map<string, School>();
+
+export function updateSchoolLookupCache(schools: School[]): void {
+  for (const s of schools) {
+    if (s.id) {
+      const idUpper = s.id.toUpperCase();
+      schoolLookupCache.set(idUpper, s);
+      schoolLookupCache.set(idUpper.replace(/[^A-Z0-9]/g, ''), s);
+    }
+    if (s.school_code) {
+      const codeUpper = s.school_code.toUpperCase();
+      schoolLookupCache.set(codeUpper, s);
+      schoolLookupCache.set(codeUpper.replace(/[^A-Z0-9]/g, ''), s);
+    }
+  }
+}
 
 function getCached<T>(key: string): T | null {
   const entry = serverCache.get(key);
@@ -108,13 +127,14 @@ function getCached<T>(key: string): T | null {
   return entry.data;
 }
 
-function setCached<T>(key: string, data: T, ttlMs = 45000): void {
+function setCached<T>(key: string, data: T, ttlMs = 180000): void {
   serverCache.set(key, { data, expiresAt: Date.now() + ttlMs });
 }
 
 export function invalidateServerCache(pattern?: string): void {
   if (!pattern) {
     serverCache.clear();
+    schoolLookupCache.clear();
     return;
   }
   for (const key of Array.from(serverCache.keys())) {
@@ -122,6 +142,36 @@ export function invalidateServerCache(pattern?: string): void {
       serverCache.delete(key);
     }
   }
+  if (pattern.includes('school')) {
+    schoolLookupCache.clear();
+  }
+}
+
+/**
+ * SingleFlight coalesces concurrent identical requests into a single promise.
+ * Eliminates duplicate MongoDB Atlas queries when multiple components or users request the same data simultaneously.
+ */
+async function singleFlight<T>(key: string, fn: () => Promise<T>, ttlMs = 180000): Promise<T> {
+  const cached = getCached<T>(key);
+  if (cached !== null && cached !== undefined) return cached;
+
+  const existing = inFlightQueries.get(key);
+  if (existing) return existing as Promise<T>;
+
+  const queryPromise = (async () => {
+    try {
+      const data = await fn();
+      if (data !== null && data !== undefined) {
+        setCached(key, data, ttlMs);
+      }
+      return data;
+    } finally {
+      inFlightQueries.delete(key);
+    }
+  })();
+
+  inFlightQueries.set(key, queryPromise);
+  return queryPromise;
 }
 
 function loadLocalStore() {
@@ -454,72 +504,93 @@ export const Database = {
   // SCHOOLS
   async getSchools(): Promise<School[]> {
     const cacheKey = 'schools:active';
-    const cached = getCached<School[]>(cacheKey);
-    if (cached && cached.length > 0) return cached;
-
-    await ensureIndexes();
-    try {
-      const db = await getDatabase();
-      if (db) {
-        const results = await db.collection('schools')
-          .find({ status: 'ACTIVE' })
-          .sort({ created_at: 1 })
-          .toArray();
-        if (results && results.length > 0) {
-          const mapped = results.map(sanitizeDoc<School>).map(s => ({
-            ...s,
-            admin_pin: s.admin_pin || '123456'
-          }));
-          setCached(cacheKey, mapped, 5000);
-          return mapped;
+    return singleFlight(cacheKey, async () => {
+      ensureIndexes().catch(() => {});
+      try {
+        const db = await getDatabase();
+        if (db) {
+          const results = await db.collection('schools')
+            .find({ status: 'ACTIVE' })
+            .sort({ created_at: 1 })
+            .toArray();
+          if (results && results.length > 0) {
+            const mapped = results.map(sanitizeDoc<School>).map(s => ({
+              ...s,
+              admin_pin: s.admin_pin || '123456'
+            }));
+            updateSchoolLookupCache(mapped);
+            return mapped;
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
 
-    const fallback = memoryStore.schools.filter(s => s.status === 'ACTIVE').map(s => ({
-      ...s,
-      admin_pin: s.admin_pin || '123456'
-    }));
-    if (fallback.length > 0) {
-      setCached(cacheKey, fallback, 5000);
-    }
-    return fallback;
+      const fallback = memoryStore.schools.filter(s => s.status === 'ACTIVE').map(s => ({
+        ...s,
+        admin_pin: s.admin_pin || '123456'
+      }));
+      updateSchoolLookupCache(fallback);
+      return fallback;
+    }, 180000);
   },
 
   async getSchoolById(schoolId: string): Promise<School | null> {
     if (!schoolId) return null;
-    const schools = await this.getSchools();
     const rawInput = schoolId.trim().toUpperCase();
     const cleanInput = rawInput.replace(/[^A-Z0-9]/g, '');
 
+    // 0. Fast In-Memory Map Lookup
+    const memoryHit = schoolLookupCache.get(rawInput) || schoolLookupCache.get(cleanInput);
+    if (memoryHit) return memoryHit;
+
+    const schools = await this.getSchools();
+
     // 1. Direct ID Match
     let matched = schools.find(s => (s.id || '').toUpperCase() === rawInput || (s.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanInput);
-    if (matched) return matched;
+    if (matched) {
+      schoolLookupCache.set(rawInput, matched);
+      schoolLookupCache.set(cleanInput, matched);
+      return matched;
+    }
 
     // 2. Direct School Code Match
     matched = schools.find(s => (s.school_code || '').toUpperCase() === rawInput || (s.school_code || '').toUpperCase().replace(/[^A-Z0-9]/g, '') === cleanInput);
-    if (matched) return matched;
+    if (matched) {
+      schoolLookupCache.set(rawInput, matched);
+      schoolLookupCache.set(cleanInput, matched);
+      return matched;
+    }
 
     return this.getSchoolByCode(schoolId);
   },
 
   async getSchoolByCode(schoolCode: string): Promise<School | null> {
     if (!schoolCode) return null;
-    const schools = await this.getSchools();
     const rawInput = schoolCode.trim().toUpperCase();
     const cleanInput = rawInput.replace(/[^A-Z0-9]/g, '');
 
+    // 0. Fast In-Memory Map Lookup
+    const memoryHit = schoolLookupCache.get(rawInput) || schoolLookupCache.get(cleanInput);
+    if (memoryHit) return memoryHit;
+
+    const schools = await this.getSchools();
+
     let matched = schools.find(s => (s.school_code || '').toUpperCase() === rawInput);
-    if (matched) return matched;
+    if (matched) {
+      schoolLookupCache.set(rawInput, matched);
+      schoolLookupCache.set(cleanInput, matched);
+      return matched;
+    }
 
     matched = schools.find(s => {
       const cleanDbCode = (s.school_code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
       return cleanDbCode === cleanInput;
     });
-    if (matched) return matched;
+    if (matched) {
+      schoolLookupCache.set(rawInput, matched);
+      schoolLookupCache.set(cleanInput, matched);
+      return matched;
+    }
 
-    // NOTE: Partial school name match removed to prevent school enumeration (M2).
-    // Only exact school_code or school_id matches are accepted.
     return null;
   },
 
@@ -1085,61 +1156,57 @@ export const Database = {
   async getStudents(schoolId?: string, session?: string): Promise<Student[]> {
     const targetSession = session || '2026-27';
     const cacheKey = `students:${schoolId || 'all'}:${targetSession}`;
-    const cached = getCached<Student[]>(cacheKey);
-    if (cached && cached.length > 0) return cached;
+    return singleFlight(cacheKey, async () => {
+      ensureIndexes().catch(() => {});
+      const school = schoolId ? await this.getSchoolById(schoolId) : null;
+      const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
+      const targetId = school?.id || cleanId;
+      const targetCode = school?.school_code || cleanId;
 
-    await ensureIndexes();
-    const school = schoolId ? await this.getSchoolById(schoolId) : null;
-    const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
-    const targetId = school?.id || cleanId;
-    const targetCode = school?.school_code || cleanId;
+      // 1. MongoDB Query (Fast Primary Store)
+      try {
+        const db = await getDatabase();
+        if (db) {
+          const ids = (targetId || targetCode || schoolId)
+            ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+            : [];
+          const filter = buildSessionFilter(ids as string[], targetSession);
+          const results = await db.collection('students')
+            .find(filter)
+            .sort({ admission_no: 1 })
+            .toArray();
+          if (results && results.length > 0) {
+            const mapped = results.map(sanitizeDoc<Student>).map(s => ({
+              ...s,
+              passcode: (s.passcode && !s.passcode.startsWith('$2')) ? s.passcode : '123456',
+              academic_session: s.academic_session || '2026-27'
+            }));
+            return mapped;
+          }
+        }
+      } catch (e) {}
 
-    // 1. MongoDB Query (Fast Primary Store)
-    try {
-      const db = await getDatabase();
-      if (db) {
-        const ids = (targetId || targetCode || schoolId)
-          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
-          : [];
-        const filter = buildSessionFilter(ids as string[], targetSession);
-        const results = await db.collection('students')
-          .find(filter)
-          .sort({ admission_no: 1 })
-          .toArray();
-        if (results && results.length > 0) {
-          const mapped = results.map(sanitizeDoc<Student>).map(s => ({
+      // 3. MemoryStore / LocalStore Fallback
+      if (targetId || schoolId) {
+        const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
+        const res = memoryStore.students
+          .filter(s => ids.includes(s.school_id) && matchesSession(s, targetSession))
+          .map(s => ({
             ...s,
-            passcode: (s.passcode && !s.passcode.startsWith('$2')) ? s.passcode : '123456',
+            passcode: s.passcode || '123456',
             academic_session: s.academic_session || '2026-27'
           }));
-          setCached(cacheKey, mapped, 5000);
-          return mapped;
-        }
+        return res;
       }
-    } catch (e) {}
-
-    // 3. MemoryStore / LocalStore Fallback
-    if (targetId || schoolId) {
-      const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-      const res = memoryStore.students
-        .filter(s => ids.includes(s.school_id) && matchesSession(s, targetSession))
+      const allRes = memoryStore.students
+        .filter(s => matchesSession(s, targetSession))
         .map(s => ({
           ...s,
           passcode: s.passcode || '123456',
           academic_session: s.academic_session || '2026-27'
         }));
-      if (res.length > 0) setCached(cacheKey, res, 5000);
-      return res;
-    }
-    const allRes = memoryStore.students
-      .filter(s => matchesSession(s, targetSession))
-      .map(s => ({
-        ...s,
-        passcode: s.passcode || '123456',
-        academic_session: s.academic_session || '2026-27'
-      }));
-    if (allRes.length > 0) setCached(cacheKey, allRes, 5000);
-    return allRes;
+      return allRes;
+    }, 180000);
   },
 
   async createStudent(studentData: Partial<Student>): Promise<Student> {
@@ -1355,125 +1422,134 @@ export const Database = {
   async getTeachers(schoolId?: string, session?: string): Promise<Teacher[]> {
     const targetSession = session || '2026-27';
     const cacheKey = `teachers:${schoolId || 'all'}:${targetSession}`;
-    const cached = getCached<Teacher[]>(cacheKey);
-    if (cached && cached.length > 0) return cached;
+    return singleFlight(cacheKey, async () => {
+      ensureIndexes().catch(() => {});
+      const school = schoolId ? await this.getSchoolById(schoolId) : null;
+      const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
+      const targetId = school?.id || cleanId;
+      const targetCode = school?.school_code || cleanId;
 
-    await ensureIndexes();
-    const school = schoolId ? await this.getSchoolById(schoolId) : null;
-    const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
-    const targetId = school?.id || cleanId;
-    const targetCode = school?.school_code || cleanId;
+      const ensureTeacherGender = (t: Teacher): Teacher => {
+        if (t.gender && (t.gender.toLowerCase() === 'female' || t.gender.toLowerCase() === 'f')) {
+          return { ...t, gender: 'Female' };
+        }
+        if (t.gender && (t.gender.toLowerCase() === 'male' || t.gender.toLowerCase() === 'm')) {
+          return { ...t, gender: 'Male' };
+        }
+        const name = (t.full_name || '').toLowerCase();
+        if (name.includes('mrs.') || name.includes('ms.') || name.includes('miss') || name.includes('sister') || name.includes('smt') || name.includes('shmt')) {
+          return { ...t, gender: 'Female' };
+        }
+        if (name.includes('mr.') || name.includes('shri') || name.includes('master')) {
+          return { ...t, gender: 'Male' };
+        }
+        const femaleKeywords = [
+          'sunita', 'pooja', 'nalini', 'meenakshi', 'ananya', 'priya', 'kavita', 'shweta',
+          'deepa', 'ritu', 'sneha', 'divya', 'anjali', 'archana', 'kiran', 'neeta',
+          'sangeeta', 'geeta', 'asha', 'rekha', 'sarita', 'swati', 'komal', 'radha',
+          'seema', 'preeti', 'rani', 'kumari', 'devi', 'kaur', 'begum', 'fatima', 'aisha', 'neha', 'tanvi'
+        ];
+        if (femaleKeywords.some(kw => name.includes(kw))) {
+          return { ...t, gender: 'Female' };
+        }
+        const maleKeywords = [
+          'rajesh', 'raman', 'aniruddh', 'deepak', 'siddharth', 'malhotra', 'amit', 'vikas', 'rohan',
+          'suresh', 'mahesh', 'mukesh', 'sanjay', 'ajay', 'vijay', 'manoj', 'pankaj', 'alok', 'ashok',
+          'anil', 'sunil', 'vinod', 'arun', 'varun', 'gaurav', 'tarun', 'sachin', 'nitin', 'sumit',
+          'rahul', 'rohit', 'vipin', 'praveen', 'pradeep', 'manish', 'kapil', 'neeraj', 'harish'
+        ];
+        if (maleKeywords.some(kw => name.includes(kw))) {
+          return { ...t, gender: 'Male' };
+        }
+        const num = parseInt((t.staff_code || t.id || '').replace(/\D/g, '') || '0');
+        return { ...t, gender: (num % 3 !== 0) ? 'Female' : 'Male' };
+      };
 
-    const ensureTeacherGender = (t: Teacher): Teacher => {
-      if (t.gender && (t.gender.toLowerCase() === 'female' || t.gender.toLowerCase() === 'f')) {
-        return { ...t, gender: 'Female' };
-      }
-      if (t.gender && (t.gender.toLowerCase() === 'male' || t.gender.toLowerCase() === 'm')) {
-        return { ...t, gender: 'Male' };
-      }
-      const name = (t.full_name || '').toLowerCase();
-      if (name.includes('mrs.') || name.includes('ms.') || name.includes('miss') || name.includes('sister') || name.includes('smt') || name.includes('shmt')) {
-        return { ...t, gender: 'Female' };
-      }
-      if (name.includes('mr.') || name.includes('shri') || name.includes('master')) {
-        return { ...t, gender: 'Male' };
-      }
-      const femaleKeywords = [
-        'sunita', 'pooja', 'nalini', 'meenakshi', 'ananya', 'priya', 'kavita', 'shweta',
-        'deepa', 'ritu', 'sneha', 'divya', 'anjali', 'archana', 'kiran', 'neeta',
-        'sangeeta', 'geeta', 'asha', 'rekha', 'sarita', 'swati', 'komal', 'radha',
-        'seema', 'preeti', 'rani', 'kumari', 'devi', 'kaur', 'begum', 'fatima', 'aisha', 'neha', 'tanvi'
-      ];
-      if (femaleKeywords.some(kw => name.includes(kw))) {
-        return { ...t, gender: 'Female' };
-      }
-      const maleKeywords = [
-        'rajesh', 'raman', 'aniruddh', 'deepak', 'siddharth', 'malhotra', 'amit', 'vikas', 'rohan',
-        'suresh', 'mahesh', 'mukesh', 'sanjay', 'ajay', 'vijay', 'manoj', 'pankaj', 'alok', 'ashok',
-        'anil', 'sunil', 'vinod', 'arun', 'varun', 'gaurav', 'tarun', 'sachin', 'nitin', 'sumit',
-        'rahul', 'rohit', 'vipin', 'praveen', 'pradeep', 'manish', 'kapil', 'neeraj', 'harish'
-      ];
-      if (maleKeywords.some(kw => name.includes(kw))) {
-        return { ...t, gender: 'Male' };
-      }
-      const num = parseInt((t.staff_code || t.id || '').replace(/\D/g, '') || '0');
-      return { ...t, gender: (num % 3 !== 0) ? 'Female' : 'Male' };
-    };
+      const ensurePrincipalInList = (list: Teacher[]): Teacher[] => {
+        const sch = school || { id: 'DPS2026', school_code: 'DPS2026', principal_name: 'Abhishek Shukla', admin_pin: '123456', phone: '+91 9876543210', email: 'principal@dps2026.edu.in' };
+        const prinName = sch.principal_name || 'Abhishek Shukla';
+        const prinEmail = sch.email || `principal@${(sch.school_code || 'dps2026').toLowerCase()}.edu.in`;
+        const prinPhone = sch.phone || '+91 9876543210';
+        const prinPin = sch.admin_pin || '123456';
+        const prinId = `TCH-PRIN-${(sch.id || 'DPS2026').toUpperCase()}`;
 
-    const ensurePrincipalInList = (list: Teacher[]): Teacher[] => {
-      const sch = school || { id: 'DPS2026', school_code: 'DPS2026', principal_name: 'Abhishek Shukla', admin_pin: '123456', phone: '+91 9876543210', email: 'principal@dps2026.edu.in' };
-      const prinName = sch.principal_name || 'Abhishek Shukla';
-      const prinEmail = sch.email || `principal@${(sch.school_code || 'dps2026').toLowerCase()}.edu.in`;
-      const prinPhone = sch.phone || '+91 9876543210';
-      const prinPin = sch.admin_pin || '123456';
-      const prinId = `TCH-PRIN-${(sch.id || 'DPS2026').toUpperCase()}`;
+        const hasPrincipal = list.some(t => 
+          (t.role || '').toUpperCase() === 'PRINCIPAL' ||
+          resolveTeacherRole(t) === 'PRINCIPAL' ||
+          (t.staff_code || '').toUpperCase() === 'PRIN-01' ||
+          (t.staff_code || '').toUpperCase() === 'EMP-00' ||
+          (t.full_name || '').trim().toLowerCase() === prinName.trim().toLowerCase()
+        );
 
-      const hasPrincipal = list.some(t => 
-        (t.role || '').toUpperCase() === 'PRINCIPAL' ||
-        resolveTeacherRole(t) === 'PRINCIPAL' ||
-        (t.staff_code || '').toUpperCase() === 'PRIN-01' ||
-        (t.staff_code || '').toUpperCase() === 'EMP-00' ||
-        (t.full_name || '').trim().toLowerCase() === prinName.trim().toLowerCase()
-      );
+        if (!hasPrincipal) {
+          const principalTeacher: Teacher = {
+            id: prinId,
+            school_id: sch.id || 'DPS2026',
+            academic_session: targetSession,
+            staff_code: 'PRIN-01',
+            full_name: prinName,
+            designation: 'Principal & Head of Institution',
+            department: 'Leadership & Administration',
+            subject_specialization: 'Institutional Governance & CBSE Pedagogy',
+            classes_taught: 'Senior School',
+            email: prinEmail,
+            phone: prinPhone,
+            qualification: 'Ph.D, M.Ed, M.Sc',
+            experience_years: 18,
+            gender: 'Male',
+            date_of_joining: '2018-04-01',
+            status: 'ACTIVE',
+            photo: (sch as any)?.principal_avatar || '',
+            avatar: (sch as any)?.principal_avatar || '',
+            passcode: prinPin,
+            role: 'PRINCIPAL'
+          };
+          return [principalTeacher, ...list];
+        }
+        return list;
+      };
 
-      if (!hasPrincipal) {
-        const principalTeacher: Teacher = {
-          id: prinId,
-          school_id: sch.id || 'DPS2026',
-          academic_session: targetSession,
-          staff_code: 'PRIN-01',
-          full_name: prinName,
-          designation: 'Principal & Head of Institution',
-          department: 'Leadership & Administration',
-          subject_specialization: 'Institutional Governance & CBSE Pedagogy',
-          classes_taught: 'Senior School',
-          email: prinEmail,
-          phone: prinPhone,
-          qualification: 'Ph.D, M.Ed, M.Sc',
-          experience_years: 18,
-          gender: 'Male',
-          date_of_joining: '2018-04-01',
-          status: 'ACTIVE',
-          photo: (sch as any)?.principal_avatar || '',
-          avatar: (sch as any)?.principal_avatar || '',
-          passcode: prinPin,
-          role: 'PRINCIPAL'
-        };
-        return [principalTeacher, ...list];
-      }
-      return list;
-    };
+      // 1. MongoDB Query (Fast Primary Store)
+      try {
+        const db = await getDatabase();
+        if (db) {
+          const ids = (targetId || targetCode || schoolId)
+            ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+            : [];
+          const filter = buildSessionFilter(ids as string[], targetSession);
+          const results = await db.collection('teachers')
+            .find(filter)
+            .sort({ staff_code: 1 })
+            .toArray();
+          if (results && results.length > 0) {
+            const mapped = results.map(sanitizeDoc<Teacher>).map(ensureTeacherGender).map(t => ({
+              ...t,
+              passcode: (t.passcode && !t.passcode.startsWith('$2')) ? t.passcode : '123456',
+              role: t.role || resolveTeacherRole(t),
+              academic_session: t.academic_session || '2026-27'
+            }));
+            const finalMapped = ensurePrincipalInList(mapped);
+            return finalMapped;
+          }
+        }
+      } catch (e) {}
 
-    // 1. MongoDB Query (Fast Primary Store)
-    try {
-      const db = await getDatabase();
-      if (db) {
-        const ids = (targetId || targetCode || schoolId)
-          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
-          : [];
-        const filter = buildSessionFilter(ids as string[], targetSession);
-        const results = await db.collection('teachers')
-          .find(filter)
-          .sort({ staff_code: 1 })
-          .toArray();
-        if (results && results.length > 0) {
-          const mapped = results.map(sanitizeDoc<Teacher>).map(ensureTeacherGender).map(t => ({
+      if (targetId || schoolId) {
+        const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
+        const res = memoryStore.teachers
+          .filter(t => ids.includes(t.school_id) && matchesSession(t, targetSession))
+          .map(ensureTeacherGender)
+          .map(t => ({
             ...t,
-            passcode: (t.passcode && !t.passcode.startsWith('$2')) ? t.passcode : '123456',
+            passcode: t.passcode || '123456',
             role: t.role || resolveTeacherRole(t),
             academic_session: t.academic_session || '2026-27'
           }));
-          const finalMapped = ensurePrincipalInList(mapped);
-          setCached(cacheKey, finalMapped, 5000);
-          return finalMapped;
-        }
+        const finalRes = ensurePrincipalInList(res);
+        return finalRes;
       }
-    } catch (e) {}
-
-    if (targetId || schoolId) {
-      const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-      const res = memoryStore.teachers
-        .filter(t => ids.includes(t.school_id) && matchesSession(t, targetSession))
+      const allRes = memoryStore.teachers
+        .filter(t => matchesSession(t, targetSession))
         .map(ensureTeacherGender)
         .map(t => ({
           ...t,
@@ -1481,22 +1557,9 @@ export const Database = {
           role: t.role || resolveTeacherRole(t),
           academic_session: t.academic_session || '2026-27'
         }));
-      const finalRes = ensurePrincipalInList(res);
-      if (finalRes.length > 0) setCached(cacheKey, finalRes, 5000);
-      return finalRes;
-    }
-    const allRes = memoryStore.teachers
-      .filter(t => matchesSession(t, targetSession))
-      .map(ensureTeacherGender)
-      .map(t => ({
-        ...t,
-        passcode: t.passcode || '123456',
-        role: t.role || resolveTeacherRole(t),
-        academic_session: t.academic_session || '2026-27'
-      }));
-    const finalAllRes = ensurePrincipalInList(allRes);
-    if (finalAllRes.length > 0) setCached(cacheKey, finalAllRes, 5000);
-    return finalAllRes;
+      const finalAllRes = ensurePrincipalInList(allRes);
+      return finalAllRes;
+    }, 180000);
   },
 
   async createTeacher(teacherData: Partial<Teacher>): Promise<Teacher> {
@@ -1662,66 +1725,61 @@ export const Database = {
   async getClasses(schoolId?: string, session?: string): Promise<ClassRoom[]> {
     const targetSession = session || '2026-27';
     const cacheKey = `classes:${schoolId || 'all'}:${targetSession}`;
-    const cached = getCached<ClassRoom[]>(cacheKey);
-    if (cached && cached.length > 0) return cached;
+    return singleFlight(cacheKey, async () => {
+      ensureIndexes().catch(() => {});
+      const school = schoolId ? await this.getSchoolById(schoolId) : null;
+      const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
+      const targetId = school?.id || cleanId;
+      const targetCode = school?.school_code || cleanId;
 
-    await ensureIndexes();
-    const school = schoolId ? await this.getSchoolById(schoolId) : null;
-    const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
-    const targetId = school?.id || cleanId;
-    const targetCode = school?.school_code || cleanId;
+      let classesList: ClassRoom[] = [];
 
-    let classesList: ClassRoom[] = [];
+      // 1. MongoDB Query (Fast Primary Store)
+      try {
+        const db = await getDatabase();
+        if (db) {
+          const ids = (targetId || targetCode || schoolId)
+            ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+            : [];
+          const filter = buildSessionFilter(ids as string[], targetSession);
+          const results = await db.collection('classes')
+            .find(filter)
+            .sort({ class_name: 1, section: 1 })
+            .toArray();
+          if (results && results.length > 0) {
+            classesList = results.map(sanitizeDoc<ClassRoom>).map(c => ({
+              ...c,
+              academic_session: c.academic_session || targetSession
+            }));
+          }
+        }
+      } catch (e) {}
 
-    // 1. MongoDB Query (Fast Primary Store)
-    try {
-      const db = await getDatabase();
-      if (db) {
-        const ids = (targetId || targetCode || schoolId)
-          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
-          : [];
-        const filter = buildSessionFilter(ids as string[], targetSession);
-        const results = await db.collection('classes')
-          .find(filter)
-          .sort({ class_name: 1, section: 1 })
-          .toArray();
-        if (results && results.length > 0) {
-          classesList = results.map(sanitizeDoc<ClassRoom>).map(c => ({
-            ...c,
-            academic_session: c.academic_session || targetSession
-          }));
+      if (classesList.length === 0) {
+        if (targetId || schoolId) {
+          const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
+          const memoryClasses = memoryStore.classes.filter(c => ids.includes(c.school_id) && matchesSession(c, targetSession));
+          if (memoryClasses.length > 0) {
+            classesList = memoryClasses.map(c => ({ ...c, academic_session: c.academic_session || targetSession }));
+          }
+        } else if (memoryStore.classes.length > 0) {
+          classesList = memoryStore.classes.filter(c => matchesSession(c, targetSession)).map(c => ({ ...c, academic_session: c.academic_session || targetSession }));
         }
       }
-    } catch (e) {}
 
-
-    if (classesList.length === 0) {
-      if (targetId || schoolId) {
-        const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-        const memoryClasses = memoryStore.classes.filter(c => ids.includes(c.school_id) && matchesSession(c, targetSession));
-        if (memoryClasses.length > 0) {
-          classesList = memoryClasses.map(c => ({ ...c, academic_session: c.academic_session || targetSession }));
+      // Ensure every class has subjects populated according to CBSE standards and strictly sort chronologically
+      const preparedClasses = classesList.map(cls => {
+        if (!Array.isArray(cls.subjects) || cls.subjects.length === 0) {
+          cls.subjects = getDefaultCbseSubjectsForClass(cls.class_name, cls.section);
         }
-      } else if (memoryStore.classes.length > 0) {
-        classesList = memoryStore.classes.filter(c => matchesSession(c, targetSession)).map(c => ({ ...c, academic_session: c.academic_session || targetSession }));
-      }
-    }
+        cls.no_of_subjects = cls.subjects.length;
+        cls.academic_session = cls.academic_session || targetSession;
+        return cls;
+      });
 
-    // Ensure every class has subjects populated according to CBSE standards and strictly sort chronologically
-    const preparedClasses = classesList.map(cls => {
-      if (!Array.isArray(cls.subjects) || cls.subjects.length === 0) {
-        cls.subjects = getDefaultCbseSubjectsForClass(cls.class_name, cls.section);
-      }
-      cls.no_of_subjects = cls.subjects.length;
-      cls.academic_session = cls.academic_session || targetSession;
-      return cls;
-    });
-
-    const sorted = sortClassesChronologically(preparedClasses);
-    if (sorted && sorted.length > 0) {
-      setCached(cacheKey, sorted, 60000);
-    }
-    return sorted;
+      const sorted = sortClassesChronologically(preparedClasses);
+      return sorted;
+    }, 180000);
   },
 
   async createClass(data: Partial<ClassRoom>): Promise<ClassRoom> {
@@ -1855,41 +1913,43 @@ export const Database = {
 
   // NOTICES
   async getNotices(schoolId?: string, session?: string): Promise<Notice[]> {
-    await ensureIndexes();
-    const school = schoolId ? await this.getSchoolById(schoolId) : null;
-    const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
-    const targetId = school?.id || cleanId;
-    const targetCode = school?.school_code || cleanId;
     const targetSession = session || '2026-27';
+    const cacheKey = `notices:${schoolId || 'all'}:${targetSession}`;
+    return singleFlight(cacheKey, async () => {
+      ensureIndexes().catch(() => {});
+      const school = schoolId ? await this.getSchoolById(schoolId) : null;
+      const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
+      const targetId = school?.id || cleanId;
+      const targetCode = school?.school_code || cleanId;
 
-    // 1. MongoDB Query (Fast Primary Store)
-    try {
-      const db = await getDatabase();
-      if (db) {
-        const ids = (targetId || targetCode || schoolId)
-          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
-          : [];
-        const filter = buildSessionFilter(ids as string[], targetSession);
-        const results = await db.collection('notices')
-          .find(filter)
-          .sort({ created_at: -1 })
-          .toArray();
-        if (results) {
-          return results.map(sanitizeDoc<Notice>);
+      // 1. MongoDB Query (Fast Primary Store)
+      try {
+        const db = await getDatabase();
+        if (db) {
+          const ids = (targetId || targetCode || schoolId)
+            ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+            : [];
+          const filter = buildSessionFilter(ids as string[], targetSession);
+          const results = await db.collection('notices')
+            .find(filter)
+            .sort({ created_at: -1 })
+            .toArray();
+          if (results) {
+            return results.map(sanitizeDoc<Notice>);
+          }
         }
+      } catch (e) {}
+
+      if (targetId || schoolId) {
+        const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
+        return memoryStore.notices.filter(n => ids.includes(n.school_id) && matchesSession(n, targetSession));
       }
-    } catch (e) {}
-
-
-    if (targetId || schoolId) {
-      const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-      return memoryStore.notices.filter(n => ids.includes(n.school_id) && matchesSession(n, targetSession));
-    }
-    return memoryStore.notices.filter(n => matchesSession(n, targetSession));
+      return memoryStore.notices.filter(n => matchesSession(n, targetSession));
+    }, 180000);
   },
 
   async createNotice(data: Partial<Notice>): Promise<Notice> {
-    await ensureIndexes();
+    ensureIndexes().catch(() => {});
     const id = data.id || `NOT-${Date.now()}`;
     const academic_session = data.academic_session || '2026-27';
     const school_id = data.school_id || '';
@@ -1977,17 +2037,19 @@ export const Database = {
 
     memoryStore.notices.unshift(notice);
     saveLocalStore();
+    invalidateServerCache('notices');
     return notice;
   },
 
   async deleteNotice(noticeId: string): Promise<boolean> {
-    await ensureIndexes();
     try {
       const db = await getDatabase();
       if (db) {
         await db.collection('notices').deleteOne({ id: noticeId });
       }
     } catch (e) {}
+
+    invalidateServerCache('notices');
 
     const idx = memoryStore.notices.findIndex(n => n.id === noticeId);
     if (idx >= 0) {
@@ -2002,64 +2064,61 @@ export const Database = {
   async getAttendance(schoolId?: string, session?: string): Promise<AttendanceRecord[]> {
     const targetSession = session || '2026-27';
     const cacheKey = `attendance:${schoolId || 'all'}:${targetSession}`;
-    const cached = getCached<AttendanceRecord[]>(cacheKey);
-    if (cached && cached.length > 0) return cached;
+    return singleFlight(cacheKey, async () => {
+      ensureIndexes().catch(() => {});
+      const school = schoolId ? await this.getSchoolById(schoolId) : null;
+      const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
+      const targetId = school?.id || cleanId;
+      const targetCode = school?.school_code || cleanId;
 
-    await ensureIndexes();
-    const school = schoolId ? await this.getSchoolById(schoolId) : null;
-    const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
-    const targetId = school?.id || cleanId;
-    const targetCode = school?.school_code || cleanId;
-
-    // 1. MongoDB Query (Fast Primary Store)
-    try {
-      const db = await getDatabase();
-      if (db) {
-        const rawIds = (targetId || targetCode || schoolId)
-          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean) as string[]))
-          : [];
-        const ids = expandSchoolIds(rawIds);
-        const filter = buildSessionFilter(ids as string[], targetSession);
-        const results = await db.collection('attendance')
-          .find(filter)
-          .sort({ date: -1 })
-          .toArray();
-        if (results && results.length > 0) {
-          const sanitized = results.map(sanitizeDoc<AttendanceRecord>);
-          const dedupMap = new Map<string, AttendanceRecord>();
-          sanitized.forEach(item => {
-            const normC = normalizeClassName(item.class_name);
-            const key = `${item.date}_${normC}_${(item.section || '').toLowerCase().trim()}`;
-            if (!dedupMap.has(key)) {
-              dedupMap.set(key, item);
-            }
-          });
-          const list = Array.from(dedupMap.values());
-          if (list.length > 0) setCached(cacheKey, list, 5000);
-          return list;
+      // 1. MongoDB Query (Fast Primary Store)
+      try {
+        const db = await getDatabase();
+        if (db) {
+          const rawIds = (targetId || targetCode || schoolId)
+            ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean) as string[]))
+            : [];
+          const ids = expandSchoolIds(rawIds);
+          const filter = buildSessionFilter(ids as string[], targetSession);
+          const results = await db.collection('attendance')
+            .find(filter)
+            .sort({ date: -1 })
+            .toArray();
+          if (results && results.length > 0) {
+            const sanitized = results.map(sanitizeDoc<AttendanceRecord>);
+            const dedupMap = new Map<string, AttendanceRecord>();
+            sanitized.forEach(item => {
+              const normC = normalizeClassName(item.class_name);
+              const key = `${item.date}_${normC}_${(item.section || '').toLowerCase().trim()}`;
+              if (!dedupMap.has(key)) {
+                dedupMap.set(key, item);
+              }
+            });
+            const list = Array.from(dedupMap.values());
+            return list;
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
 
-    const rawList = (targetId || schoolId)
-      ? memoryStore.attendance.filter(a => expandSchoolIds([targetId, targetCode, schoolId, cleanId].filter(Boolean) as string[]).includes(a.school_id) && matchesSession(a, targetSession))
-      : memoryStore.attendance.filter(a => matchesSession(a, targetSession));
+      const rawList = (targetId || schoolId)
+        ? memoryStore.attendance.filter(a => expandSchoolIds([targetId, targetCode, schoolId, cleanId].filter(Boolean) as string[]).includes(a.school_id) && matchesSession(a, targetSession))
+        : memoryStore.attendance.filter(a => matchesSession(a, targetSession));
 
-    const memDedupMap = new Map<string, AttendanceRecord>();
-    rawList.forEach(item => {
-      const normC = normalizeClassName(item.class_name);
-      const key = `${item.date}_${normC}_${(item.section || '').toLowerCase().trim()}`;
-      if (!memDedupMap.has(key)) {
-        memDedupMap.set(key, item);
-      }
-    });
-    const memList = Array.from(memDedupMap.values());
-    if (memList.length > 0) setCached(cacheKey, memList, 5000);
-    return memList;
+      const memDedupMap = new Map<string, AttendanceRecord>();
+      rawList.forEach(item => {
+        const normC = normalizeClassName(item.class_name);
+        const key = `${item.date}_${normC}_${(item.section || '').toLowerCase().trim()}`;
+        if (!memDedupMap.has(key)) {
+          memDedupMap.set(key, item);
+        }
+      });
+      const memList = Array.from(memDedupMap.values());
+      return memList;
+    }, 180000);
   },
 
   async recordAttendance(data: Partial<AttendanceRecord>): Promise<AttendanceRecord> {
-    await ensureIndexes();
+    ensureIndexes().catch(() => {});
     const academic_session = data.academic_session || '2026-27';
     const date = data.date || new Date().toISOString().split('T')[0];
     const rawClassName = (data.class_name || 'Class 10').trim();
@@ -2073,7 +2132,6 @@ export const Database = {
     const canonicalSchoolId = (cleanCanonical === 'DPS2026' || cleanCanonical.startsWith('DPS') || cleanCanonical === 'SCH1788255333307')
       ? 'DPS2026'
       : (school?.id || school?.school_code || school_id || 'DPS2026');
-
 
     const isFaculty = /faculty|staff/i.test(rawClassName) || /faculty|staff/i.test(rawSection);
     const class_name = isFaculty ? 'Faculty' : rawClassName;
@@ -2132,9 +2190,6 @@ export const Database = {
           });
           await db.collection('attendance').insertOne(mongoDoc);
         } else {
-          // Use deleteMany + insertOne (instead of replaceOne+upsert) to ensure
-          // any stale duplicate records with alternate class-name spellings are
-          // fully removed before inserting the fresh canonical record.
           const classRegex = getClassNameRegex(record.class_name);
           await db.collection('attendance').deleteMany({
             school_id: { $in: targetIds },
@@ -2185,44 +2240,40 @@ export const Database = {
   async getFeeInvoices(schoolId?: string, session?: string): Promise<FeeInvoice[]> {
     const targetSession = session || '2026-27';
     const cacheKey = `fees:${schoolId || 'all'}:${targetSession}`;
-    const cached = getCached<FeeInvoice[]>(cacheKey);
-    if (cached && cached.length > 0) return cached;
+    return singleFlight(cacheKey, async () => {
+      ensureIndexes().catch(() => {});
+      const school = schoolId ? await this.getSchoolById(schoolId) : null;
+      const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
+      const targetId = school?.id || cleanId;
+      const targetCode = school?.school_code || cleanId;
 
-    await ensureIndexes();
-    const school = schoolId ? await this.getSchoolById(schoolId) : null;
-    const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
-    const targetId = school?.id || cleanId;
-    const targetCode = school?.school_code || cleanId;
-
-    // 1. MongoDB Query (Fast Primary Store)
-    try {
-      const db = await getDatabase();
-      if (db) {
-        const ids = (targetId || targetCode || schoolId)
-          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
-          : [];
-        const filter = buildSessionFilter(ids as string[], targetSession);
-        const results = await db.collection('fee_invoices')
-          .find(filter)
-          .sort({ due_date: 1 })
-          .toArray();
-        if (results && results.length > 0) {
-          const mapped = results.map(sanitizeDoc<FeeInvoice>);
-          setCached(cacheKey, mapped, 45000);
-          return mapped;
+      // 1. MongoDB Query (Fast Primary Store)
+      try {
+        const db = await getDatabase();
+        if (db) {
+          const ids = (targetId || targetCode || schoolId)
+            ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+            : [];
+          const filter = buildSessionFilter(ids as string[], targetSession);
+          const results = await db.collection('fee_invoices')
+            .find(filter)
+            .sort({ due_date: 1 })
+            .toArray();
+          if (results && results.length > 0) {
+            const mapped = results.map(sanitizeDoc<FeeInvoice>);
+            return mapped;
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
 
-    if (targetId || schoolId) {
-      const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
-      const res = memoryStore.fee_invoices.filter(f => ids.includes(f.school_id) && matchesSession(f, targetSession));
-      if (res.length > 0) setCached(cacheKey, res, 45000);
-      return res;
-    }
-    const allRes = memoryStore.fee_invoices.filter(f => matchesSession(f, targetSession));
-    if (allRes.length > 0) setCached(cacheKey, allRes, 45000);
-    return allRes;
+      if (targetId || schoolId) {
+        const ids = [targetId, targetCode, schoolId, cleanId].filter(Boolean);
+        const res = memoryStore.fee_invoices.filter(f => ids.includes(f.school_id) && matchesSession(f, targetSession));
+        return res;
+      }
+      const allRes = memoryStore.fee_invoices.filter(f => matchesSession(f, targetSession));
+      return allRes;
+    }, 180000);
   },
 
   async createFeeInvoice(data: Partial<FeeInvoice>): Promise<FeeInvoice> {
@@ -2246,7 +2297,7 @@ export const Database = {
     const invoice: FeeInvoice = {
       id,
       school_id: data.school_id || '',
-      academic_session,
+      academic_session: data.academic_session || '2026-27',
       invoice_no: data.invoice_no || `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
       student_id: data.student_id || '',
       student_name: data.student_name || 'Student',
@@ -2396,66 +2447,69 @@ export const Database = {
 
   // HOLIDAYS & ACADEMIC CLOSURES
   async getHolidays(schoolId?: string, session?: string): Promise<Holiday[]> {
-    await ensureIndexes();
-    const school = schoolId ? await this.getSchoolById(schoolId) : null;
-    const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
-    const targetId = school?.id || cleanId;
-    const targetCode = school?.school_code || cleanId;
     const targetSession = session || '2026-27';
+    const cacheKey = `holidays:${schoolId || 'all'}:${targetSession}`;
+    return singleFlight(cacheKey, async () => {
+      ensureIndexes().catch(() => {});
+      const school = schoolId ? await this.getSchoolById(schoolId) : null;
+      const cleanId = schoolId ? schoolId.replace(/[^A-Z0-9]/gi, '') : undefined;
+      const targetId = school?.id || cleanId;
+      const targetCode = school?.school_code || cleanId;
 
-    // 1. MongoDB Query (Fast Primary Store)
-    try {
-      const db = await getDatabase();
-      if (db) {
-        const ids = (targetId || targetCode || schoolId)
-          ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
-          : [];
-        const filter = buildSessionFilter(ids as string[], targetSession);
-        const results = await db.collection('holidays')
-          .find(filter)
-          .sort({ start_date: 1 })
-          .toArray();
-        if (results && results.length > 0) {
-          return results.map(sanitizeDoc<Holiday>);
+      // 1. MongoDB Query (Fast Primary Store)
+      try {
+        const db = await getDatabase();
+        if (db) {
+          const ids = (targetId || targetCode || schoolId)
+            ? Array.from(new Set([targetId, targetCode, schoolId, cleanId].filter(Boolean)))
+            : [];
+          const filter = buildSessionFilter(ids as string[], targetSession);
+          const results = await db.collection('holidays')
+            .find(filter)
+            .sort({ start_date: 1 })
+            .toArray();
+          if (results && results.length > 0) {
+            return results.map(sanitizeDoc<Holiday>);
+          }
         }
+      } catch (e) {}
+
+      const rawList = (targetId || schoolId)
+        ? (memoryStore.holidays || []).filter(h => [targetId, targetCode, schoolId, cleanId, 'ALL'].filter(Boolean).includes(h.school_id) && matchesSession(h, targetSession))
+        : (memoryStore.holidays || []).filter(h => matchesSession(h, targetSession));
+
+      if (rawList.length > 0) {
+        return rawList.sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''));
       }
-    } catch (e) {}
 
-    const rawList = (targetId || schoolId)
-      ? (memoryStore.holidays || []).filter(h => [targetId, targetCode, schoolId, cleanId, 'ALL'].filter(Boolean).includes(h.school_id) && matchesSession(h, targetSession))
-      : (memoryStore.holidays || []).filter(h => matchesSession(h, targetSession));
+      // Default standard CBSE gazetted academic calendar holidays for 2026-27
+      const defaultHolidays: Holiday[] = [
+        { id: 'HOL-DEF-01', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Dr. Ambedkar Jayanti', start_date: '2026-04-14', end_date: '2026-04-14', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Birth Anniversary of Dr. B.R. Ambedkar', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-04-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-02', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Mahavir Jayanti', start_date: '2026-04-17', end_date: '2026-04-17', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Bhagwan Mahavir Janma Kalyanak', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-04-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-03', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Summer Vacation', start_date: '2026-05-21', end_date: '2026-06-30', total_days: 41, applicable_to: 'STUDENTS_ONLY', category: 'VACATION', reason: 'Annual Summer Break', declared_by: 'Directorate of Education', auto_notice_published: true, created_at: '2026-05-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-04', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Muharram', start_date: '2026-07-28', end_date: '2026-07-28', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Observance of Muharram', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-07-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-05', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'PTM', start_date: '2026-08-13', end_date: '2026-08-13', total_days: 1, applicable_to: 'STUDENTS_ONLY', category: 'EVENT', reason: 'Mid-Term Parent Teacher Meeting', declared_by: 'Academic Council', auto_notice_published: true, created_at: '2026-08-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-06', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Independence Day', start_date: '2026-08-15', end_date: '2026-08-15', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'National Independence Day Celebration', declared_by: 'Government of India', auto_notice_published: true, created_at: '2026-08-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-07', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Bara Vafat', start_date: '2026-08-26', end_date: '2026-08-26', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Milad-un-Nabi (Eid-e-Milad)', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-08-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-08', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Raksha Bandhan', start_date: '2026-08-28', end_date: '2026-08-28', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Raksha Bandhan Celebration', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-08-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-09', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Janmashtami', start_date: '2026-09-04', end_date: '2026-09-04', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Shri Krishna Janmashtami', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-09-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-10', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Gandhi Jayanti', start_date: '2026-10-02', end_date: '2026-10-02', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Mahatma Gandhi Birthday', declared_by: 'Government of India', auto_notice_published: true, created_at: '2026-10-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-11', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Dussehra Break', start_date: '2026-10-19', end_date: '2026-10-21', total_days: 3, applicable_to: 'ALL', category: 'VACATION', reason: 'Vijayadashami & Dussehra Festive Holidays', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-10-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-12', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Diwali Break', start_date: '2026-11-08', end_date: '2026-11-12', total_days: 5, applicable_to: 'ALL', category: 'VACATION', reason: 'Deepawali, Govardhan Puja & Bhai Dooj', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-11-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-13', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Guru Nanak Jayanti', start_date: '2026-11-24', end_date: '2026-11-24', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Prakash Utsav Guru Nanak Dev Ji', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-11-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-14', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Winter Vacation', start_date: '2026-12-25', end_date: '2027-01-05', total_days: 12, applicable_to: 'ALL', category: 'VACATION', reason: 'Christmas & Winter Holiday Break', declared_by: 'Directorate of Education', auto_notice_published: true, created_at: '2026-12-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-15', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Republic Day', start_date: '2027-01-26', end_date: '2027-01-26', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'National Republic Day Celebration', declared_by: 'Government of India', auto_notice_published: true, created_at: '2027-01-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-16', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Maha Shivratri', start_date: '2027-02-15', end_date: '2027-02-15', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Maha Shivratri Celebration', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2027-02-01T00:00:00.000Z' },
+        { id: 'HOL-DEF-17', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Holi Break', start_date: '2027-03-22', end_date: '2027-03-23', total_days: 2, applicable_to: 'ALL', category: 'VACATION', reason: 'Festival of Colors - Holi & Dhulandi', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2027-03-01T00:00:00.000Z' }
+      ];
 
-    if (rawList.length > 0) {
-      return rawList.sort((a, b) => (a.start_date || '').localeCompare(b.start_date || ''));
-    }
-
-    // Default standard CBSE gazetted academic calendar holidays for 2026-27
-    const defaultHolidays: Holiday[] = [
-      { id: 'HOL-DEF-01', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Dr. Ambedkar Jayanti', start_date: '2026-04-14', end_date: '2026-04-14', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Birth Anniversary of Dr. B.R. Ambedkar', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-04-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-02', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Mahavir Jayanti', start_date: '2026-04-17', end_date: '2026-04-17', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Bhagwan Mahavir Janma Kalyanak', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-04-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-03', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Summer Vacation', start_date: '2026-05-21', end_date: '2026-06-30', total_days: 41, applicable_to: 'STUDENTS_ONLY', category: 'VACATION', reason: 'Annual Summer Break', declared_by: 'Directorate of Education', auto_notice_published: true, created_at: '2026-05-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-04', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Muharram', start_date: '2026-07-28', end_date: '2026-07-28', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Observance of Muharram', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-07-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-05', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'PTM', start_date: '2026-08-13', end_date: '2026-08-13', total_days: 1, applicable_to: 'STUDENTS_ONLY', category: 'EVENT', reason: 'Mid-Term Parent Teacher Meeting', declared_by: 'Academic Council', auto_notice_published: true, created_at: '2026-08-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-06', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Independence Day', start_date: '2026-08-15', end_date: '2026-08-15', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'National Independence Day Celebration', declared_by: 'Government of India', auto_notice_published: true, created_at: '2026-08-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-07', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Bara Vafat', start_date: '2026-08-26', end_date: '2026-08-26', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Milad-un-Nabi (Eid-e-Milad)', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-08-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-08', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Raksha Bandhan', start_date: '2026-08-28', end_date: '2026-08-28', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Raksha Bandhan Celebration', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-08-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-09', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Janmashtami', start_date: '2026-09-04', end_date: '2026-09-04', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Shri Krishna Janmashtami', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-09-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-10', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Gandhi Jayanti', start_date: '2026-10-02', end_date: '2026-10-02', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Mahatma Gandhi Birthday', declared_by: 'Government of India', auto_notice_published: true, created_at: '2026-10-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-11', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Dussehra Break', start_date: '2026-10-19', end_date: '2026-10-21', total_days: 3, applicable_to: 'ALL', category: 'VACATION', reason: 'Vijayadashami & Dussehra Festive Holidays', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-10-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-12', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Diwali Break', start_date: '2026-11-08', end_date: '2026-11-12', total_days: 5, applicable_to: 'ALL', category: 'VACATION', reason: 'Deepawali, Govardhan Puja & Bhai Dooj', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-11-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-13', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Guru Nanak Jayanti', start_date: '2026-11-24', end_date: '2026-11-24', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Prakash Utsav Guru Nanak Dev Ji', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2026-11-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-14', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Winter Vacation', start_date: '2026-12-25', end_date: '2027-01-05', total_days: 12, applicable_to: 'ALL', category: 'VACATION', reason: 'Christmas & Winter Holiday Break', declared_by: 'Directorate of Education', auto_notice_published: true, created_at: '2026-12-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-15', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Republic Day', start_date: '2027-01-26', end_date: '2027-01-26', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'National Republic Day Celebration', declared_by: 'Government of India', auto_notice_published: true, created_at: '2027-01-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-16', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Maha Shivratri', start_date: '2027-02-15', end_date: '2027-02-15', total_days: 1, applicable_to: 'ALL', category: 'GAZETTED', reason: 'Maha Shivratri Celebration', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2027-02-01T00:00:00.000Z' },
-      { id: 'HOL-DEF-17', school_id: targetId || 'DPS2026', academic_session: '2026-27', title: 'Holi Break', start_date: '2027-03-22', end_date: '2027-03-23', total_days: 2, applicable_to: 'ALL', category: 'VACATION', reason: 'Festival of Colors - Holi & Dhulandi', declared_by: 'CBSE Administration', auto_notice_published: true, created_at: '2027-03-01T00:00:00.000Z' }
-    ];
-
-    memoryStore.holidays = defaultHolidays;
-    return defaultHolidays;
+      memoryStore.holidays = defaultHolidays;
+      return defaultHolidays;
+    }, 180000);
   },
 
   async createHoliday(data: Partial<Holiday>, autoCreateNotice: boolean = true): Promise<Holiday> {
-    await ensureIndexes();
+    ensureIndexes().catch(() => {});
     const id = data.id || `HOL-${Date.now()}`;
     const academic_session = data.academic_session || '2026-27';
     const startDate = data.start_date || new Date().toISOString().split('T')[0];
@@ -2493,6 +2547,7 @@ export const Database = {
     if (!Array.isArray(memoryStore.holidays)) memoryStore.holidays = [];
     memoryStore.holidays.push(holiday);
     saveLocalStore();
+    invalidateServerCache('holidays');
 
     // Automatically publish official circular on Institutional Notice Board if enabled
     if (autoCreateNotice) {
@@ -2531,6 +2586,8 @@ export const Database = {
       }
     } catch (e) {}
 
+    invalidateServerCache('holidays');
+
     if (Array.isArray(memoryStore.holidays)) {
       const idx = memoryStore.holidays.findIndex(h => h.id === id);
       if (idx >= 0) {
@@ -2546,99 +2603,97 @@ export const Database = {
   async getSchoolOverview(schoolId: string, session?: string): Promise<SchoolOverview> {
     const targetSession = session || '2026-27';
     const cacheKey = `overview:${schoolId}:${targetSession}`;
-    const cached = getCached<SchoolOverview>(cacheKey);
-    if (cached) return cached;
+    return singleFlight(cacheKey, async () => {
+      const [students, teachers, attendance, invoices] = await Promise.all([
+        this.getStudents(schoolId, targetSession),
+        this.getTeachers(schoolId, targetSession),
+        this.getAttendance(schoolId, targetSession),
+        this.getFeeInvoices(schoolId, targetSession)
+      ]);
 
-    const [students, teachers, attendance, invoices] = await Promise.all([
-      this.getStudents(schoolId, targetSession),
-      this.getTeachers(schoolId, targetSession),
-      this.getAttendance(schoolId, targetSession),
-      this.getFeeInvoices(schoolId, targetSession)
-    ]);
+      const totalStudents = students.length;
+      const totalTeachers = teachers.length;
 
-    const totalStudents = students.length;
-    const totalTeachers = teachers.length;
+      // Helper for local date string in YYYY-MM-DD
+      const now = new Date();
+      const localDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const isoDateStr = now.toISOString().split('T')[0];
 
-    // Helper for local date string in YYYY-MM-DD
-    const now = new Date();
-    const localDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const isoDateStr = now.toISOString().split('T')[0];
+      // Deduplicate attendance records by class & section for today
+      const latestTodayMap = new Map<string, AttendanceRecord>();
+      attendance.forEach(a => {
+        if (a.date === localDateStr || a.date === isoDateStr) {
+          const normClass = normalizeClassName(a.class_name);
+          const key = `${normClass}_${(a.section || '').toLowerCase().trim()}`;
+          latestTodayMap.set(key, a);
+        }
+      });
 
-    // Deduplicate attendance records by class & section for today
-    const latestTodayMap = new Map<string, AttendanceRecord>();
-    attendance.forEach(a => {
-      if (a.date === localDateStr || a.date === isoDateStr) {
-        const normClass = normalizeClassName(a.class_name);
-        const key = `${normClass}_${(a.section || '').toLowerCase().trim()}`;
-        latestTodayMap.set(key, a);
-      }
-    });
+      const uniqueTodayRecords = Array.from(latestTodayMap.values());
 
-    const uniqueTodayRecords = Array.from(latestTodayMap.values());
+      // 1. Student Attendance strictly for TODAY (Deduplicated per class)
+      const studentTodayRecords = uniqueTodayRecords.filter(a => 
+        (a.class_name || '').toLowerCase() !== 'faculty' && 
+        (a.class_name || '').toLowerCase() !== 'staff' &&
+        !(/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
+      );
+      const isStudentAttendanceMarkedToday = studentTodayRecords.length > 0;
+      const studentsPresentToday = isStudentAttendanceMarkedToday 
+        ? studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0)
+        : 0;
+      const enrolledInLogged = studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.total_students) || 0), 0);
+      const studentsTotalToday = enrolledInLogged > 0 ? enrolledInLogged : totalStudents;
+      const studentAttendanceToday = isStudentAttendanceMarkedToday && studentsTotalToday > 0
+        ? Number(((studentsPresentToday / studentsTotalToday) * 100).toFixed(1))
+        : 0;
 
-    // 1. Student Attendance strictly for TODAY (Deduplicated per class)
-    const studentTodayRecords = uniqueTodayRecords.filter(a => 
-      (a.class_name || '').toLowerCase() !== 'faculty' && 
-      (a.class_name || '').toLowerCase() !== 'staff' &&
-      !(/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
-    );
-    const isStudentAttendanceMarkedToday = studentTodayRecords.length > 0;
-    const studentsPresentToday = isStudentAttendanceMarkedToday 
-      ? studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0)
-      : 0;
-    const enrolledInLogged = studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.total_students) || 0), 0);
-    const studentsTotalToday = enrolledInLogged > 0 ? enrolledInLogged : totalStudents;
-    const studentAttendanceToday = isStudentAttendanceMarkedToday && studentsTotalToday > 0
-      ? Number(((studentsPresentToday / studentsTotalToday) * 100).toFixed(1))
-      : 0;
+      // 2. Faculty Attendance strictly for TODAY (Deduplicated, capped at total teachers)
+      const facultyTodayRecords = uniqueTodayRecords.filter(a => 
+        /faculty|staff/i.test(a.class_name || '') || 
+        /faculty|staff/i.test(a.section || '') ||
+        (Array.isArray((a as any).teacher_records) && (a as any).teacher_records.length > 0)
+      );
+      const isFacultyAttendanceMarkedToday = facultyTodayRecords.length > 0;
+      const latestFacultyRecord = isFacultyAttendanceMarkedToday ? facultyTodayRecords[facultyTodayRecords.length - 1] : null;
+      const facultyPresentToday = latestFacultyRecord
+        ? Math.min(totalTeachers, Number(latestFacultyRecord.present_count) || 0)
+        : 0;
+      const facultyTotalToday = totalTeachers;
+      const facultyAttendanceToday = isFacultyAttendanceMarkedToday && totalTeachers > 0
+        ? Number(((facultyPresentToday / totalTeachers) * 100).toFixed(1))
+        : 0;
 
-    // 2. Faculty Attendance strictly for TODAY (Deduplicated, capped at total teachers)
-    const facultyTodayRecords = uniqueTodayRecords.filter(a => 
-      /faculty|staff/i.test(a.class_name || '') || 
-      /faculty|staff/i.test(a.section || '') ||
-      (Array.isArray((a as any).teacher_records) && (a as any).teacher_records.length > 0)
-    );
-    const isFacultyAttendanceMarkedToday = facultyTodayRecords.length > 0;
-    const latestFacultyRecord = isFacultyAttendanceMarkedToday ? facultyTodayRecords[facultyTodayRecords.length - 1] : null;
-    const facultyPresentToday = latestFacultyRecord
-      ? Math.min(totalTeachers, Number(latestFacultyRecord.present_count) || 0)
-      : 0;
-    const facultyTotalToday = totalTeachers;
-    const facultyAttendanceToday = isFacultyAttendanceMarkedToday && totalTeachers > 0
-      ? Number(((facultyPresentToday / totalTeachers) * 100).toFixed(1))
-      : 0;
+      const attendanceToday = studentAttendanceToday;
 
-    const attendanceToday = studentAttendanceToday;
+      const paidInvoices = invoices.filter(i => i.status === 'PAID');
+      const totalRevenue = paidInvoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      const pendingInvoices = invoices.filter(i => i.status !== 'PAID');
+      const pendingFeeAmount = pendingInvoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+      const feeCollectionRate = invoices.length > 0 ? Math.round((paidInvoices.length / invoices.length) * 100) : 0;
 
-    const paidInvoices = invoices.filter(i => i.status === 'PAID');
-    const totalRevenue = paidInvoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-    const pendingInvoices = invoices.filter(i => i.status !== 'PAID');
-    const pendingFeeAmount = pendingInvoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-    const feeCollectionRate = invoices.length > 0 ? Math.round((paidInvoices.length / invoices.length) * 100) : 0;
-
-    const overviewResult: SchoolOverview = {
-      academic_session: targetSession,
-      kpis: {
-        totalStudents,
-        totalTeachers,
-        attendanceToday,
-        studentAttendanceToday,
-        facultyAttendanceToday,
-        studentsPresentToday,
-        studentsTotalToday,
-        facultyPresentToday,
-        facultyTotalToday,
-        isStudentAttendanceMarkedToday,
-        isFacultyAttendanceMarkedToday,
-        feeCollectionRate,
-        pendingFeeAmount,
-        totalRevenue
-      },
-      recentStudents: students.slice(-5).reverse(),
-      recentInvoices: invoices.slice(-5).reverse()
-    };
-    setCached(cacheKey, overviewResult, 30000);
-    return overviewResult;
+      const overviewResult: SchoolOverview = {
+        academic_session: targetSession,
+        kpis: {
+          totalStudents,
+          totalTeachers,
+          attendanceToday,
+          studentAttendanceToday,
+          facultyAttendanceToday,
+          studentsPresentToday,
+          studentsTotalToday,
+          facultyPresentToday,
+          facultyTotalToday,
+          isStudentAttendanceMarkedToday,
+          isFacultyAttendanceMarkedToday,
+          feeCollectionRate,
+          pendingFeeAmount,
+          totalRevenue
+        },
+        recentStudents: students.slice(-5).reverse(),
+        recentInvoices: invoices.slice(-5).reverse()
+      };
+      return overviewResult;
+    }, 180000);
   },
 
   // ==========================================

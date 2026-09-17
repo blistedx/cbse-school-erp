@@ -50,7 +50,8 @@ import {
   Upload,
   AlertTriangle,
   MessageCircle,
-  Lock
+  Lock,
+  Scissors
 } from 'lucide-react';
 import { FeeInvoice, Student, School, ClassRoom, Teacher } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
@@ -115,11 +116,11 @@ function numberToWordsINR(num: number): string {
 
 export function DashboardFees({
   selectedSchool,
-  students,
-  invoices: initialInvoices,
-  classes,
-  teachers,
-  selectedSession,
+  students = [],
+  invoices: initialInvoices = [],
+  classes = [],
+  teachers = [],
+  selectedSession = '2026-27',
   subTab = 'reports',
   userRole,
   currentUser,
@@ -4893,8 +4894,8 @@ export function DashboardFees({
           MODAL 1: OFFICIAL CBSE PRINTABLE FEE RECEIPT (2 COPIES ON SINGLE A4 SHEET)
           ───────────────────────────────────────────────────────────── */}
       {selectedReceiptInvoice && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 relative my-6">
+        <div id="receipt-modal-backdrop" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in print:p-0 print:bg-transparent print:static print:inset-auto print:overflow-visible">
+          <div id="receipt-modal-dialog" className="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 relative my-6 print:m-0 print:p-0 print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none">
             {/* Modal Controls */}
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 print:hidden">
               <div className="flex items-center gap-2">
@@ -4934,6 +4935,20 @@ export function DashboardFees({
                 const conc = inv.concession_amount || 0;
                 const bal = Math.max(0, (inv.amount || 0) - (paid + conc));
                 const studentObj = students.find(s => s.id === inv.student_id || s.admission_no === inv.admission_no);
+
+                const totalAmt = inv.amount || 0;
+                const dueTuition = inv.tuition_fee ?? Math.round(totalAmt * 0.70);
+                const dueTransport = inv.transport_fee ?? Math.round(totalAmt * 0.15);
+                const dueExam = inv.exam_fee ?? Math.max(0, totalAmt - dueTuition - dueTransport);
+
+                const paidRatio = totalAmt > 0 ? Math.min(1, Math.max(0, paid / totalAmt)) : 0;
+                const paidTuition = paid >= totalAmt ? dueTuition : Math.round(dueTuition * paidRatio);
+                const paidTransport = paid >= totalAmt ? dueTransport : Math.round(dueTransport * paidRatio);
+                const paidExam = paid >= totalAmt ? dueExam : Math.max(0, paid - paidTuition - paidTransport);
+
+                const balTuition = Math.max(0, dueTuition - paidTuition);
+                const balTransport = Math.max(0, dueTransport - paidTransport);
+                const balExam = Math.max(0, dueExam - paidExam);
 
                 const renderCopy = (copyTitle: string, badgeBg: string) => (
                   <div className="print-receipt-half p-4 border border-[#122A24] rounded-2xl bg-white space-y-2.5">
@@ -5013,23 +5028,23 @@ export function DashboardFees({
                         <tr>
                           <td className="py-1 px-2">1</td>
                           <td className="py-1 px-2">Tuition &amp; Composite Academic Fee</td>
-                          <td className="py-1 px-2 text-right font-semibold">₹{(inv.tuition_fee || Math.round((inv.amount || 0) * 0.70)).toLocaleString()}</td>
-                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{(inv.tuition_fee || Math.round((paid || 0) * 0.70)).toLocaleString()}</td>
-                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{Math.max(0, (inv.tuition_fee || Math.round((inv.amount || 0) * 0.70)) - (inv.tuition_fee || Math.round((paid || 0) * 0.70))).toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-semibold">₹{dueTuition.toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{paidTuition.toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{balTuition.toLocaleString()}</td>
                         </tr>
                         <tr>
                           <td className="py-1 px-2">2</td>
                           <td className="py-1 px-2">Transport / School Bus Facility Charges</td>
-                          <td className="py-1 px-2 text-right font-semibold">₹{(inv.transport_fee || Math.round((inv.amount || 0) * 0.15)).toLocaleString()}</td>
-                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{(inv.transport_fee || Math.round((paid || 0) * 0.15)).toLocaleString()}</td>
-                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{Math.max(0, (inv.transport_fee || Math.round((inv.amount || 0) * 0.15)) - (inv.transport_fee || Math.round((paid || 0) * 0.15))).toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-semibold">₹{dueTransport.toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{paidTransport.toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{balTransport.toLocaleString()}</td>
                         </tr>
                         <tr>
                           <td className="py-1 px-2">3</td>
                           <td className="py-1 px-2">Institutional Examination, Assessment &amp; Printing</td>
-                          <td className="py-1 px-2 text-right font-semibold">₹{(inv.exam_fee || Math.round((inv.amount || 0) * 0.15)).toLocaleString()}</td>
-                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{(inv.exam_fee || Math.round((paid || 0) * 0.15)).toLocaleString()}</td>
-                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{Math.max(0, (inv.exam_fee || Math.round((inv.amount || 0) * 0.15)) - (inv.exam_fee || Math.round((paid || 0) * 0.15))).toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-semibold">₹{dueExam.toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{paidExam.toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{balExam.toLocaleString()}</td>
                         </tr>
 
                         {conc > 0 && (
@@ -5046,7 +5061,7 @@ export function DashboardFees({
 
                         <tr className="border-t border-[#122A24] bg-emerald-50/60 font-bold">
                           <td className="py-1.5 px-2" colSpan={2}>CONSOLIDATED RECEIPT TOTAL</td>
-                          <td className="py-1.5 px-2 text-right">₹{(inv.amount || 0).toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right">₹{totalAmt.toLocaleString()}</td>
                           <td className="py-1.5 px-2 text-right text-emerald-900 text-xs">₹{paid.toLocaleString()}</td>
                           <td className="py-1.5 px-2 text-right text-rose-700 text-xs">₹{bal.toLocaleString()}</td>
                         </tr>
@@ -5090,11 +5105,16 @@ export function DashboardFees({
                     {renderCopy('ACCOUNTS / SCHOOL DUPLICATE COPY', 'bg-[#122A24] text-white')}
 
                     {/* Perforation Cut Line */}
-                    <div className="py-1 flex items-center justify-between text-[9.5px] text-slate-400 border-t border-b border-dashed border-slate-300 font-mono select-none">
-                      <span>✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - ✂</span>
-                      <span className="bg-slate-100 px-2 py-0.5 rounded text-[8.5px] uppercase font-bold text-slate-600 shrink-0 border border-slate-200">
-                        Perforated Cut Line • 2 Copies on Single A4 Sheet
-                      </span>
+                    <div className="relative py-2 flex items-center justify-center select-none my-0.5">
+                      <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                        <div className="w-full border-t-2 border-dashed border-slate-300" />
+                      </div>
+                      <div className="relative flex items-center gap-1.5 bg-slate-100 px-3 py-0.5 rounded-full border border-slate-300 text-slate-600 shadow-2xs">
+                        <Scissors className="w-3.5 h-3.5 text-slate-500" />
+                        <span className="text-[8.5px] font-mono uppercase font-bold tracking-wider">
+                          Perforated Cut Line • 2 Copies on Single A4 Sheet
+                        </span>
+                      </div>
                     </div>
 
                     {/* Copy 2 */}
@@ -5113,7 +5133,7 @@ export function DashboardFees({
           ───────────────────────────────────────────────────────────── */}
       {activeActionInvoice && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 relative my-8 space-y-5">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-7 shadow-2xl border border-slate-200 relative my-auto space-y-4 sm:space-y-5 max-h-[92vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div className="flex items-center gap-2.5">

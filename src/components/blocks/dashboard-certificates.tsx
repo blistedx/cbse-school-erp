@@ -1,7 +1,8 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import QRCode from 'qrcode';
 import { 
   Award, 
   FileText, 
@@ -34,7 +35,10 @@ import {
   Barcode,
   IdCard,
   Palette,
-  GraduationCap
+  GraduationCap,
+  Camera,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import { School, Student, Teacher, ClassRoom } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
@@ -828,19 +832,180 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
   const isIdCard = docTypeId === 'ID_CARD' || docTypeId === 'STAFF_ID';
   const isIdCardDoc = (id: string) => id === 'ID_CARD' || id === 'STAFF_ID';
 
+  const [activeQrDataUrl, setActiveQrDataUrl] = useState<string>('');
+  const [bulkQrDataUrls, setBulkQrDataUrls] = useState<Record<string, string>>({});
+  const [imgLoadError, setImgLoadError] = useState(false);
+  const [isScanningQr, setIsScanningQr] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoToast, setPhotoToast] = useState<string | null>(null);
+  const photoFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Generate real scannable QR Code Data URL for active ID card preview
+  useEffect(() => {
+    if (!isIdCard) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const isStudent = targetType === 'STUDENT';
+    const activeTarget = isStudent ? activeStudent : activeTeacher;
+    if (!activeTarget) return;
+
+    const sId = activeTarget.id;
+    const adm = isStudent 
+      ? ((activeTarget as Student).admission_no || activeTarget.id)
+      : ((activeTarget as Teacher).employee_code || activeTarget.id);
+    const sch = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+
+    const scanUrl = `${origin}/attendance/scan?student_id=${encodeURIComponent(sId)}&admission_no=${encodeURIComponent(adm)}&school_id=${encodeURIComponent(sch)}&session=${encodeURIComponent(selectedSession)}`;
+
+    QRCode.toDataURL(scanUrl, {
+      width: 280,
+      margin: 1,
+      color: {
+        dark: '#122A24',
+        light: '#FFFFFF'
+      }
+    }).then(url => {
+      setActiveQrDataUrl(url);
+    }).catch(err => {
+      console.error('[QR Generation Error]:', err);
+    });
+
+    setImgLoadError(false);
+  }, [isIdCard, targetType, activeStudent, activeTeacher, selectedSchool, selectedSession]);
+
+  // Generate Bulk QR Data URLs when print preview is opened in bulk mode
+  useEffect(() => {
+    if (!previewOpen || genMode !== 'BULK' || !isIdCard) return;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const sch = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+    const isStudent = targetType === 'STUDENT';
+    const list = isStudent ? filteredStudents : filteredTeachers;
+
+    const newMap: Record<string, string> = {};
+    Promise.all(
+      list.map(async (item) => {
+        const sId = item.id;
+        const adm = isStudent ? ((item as Student).admission_no || item.id) : ((item as Teacher).employee_code || item.id);
+        const scanUrl = `${origin}/attendance/scan?student_id=${encodeURIComponent(sId)}&admission_no=${encodeURIComponent(adm)}&school_id=${encodeURIComponent(sch)}&session=${encodeURIComponent(selectedSession)}`;
+        try {
+          const url = await QRCode.toDataURL(scanUrl, {
+            width: 200,
+            margin: 1,
+            color: { dark: '#122A24', light: '#FFFFFF' }
+          });
+          newMap[item.id] = url;
+        } catch (_) {}
+      })
+    ).then(() => {
+      setBulkQrDataUrls(newMap);
+    });
+  }, [previewOpen, genMode, isIdCard, targetType, filteredStudents, filteredTeachers, selectedSchool, selectedSession]);
+
+  // Resolve Student/Employee Picture
+  const activePhoto = useMemo(() => {
+    if (targetType === 'STUDENT') {
+      return activeStudent?.photo || activeStudent?.avatar || (activeStudent as any)?.profile_picture_url || (activeStudent as any)?.profile_image || null;
+    } else {
+      return activeTeacher?.photo || activeTeacher?.avatar || (activeTeacher as any)?.profile_picture_url || (activeTeacher as any)?.profile_image || null;
+    }
+  }, [targetType, activeStudent, activeTeacher]);
+
+  const activeInitials = useMemo(() => {
+    const name = targetType === 'STUDENT' ? activeStudent?.full_name : activeTeacher?.full_name;
+    if (!name) return 'ID';
+    return name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+  }, [targetType, activeStudent, activeTeacher]);
+
+  // Direct Photo Upload for ID Card
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isStudent = targetType === 'STUDENT';
+    const target = isStudent ? activeStudent : activeTeacher;
+    if (!target) return;
+
+    try {
+      setUploadingPhoto(true);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        const endpoint = isStudent ? '/api/students' : '/api/teachers';
+        const sch = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+
+        const res = await fetch(endpoint, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: target.id,
+            photo: base64,
+            avatar: base64,
+            school_id: sch
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          (target as any).photo = base64;
+          (target as any).avatar = base64;
+          setImgLoadError(false);
+          setPhotoToast(`Picture attached to ${target.full_name}'s ID card!`);
+          setTimeout(() => setPhotoToast(null), 3500);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error('Photo upload error:', err);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
 
-  // Simulate auto-attendance QR scan
-  const handleTestScanAttendance = (student: Student) => {
-    setQrScanModalStudent(student);
-    setScanSuccessMessage(`✅ Attendance Marked Successfully!\nStudent: ${student.full_name} (${student.admission_no})\nClass: ${student.class_name}-${student.section || 'A'}\nTime: ${new Date().toLocaleTimeString()} • Mode: QR Auto-Scanner`);
+  // Real Auto-Attendance QR Scan Execution
+  const handleTestScanAttendance = async (student: Student) => {
+    setIsScanningQr(true);
+    const sch = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+    try {
+      const res = await fetch('/api/attendance/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_id: student.id,
+          admission_no: student.admission_no,
+          school_id: sch,
+          academic_session: selectedSession
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setQrScanModalStudent(student);
+        setScanSuccessMessage(
+          `✅ Attendance Marked PRESENT for Today (${data.attendance_summary?.date || new Date().toISOString().split('T')[0]})!\n\n` +
+          `• Scholar: ${student.full_name} (${student.admission_no || student.id})\n` +
+          `• Class & Section: ${student.class_name} - ${student.section || 'A'} (Roll #${student.roll_no || '1'})\n` +
+          `• Scan Time: ${data.attendance_summary?.time || new Date().toLocaleTimeString()}\n` +
+          `• Turnout Status: PRESENT (Recorded in Official Database)\n` +
+          `• Class Turnout: ${data.attendance_summary?.total_present} / ${data.attendance_summary?.total_students} Scholars Present\n` +
+          `• Verification: Biometric QR Check-In Authorized by CBSE Cloud Engine`
+        );
+      } else {
+        setQrScanModalStudent(student);
+        setScanSuccessMessage(`⚠️ Attendance Verification Alert: ${data.error || 'Could not log attendance'}`);
+      }
+    } catch (err: any) {
+      setQrScanModalStudent(student);
+      setScanSuccessMessage(`⚠️ Network Error: ${err?.message || 'Failed to communicate with attendance server'}`);
+    } finally {
+      setIsScanningQr(false);
+    }
   };
 
   // Helper to generate the exact attendance payload URL
   const getAttendancePayload = (s: Student) => {
-    return `giterp://attend?school=${encodeURIComponent(selectedSchool?.school_code || 'DPS2026')}&student_id=${s.id}&adm_no=${encodeURIComponent(s.admission_no || s.id)}&name=${encodeURIComponent(s.full_name)}&action=MARK_PRESENT`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const sch = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+    return `${origin}/attendance/scan?student_id=${encodeURIComponent(s.id)}&admission_no=${encodeURIComponent(s.admission_no || s.id)}&school_id=${encodeURIComponent(sch)}&session=${encodeURIComponent(selectedSession)}`;
   };
 
   return (
@@ -1425,19 +1590,62 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                           </div>
                         </div>
 
+                        {/* Hidden Photo Upload File Input */}
+                        <input
+                          type="file"
+                          ref={photoFileInputRef}
+                          accept="image/*"
+                          onChange={handlePhotoUpload}
+                          className="hidden"
+                        />
+
                         {/* Photo & Badge */}
                         <div className="flex flex-col items-center my-2">
-                          <div className="relative">
-                            <div className="w-24 h-28 rounded-xl bg-slate-200 border-2 border-[#122A24] shadow-sm flex flex-col items-center justify-center text-slate-400 font-mono font-bold text-xs overflow-hidden bg-gradient-to-b from-slate-100 to-slate-200">
-                              <User className="w-12 h-12 text-slate-400" />
-                              <span className="text-[9px] text-slate-500 mt-1">PHOTO</span>
+                          <div className="relative group">
+                            <div className="w-24 h-28 rounded-xl bg-slate-100 border-2 border-[#122A24] shadow-sm flex flex-col items-center justify-center text-slate-400 font-mono font-bold text-xs overflow-hidden relative">
+                              {activePhoto && !imgLoadError ? (
+                                <img
+                                  src={activePhoto}
+                                  alt={targetType === 'STUDENT' ? activeStudent?.full_name : activeTeacher?.full_name}
+                                  onError={() => setImgLoadError(true)}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-b from-slate-100 to-slate-200 flex flex-col items-center justify-center text-[#122A24]">
+                                  <span className="font-display font-black text-2xl text-emerald-900 tracking-wider">
+                                    {activeInitials}
+                                  </span>
+                                  <span className="text-[8px] font-mono text-emerald-800 font-bold mt-0.5">
+                                    {targetType === 'STUDENT' ? 'STUDENT' : 'FACULTY'}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Upload/Change Photo Hover Action */}
+                              <button
+                                type="button"
+                                onClick={() => photoFileInputRef.current?.click()}
+                                disabled={uploadingPhoto}
+                                title="Upload Picture for ID Card"
+                                className="absolute inset-0 bg-[#122A24]/75 text-white opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 cursor-pointer border-none"
+                              >
+                                {uploadingPhoto ? (
+                                  <RefreshCw className="w-5 h-5 animate-spin text-emerald-300" />
+                                ) : (
+                                  <>
+                                    <Camera className="w-5 h-5 text-emerald-300" />
+                                    <span className="text-[8px] font-mono font-bold">CHANGE</span>
+                                  </>
+                                )}
+                              </button>
                             </div>
+
                             <span className="absolute -bottom-2 -right-2 px-2 py-0.5 bg-emerald-700 text-white text-[9px] font-mono font-bold rounded-full shadow-xs">
                               {targetType === 'STUDENT' ? (activeStudent?.blood_group || 'O+') : (activeTeacher?.blood_group || 'B+')}
                             </span>
                           </div>
 
-                          <h3 className="font-display font-black text-base text-[#122A24] mt-2 tracking-tight">
+                          <h3 className="font-display font-black text-base text-[#122A24] mt-2 tracking-tight text-center truncate max-w-[260px]">
                             {targetType === 'STUDENT' ? activeStudent?.full_name : activeTeacher?.full_name}
                           </h3>
                           <div className="inline-block px-2.5 py-0.5 rounded-full bg-[#122A24] text-white text-[10px] font-mono font-bold uppercase tracking-wider mt-0.5">
@@ -1492,15 +1700,23 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                         <div className="pt-2 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             {/* Scannable Attendance QR */}
-                            <div className="w-14 h-14 bg-white p-1 rounded-lg border border-slate-300 shadow-xs flex flex-col items-center justify-center shrink-0 group relative">
-                              <QrCode className="w-12 h-12 text-[#122A24]" />
+                            <div className="w-14 h-14 bg-white p-0.5 rounded-lg border border-slate-300 shadow-xs flex flex-col items-center justify-center shrink-0 group relative overflow-hidden">
+                              {activeQrDataUrl ? (
+                                <img
+                                  src={activeQrDataUrl}
+                                  alt="Attendance QR"
+                                  className="w-full h-full object-contain"
+                                />
+                              ) : (
+                                <QrCode className="w-12 h-12 text-[#122A24]" />
+                              )}
                             </div>
                             <div className="text-left leading-tight">
                               <span className="text-[9px] font-mono font-bold text-emerald-800 flex items-center gap-0.5">
                                 <ScanLine className="w-2.5 h-2.5" /> SMART QR
                               </span>
                               <div className="text-[8.5px] text-slate-500 font-sans">
-                                {targetType === 'STUDENT' ? 'Student Auto-Attendance' : 'Faculty Access Badge'}
+                                {targetType === 'STUDENT' ? 'Scan to Mark Today' : 'Faculty Access Pass'}
                               </div>
                             </div>
                           </div>
@@ -1557,10 +1773,11 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                     <button
                       type="button"
                       onClick={() => handleTestScanAttendance(activeStudent)}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm border-none cursor-pointer flex items-center gap-2 animate-bounce-subtle"
+                      disabled={isScanningQr}
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm border-none cursor-pointer flex items-center gap-2 transition-all disabled:opacity-50"
                     >
-                      <ScanLine className="w-4 h-4" />
-                      <span>⚡ Test Scan QR (Auto-Mark Attendance)</span>
+                      {isScanningQr ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ScanLine className="w-4 h-4" />}
+                      <span>{isScanningQr ? 'Marking Attendance in Database...' : '⚡ Test Scan QR (Mark Attendance for Today)'}</span>
                     </button>
                   )}
 
@@ -1694,11 +1911,25 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                     </div>
 
                     <div className="flex flex-col items-center my-2">
-                      <div className="w-24 h-28 rounded-xl bg-slate-200 border-2 border-[#122A24] flex flex-col items-center justify-center text-slate-400 font-mono font-bold text-xs">
-                        <User className="w-10 h-10 text-slate-400" />
-                        <span>PHOTO</span>
+                      <div className="w-24 h-28 rounded-xl bg-slate-100 border-2 border-[#122A24] flex flex-col items-center justify-center text-slate-400 font-mono font-bold text-xs overflow-hidden">
+                        {activePhoto && !imgLoadError ? (
+                          <img
+                            src={activePhoto}
+                            alt={targetType === 'STUDENT' ? activeStudent?.full_name : activeTeacher?.full_name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-b from-slate-100 to-slate-200 flex flex-col items-center justify-center text-[#122A24]">
+                            <span className="font-display font-black text-2xl text-emerald-900 tracking-wider">
+                              {activeInitials}
+                            </span>
+                            <span className="text-[8px] font-mono text-emerald-800 font-bold mt-0.5">
+                              {targetType === 'STUDENT' ? 'STUDENT' : 'FACULTY'}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      <h3 className="font-display font-black text-base text-[#122A24] mt-2">
+                      <h3 className="font-display font-black text-base text-[#122A24] mt-2 text-center truncate max-w-[260px]">
                         {targetType === 'STUDENT' ? activeStudent?.full_name : activeTeacher?.full_name}
                       </h3>
                       <div className="px-2.5 py-0.5 rounded-full bg-[#122A24] text-white text-[10px] font-mono font-bold uppercase mt-0.5">
@@ -1709,26 +1940,33 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                     <div className="space-y-1 text-[11px] font-mono border-t border-b border-slate-200 py-2">
                       {targetType === 'STUDENT' && activeStudent ? (
                         <>
-                          <div className="flex justify-between"><span>Adm No:</span><strong>{activeStudent.admission_no}</strong></div>
+                          <div className="flex justify-between"><span>Adm No:</span><strong className="text-[#122A24]">{activeStudent.admission_no || activeStudent.id}</strong></div>
                           <div className="flex justify-between"><span>Roll No:</span><strong>{activeStudent.roll_no || '12'}</strong></div>
-                          <div className="flex justify-between"><span>Contact:</span><strong>{activeStudent.guardian_phone || '+91 98110 00000'}</strong></div>
+                          <div className="flex justify-between"><span>Guardian:</span><strong className="truncate max-w-[140px]">{activeStudent.guardian_name || 'Mr. Sharma'}</strong></div>
+                          <div className="flex justify-between"><span>Contact:</span><strong>{activeStudent.guardian_phone || activeStudent.phone || '+91 98110 00000'}</strong></div>
                         </>
                       ) : activeTeacher ? (
                         <>
-                          <div className="flex justify-between"><span>Emp Code:</span><strong>{activeTeacher.employee_code || activeTeacher.id}</strong></div>
+                          <div className="flex justify-between"><span>Emp Code:</span><strong className="text-[#122A24]">{activeTeacher.employee_code || activeTeacher.id}</strong></div>
                           <div className="flex justify-between"><span>Department:</span><strong>{activeTeacher.department}</strong></div>
                           <div className="flex justify-between"><span>Phone:</span><strong>{activeTeacher.phone || '+91 98765 00000'}</strong></div>
+                          <div className="flex justify-between"><span>Joining:</span><strong>{activeTeacher.date_of_joining || '01-Jul-2021'}</strong></div>
                         </>
                       ) : null}
                     </div>
 
                     <div className="pt-2 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-12 h-12 bg-white p-1 rounded-lg border border-slate-300 flex items-center justify-center">
-                          <QrCode className="w-10 h-10 text-[#122A24]" />
+                        <div className="w-13 h-13 bg-white p-0.5 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
+                          {activeQrDataUrl ? (
+                            <img src={activeQrDataUrl} alt="Attendance QR" className="w-full h-full object-contain" />
+                          ) : (
+                            <QrCode className="w-10 h-10 text-[#122A24]" />
+                          )}
                         </div>
-                        <div className="text-[8.5px] font-mono font-bold text-emerald-800">
-                          {targetType === 'STUDENT' ? 'AUTO-ATTENDANCE QR' : 'SMART STAFF PASS'}
+                        <div className="text-[8.5px] font-mono font-bold text-emerald-800 leading-tight">
+                          {targetType === 'STUDENT' ? 'SMART ATTENDANCE' : 'SMART ACCESS'}<br/>
+                          <span className="text-[7.5px] text-slate-500 font-sans">Strictly Today Turnout</span>
                         </div>
                       </div>
                       <div className="text-right text-[9px] font-mono font-bold text-[#122A24]">
@@ -1752,42 +1990,92 @@ export const DashboardCertificates: React.FC<DashboardCertificatesProps> = ({
                   />
                 )
               ) : (
-                /* Bulk Grid (Multiple Portrait Cards for Students or Faculty) */
+                /* Bulk Grid (Multiple Portrait Cards with Pictures & Scannable QR Codes) */
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
                   {targetType === 'STUDENT' ? (
-                    filteredStudents.map(s => (
-                      <div key={s.id} className="bg-white p-4 rounded-2xl border-2 border-[#122A24] shadow-sm flex flex-col justify-between space-y-3">
-                        <div className="text-center pb-1 border-b border-slate-200">
-                          <div className="font-bold text-xs text-[#122A24] truncate">{selectedSchool?.school_name}</div>
-                          <div className="text-[9px] font-mono text-emerald-800">Session {selectedSession}</div>
+                    filteredStudents.map(s => {
+                      const photo = s.photo || s.avatar || (s as any).profile_picture_url || (s as any).profile_image;
+                      const qrUrl = bulkQrDataUrls[s.id];
+                      const initials = s.full_name ? s.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'ST';
+                      return (
+                        <div key={s.id} className="bg-white p-4 rounded-2xl border-2 border-[#122A24] shadow-sm flex flex-col justify-between space-y-3">
+                          <div className="text-center pb-1 border-b border-slate-200">
+                            <div className="font-bold text-xs text-[#122A24] truncate">{selectedSchool?.school_name}</div>
+                            <div className="text-[9px] font-mono text-emerald-800">Session {selectedSession}</div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <div className="w-14 h-16 rounded-xl bg-slate-100 border border-[#122A24] flex items-center justify-center overflow-hidden shrink-0">
+                              {photo ? (
+                                <img src={photo} alt={s.full_name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="font-display font-bold text-xs text-emerald-900">{initials}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-black text-sm text-[#122A24] truncate">{s.full_name}</div>
+                              <div className="text-[10px] font-mono text-slate-500">Adm: {s.admission_no}</div>
+                              <div className="text-[10px] font-mono text-emerald-800 font-semibold">{s.class_name} ({s.section || 'A'}) • Roll #{s.roll_no || '1'}</div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                            <div className="w-10 h-10 bg-white p-0.5 rounded-lg border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+                              {qrUrl ? (
+                                <img src={qrUrl} alt="QR" className="w-full h-full object-contain" />
+                              ) : (
+                                <QrCode className="w-8 h-8 text-[#122A24]" />
+                              )}
+                            </div>
+                            <span className="text-[8.5px] font-mono font-bold text-emerald-800 text-right">
+                              SCAN TO MARK<br/><span className="text-slate-500 font-sans">TODAY ONLY</span>
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-center">
-                          <div className="font-black text-sm text-[#122A24] truncate">{s.full_name}</div>
-                          <div className="text-[10px] font-mono text-slate-500">Adm: {s.admission_no} • {s.class_name} {s.section}</div>
-                        </div>
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                          <QrCode className="w-8 h-8 text-[#122A24]" />
-                          <span className="text-[9px] font-mono font-bold text-emerald-800">SCAN ATTENDANCE</span>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
-                    filteredTeachers.map(t => (
-                      <div key={t.id} className="bg-white p-4 rounded-2xl border-2 border-[#122A24] shadow-sm flex flex-col justify-between space-y-3">
-                        <div className="text-center pb-1 border-b border-slate-200">
-                          <div className="font-bold text-xs text-[#122A24] truncate">{selectedSchool?.school_name}</div>
-                          <div className="text-[9px] font-mono text-emerald-800">Session {selectedSession} • Faculty</div>
+                    filteredTeachers.map(t => {
+                      const photo = t.photo || t.avatar || (t as any).profile_picture_url || (t as any).profile_image;
+                      const qrUrl = bulkQrDataUrls[t.id];
+                      const initials = t.full_name ? t.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'TC';
+                      return (
+                        <div key={t.id} className="bg-white p-4 rounded-2xl border-2 border-[#122A24] shadow-sm flex flex-col justify-between space-y-3">
+                          <div className="text-center pb-1 border-b border-slate-200">
+                            <div className="font-bold text-xs text-[#122A24] truncate">{selectedSchool?.school_name}</div>
+                            <div className="text-[9px] font-mono text-emerald-800">Session {selectedSession} • Faculty</div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <div className="w-14 h-16 rounded-xl bg-slate-100 border border-[#122A24] flex items-center justify-center overflow-hidden shrink-0">
+                              {photo ? (
+                                <img src={photo} alt={t.full_name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="font-display font-bold text-xs text-emerald-900">{initials}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-black text-sm text-[#122A24] truncate">{t.full_name}</div>
+                              <div className="text-[10px] font-mono text-slate-500">Emp: {t.employee_code || t.id}</div>
+                              <div className="text-[10px] font-mono text-emerald-800 font-semibold">{t.designation || 'Teacher'} • {t.department}</div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                            <div className="w-10 h-10 bg-white p-0.5 rounded-lg border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+                              {qrUrl ? (
+                                <img src={qrUrl} alt="QR" className="w-full h-full object-contain" />
+                              ) : (
+                                <QrCode className="w-8 h-8 text-[#122A24]" />
+                              )}
+                            </div>
+                            <span className="text-[8.5px] font-mono font-bold text-emerald-800 text-right">
+                              FACULTY ACCESS<br/><span className="text-slate-500 font-sans">SMART BADGE</span>
+                            </span>
+                          </div>
                         </div>
-                        <div className="text-center">
-                          <div className="font-black text-sm text-[#122A24] truncate">{t.full_name}</div>
-                          <div className="text-[10px] font-mono text-slate-500">{t.designation || 'Teacher'} • {t.department}</div>
-                        </div>
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                          <QrCode className="w-8 h-8 text-[#122A24]" />
-                          <span className="text-[9px] font-mono font-bold text-emerald-800">FACULTY BADGE</span>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}

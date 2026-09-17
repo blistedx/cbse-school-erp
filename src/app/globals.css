@@ -1170,7 +1170,9 @@ a {
 
   #report-modal-backdrop,
   #report-modal-dialog,
-  #report-modal-scroll {
+  #report-modal-scroll,
+  #receipt-modal-backdrop,
+  #receipt-modal-dialog {
     position: static !important;
     display: block !important;
     inset: auto !important;
@@ -1214,4 +1216,24 @@ a {
     page-break-after: auto !important;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Mobile Responsiveness & Touch Optimization Utilities
+   ───────────────────────────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@layer utilities {
+  .touch-scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+}
+
 

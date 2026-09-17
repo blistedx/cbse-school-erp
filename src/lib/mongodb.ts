@@ -4,12 +4,12 @@ import { MongoClient, Db } from 'mongodb';
 const uri = process.env.MONGODB_URI || '';
 
 const options = {
-  maxPoolSize: 10,
-  minPoolSize: 0,
-  maxIdleTimeMS: 10000,
-  serverSelectionTimeoutMS: 15000,
-  connectTimeoutMS: 15000,
-  socketTimeoutMS: 30000,
+  maxPoolSize: 25,
+  minPoolSize: 2,
+  maxIdleTimeMS: 60000,
+  serverSelectionTimeoutMS: 6000,
+  connectTimeoutMS: 6000,
+  socketTimeoutMS: 20000,
   tls: true,
   tlsAllowInvalidCertificates: true
 };
