@@ -227,7 +227,7 @@ export function DashboardOverview({
 }: DashboardOverviewProps) {
   // Chart & filter controls (Dynamic Timeframe for Fee Realization Trend)
   const [salesTimeframe, setSalesTimeframe] = useState<'quarterly' | 'monthly' | 'yearly'>('monthly');
-  const [activeTooltipIndex, setActiveTooltipIndex] = useState<number | null>(5); // default Sep/current
+  const [activeTooltipIndex, setActiveTooltipIndex] = useState<number | null>(null);
   const [revenueDateRange, setRevenueDateRange] = useState<string>('Apr 1 - Sep 17 (YTD)');
   const [revenueDropdownOpen, setRevenueDropdownOpen] = useState<boolean>(false);
   const [isAiInsightOpen, setIsAiInsightOpen] = useState<boolean>(false);
@@ -1158,20 +1158,20 @@ export function DashboardOverview({
       {/* ─────────────────────────────────────────────────────────────
           1. WELCOME HEADER ROW WITH FILTERS & EXPORT BUTTON
           ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 relative z-20 overflow-hidden">
+      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-4 sm:p-7 relative z-20 overflow-hidden">
         {/* Editorial Watermark Typography - accurately reproducing the reference showcase aesthetic */}
         <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none select-none">
           <div 
             aria-hidden="true" 
-            className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
+            className="pointer-events-none select-none absolute top-1 sm:-top-8 md:-top-12 left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.035] sm:text-[#122A24]/[0.07] text-[48px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
           >
             Overview
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 relative z-10">
           <div>
-            <h1 className="text-2xl sm:text-[28px] font-bold tracking-tight text-[#122A24]">
+            <h1 className="text-xl sm:text-[28px] font-bold tracking-tight text-[#122A24]">
               Welcome back, {greetingName}
             </h1>
             <p className="text-xs sm:text-sm text-[#2D5A4E]/80 mt-0.5">
@@ -1179,19 +1179,19 @@ export function DashboardOverview({
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap w-full sm:w-auto">
             {/* Daily / Weekly / Monthly Filter Dropdown Pill */}
             <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setTimeDropdownOpen(!timeDropdownOpen)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-[#DCE8E0] text-xs font-semibold text-[#122A24] shadow-2xs hover:bg-[#F4F8F5] transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-white border border-[#DCE8E0] text-xs font-semibold text-[#122A24] shadow-2xs hover:bg-[#F4F8F5] transition-colors cursor-pointer"
               >
                 <span>{timeFilter}</span>
                 <ChevronDown className={`w-3.5 h-3.5 text-[#2D5A4E]/70 transition-transform duration-150 ${timeDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
               {timeDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 bg-white border border-[#DCE8E0] rounded-xl shadow-xl z-50 py-1.5 min-w-[130px] text-xs font-medium animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute left-0 sm:right-0 top-full mt-2 bg-white border border-[#DCE8E0] rounded-xl shadow-xl z-50 py-1.5 min-w-[130px] text-xs font-medium animate-in fade-in zoom-in-95 duration-100">
                   {(['Daily', 'Weekly', 'Monthly'] as const).map(option => (
                     <button
                       key={option}
@@ -1214,7 +1214,7 @@ export function DashboardOverview({
               <button
                 type="button"
                 onClick={() => setFeeCycleDropdownOpen(!feeCycleDropdownOpen)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-[#DCE8E0] text-xs font-semibold text-[#122A24] shadow-2xs hover:bg-[#F4F8F5] transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-white border border-[#DCE8E0] text-xs font-semibold text-[#122A24] shadow-2xs hover:bg-[#F4F8F5] transition-colors cursor-pointer"
                 title="Change Fee Cycle / Month"
               >
                 <Coins className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -1225,7 +1225,7 @@ export function DashboardOverview({
                 <ChevronDown className={`w-3.5 h-3.5 text-[#2D5A4E]/70 transition-transform duration-150 ${feeCycleDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
               {feeCycleDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 bg-white border border-[#DCE8E0] rounded-2xl shadow-2xl z-50 py-2.5 w-80 sm:w-96 text-xs font-medium animate-in fade-in zoom-in-95 duration-100 max-h-96 overflow-y-auto">
+                <div className="absolute left-0 sm:right-0 top-full mt-2 bg-white border border-[#DCE8E0] rounded-2xl shadow-2xl z-50 py-2.5 w-[calc(100vw-2rem)] sm:w-96 max-w-sm text-xs font-medium animate-in fade-in zoom-in-95 duration-100 max-h-96 overflow-y-auto">
                   <div className="px-3.5 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 flex items-center justify-between">
                     <span>CBSE Academic Fee Cycles</span>
                     <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-mono">9 Cycles</span>
@@ -1270,9 +1270,9 @@ export function DashboardOverview({
             </div>
 
             {/* Date Range Badge Pill */}
-            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-[#DCE8E0] text-xs font-semibold text-[#122A24] shadow-2xs">
-              <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-              <span>
+            <div className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-white border border-[#DCE8E0] text-xs font-semibold text-[#122A24] shadow-2xs">
+              <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="truncate">
                 {timeFilter === 'Daily' ? formattedToday : timeFilter === 'Weekly' ? formattedWeekRange : formattedMonth}
               </span>
             </div>
@@ -1280,9 +1280,9 @@ export function DashboardOverview({
             {/* Primary Solid Action Button: Export CSV */}
             <button
               onClick={handleExportCSV}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#122A24] hover:bg-[#1C443A] active:scale-95 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer border-none"
+              className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-[#122A24] hover:bg-[#1C443A] active:scale-95 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer border-none"
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="w-3.5 h-3.5 shrink-0" />
               <span>Export CSV</span>
             </button>
           </div>
@@ -1292,34 +1292,38 @@ export function DashboardOverview({
       {/* ─────────────────────────────────────────────────────────────
           2. REFERENCE SCHOOL ERP KPI TILES (8 TILES: 2 ROWS OF 4 - GREEN & WHITE THEME)
           ───────────────────────────────────────────────────────────── */}
-      <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-y-7 sm:gap-y-8 gap-x-6 sm:gap-x-12">
+      <div className="bg-[#122A24] rounded-2xl p-4 sm:p-7 border border-[#1C443A] shadow-md">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 sm:gap-y-8 gap-x-4 sm:gap-x-12">
           
           {/* Row 1, Col 1: Total students */}
           <div 
             onClick={() => setActiveTab('students')}
-            className="cursor-pointer group select-none transition-transform active:scale-95"
+            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
           >
-            <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
-              <Users className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
-              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Total students</span>
-            </div>
-            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-              {kpiStudents}
+            <div>
+              <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
+                <Users className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Total students</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {kpiStudents}
+              </div>
             </div>
           </div>
 
           {/* Row 1, Col 2: Teachers/staff */}
           <div 
             onClick={() => setActiveTab('teachers')}
-            className="cursor-pointer group select-none transition-transform active:scale-95"
+            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
           >
-            <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
-              <Monitor className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
-              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Teachers/staff</span>
-            </div>
-            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-              {kpiTeachers}
+            <div>
+              <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
+                <Monitor className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Teachers/staff</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {kpiTeachers}
+              </div>
             </div>
             <div className="text-[11px] text-emerald-300/60 mt-1 font-medium truncate">
               {activeFacultyAttendanceKpi.subLabel}
@@ -1329,21 +1333,23 @@ export function DashboardOverview({
           {/* Row 1, Col 3: Attendance (Daily / Weekly / Monthly) */}
           <div 
             onClick={() => setActiveTab('attendance')}
-            className="cursor-pointer group select-none transition-transform active:scale-95"
+            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
           >
-            <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
-              <CalendarCheck className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
-              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">{activeAttendanceKpi.label}</span>
-            </div>
-            <div className={`font-bold text-white tracking-tight mt-2 font-sans flex items-baseline gap-2 ${
-              activeAttendanceKpi.displayValue === 'Not Marked' ? 'text-xl sm:text-2xl text-emerald-300/80' : 'text-2xl sm:text-[28px]'
-            }`}>
-              <span>{activeAttendanceKpi.displayValue}</span>
-              {activeAttendanceKpi.displayValue === 'Not Marked' && (
-                <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  Pending
-                </span>
-              )}
+            <div>
+              <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
+                <CalendarCheck className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">{activeAttendanceKpi.label}</span>
+              </div>
+              <div className={`font-bold text-white tracking-tight mt-2 font-sans flex items-baseline gap-2 ${
+                activeAttendanceKpi.displayValue === 'Not Marked' ? 'text-xl sm:text-2xl text-emerald-300/80' : 'text-2xl sm:text-[28px]'
+              }`}>
+                <span>{activeAttendanceKpi.displayValue}</span>
+                {activeAttendanceKpi.displayValue === 'Not Marked' && (
+                  <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    Pending
+                  </span>
+                )}
+              </div>
             </div>
             <div className="text-[11px] text-emerald-300/60 mt-1 font-medium truncate">
               {activeAttendanceKpi.subLabel}
@@ -1353,88 +1359,98 @@ export function DashboardOverview({
           {/* Row 1, Col 4: Fees collected (Dynamic Fee Cycle) */}
           <div 
             onClick={() => setActiveTab('fees')}
-            className="cursor-pointer group select-none transition-transform active:scale-95"
+            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
           >
-            <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
-              <CreditCard className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
-              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90 truncate">
-                Fees collected ({dynamicFeeCycleMetrics.cycle.shortLabel})
-              </span>
-            </div>
-            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans flex items-baseline gap-2">
-              <span>{kpiFeesCollected}</span>
-              <span className="text-xs font-semibold text-emerald-300/60 tracking-normal font-mono">
-                / {kpiFeesDemand}
-              </span>
+            <div>
+              <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
+                <CreditCard className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">
+                  Fees collected
+                </span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans flex flex-wrap items-baseline gap-1.5">
+                <span>{kpiFeesCollected}</span>
+                <span className="text-xs font-semibold text-emerald-300/60 tracking-normal font-mono">
+                  / {kpiFeesDemand}
+                </span>
+              </div>
             </div>
             <div className="text-[11px] text-emerald-300/70 mt-1 font-medium truncate flex items-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-              <span>{dynamicFeeCycleMetrics.paidStudentsCount}/{dynamicFeeCycleMetrics.studentCount} students paid</span>
+              <span className="truncate">{dynamicFeeCycleMetrics.paidStudentsCount}/{dynamicFeeCycleMetrics.studentCount} paid ({dynamicFeeCycleMetrics.cycle.badge})</span>
             </div>
           </div>
 
           {/* Row 2, Col 1: Fees pending (Dynamic Fee Cycle) */}
           <div 
             onClick={() => setActiveTab('fees')}
-            className="cursor-pointer group select-none transition-transform active:scale-95"
+            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
           >
-            <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
-              <AlertCircle className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
-              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90 truncate">
-                Fees pending ({dynamicFeeCycleMetrics.cycle.shortLabel})
-              </span>
-            </div>
-            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans flex items-baseline gap-2">
-              <span>{kpiFeesPending}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                {dynamicFeeCycleMetrics.cycle.badge}
-              </span>
+            <div>
+              <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
+                <AlertCircle className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">
+                  Fees pending
+                </span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans flex flex-wrap items-baseline gap-1.5">
+                <span>{kpiFeesPending}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  {dynamicFeeCycleMetrics.cycle.badge}
+                </span>
+              </div>
             </div>
             <div className="text-[11px] text-emerald-300/70 mt-1 font-medium truncate flex items-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-              <span>{dynamicFeeCycleMetrics.pendingStudentsCount}/{dynamicFeeCycleMetrics.studentCount} students pending</span>
+              <span className="truncate">{dynamicFeeCycleMetrics.pendingStudentsCount}/{dynamicFeeCycleMetrics.studentCount} pending</span>
             </div>
           </div>
 
           {/* Row 2, Col 2: Classes/sections */}
           <div 
             onClick={() => setActiveTab('classes')}
-            className="cursor-pointer group select-none transition-transform active:scale-95"
+            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
           >
-            <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
-              <DoorClosed className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
-              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Classes/sections</span>
-            </div>
-            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-              {kpiClasses}
+            <div>
+              <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
+                <DoorClosed className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Classes/sections</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {kpiClasses}
+              </div>
             </div>
           </div>
 
           {/* Row 2, Col 3: Upcoming exams */}
           <div 
             onClick={() => setActiveTab('notices')}
-            className="cursor-pointer group select-none transition-transform active:scale-95"
+            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
           >
-            <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
-              <ClipboardList className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
-              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Upcoming exams</span>
-            </div>
-            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-              {kpiExams}
+            <div>
+              <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
+                <ClipboardList className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">Upcoming exams</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {kpiExams}
+              </div>
             </div>
           </div>
 
           {/* Row 2, Col 4: New enquiries */}
           <div 
             onClick={() => setActiveTab('students')}
-            className="cursor-pointer group select-none transition-transform active:scale-95"
+            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
           >
-            <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
-              <Mail className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
-              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">New enquiries</span>
-            </div>
-            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-              {kpiEnquiries}
+            <div>
+              <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
+                <Mail className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">New enquiries</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {kpiEnquiries}
+              </div>
             </div>
           </div>
 
@@ -1447,7 +1463,7 @@ export function DashboardOverview({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         
         {/* Left Card (~68%): Fee Realization & Dues Stacked Bar Chart */}
-        <div className="lg:col-span-8 bg-white rounded-2xl p-5 sm:p-6 border border-[#DCE8E0] shadow-2xs flex flex-col justify-between relative overflow-hidden">
+        <div className="lg:col-span-8 bg-white rounded-2xl p-4 sm:p-6 border border-[#DCE8E0] shadow-2xs flex flex-col justify-between relative overflow-hidden">
           <div>
             {/* Header: Title, Metric, Legends, Time Segment Pills */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
@@ -1461,7 +1477,7 @@ export function DashboardOverview({
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
                 {/* Legends */}
                 <div className="flex items-center gap-3 text-xs font-medium text-gray-600">
                   <span className="flex items-center gap-1.5">
@@ -1481,7 +1497,6 @@ export function DashboardOverview({
                       key={tf}
                       onClick={() => {
                         setSalesTimeframe(tf);
-                        setActiveTooltipIndex(tf === 'quarterly' ? 1 : tf === 'yearly' ? 2 : 5);
                       }}
                       className={`px-2.5 py-1 rounded-md capitalize transition-all border-none cursor-pointer ${
                         salesTimeframe === tf 
@@ -1497,7 +1512,7 @@ export function DashboardOverview({
             </div>
 
             {/* Chart Canvas Area */}
-            <div className="relative pt-6 pb-2 select-none">
+            <div className="relative pt-6 pb-2 select-none overflow-hidden">
               
               {/* Y-Axis Guidelines & Labels */}
               <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-7 pt-4">
@@ -1510,12 +1525,12 @@ export function DashboardOverview({
               </div>
 
               {/* Stacked Dual-Tone Vertical Bars */}
-              <div className="relative pl-8 h-48 sm:h-52 flex items-end justify-between gap-1 sm:gap-2 z-10">
+              <div className="relative pl-8 h-44 sm:h-52 flex items-end justify-between gap-1 sm:gap-2 z-10 touch-manipulation">
                 {currentTrendData.map((item, idx) => {
                   const isHovered = activeTooltipIndex === idx;
-                  const maxHeightPx = 175; // max chart height in pixels
+                  const maxHeightPx = 160; // max chart height in pixels
                   const totalRatio = item.total / maxTrendTotal;
-                  const totalH = Math.max(22, Math.round(totalRatio * maxHeightPx));
+                  const totalH = Math.max(20, Math.round(totalRatio * maxHeightPx));
                   const collectedRatio = item.collected / item.total;
                   const topH = Math.round(totalH * collectedRatio);
                   const bottomH = totalH - topH;
@@ -1525,14 +1540,16 @@ export function DashboardOverview({
                       key={item.label}
                       className="flex-1 flex flex-col items-center justify-end h-full cursor-pointer group"
                       onMouseEnter={() => setActiveTooltipIndex(idx)}
+                      onMouseLeave={() => setActiveTooltipIndex(null)}
+                      onClick={() => setActiveTooltipIndex(activeTooltipIndex === idx ? null : idx)}
                     >
-                      {/* Floating Dark Tooltip on hovered bar */}
+                      {/* Floating Dark Tooltip on hovered/tapped bar */}
                       {isHovered && (
                         <div 
-                          className="absolute z-20 pointer-events-none bg-[#122A24] text-white p-2.5 rounded-xl shadow-2xl text-[11px] font-mono animate-in fade-in zoom-in-95 duration-150 -translate-x-1/2 border border-[#1C443A]"
+                          className="absolute z-30 pointer-events-none bg-[#122A24] text-white p-2 sm:p-2.5 rounded-xl shadow-2xl text-[10px] sm:text-[11px] font-mono animate-in fade-in zoom-in-95 duration-150 border border-[#1C443A] whitespace-nowrap"
                           style={{
-                            top: `${Math.max(4, maxHeightPx - totalH - 36)}px`,
-                            left: `calc(2rem + ${(idx + 0.5) * (100 / currentTrendData.length)}% - 0.5rem)`
+                            top: `${Math.max(2, Math.min(maxHeightPx - 50, maxHeightPx - totalH - 36))}px`,
+                            left: `clamp(10px, calc(2rem + ${(idx + 0.5) * (100 / currentTrendData.length)}% - 4rem), calc(100% - 145px))`
                           }}
                         >
                           <div className="font-bold text-emerald-200 pb-1 border-b border-white/15 mb-1">

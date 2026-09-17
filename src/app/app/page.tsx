@@ -4352,9 +4352,9 @@ function ERPWorkspaceContent() {
             </>
           )}
 
-          {/* Academic Session Switcher */}
+          {/* Academic Session Switcher (Desktop & Tablets) */}
           {effectiveRole !== 'DRIVER' && (
-            <div className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-[#DCE8E0] text-[#122A24] rounded-xl text-xs font-medium shadow-2xs">
+            <div className="hidden md:flex items-center gap-1 px-2.5 py-1.5 bg-white border border-[#DCE8E0] text-[#122A24] rounded-xl text-xs font-medium shadow-2xs">
               <Calendar className="h-3.5 w-3.5 text-[#1C443A] shrink-0" />
               <select
                 value={selectedSession}
@@ -4392,7 +4392,7 @@ function ERPWorkspaceContent() {
           </div>
 
           {/* Direct Desktop Theme Toggle Button (Strictly Default Emerald <-> Black & White) */}
-          <div className="relative">
+          <div className="relative hidden sm:block">
             <button
               type="button"
               onClick={() => {
@@ -4571,7 +4571,7 @@ function ERPWorkspaceContent() {
           {/* Sign out */}
           <button
             onClick={handleLogout}
-            className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-white hover:bg-rose-50 hover:text-rose-700 border border-[#DCE8E0] hover:border-rose-200 text-xs font-semibold text-[#122A24] transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 shadow-2xs"
+            className="hidden sm:flex p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-white hover:bg-rose-50 hover:text-rose-700 border border-[#DCE8E0] hover:border-rose-200 text-xs font-semibold text-[#122A24] transition-colors cursor-pointer shrink-0 items-center gap-1.5 shadow-2xs"
             title="Sign Out"
           >
             <LogOut className="h-3.5 w-3.5" />
