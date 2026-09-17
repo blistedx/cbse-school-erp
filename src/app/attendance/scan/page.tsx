@@ -24,7 +24,12 @@ import {
   Video,
   VideoOff,
   Volume2,
-  RotateCcw
+  RotateCcw,
+  Lock,
+  LogIn,
+  Zap,
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react';
 
 function AttendanceScanContent() {
@@ -36,14 +41,22 @@ function AttendanceScanContent() {
   const schoolId = searchParams.get('school_id') || 'DPS2026';
   const session = searchParams.get('session') || '2026-27';
 
+  // Auth & Access Control
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Live Camera Scanner State
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isCameraLoading, setIsCameraLoading] = useState(false);
   const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [hasTorch, setHasTorch] = useState(false);
+  const [isTorchOn, setIsTorchOn] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -54,17 +67,39 @@ function AttendanceScanContent() {
   const [manualAdm, setManualAdm] = useState('');
   const [isSearchingManual, setIsSearchingManual] = useState(false);
 
-  // Play pleasant check-in chime
+  // Verify User Role on Mount
+  useEffect(() => {
+    try {
+      const rawUser = localStorage.getItem('current_user');
+      if (rawUser) {
+        const parsed = JSON.parse(rawUser);
+        setCurrentUser(parsed);
+      }
+    } catch (_) {}
+    setAuthChecked(true);
+  }, []);
+
+  const isStaffAuthorized = () => {
+    if (!currentUser) return false;
+    const role = (currentUser.role || '').toUpperCase();
+    const authorizedRoles = ['ADMIN', 'SUPER_ADMIN', 'PRINCIPAL', 'TEACHER', 'STAFF', 'GUARD', 'GATEKEEPER', 'FACULTY'];
+    return authorizedRoles.includes(role);
+  };
+
+  // Play pleasant check-in chime and mobile haptic vibration
   const playBeep = () => {
     try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate([80, 40, 80]);
+      }
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
-      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15); // E6
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
       gain.gain.setValueAtTime(0.2, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
       osc.connect(gain);
@@ -81,12 +116,17 @@ function AttendanceScanContent() {
     try {
       const res = await fetch('/api/attendance/scan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-token': typeof localStorage !== 'undefined' ? (localStorage.getItem('erp_session_token') || '') : ''
+        },
         body: JSON.stringify({
           student_id: sId || undefined,
           admission_no: adm || undefined,
           school_id: schoolId,
-          session: session
+          session: session,
+          operator_role: currentUser?.role || 'STAFF',
+          operator_id: currentUser?.id || currentUser?.username
         })
       });
       const data = await res.json();
@@ -144,33 +184,98 @@ function AttendanceScanContent() {
     }
   };
 
-  // Camera stream controls
+  // Camera stream controls with Multi-Stage Mobile Fallback
   const startCamera = async (facing: 'environment' | 'user' = cameraFacing) => {
     setCameraError(null);
-    try {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({
+    setIsCameraLoading(true);
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
+    const constraintOptions: MediaStreamConstraints[] = [
+      {
         video: {
-          facingMode: facing,
+          facingMode: { ideal: facing },
           width: { ideal: 1280 },
           height: { ideal: 720 }
         },
         audio: false
-      });
+      },
+      {
+        video: {
+          facingMode: facing
+        },
+        audio: false
+      },
+      {
+        video: true,
+        audio: false
+      }
+    ];
+
+    let stream: MediaStream | null = null;
+    let lastErr: any = null;
+
+    for (const constraints of constraintOptions) {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Camera API not supported on this browser or insecure connection (HTTPS required).');
+        }
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (stream) break;
+      } catch (err: any) {
+        lastErr = err;
+      }
+    }
+
+    if (!stream) {
+      setIsCameraLoading(false);
+      setIsCameraActive(false);
+      console.error('Camera access failed:', lastErr);
+      if (lastErr?.name === 'NotAllowedError' || lastErr?.name === 'PermissionDeniedError') {
+        setCameraError('Camera permission was blocked. Please tap the lock/camera icon in your mobile browser address bar and choose "Allow".');
+      } else if (lastErr?.name === 'NotFoundError' || lastErr?.name === 'DevicesNotFoundError') {
+        setCameraError('No camera device found on this hardware.');
+      } else if (lastErr?.name === 'NotReadableError' || lastErr?.name === 'TrackStartError') {
+        setCameraError('Camera is currently in use by another application. Please close background camera apps.');
+      } else {
+        setCameraError(lastErr?.message || 'Unable to open camera. Please ensure HTTPS connection and camera permission.');
+      }
+      return;
+    }
+
+    try {
       streamRef.current = stream;
+      const videoTrack = stream.getVideoTracks()[0];
+
+      // Check if torch/flashlight is supported
+      if (videoTrack && typeof (videoTrack as any).getCapabilities === 'function') {
+        const capabilities = (videoTrack as any).getCapabilities();
+        setHasTorch(Boolean(capabilities?.torch));
+      }
+
+      setIsCameraActive(true);
+      setIsCameraLoading(false);
+
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.setAttribute('playsinline', 'true');
-        await videoRef.current.play();
-        setIsCameraActive(true);
+        const video = videoRef.current;
+        video.srcObject = stream;
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('muted', 'true');
+        video.muted = true;
+        
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(e => console.warn('Autoplay warning:', e));
+        }
+
         requestAnimationFrame(tickScanner);
       }
     } catch (err: any) {
-      console.error('Camera access error:', err);
-      setCameraError('Camera permission denied or camera not available. Please allow camera access in browser.');
-      setIsCameraActive(false);
+      setIsCameraLoading(false);
+      setCameraError(err?.message || 'Failed to initialize video stream.');
     }
   };
 
@@ -184,6 +289,8 @@ function AttendanceScanContent() {
       animationFrameRef.current = null;
     }
     setIsCameraActive(false);
+    setIsTorchOn(false);
+    setHasTorch(false);
   };
 
   const toggleCameraFacing = () => {
@@ -194,44 +301,61 @@ function AttendanceScanContent() {
     }
   };
 
-  const tickScanner = () => {
-    if (!videoRef.current || videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) {
-      animationFrameRef.current = requestAnimationFrame(tickScanner);
-      return;
-    }
-
-    const video = videoRef.current;
-    if (!canvasRef.current) {
-      canvasRef.current = document.createElement('canvas');
-    }
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-    if (ctx) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: 'attemptBoth'
+  const toggleTorch = async () => {
+    if (!streamRef.current) return;
+    const videoTrack = streamRef.current.getVideoTracks()[0];
+    if (!videoTrack) return;
+    try {
+      const nextState = !isTorchOn;
+      await (videoTrack as any).applyConstraints({
+        advanced: [{ torch: nextState }]
       });
+      setIsTorchOn(nextState);
+    } catch (e) {
+      console.warn('Torch toggle failed:', e);
+    }
+  };
 
-      if (code && code.data) {
-        handleQrPayload(code.data);
+  const tickScanner = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      if (!canvasRef.current) {
+        canvasRef.current = document.createElement('canvas');
+      }
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'attemptBoth'
+        });
+
+        if (code && code.data) {
+          handleQrPayload(code.data);
+        }
       }
     }
 
-    animationFrameRef.current = requestAnimationFrame(tickScanner);
+    if (streamRef.current) {
+      animationFrameRef.current = requestAnimationFrame(tickScanner);
+    }
   };
 
+  // Only auto-execute scan if user is an authorized Staff/Teacher/Admin
   useEffect(() => {
-    if (studentId || admissionNo) {
+    if (authChecked && isStaffAuthorized() && (studentId || admissionNo)) {
       executeScan(studentId, admissionNo);
     }
     return () => {
       stopCamera();
     };
-  }, [studentId, admissionNo]);
+  }, [studentId, admissionNo, authChecked]);
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -247,23 +371,88 @@ function AttendanceScanContent() {
     year: 'numeric'
   });
 
+  // ─────────────────────────────────────────────────────────────
+  // 1. ACCESS CONTROL LOCKDOWN: IF USER IS STUDENT / PARENT OR UNLOGGED
+  // ─────────────────────────────────────────────────────────────
+  if (authChecked && !isStaffAuthorized()) {
+    const isStudentOrParent = currentUser?.role === 'STUDENT' || currentUser?.role === 'PARENT';
+    return (
+      <div className="min-h-screen bg-[#F4F8F5] text-slate-800 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-6 sm:p-8 border border-rose-200 shadow-xl text-center space-y-5 animate-scale-in">
+          
+          <div className="w-16 h-16 rounded-3xl bg-rose-50 border-2 border-rose-200 text-rose-600 mx-auto flex items-center justify-center shadow-xs">
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100 text-rose-800 text-[11px] font-mono font-bold uppercase tracking-wider">
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+              <span>Campus Terminal Locked</span>
+            </div>
+            <h2 className="font-display font-black text-xl text-[#122A24]">
+              Class Teacher &amp; Gate Staff Access Only
+            </h2>
+            <p className="text-xs text-slate-600 leading-relaxed font-sans">
+              {isStudentOrParent
+                ? `Logged in as ${currentUser?.full_name || currentUser?.username} (${currentUser?.role}). Student remote self-attendance from home is prohibited. Please present your physical I-Card to your class teacher or gate scanner at school.`
+                : 'This Smart QR check-in terminal requires verified Class Teacher, Principal, or Campus Gatekeeper credentials. Students cannot mark attendance remotely from home.'}
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-[#EBF5EF] border border-[#C5E2CF] text-left space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#122A24]">
+              <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>Security Protocols Active:</span>
+            </div>
+            <ul className="text-[11px] text-slate-600 space-y-1 font-mono list-disc list-inside">
+              <li>Proxy &amp; Remote Check-in Prevention</li>
+              <li>Only Faculty &amp; Gate Staff can punch attendance</li>
+              <li>Official GPS &amp; Timestamp Cloud Verification</li>
+            </ul>
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={() => router.push('/login')}
+              className="w-full py-3 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-xs border-none cursor-pointer flex items-center justify-center gap-2 shadow-md transition-colors"
+            >
+              <LogIn className="w-4 h-4 text-emerald-400" />
+              <span>Faculty / Admin Staff Login</span>
+            </button>
+
+            <button
+              onClick={() => router.push('/app')}
+              className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border-none cursor-pointer"
+            >
+              Back to ERP Portal
+            </button>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 2. AUTHORIZED TEACHER / GATEKEEPER SCANNER PORTAL
+  // ─────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#F4F8F5] text-slate-800 flex flex-col justify-between py-6 px-4 sm:px-6">
-      <div className="max-w-md w-full mx-auto space-y-5">
+      <div className="max-w-md w-full mx-auto space-y-4">
         
-        {/* Top Header */}
+        {/* Top Header with Operator Info */}
         <div className="flex items-center justify-between">
           <button
             onClick={() => router.push('/app')}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#DCE8E0] text-xs font-semibold text-[#122A24] shadow-2xs hover:bg-[#EBF5EF] cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Open ERP Dashboard</span>
+            <span>ERP Dashboard</span>
           </button>
 
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#122A24] text-emerald-300 text-[10px] font-mono font-bold tracking-wider">
-            <ScanLine className="w-3 h-3 text-emerald-400" />
-            <span>SMART GATE SCAN</span>
+            <ShieldCheck className="w-3 h-3 text-emerald-400" />
+            <span>{currentUser?.role || 'FACULTY'} VERIFIED</span>
           </span>
         </div>
 
@@ -274,7 +463,7 @@ function AttendanceScanContent() {
             <span>{result?.school?.school_name || 'CBSE Digital School'}</span>
           </div>
           <p className="text-[11px] font-mono text-emerald-800 font-semibold">
-            Biometric & QR Identity Roll • Session {session}
+            Operator: {currentUser?.full_name || currentUser?.username || 'Class Teacher'} • Session {session}
           </p>
         </div>
 
@@ -323,7 +512,6 @@ function AttendanceScanContent() {
 
             {/* Scholar Details with Picture */}
             <div className="p-5 space-y-4">
-              
               <div className="flex items-center gap-4">
                 {/* Photo */}
                 <div className="w-20 h-24 rounded-2xl bg-slate-100 border-2 border-[#122A24] shadow-sm overflow-hidden flex items-center justify-center shrink-0">
@@ -375,7 +563,7 @@ function AttendanceScanContent() {
                 <div className="text-left text-xs">
                   <strong className="text-[#122A24] block font-sans">Official CBSE Turnout Recorded</strong>
                   <span className="text-[11px] font-mono text-emerald-800">
-                    Class Total Present: {result.attendance_summary?.total_present} / {result.attendance_summary?.total_students} Scholars
+                    Class Present: {result.attendance_summary?.total_present} / {result.attendance_summary?.total_students} Scholars
                   </span>
                 </div>
               </div>
@@ -390,7 +578,6 @@ function AttendanceScanContent() {
                   <strong>{result.student.guardian_phone}</strong>
                 </div>
               )}
-
             </div>
           </div>
         ) : null}
@@ -404,85 +591,107 @@ function AttendanceScanContent() {
                 Live Camera QR Scanner
               </h4>
             </div>
+            
             {isCameraActive && (
-              <button
-                type="button"
-                onClick={toggleCameraFacing}
-                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-mono font-bold flex items-center gap-1 border-none cursor-pointer"
-                title="Switch Camera (Front/Back)"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Flip</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                {hasTorch && (
+                  <button
+                    type="button"
+                    onClick={toggleTorch}
+                    className={`p-1.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 border-none cursor-pointer transition-colors ${
+                      isTorchOn ? 'bg-amber-400 text-slate-900 shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                    title="Flashlight"
+                  >
+                    <Zap className="w-3 h-3" />
+                    <span>{isTorchOn ? 'Torch ON' : 'Torch'}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={toggleCameraFacing}
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-mono font-bold flex items-center gap-1 border-none cursor-pointer"
+                  title="Switch Camera (Front/Back)"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Flip</span>
+                </button>
+              </div>
             )}
           </div>
 
-          {/* Camera Viewfinder */}
-          {isCameraActive ? (
-            <div className="relative w-full aspect-4/3 rounded-2xl overflow-hidden bg-black flex items-center justify-center border-2 border-emerald-500 shadow-inner">
-              <video
-                ref={videoRef}
-                className="w-full h-full object-cover"
-                playsInline
-                muted
-                autoPlay
-              />
+          {/* Camera Viewfinder (Always mounted for instantaneous mobile initialization) */}
+          <div className={`relative w-full aspect-4/3 rounded-2xl overflow-hidden bg-black flex items-center justify-center border-2 border-emerald-500 shadow-inner ${isCameraActive ? 'block' : 'hidden'}`}>
+            <video
+              ref={videoRef}
+              className="w-full h-full object-cover"
+              playsInline
+              muted
+              autoPlay
+            />
 
-              {/* Scanning Target Overlay */}
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-8">
-                <div className="w-48 h-48 sm:w-56 sm:h-56 border-2 border-emerald-400 rounded-2xl relative">
-                  {/* Corner accents */}
-                  <div className="absolute -top-1 -left-1 w-4 h-4 border-t-4 border-l-4 border-emerald-300 rounded-tl-md" />
-                  <div className="absolute -top-1 -right-1 w-4 h-4 border-t-4 border-r-4 border-emerald-300 rounded-tr-md" />
-                  <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-4 border-l-4 border-emerald-300 rounded-bl-md" />
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-4 border-r-4 border-emerald-300 rounded-br-md" />
+            {/* Scanning Target Overlay */}
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-8">
+              <div className="w-48 h-48 sm:w-56 sm:h-56 border-2 border-emerald-400 rounded-2xl relative">
+                {/* Corner accents */}
+                <div className="absolute -top-1 -left-1 w-4 h-4 border-t-4 border-l-4 border-emerald-300 rounded-tl-md" />
+                <div className="absolute -top-1 -right-1 w-4 h-4 border-t-4 border-r-4 border-emerald-300 rounded-tr-md" />
+                <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-4 border-l-4 border-emerald-300 rounded-bl-md" />
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-4 border-r-4 border-emerald-300 rounded-br-md" />
 
-                  {/* Animated scanning laser beam */}
-                  <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-emerald-300 to-transparent absolute top-0 animate-bounce shadow-sm" />
-                </div>
+                {/* Animated scanning laser beam */}
+                <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-emerald-300 to-transparent absolute top-0 animate-bounce shadow-sm" />
               </div>
-
-              {/* Live Active Badge */}
-              <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-xs px-2.5 py-1 rounded-full text-[10px] font-mono text-emerald-300 flex items-center gap-1.5 border border-emerald-500/30">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>SCANNING ID CARD...</span>
-              </div>
-
-              {/* Stop Camera Button */}
-              <button
-                type="button"
-                onClick={stopCamera}
-                className="absolute bottom-3 right-3 bg-rose-600/90 hover:bg-rose-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold border-none cursor-pointer flex items-center gap-1.5 shadow-md transition-colors"
-              >
-                <VideoOff className="w-3.5 h-3.5" />
-                <span>Close Camera</span>
-              </button>
             </div>
-          ) : (
-            <div className="text-center py-5 px-4 rounded-2xl bg-gradient-to-b from-[#EBF5EF] to-white border border-[#C5E2CF] space-y-3">
+
+            {/* Live Active Badge */}
+            <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-xs px-2.5 py-1 rounded-full text-[10px] font-mono text-emerald-300 flex items-center gap-1.5 border border-emerald-500/30">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>SCANNING ID CARDS...</span>
+            </div>
+
+            {/* Stop Camera Button */}
+            <button
+              type="button"
+              onClick={stopCamera}
+              className="absolute bottom-3 right-3 bg-rose-600/90 hover:bg-rose-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold border-none cursor-pointer flex items-center gap-1.5 shadow-md transition-colors"
+            >
+              <VideoOff className="w-3.5 h-3.5" />
+              <span>Close Camera</span>
+            </button>
+          </div>
+
+          {/* Standby UI when camera is stopped */}
+          {!isCameraActive && (
+            <div className="text-center py-6 px-4 rounded-2xl bg-gradient-to-b from-[#EBF5EF] to-white border border-[#C5E2CF] space-y-3">
               <div className="w-12 h-12 rounded-2xl bg-emerald-700 text-white mx-auto flex items-center justify-center shadow-xs">
                 <Camera className="w-6 h-6" />
               </div>
               <div>
-                <h5 className="font-bold text-sm text-[#122A24]">Point Camera at I-Card QR</h5>
+                <h5 className="font-bold text-sm text-[#122A24]">Point Camera at Student I-Card</h5>
                 <p className="text-[11px] text-slate-600 mt-0.5 max-w-xs mx-auto">
-                  Hold the student physical ID card or phone screen in front of your camera for auto check-in.
+                  Hold the student physical ID card or digital card in front of your camera to auto-mark turnout.
                 </p>
               </div>
 
               {cameraError && (
-                <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-sans">
-                  {cameraError}
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-sans text-left space-y-1">
+                  <div className="font-bold flex items-center gap-1 text-rose-900">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>Camera Initialization Issue</span>
+                  </div>
+                  <p>{cameraError}</p>
                 </div>
               )}
 
               <button
                 type="button"
                 onClick={() => startCamera()}
-                className="px-5 py-2.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-xs border-none cursor-pointer shadow-md inline-flex items-center gap-2 transition-all transform active:scale-98"
+                disabled={isCameraLoading}
+                className="px-6 py-2.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-xs border-none cursor-pointer shadow-md inline-flex items-center gap-2 transition-all transform active:scale-98 disabled:opacity-50"
               >
-                <Video className="w-4 h-4 text-emerald-400" />
-                <span>Start Live Camera Scanner</span>
+                {isCameraLoading ? <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" /> : <Video className="w-4 h-4 text-emerald-400" />}
+                <span>{isCameraLoading ? 'Starting Camera Hardware...' : 'Start Live Camera Scanner'}</span>
               </button>
             </div>
           )}
@@ -493,7 +702,7 @@ function AttendanceScanContent() {
           <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
             <Search className="w-4 h-4 text-emerald-700" />
             <h4 className="font-bold text-xs text-[#122A24] uppercase tracking-wider">
-              Scan Next / Manual Admission Search
+              Manual Admission Number Punch-In
             </h4>
           </div>
 
@@ -502,7 +711,7 @@ function AttendanceScanContent() {
               type="text"
               value={manualAdm}
               onChange={(e) => setManualAdm(e.target.value)}
-              placeholder="e.g. ADM2026-001 or ID"
+              placeholder="e.g. ADM2026-001 or Student ID"
               className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono focus:border-emerald-600 focus:outline-hidden"
             />
             <button

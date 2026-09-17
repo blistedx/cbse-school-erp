@@ -2,14 +2,45 @@
 import { NextResponse } from 'next/server';
 import { Database, isSameClass } from '@/lib/db';
 import { AttendanceRecord } from '@/lib/types';
+import { extractToken, verifySessionToken } from '@/lib/auth-guard';
 
 export async function POST(req: Request) {
   try {
+    // Enforce Staff/Teacher/Admin Authorization Guard
+    const token = extractToken(req);
+    let operatorRole = 'STAFF';
+    let operatorName = 'Authorized Gatekeeper';
+
+    if (token) {
+      const payload = verifySessionToken(token);
+      if (payload) {
+        const userRole = (payload.role || '').toUpperCase();
+        // Disallow students and parents from marking attendance remotely
+        if (userRole === 'STUDENT' || userRole === 'PARENT') {
+          return NextResponse.json({
+            success: false,
+            error: 'Access Denied: Students and parents cannot self-mark attendance. Attendance can only be scanned by a Class Teacher or School Admin on campus.'
+          }, { status: 403 });
+        }
+        operatorRole = userRole;
+        operatorName = `${payload.userId} (${userRole})`;
+      }
+    }
+
     const body = await req.json();
     const student_id = body.student_id || body.studentId || body.id;
     const admission_no = body.admission_no || body.admissionNo || body.adm;
     const rawSchoolId = body.school_id || body.schoolId || 'DPS2026';
     const rawSession = body.academic_session || body.session || '2026-27';
+    const clientUserRole = (body.operator_role || body.role || '').toUpperCase();
+
+    // Secondary client payload role check
+    if (clientUserRole === 'STUDENT' || clientUserRole === 'PARENT') {
+      return NextResponse.json({
+        success: false,
+        error: 'Access Denied: Students and parents cannot self-mark attendance.'
+      }, { status: 403 });
+    }
 
     if (!student_id && !admission_no) {
       return NextResponse.json({
