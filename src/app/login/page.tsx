@@ -356,9 +356,66 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right form panel (Clean on Desktop & Mobile with classic boxes) */}
-      <div className="formside relative z-10">
-        <div className="card">
+      {/* Right form panel (Clean, Rich Typography & Polished Boxes) */}
+      <div className="formside relative z-10 overflow-hidden min-h-screen">
+        {/* Subtle Decorative Typography Watermarks & Grid Texture */}
+        <div className="absolute inset-0 pointer-events-none select-none overflow-hidden z-0">
+          {/* Subtle Geometric Dot Texture */}
+          <div
+            className="absolute inset-0 opacity-[0.035]"
+            style={{
+              backgroundImage: 'radial-gradient(#122A24 1.2px, transparent 1.2px)',
+              backgroundSize: '24px 24px'
+            }}
+          />
+
+          {/* Giant Ghost Solid Typography: "GITERP" */}
+          <div className="absolute -right-8 top-1/2 -translate-y-1/2 font-display font-black text-[18vw] leading-none text-[#122A24]/[0.032] tracking-tighter uppercase whitespace-nowrap">
+            GITERP
+          </div>
+
+          {/* Giant Outlined Typography Watermark: "giterp.cloud" */}
+          <div
+            className="absolute -left-8 -bottom-4 font-display font-extrabold text-[100px] leading-none text-transparent tracking-tight uppercase whitespace-nowrap hidden lg:block"
+            style={{
+              WebkitTextStroke: '1.5px rgba(18, 42, 36, 0.045)'
+            }}
+          >
+            giterp.os
+          </div>
+
+          {/* Vertical Running Typography Strip */}
+          <div className="absolute right-6 top-0 bottom-0 flex items-center justify-center pointer-events-none hidden md:flex">
+            <span className="text-[10px] font-mono tracking-[0.35em] text-[#122A24]/20 uppercase [writing-mode:vertical-rl] rotate-180 select-none">
+              GITERP • AUTONOMOUS SCHOOL OPERATING SYSTEM • SECURE GATEWAY
+            </span>
+          </div>
+
+          {/* Top-Right Technical Grid Crosshair & Typography Badge */}
+          <div className="absolute top-7 right-10 text-right hidden md:block">
+            <div className="flex items-center justify-end gap-2 text-[11px] font-mono font-semibold tracking-wider text-[#122A24]/40 uppercase">
+              <span>SYS.AUTH // GITERP</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]/60"></span>
+            </div>
+            <div className="text-[9.5px] font-mono text-[#122A24]/25 tracking-widest mt-0.5">
+              EDTECH ECOSYSTEM • EST. 2026
+            </div>
+          </div>
+
+          {/* Top-Left Technical Corner Crosshair */}
+          <div className="absolute top-7 left-10 hidden md:block text-[#122A24]/20 font-mono text-[11px] tracking-widest">
+            + + + +
+          </div>
+
+          {/* Bottom-Left Micro Typography */}
+          <div className="absolute bottom-6 left-10 hidden md:block">
+            <div className="text-[10px] font-mono tracking-widest text-[#122A24]/30 uppercase">
+              GITERP // MULTI-CAMPUS ENTERPRISE CORE
+            </div>
+          </div>
+        </div>
+
+        <div className="card relative z-10">
           {/* Mobile Brand Header with Official Giterp Logo & Name */}
           <div className="flex sm:hidden items-center justify-center gap-3 mb-5 pb-3.5 border-b border-[#E8F0EA]">
             <Link href="/" className="flex items-center gap-3 no-underline">
@@ -377,6 +434,14 @@ export default function LoginPage() {
                 </span>
               </div>
             </Link>
+          </div>
+
+          {/* Desktop Subtle Giterp Pill Badge */}
+          <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-md bg-[#122A24]/[0.05] border border-[#122A24]/[0.08]">
+            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
+            <span className="text-[10.5px] font-mono font-bold tracking-wider text-[#122A24]/80 uppercase">
+              Giterp Security Portal
+            </span>
           </div>
 
           {viewMode === 'LOGIN' ? (

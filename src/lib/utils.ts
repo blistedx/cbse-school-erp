@@ -39,3 +39,106 @@ export function getSchoolInitials(school?: any): string {
   return 'DPS';
 }
 
+export function printHtmlElement(elementId: string, docTitle?: string) {
+  if (typeof window === 'undefined') return;
+  const element = document.getElementById(elementId);
+  if (!element) {
+    window.print();
+    return;
+  }
+
+  try {
+    const existingFrame = document.getElementById('giterp-print-iframe');
+    if (existingFrame) existingFrame.remove();
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'giterp-print-iframe';
+    iframe.style.position = 'fixed';
+    iframe.style.left = '-9999px';
+    iframe.style.top = '0';
+    iframe.style.width = '1024px';
+    iframe.style.height = '1000px';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      window.print();
+      return;
+    }
+
+    let stylesHtml = '';
+    document.querySelectorAll('style, link[rel="stylesheet"]').forEach((el) => {
+      stylesHtml += el.outerHTML;
+    });
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <base href="${window.location.origin}/" />
+          <title>${docTitle || 'Official Fee Receipt'}</title>
+          ${stylesHtml}
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 12mm 10mm;
+            }
+            *, *::before, *::after {
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              height: auto !important;
+              min-height: 100% !important;
+              overflow: visible !important;
+              background: #ffffff !important;
+              color: #122A24 !important;
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            }
+            .print-wrapper {
+              width: 100% !important;
+              max-width: 640px !important;
+              margin: 0 auto !important;
+              padding: 10px !important;
+              box-shadow: none !important;
+              background: #ffffff !important;
+            }
+            .no-print, .print\\:hidden {
+              display: none !important;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-wrapper">
+            ${element.outerHTML}
+          </div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (e) {
+        window.print();
+      } finally {
+        setTimeout(() => {
+          iframe.remove();
+        }, 4000);
+      }
+    }, 300);
+  } catch (err) {
+    console.error('[Print Helper Error]:', err);
+    window.print();
+  }
+}
+
+

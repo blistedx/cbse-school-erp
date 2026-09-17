@@ -531,12 +531,23 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 56px 40px;
+  padding: 40px 24px;
 }
 
 .formside .card {
   width: 100%;
-  max-width: 440px;
+  max-width: 460px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(18, 42, 36, 0.08);
+  border-radius: 20px;
+  padding: 36px 36px;
+  box-shadow: 0 16px 40px -12px rgba(18, 42, 36, 0.07), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+}
+
+.demo-split-layout .formside .card {
+  max-width: 560px;
 }
 
 .formside .card .kicker {
@@ -1187,6 +1198,19 @@ a {
     border: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;
+  }
+
+  #printable-receipt {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 620px !important;
+    margin: 0 auto !important;
+    padding: 16px !important;
+    box-shadow: none !important;
+    border: 2px solid #122A24 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
   }
 
   #printable-report-sheet {

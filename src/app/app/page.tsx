@@ -92,7 +92,7 @@ import { TaskCompletionOverlay, TaskCelebrationData, TaskCelebrationType } from 
 import { getAllSiblingGroups, SiblingGroup } from '@/lib/student-helper';
 import { ANTIGRAVITY_THEMES, applyAntigravityTheme, getSavedThemeId } from '@/lib/themes';
 import { compressImageFile } from '@/lib/image-compress';
-import { getSchoolInitials } from '@/lib/utils';
+import { getSchoolInitials, printHtmlElement } from '@/lib/utils';
 import { ThinkingOrb, ThinkingOrbThinkingDemo, ThinkingOrbSyncPill } from '@/components/ui/thinking-orbs';
 
 // Instant Module Loading Fallback using ThinkingOrb
@@ -10328,9 +10328,12 @@ function ERPWorkspaceContent() {
           {activeTab === 'homework' && (
             <DashboardHomework
               students={students}
+              classes={classes}
+              teachers={teachers}
               schoolName={selectedSchool?.school_name}
               userRole={effectiveRole}
               currentUser={currentUser}
+              selectedSession={selectedSession}
             />
           )}
 
@@ -12108,8 +12111,8 @@ function ERPWorkspaceContent() {
 
       {/* MODAL: PRINTABLE OFFICIAL FEE RECEIPT SLIP */}
       {viewInvoice && selectedSchool && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl border border-[#DCE8E0] p-5 sm:p-8 max-w-xl w-full shadow-2xl space-y-5 animate-fade-up max-h-[92vh] overflow-y-auto">
+        <div id="receipt-modal-backdrop" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 print:p-0 print:bg-transparent print:static print:inset-auto">
+          <div id="receipt-modal-dialog" className="bg-white rounded-t-3xl sm:rounded-3xl border border-[#DCE8E0] p-5 sm:p-8 max-w-xl w-full shadow-2xl space-y-5 animate-fade-up max-h-[92vh] overflow-y-auto print:m-0 print:p-0 print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none">
             <div id="printable-receipt" className="border-2 border-slate-800 p-4 sm:p-6 rounded-xl space-y-4 sm:space-y-5 bg-white">
               <div className="flex justify-between items-start border-b-2 border-slate-800 pb-3 sm:pb-4">
                 <div className="flex items-center gap-2.5 sm:gap-3">
@@ -12208,7 +12211,7 @@ function ERPWorkspaceContent() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2 print:hidden">
               <button
                 onClick={() => handleToggleInvoiceStatus(viewInvoice)}
                 className={`w-full sm:w-auto px-4 py-2.5 text-xs font-semibold rounded-full cursor-pointer border transition-colors ${
@@ -12230,7 +12233,7 @@ function ERPWorkspaceContent() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={() => printHtmlElement('printable-receipt', `Official-Fee-Receipt-${viewInvoice.invoice_no}`)}
                   className="flex-1 sm:flex-none px-5 py-2.5 bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold rounded-full flex items-center justify-center gap-1.5 shadow-xs cursor-pointer border-none"
                 >
                   <Printer className="h-3.5 w-3.5" /> Print Receipt

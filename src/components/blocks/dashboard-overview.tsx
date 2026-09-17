@@ -42,6 +42,149 @@ import {
 } from 'lucide-react';
 import { School, Student, Teacher, ClassRoom, FeeInvoice, AttendanceRecord, SchoolOverview, User, Notice } from '@/lib/types';
 import { getSchoolInitials } from '@/lib/utils';
+import { CBSE_ACADEMIC_MONTHS, getStandardTuitionRate, getStandardAnnualFeeRate, getStandardTransportRate } from '@/lib/monthly-fee-helper';
+
+export interface DashboardFeeCycleItem {
+  id: string;
+  cycleNumber: number | string;
+  name: string;
+  shortLabel: string;
+  badge: string;
+  months: string[];
+  monthShorts: string[];
+  monthKeys: string[];
+  monthMultiplier: number;
+  includesAnnualFee?: boolean;
+  includesExamFee?: boolean;
+  examFeePerStudent?: number;
+  quarter: string;
+  description: string;
+}
+
+export const DASHBOARD_FEE_CYCLES: DashboardFeeCycleItem[] = [
+  {
+    id: 'cycle-1',
+    cycleNumber: '1',
+    name: 'Cycle 1: April + Annual Fee',
+    shortLabel: 'Cycle 1 (April)',
+    badge: '1 Mo + Annual',
+    months: ['April'],
+    monthShorts: ['Apr'],
+    monthKeys: ['04'],
+    monthMultiplier: 1,
+    includesAnnualFee: true,
+    quarter: 'Q1',
+    description: '1 Month Tuition + Annual Term Fee + Transport'
+  },
+  {
+    id: 'cycle-2',
+    cycleNumber: '2',
+    name: 'Cycle 2: May & June',
+    shortLabel: 'Cycle 2 (May+Jun)',
+    badge: '2 Months',
+    months: ['May', 'June'],
+    monthShorts: ['May', 'Jun'],
+    monthKeys: ['05', '06'],
+    monthMultiplier: 2,
+    quarter: 'Q1',
+    description: '2 Months Tuition (May+Jun) + 2 Months Transport'
+  },
+  {
+    id: 'cycle-3',
+    cycleNumber: '3',
+    name: 'Cycle 3: July',
+    shortLabel: 'Cycle 3 (July)',
+    badge: '1 Month',
+    months: ['July'],
+    monthShorts: ['Jul'],
+    monthKeys: ['07'],
+    monthMultiplier: 1,
+    quarter: 'Q2',
+    description: '1 Month Tuition + 1 Month Transport'
+  },
+  {
+    id: 'cycle-4',
+    cycleNumber: '4',
+    name: 'Cycle 4: August',
+    shortLabel: 'Cycle 4 (August)',
+    badge: '1 Month',
+    months: ['August'],
+    monthShorts: ['Aug'],
+    monthKeys: ['08'],
+    monthMultiplier: 1,
+    quarter: 'Q2',
+    description: '1 Month Tuition + 1 Month Transport'
+  },
+  {
+    id: 'cycle-5',
+    cycleNumber: '5',
+    name: 'Cycle 5: September & February',
+    shortLabel: 'Cycle 5 (Sep+Feb)',
+    badge: '2 Mo + Term-1 Exam',
+    months: ['September', 'February'],
+    monthShorts: ['Sep', 'Feb'],
+    monthKeys: ['09', '02'],
+    monthMultiplier: 2,
+    includesExamFee: true,
+    examFeePerStudent: 750,
+    quarter: 'Q2',
+    description: '2 Months Tuition (Sep+Feb) + 2 Months Transport + Term-1 Half Yearly Exam'
+  },
+  {
+    id: 'cycle-6',
+    cycleNumber: '6',
+    name: 'Cycle 6: October',
+    shortLabel: 'Cycle 6 (October)',
+    badge: '1 Month',
+    months: ['October'],
+    monthShorts: ['Oct'],
+    monthKeys: ['10'],
+    monthMultiplier: 1,
+    quarter: 'Q3',
+    description: '1 Month Tuition + 1 Month Transport'
+  },
+  {
+    id: 'cycle-7',
+    cycleNumber: '7',
+    name: 'Cycle 7: November',
+    shortLabel: 'Cycle 7 (November)',
+    badge: '1 Month',
+    months: ['November'],
+    monthShorts: ['Nov'],
+    monthKeys: ['11'],
+    monthMultiplier: 1,
+    quarter: 'Q3',
+    description: '1 Month Tuition + 1 Month Transport'
+  },
+  {
+    id: 'cycle-8',
+    cycleNumber: '8',
+    name: 'Cycle 8: December & March',
+    shortLabel: 'Cycle 8 (Dec+Mar)',
+    badge: '2 Months',
+    months: ['December', 'March'],
+    monthShorts: ['Dec', 'Mar'],
+    monthKeys: ['12', '03'],
+    monthMultiplier: 2,
+    quarter: 'Q3',
+    description: '2 Months Tuition (Dec+Mar) + 2 Months Transport'
+  },
+  {
+    id: 'cycle-9',
+    cycleNumber: '9',
+    name: 'Cycle 9: January (Pre-Board / Term-2)',
+    shortLabel: 'Cycle 9 (January)',
+    badge: '1 Mo + Term-2 Exam',
+    months: ['January'],
+    monthShorts: ['Jan'],
+    monthKeys: ['01'],
+    monthMultiplier: 1,
+    includesExamFee: true,
+    examFeePerStudent: 750,
+    quarter: 'Q4',
+    description: '1 Month Tuition + 1 Month Transport + Term-2 CBSE Exam Fee'
+  }
+];
 
 interface DashboardOverviewProps {
   selectedSchool: School | null;
@@ -93,9 +236,15 @@ export function DashboardOverview({
   const [timeDropdownOpen, setTimeDropdownOpen] = useState<boolean>(false);
   const [timeFilter, setTimeFilter] = useState<'Daily' | 'Weekly' | 'Monthly'>('Daily');
 
+  // Dynamic Fee Cycle & Month Filter State (Defaults to Cycle 5: Sep + Feb)
+  const [selectedFeeCycleId, setSelectedFeeCycleId] = useState<string>('cycle-5');
+  const [feeCycleDropdownOpen, setFeeCycleDropdownOpen] = useState<boolean>(false);
+
   // Close dropdown when clicking outside
   const dropdownRef = useRef<HTMLDivElement>(null);
   const revenueDropdownRef = useRef<HTMLDivElement>(null);
+  const feeCycleDropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -104,14 +253,17 @@ export function DashboardOverview({
       if (revenueDropdownRef.current && !revenueDropdownRef.current.contains(event.target as Node)) {
         setRevenueDropdownOpen(false);
       }
+      if (feeCycleDropdownRef.current && !feeCycleDropdownRef.current.contains(event.target as Node)) {
+        setFeeCycleDropdownOpen(false);
+      }
     }
-    if (timeDropdownOpen || revenueDropdownOpen) {
+    if (timeDropdownOpen || revenueDropdownOpen || feeCycleDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [timeDropdownOpen, revenueDropdownOpen]);
+  }, [timeDropdownOpen, revenueDropdownOpen, feeCycleDropdownOpen]);
 
   // Calendar & Operational Hub state
   const [calendarMonthOffset, setCalendarMonthOffset] = useState<number>(0);
@@ -402,69 +554,107 @@ export function DashboardOverview({
     studentProfileAvgAtt
   ]);
 
-  // Current active month fee collection & pending (e.g. September 2026)
-  const currentMonthKey = String(now.getMonth() + 1).padStart(2, '0'); // '09'
-  const currentMonthShort = now.toLocaleString('en-US', { month: 'short' }); // 'Sep'
-  const currentMonthFull = now.toLocaleString('en-US', { month: 'long' }); // 'September'
+  // Active Fee Cycle & Comprehensive Metrics Calculation
+  const activeFeeCycle = useMemo(() => {
+    return DASHBOARD_FEE_CYCLES.find(c => c.id === selectedFeeCycleId) || DASHBOARD_FEE_CYCLES[4]; // Default Cycle 5 (Sep + Feb)
+  }, [selectedFeeCycleId]);
 
-  const currentMonthInvoices = useMemo(() => {
-    return (invoices || []).filter(inv => {
+  const dynamicFeeCycleMetrics = useMemo(() => {
+    const activeCycle = activeFeeCycle;
+    const validStudents = Array.isArray(students) && students.length > 0 ? students : [];
+    const effectiveStudentCount = validStudents.length > 0 ? validStudents.length : totalStudentsCount || 505;
+
+    // 1. Live standard demand computed student-by-student across enrolled classes
+    let totalTuitionDemand = 0;
+    let totalTransportDemand = 0;
+    let totalAnnualDemand = 0;
+    let totalExamDemand = 0;
+
+    if (validStudents.length > 0) {
+      validStudents.forEach(st => {
+        const tuitionRate = getStandardTuitionRate(st.class_name);
+        const transportRate = (st as any).transport_fee || getStandardTransportRate(st);
+
+        totalTuitionDemand += tuitionRate * activeCycle.monthMultiplier;
+        totalTransportDemand += transportRate * activeCycle.monthMultiplier;
+
+        if (activeCycle.includesAnnualFee) {
+          totalAnnualDemand += getStandardAnnualFeeRate(st.class_name);
+        }
+        if (activeCycle.includesExamFee) {
+          totalExamDemand += (activeCycle.examFeePerStudent || 750);
+        }
+      });
+    } else {
+      // Fallback baseline for 505 students if live state is initializing
+      totalTuitionDemand = 1458000;
+      totalTransportDemand = 1010000;
+      totalAnnualDemand = activeCycle.includesAnnualFee ? 2525000 : 0;
+      totalExamDemand = activeCycle.includesExamFee ? 378750 : 0;
+    }
+
+    const grandDemand = totalTuitionDemand + totalTransportDemand + totalAnnualDemand + totalExamDemand;
+
+    // 2. Filter matching invoices for this cycle from live ERP ledger
+    const matchedInvoices = (invoices || []).filter(inv => {
       const anyInv = inv as any;
-      const monthText = (inv.month || '').toLowerCase();
+      const invMonth = (inv.month || '').toLowerCase();
       const dueDate = inv.due_date || anyInv.date || '';
       const paidDate = inv.paid_date || '';
       const dueMonthNum = dueDate.length >= 7 ? dueDate.slice(5, 7) : '';
       const paidMonthNum = paidDate.length >= 7 ? paidDate.slice(5, 7) : '';
+      const cycleTag = ((anyInv.cycle_name || anyInv.cycle || '') as string).toLowerCase();
 
-      return (
-        monthText.includes(currentMonthShort.toLowerCase()) ||
-        monthText.includes(currentMonthFull.toLowerCase()) ||
-        dueMonthNum === currentMonthKey ||
-        (inv.status === 'PAID' && paidMonthNum === currentMonthKey)
-      );
-    });
-  }, [invoices, currentMonthShort, currentMonthFull, currentMonthKey]);
-
-  const currentMonthPaidAmount = useMemo(() => {
-    return currentMonthInvoices.reduce((acc, inv) => {
-      const amt = Number(inv.amount) || 0;
-      const paid = typeof inv.paid_amount === 'number' ? inv.paid_amount : (inv.status === 'PAID' ? amt : 0);
-      return acc + paid;
-    }, 0);
-  }, [currentMonthInvoices]);
-
-  const currentMonthPendingAmount = useMemo(() => {
-    return currentMonthInvoices.reduce((acc, inv) => {
-      const amt = Number(inv.amount) || 0;
-      const paid = typeof inv.paid_amount === 'number' ? inv.paid_amount : (inv.status === 'PAID' ? amt : 0);
-      return acc + Math.max(0, amt - paid);
-    }, 0);
-  }, [currentMonthInvoices]);
-
-  // Unique Student Counts for Fee Status Relative to Total Students
-  const monthPaidStudentsCount = useMemo(() => {
-    const paidStudentSet = new Set<string>();
-    currentMonthInvoices.forEach(inv => {
-      if (inv.status === 'PAID') {
-        paidStudentSet.add(inv.student_id || inv.admission_no || inv.student_name);
+      if (cycleTag.includes(`cycle ${activeCycle.cycleNumber}`.toLowerCase()) || cycleTag.includes(activeCycle.id)) {
+        return true;
       }
-    });
-    return paidStudentSet.size;
-  }, [currentMonthInvoices]);
 
-  const monthPendingStudentsCount = useMemo(() => {
-    const pendingStudentSet = new Set<string>();
-    currentMonthInvoices.forEach(inv => {
+      const matchesMonth = activeCycle.monthShorts.some(mShort => invMonth.includes(mShort.toLowerCase())) ||
+        activeCycle.monthKeys.some(mKey => dueMonthNum === mKey || (inv.status === 'PAID' && paidMonthNum === mKey));
+
+      return matchesMonth;
+    });
+
+    let collectedAmount = 0;
+    let invoicePendingAmount = 0;
+    const paidStudentIds = new Set<string>();
+
+    matchedInvoices.forEach(inv => {
+      const amt = Number(inv.amount) || 0;
+      const paid = typeof inv.paid_amount === 'number' ? inv.paid_amount : (inv.status === 'PAID' ? amt : 0);
+      collectedAmount += paid;
+      if (paid > 0) {
+        paidStudentIds.add(inv.student_id || inv.admission_no || inv.student_name);
+      }
       if (inv.status !== 'PAID') {
-        pendingStudentSet.add(inv.student_id || inv.admission_no || inv.student_name);
+        invoicePendingAmount += Math.max(0, amt - paid);
       }
     });
-    return Math.max(pendingStudentSet.size, Math.max(0, totalStudentsCount - monthPaidStudentsCount));
-  }, [currentMonthInvoices, totalStudentsCount, monthPaidStudentsCount]);
+
+    const paidStudentsCount = paidStudentIds.size;
+    const pendingStudentsCount = Math.max(0, effectiveStudentCount - paidStudentsCount);
+    const pendingAmount = Math.max(invoicePendingAmount, Math.max(0, grandDemand - collectedAmount));
+
+    return {
+      cycle: activeCycle,
+      grandDemand,
+      collectedAmount,
+      pendingAmount,
+      paidStudentsCount,
+      pendingStudentsCount,
+      studentCount: effectiveStudentCount,
+      totalTuitionDemand,
+      totalTransportDemand,
+      totalAnnualDemand,
+      totalExamDemand,
+      matchedInvoicesCount: matchedInvoices.length
+    };
+  }, [activeFeeCycle, students, invoices, totalStudentsCount]);
 
   const kpiAttendance = activeAttendanceKpi.displayValue;
-  const kpiFeesCollected = formatLakh(currentMonthPaidAmount, '₹0');
-  const kpiFeesPending = formatLakh(currentMonthPendingAmount, '₹0');
+  const kpiFeesCollected = formatLakh(dynamicFeeCycleMetrics.collectedAmount, '₹0');
+  const kpiFeesPending = formatLakh(dynamicFeeCycleMetrics.pendingAmount, '₹0');
+  const kpiFeesDemand = formatLakh(dynamicFeeCycleMetrics.grandDemand, '₹0');
   const kpiClasses = liveClassCount.toString();
   const kpiExams = '4';
   const kpiEnquiries = students.filter(s => s.status === 'INACTIVE' || /enquiry|provisional/i.test(s.admission_no || '')).length.toString();
@@ -1019,6 +1209,66 @@ export function DashboardOverview({
               )}
             </div>
 
+            {/* Dynamic Fee Cycle & Month Selector Pill */}
+            <div className="relative" ref={feeCycleDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setFeeCycleDropdownOpen(!feeCycleDropdownOpen)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-[#DCE8E0] text-xs font-semibold text-[#122A24] shadow-2xs hover:bg-[#F4F8F5] transition-colors cursor-pointer"
+                title="Change Fee Cycle / Month"
+              >
+                <Coins className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="font-bold">{activeFeeCycle.shortLabel}</span>
+                <span className="hidden sm:inline text-[10.5px] px-1.5 py-0.5 rounded-md bg-[#EBF5EF] text-[#122A24] font-medium">
+                  {activeFeeCycle.badge}
+                </span>
+                <ChevronDown className={`w-3.5 h-3.5 text-[#2D5A4E]/70 transition-transform duration-150 ${feeCycleDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {feeCycleDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 bg-white border border-[#DCE8E0] rounded-2xl shadow-2xl z-50 py-2.5 w-80 sm:w-96 text-xs font-medium animate-in fade-in zoom-in-95 duration-100 max-h-96 overflow-y-auto">
+                  <div className="px-3.5 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 flex items-center justify-between">
+                    <span>CBSE Academic Fee Cycles</span>
+                    <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-mono">9 Cycles</span>
+                  </div>
+                  <div className="p-1.5 space-y-1">
+                    {DASHBOARD_FEE_CYCLES.map(cycle => {
+                      const isSelected = cycle.id === selectedFeeCycleId;
+                      return (
+                        <button
+                          key={cycle.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedFeeCycleId(cycle.id);
+                            setFeeCycleDropdownOpen(false);
+                          }}
+                          className={`w-full px-3 py-2 text-left border-none cursor-pointer rounded-xl flex items-start justify-between gap-2 transition-colors ${
+                            isSelected ? 'bg-[#122A24] text-white' : 'text-gray-700 hover:bg-[#F4F8F5]'
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={`font-bold ${isSelected ? 'text-white' : 'text-[#122A24]'}`}>
+                                {cycle.name}
+                              </span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                isSelected ? 'bg-white/20 text-emerald-200' : 'bg-emerald-50 text-emerald-800'
+                              }`}>
+                                {cycle.badge}
+                              </span>
+                            </div>
+                            <p className={`text-[11px] mt-0.5 line-clamp-1 ${isSelected ? 'text-emerald-200/80' : 'text-gray-500'}`}>
+                              {cycle.description}
+                            </p>
+                          </div>
+                          {isSelected && <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Date Range Badge Pill */}
             <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-[#DCE8E0] text-xs font-semibold text-[#122A24] shadow-2xs">
               <Calendar className="w-3.5 h-3.5 text-emerald-600" />
@@ -1100,43 +1350,49 @@ export function DashboardOverview({
             </div>
           </div>
 
-          {/* Row 1, Col 4: Fees collected (Monthly) */}
+          {/* Row 1, Col 4: Fees collected (Dynamic Fee Cycle) */}
           <div 
             onClick={() => setActiveTab('fees')}
             className="cursor-pointer group select-none transition-transform active:scale-95"
           >
             <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
               <CreditCard className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
-              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">
-                Fees collected ({currentMonthShort})
+              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90 truncate">
+                Fees collected ({dynamicFeeCycleMetrics.cycle.shortLabel})
               </span>
             </div>
-            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-              {kpiFeesCollected}
+            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans flex items-baseline gap-2">
+              <span>{kpiFeesCollected}</span>
+              <span className="text-xs font-semibold text-emerald-300/60 tracking-normal font-mono">
+                / {kpiFeesDemand}
+              </span>
             </div>
             <div className="text-[11px] text-emerald-300/70 mt-1 font-medium truncate flex items-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-              <span>{monthPaidStudentsCount}/{totalStudentsCount} students paid</span>
+              <span>{dynamicFeeCycleMetrics.paidStudentsCount}/{dynamicFeeCycleMetrics.studentCount} students paid</span>
             </div>
           </div>
 
-          {/* Row 2, Col 1: Fees pending (Monthly) */}
+          {/* Row 2, Col 1: Fees pending (Dynamic Fee Cycle) */}
           <div 
             onClick={() => setActiveTab('fees')}
             className="cursor-pointer group select-none transition-transform active:scale-95"
           >
             <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
               <AlertCircle className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
-              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">
-                Fees pending ({currentMonthShort})
+              <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90 truncate">
+                Fees pending ({dynamicFeeCycleMetrics.cycle.shortLabel})
               </span>
             </div>
-            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
-              {kpiFeesPending}
+            <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans flex items-baseline gap-2">
+              <span>{kpiFeesPending}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                {dynamicFeeCycleMetrics.cycle.badge}
+              </span>
             </div>
             <div className="text-[11px] text-emerald-300/70 mt-1 font-medium truncate flex items-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-              <span>{monthPendingStudentsCount}/{totalStudentsCount} students pending</span>
+              <span>{dynamicFeeCycleMetrics.pendingStudentsCount}/{dynamicFeeCycleMetrics.studentCount} students pending</span>
             </div>
           </div>
 
