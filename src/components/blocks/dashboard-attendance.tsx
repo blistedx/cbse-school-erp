@@ -1064,6 +1064,8 @@ export function DashboardAttendance({
 
   const classSummaryData = useMemo(() => {
     const targetList = isTeacher ? selectableClasses : sortedClasses;
+    const activeHol = getHolidayForDate(summaryDate);
+
     return targetList.map(cls => {
       const clsStudents = students.filter(s => {
         const cSec = (cls.section || '').toLowerCase().trim();
@@ -1079,31 +1081,45 @@ export function DashboardAttendance({
         return matchesDate && isSameClass(a.class_name, cls.class_name) && secMatches;
       });
 
-      const isMarked = !!targetLog;
-      const presentCount = isMarked ? Number(targetLog.present_count) || 0 : 0;
+      const isClassHoliday = activeHol ? isHolidayApplicableToClass(activeHol, cls.class_name, false) : false;
+      const isSystemHolidayLog = targetLog ? (Boolean(targetLog.marked_by?.startsWith('System (Holiday:')) || ((Number(targetLog.holiday_count) || 0) > 0 && (Number(targetLog.present_count) || 0) === 0)) : false;
+
+      const isManualMarked = targetLog ? (!isSystemHolidayLog && (Number(targetLog.present_count) || 0) + (Number(targetLog.absent_count) || 0) > 0) : false;
+      const isHoliday = isClassHoliday || isSystemHolidayLog;
+
       const totalCount = clsStudents.length || Number(cls.capacity) || 35;
-      const todayPercent = isMarked && totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+      const presentCount = targetLog ? (Number(targetLog.present_count) || 0) : 0;
+      const absentCount = targetLog ? (Number(targetLog.absent_count) || 0) : 0;
+      const todayPercent = isManualMarked && totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
       const defaulters = clsStudents.filter(s => (s.attendance_percent || 95) < 75);
 
       return {
         cls,
         totalStudents: totalCount,
-        isMarked,
+        isMarked: isManualMarked || isHoliday,
+        isManualMarked,
+        isHoliday,
+        holidayTitle: activeHol?.title || (targetLog?.marked_by?.replace(/^System \(Holiday:\s*/i, '').replace(/\)$/, '') || 'Official Holiday'),
         presentCount,
-        absentCount: isMarked ? Math.max(0, totalCount - presentCount) : 0,
+        absentCount: isManualMarked ? absentCount : 0,
         todayPercent,
-        monthlyAvgPercent: isMarked ? Math.min(99, Math.max(88, todayPercent - 2)) : 0,
+        monthlyAvgPercent: isManualMarked ? Math.min(99, Math.max(88, todayPercent - 2)) : 0,
         defaultersCount: defaulters.length,
         defaulterStudents: defaulters
       };
     });
-  }, [sortedClasses, selectableClasses, isTeacher, students, effectiveAttendance, summaryDate]);
+  }, [sortedClasses, selectableClasses, isTeacher, students, effectiveAttendance, summaryDate, getHolidayForDate]);
+
+  const activeSummaryHoliday = useMemo(() => getHolidayForDate(summaryDate), [getHolidayForDate, summaryDate]);
 
   const totalClassesCount = isTeacher ? selectableClasses.length : sortedClasses.length;
-  const markedClassesTodayCount = classSummaryData.filter(c => c.isMarked).length;
+  const markedClassesTodayCount = classSummaryData.filter(c => c.isManualMarked).length;
+  const holidayClassesTodayCount = classSummaryData.filter(c => c.isHoliday && !c.isManualMarked).length;
+  const isAllClassesOnHoliday = totalClassesCount > 0 && holidayClassesTodayCount === totalClassesCount;
+
   const totalSchoolStudents = students.length;
-  const totalStudentsPresentToday = classSummaryData.reduce((acc, curr) => acc + curr.presentCount, 0);
+  const totalStudentsPresentToday = classSummaryData.reduce((acc, curr) => acc + (curr.isManualMarked ? curr.presentCount : 0), 0);
   const overallSchoolAttendanceTodayRate = totalSchoolStudents > 0 && markedClassesTodayCount > 0
     ? Number(((totalStudentsPresentToday / totalSchoolStudents) * 100).toFixed(1))
     : 0;
@@ -1112,6 +1128,9 @@ export function DashboardAttendance({
   }, [students]);
 
   // Faculty Attendance Metrics
+  const activeFacultyHol = getHolidayForDate(summaryDate);
+  const isFacultyHolidayDeclared = activeFacultyHol ? isHolidayApplicableToClass(activeFacultyHol, 'Faculty', true) : false;
+
   const facultyTodayLog = useMemo(() => {
     return effectiveAttendance.find(a => {
       const matchesDate = a.date === summaryDate;
@@ -1120,12 +1139,16 @@ export function DashboardAttendance({
   }, [effectiveAttendance, summaryDate]);
 
   const totalTeachersCount = teachers.length;
-  const isFacultyMarkedToday = !!facultyTodayLog;
-  const facultyPresentCount = isFacultyMarkedToday ? (Number(facultyTodayLog.present_count) || 0) : 0;
-  const facultyAbsentCount = isFacultyMarkedToday ? (Number(facultyTodayLog.absent_count) || 0) : 0;
-  const facultyHolidayCount = isFacultyMarkedToday ? (Number(facultyTodayLog.holiday_count ?? facultyTodayLog.leave_count) || 0) : 0;
+  const isFacultySystemHolidayLog = facultyTodayLog ? (Boolean(facultyTodayLog.marked_by?.startsWith('System (Holiday:')) || ((Number(facultyTodayLog.holiday_count) || 0) > 0 && (Number(facultyTodayLog.present_count) || 0) === 0)) : false;
+  const isFacultyManualMarked = facultyTodayLog ? (!isFacultySystemHolidayLog && (Number(facultyTodayLog.present_count) || 0) + (Number(facultyTodayLog.absent_count) || 0) > 0) : false;
+  const isFacultyHoliday = isFacultyHolidayDeclared || isFacultySystemHolidayLog;
+
+  const isFacultyMarkedToday = isFacultyManualMarked;
+  const facultyPresentCount = isFacultyManualMarked ? (Number(facultyTodayLog?.present_count) || 0) : 0;
+  const facultyAbsentCount = isFacultyManualMarked ? (Number(facultyTodayLog?.absent_count) || 0) : 0;
+  const facultyHolidayCount = isFacultyHoliday ? totalTeachersCount : (Number(facultyTodayLog?.holiday_count ?? facultyTodayLog?.leave_count) || 0);
   const facultyLeaveCount = facultyHolidayCount;
-  const facultyTurnoutRate = isFacultyMarkedToday && totalTeachersCount > 0
+  const facultyTurnoutRate = isFacultyManualMarked && totalTeachersCount > 0
     ? Number(((facultyPresentCount / totalTeachersCount) * 100).toFixed(1))
     : 0;
 
@@ -2328,14 +2351,31 @@ export function DashboardAttendance({
               <div className="min-w-0 p-4 sm:p-4.5 rounded-2xl bg-white border border-[#E2ECE5] shadow-2xs space-y-2 overflow-hidden">
                 <div className="text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider truncate">Student Turnout (Today)</div>
                 <div className="flex items-baseline justify-between gap-1.5 flex-wrap">
-                  <span className="text-2xl sm:text-[28px] font-display font-bold text-[#122A24] tracking-tight">{overallSchoolAttendanceTodayRate}%</span>
-                  <span className="text-[11px] font-mono font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md whitespace-nowrap">
-                    {totalStudentsPresentToday}/{totalSchoolStudents}
-                  </span>
+                  {isAllClassesOnHoliday && markedClassesTodayCount === 0 ? (
+                    <>
+                      <span className="text-2xl sm:text-[26px] font-display font-bold text-amber-800 tracking-tight flex items-center gap-1.5">
+                        <span>🌴 Holiday</span>
+                      </span>
+                      <span className="text-[11px] font-mono font-semibold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md whitespace-nowrap border border-amber-300">
+                        Official Break
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-2xl sm:text-[28px] font-display font-bold text-[#122A24] tracking-tight">{overallSchoolAttendanceTodayRate}%</span>
+                      <span className="text-[11px] font-mono font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md whitespace-nowrap">
+                        {totalStudentsPresentToday}/{totalSchoolStudents}
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div className="text-[11px] font-mono text-emerald-700 truncate flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span>{markedClassesTodayCount}/{totalClassesCount} Classes Logged</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isAllClassesOnHoliday && markedClassesTodayCount === 0 ? 'bg-amber-500' : 'bg-emerald-500'} shrink-0`} />
+                  <span>
+                    {isAllClassesOnHoliday && markedClassesTodayCount === 0
+                      ? `${activeSummaryHoliday?.title || 'Academic Break'} (All Closed)`
+                      : `${markedClassesTodayCount}/${totalClassesCount} Classes Logged`}
+                  </span>
                 </div>
               </div>
 
@@ -2343,16 +2383,35 @@ export function DashboardAttendance({
               <div className="min-w-0 p-4 sm:p-4.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/90 shadow-2xs space-y-2 overflow-hidden">
                 <div className="text-[10.5px] font-mono font-bold text-emerald-900 uppercase tracking-wider truncate">Faculty Turnout (Today)</div>
                 <div className="flex items-baseline justify-between gap-1.5 flex-wrap">
-                  <span className="text-2xl sm:text-[28px] font-display font-bold text-emerald-950 tracking-tight">
-                    {isFacultyMarkedToday ? `${facultyTurnoutRate}%` : 'Pending'}
-                  </span>
-                  <span className="text-[11px] font-mono font-semibold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md whitespace-nowrap">
-                    {isFacultyMarkedToday ? `${facultyPresentCount}/${totalTeachersCount}` : `0/${totalTeachersCount}`}
-                  </span>
+                  {isFacultyHoliday && !isFacultyManualMarked ? (
+                    <>
+                      <span className="text-2xl sm:text-[26px] font-display font-bold text-amber-800 tracking-tight flex items-center gap-1.5">
+                        <span>🌴 On Break</span>
+                      </span>
+                      <span className="text-[11px] font-mono font-semibold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md whitespace-nowrap border border-amber-300">
+                        Holiday
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-2xl sm:text-[28px] font-display font-bold text-emerald-950 tracking-tight">
+                        {isFacultyMarkedToday ? `${facultyTurnoutRate}%` : 'Pending'}
+                      </span>
+                      <span className="text-[11px] font-mono font-semibold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md whitespace-nowrap">
+                        {isFacultyMarkedToday ? `${facultyPresentCount}/${totalTeachersCount}` : `0/${totalTeachersCount}`}
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div className="text-[11px] font-mono text-emerald-800 truncate flex items-center gap-1.5">
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isFacultyMarkedToday ? 'bg-emerald-600' : 'bg-amber-500'}`} />
-                  <span>{isFacultyMarkedToday ? `${facultyHolidayCount} On Holiday • ${facultyAbsentCount} Absent` : 'Daily Biometric Roll Call'}</span>
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isFacultyHoliday && !isFacultyManualMarked ? 'bg-amber-500' : isFacultyMarkedToday ? 'bg-emerald-600' : 'bg-amber-500'}`} />
+                  <span>
+                    {isFacultyHoliday && !isFacultyManualMarked
+                      ? `${activeFacultyHol?.title || 'Official Holiday'} • On Break`
+                      : isFacultyMarkedToday
+                      ? `${facultyHolidayCount} On Holiday • ${facultyAbsentCount} Absent`
+                      : 'Daily Biometric Roll Call'}
+                  </span>
                 </div>
               </div>
 
@@ -2421,7 +2480,9 @@ export function DashboardAttendance({
                     />
                   </div>
                   <span className="text-xs font-mono font-bold text-[#1C443A] bg-[#EBF5EF] px-2.5 py-1 rounded-full border border-[#C5E2CF]">
-                    {markedClassesTodayCount}/{totalClassesCount} Verified
+                    {isAllClassesOnHoliday && markedClassesTodayCount === 0
+                      ? `🌴 Holiday (${activeSummaryHoliday?.title || 'All Closed'})`
+                      : `${markedClassesTodayCount}/${totalClassesCount} Verified`}
                   </span>
                 </div>
               </div>
@@ -2457,7 +2518,12 @@ export function DashboardAttendance({
                           {item.cls.class_name} - Section {item.cls.section}
                         </td>
                         <td className="py-3 px-4 text-center">
-                          {item.isMarked ? (
+                          {item.isHoliday && !item.isManualMarked ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
+                              <span>🌴</span>
+                              <span>Holiday</span>
+                            </span>
+                          ) : item.isManualMarked ? (
                             <span className="px-2 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                               Marked
                             </span>
@@ -2471,7 +2537,11 @@ export function DashboardAttendance({
                           {item.totalStudents}
                         </td>
                         <td className="py-3 px-4 text-center font-mono">
-                          {item.isMarked ? (
+                          {item.isHoliday && !item.isManualMarked ? (
+                            <span className="text-[11px] font-mono font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                              {item.holidayTitle}
+                            </span>
+                          ) : item.isManualMarked ? (
                             <span>
                               <strong className="text-emerald-700">{item.presentCount}</strong> / <strong className="text-rose-700">{item.absentCount}</strong>
                             </span>
@@ -2480,7 +2550,9 @@ export function DashboardAttendance({
                           )}
                         </td>
                         <td className="py-3 px-4 text-center font-mono font-bold">
-                          {item.isMarked ? (
+                          {item.isHoliday && !item.isManualMarked ? (
+                            <span className="text-amber-800 font-mono text-[11px]">Holiday (N/A)</span>
+                          ) : item.isManualMarked ? (
                             <span className={item.todayPercent >= 75 ? 'text-emerald-700' : 'text-rose-700'}>
                               {item.todayPercent}%
                             </span>
@@ -2489,7 +2561,11 @@ export function DashboardAttendance({
                           )}
                         </td>
                         <td className="py-3 px-4 text-center font-mono font-bold text-slate-700">
-                          {item.monthlyAvgPercent}%
+                          {item.isHoliday && !item.isManualMarked ? (
+                            <span className="text-slate-400 font-mono text-xs font-normal">—</span>
+                          ) : (
+                            `${item.monthlyAvgPercent}%`
+                          )}
                         </td>
                         <td className="py-3 px-4 text-center font-mono">
                           {item.defaultersCount > 0 ? (
@@ -2505,12 +2581,17 @@ export function DashboardAttendance({
                             type="button"
                             onClick={() => {
                               setSelectedClassId(item.cls.id);
+                              setAttendanceDate(summaryDate);
                               setAttendanceType('STUDENT');
                               setAttendanceTab('mark_attendance');
                             }}
-                            className="px-2.5 py-1 rounded-lg bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] text-[11px] font-mono font-semibold cursor-pointer transition-colors"
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold cursor-pointer transition-colors shadow-2xs ${
+                              item.isHoliday && !item.isManualMarked
+                                ? 'bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 font-bold'
+                                : 'bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0]'
+                            }`}
                           >
-                            Mark Roll Call →
+                            {item.isHoliday && !item.isManualMarked ? 'Conduct Class / Overwrite →' : item.isManualMarked ? 'Edit Roll Call →' : 'Mark Roll Call →'}
                           </button>
                         </td>
                       </tr>
@@ -2533,17 +2614,22 @@ export function DashboardAttendance({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono font-bold text-emerald-900 bg-white px-2.5 py-1 rounded-full border border-emerald-200">
-                    {isFacultyMarkedToday ? `${facultyPresentCount}/${totalTeachersCount} On-Duty (${facultyTurnoutRate}%)` : `Pending Roll Call (0/${totalTeachersCount})`}
+                    {isFacultyHoliday && !isFacultyManualMarked
+                      ? `🌴 Holiday (${activeFacultyHol?.title || 'Closed'})`
+                      : isFacultyMarkedToday
+                      ? `${facultyPresentCount}/${totalTeachersCount} On-Duty (${facultyTurnoutRate}%)`
+                      : `Pending Roll Call (0/${totalTeachersCount})`}
                   </span>
                   <button
                     type="button"
                     onClick={() => {
+                      setAttendanceDate(summaryDate);
                       setAttendanceType('FACULTY');
                       setAttendanceTab('mark_attendance');
                     }}
                     className="px-3 py-1 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-lg text-xs font-bold shadow-2xs border-none cursor-pointer"
                   >
-                    Mark Faculty Roll Call →
+                    {isFacultyHoliday && !isFacultyManualMarked ? 'Conduct Duty / Overwrite →' : 'Mark Faculty Roll Call →'}
                   </button>
                 </div>
               </div>
@@ -2562,12 +2648,12 @@ export function DashboardAttendance({
                   </thead>
                   <tbody className="divide-y divide-[#EBF2ED] text-xs">
                     {teachers.slice(0, 8).map((t, idx) => {
-                      let facStatus = 'PRESENT';
+                      let facStatus = isFacultyHoliday ? 'HOLIDAY' : 'PRESENT';
                       let facPunch = `07:${String(45 + (idx * 3)).padStart(2, '0')} AM`;
                       if (facultyTodayLog && Array.isArray((facultyTodayLog as any).teacher_records)) {
                         const rec = (facultyTodayLog as any).teacher_records.find((r: any) => r.teacher_id === t.id || r.staff_code === t.staff_code);
                         if (rec) {
-                          facStatus = rec.status || 'PRESENT';
+                          facStatus = rec.status || (isFacultyHoliday ? 'HOLIDAY' : 'PRESENT');
                         }
                       }
                       const isEven = idx % 2 === 0;
