@@ -80,7 +80,9 @@ import {
   Receipt,
   Palette,
   Camera,
-  Loader2
+  Loader2,
+  Scissors,
+  BadgeCheck
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS, ManagedRole, STAFF_ROLES, resolveTeacherRole } from '@/lib/types';
@@ -92,7 +94,7 @@ import { TaskCompletionOverlay, TaskCelebrationData, TaskCelebrationType } from 
 import { getAllSiblingGroups, SiblingGroup } from '@/lib/student-helper';
 import { ANTIGRAVITY_THEMES, applyAntigravityTheme, getSavedThemeId } from '@/lib/themes';
 import { compressImageFile } from '@/lib/image-compress';
-import { getSchoolInitials, printHtmlElement } from '@/lib/utils';
+import { getSchoolInitials, printHtmlElement, numberToWordsINR } from '@/lib/utils';
 import { ThinkingOrb, ThinkingOrbThinkingDemo, ThinkingOrbSyncPill } from '@/components/ui/thinking-orbs';
 
 // Instant Module Loading Fallback using ThinkingOrb
@@ -12109,136 +12111,269 @@ function ERPWorkspaceContent() {
       </div>
     )}
 
-      {/* MODAL: PRINTABLE OFFICIAL FEE RECEIPT SLIP */}
+      {/* MODAL: OFFICIAL CBSE PRINTABLE FEE RECEIPT (2 COPIES ON SINGLE A4 SHEET) */}
       {viewInvoice && selectedSchool && (
-        <div id="receipt-modal-backdrop" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 print:p-0 print:bg-transparent print:static print:inset-auto">
-          <div id="receipt-modal-dialog" className="bg-white rounded-t-3xl sm:rounded-3xl border border-[#DCE8E0] p-5 sm:p-8 max-w-xl w-full shadow-2xl space-y-5 animate-fade-up max-h-[92vh] overflow-y-auto print:m-0 print:p-0 print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none">
-            <div id="printable-receipt" className="border-2 border-slate-800 p-4 sm:p-6 rounded-xl space-y-4 sm:space-y-5 bg-white">
-              <div className="flex justify-between items-start border-b-2 border-slate-800 pb-3 sm:pb-4">
-                <div className="flex items-center gap-2.5 sm:gap-3">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#122A24] text-white flex items-center justify-center font-display font-bold text-lg sm:text-xl">
-                    {schoolInitial}
-                  </div>
-                  <div>
-                    <h2 className="font-display font-bold text-base sm:text-xl text-[#122A24] m-0 leading-tight">
-                      {selectedSchool.school_name}
-                    </h2>
-                    <p className="text-[11px] sm:text-xs text-slate-600 m-0 font-mono">
-                      Affiliated to {selectedSchool.board || 'CBSE'} • Campus: {selectedSchool.city || 'Central'}
-                    </p>
-                    <p className="text-[10px] text-slate-500 m-0 font-mono">
-                      Institutional Code: <strong>{selectedSchool.school_code}</strong>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-right font-mono">
-                  <div className="text-[9.5px] sm:text-[10px] font-bold uppercase text-slate-400">Official Receipt</div>
-                  <div className="text-xs sm:text-sm font-bold text-[#122A24]">{viewInvoice.invoice_no}</div>
-                  <div className="text-[10px] sm:text-[11px] text-slate-500">{viewInvoice.due_date}</div>
+        <div id="receipt-modal-backdrop" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in print:p-0 print:bg-transparent print:static print:inset-auto print:overflow-visible">
+          <div id="receipt-modal-dialog" className="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 relative my-6 max-h-[94vh] overflow-y-auto print:m-0 print:p-0 print:border-none print:shadow-none print:rounded-none print:w-full print:max-w-none">
+            {/* Modal Controls */}
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 print:hidden">
+              <div className="flex items-center gap-2">
+                <BadgeCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div>
+                  <span className="font-display font-bold text-sm sm:text-base text-[#122A24] block">
+                    Official CBSE Fee Receipt (2 Copies on Single A4 Sheet)
+                  </span>
+                  <span className="text-[11px] text-[#2D5A4E]">
+                    Dual slip generation (School Accounts Copy + Student/Parent Copy)
+                  </span>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-2.5 text-xs bg-slate-50 p-2.5 sm:p-3 rounded-lg border border-slate-200">
-                <div>
-                  <span className="text-slate-500 text-[10.5px]">Student:</span>
-                  <div className="font-bold text-[#122A24] truncate">{viewInvoice.student_name}</div>
-                </div>
-                <div>
-                  <span className="text-slate-500 text-[10.5px]">Class:</span>
-                  <div className="font-bold text-[#122A24]">{viewInvoice.class_name}</div>
-                </div>
-                <div>
-                  <span className="text-slate-500 text-[10.5px]">Admission No:</span>
-                  <div className="font-bold text-[#122A24]">{viewInvoice.admission_no || 'N/A'}</div>
-                </div>
-                <div>
-                  <span className="text-slate-500 text-[10.5px]">Mode:</span>
-                  <div className="font-medium text-slate-700">{viewInvoice.payment_mode || 'Cash/UPI'}</div>
-                </div>
-              </div>
-
-              <div className="border border-slate-300 rounded-lg overflow-hidden">
-                <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-100 text-[10.5px] uppercase text-slate-600 border-b border-slate-300 font-semibold">
-                    <tr>
-                      <th className="py-2 px-3">Description</th>
-                      <th className="py-2 px-3 text-right">Amount (₹)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    <tr>
-                      <td className="py-2 px-3">Tuition &amp; Instruction Fee</td>
-                      <td className="py-2 px-3 text-right font-medium">₹{(viewInvoice.tuition_fee || viewInvoice.amount).toLocaleString()}</td>
-                    </tr>
-                    {Number(viewInvoice.transport_fee) > 0 && (
-                      <tr>
-                        <td className="py-2 px-3">Transport Charges</td>
-                        <td className="py-2 px-3 text-right font-medium">₹{Number(viewInvoice.transport_fee).toLocaleString()}</td>
-                      </tr>
-                    )}
-                    {Number(viewInvoice.exam_fee) > 0 && (
-                      <tr>
-                        <td className="py-2 px-3">Exam &amp; Lab Fund</td>
-                        <td className="py-2 px-3 text-right font-medium">₹{Number(viewInvoice.exam_fee).toLocaleString()}</td>
-                      </tr>
-                    )}
-                    <tr className="bg-slate-50 font-bold border-t-2 border-slate-800">
-                      <td className="py-2 px-3 text-[#122A24]">TOTAL AMOUNT</td>
-                      <td className="py-2 px-3 text-right text-sm sm:text-base text-[#122A24] font-bold">
-                        ₹{viewInvoice.amount.toLocaleString()}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex justify-between items-end pt-2 text-xs">
-                <div>
-                  <div className={`inline-block px-2.5 py-0.5 rounded-md border-2 font-bold uppercase tracking-wider text-[11px] ${
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleToggleInvoiceStatus(viewInvoice)}
+                  className={`hidden sm:inline-flex px-3 py-1.5 text-xs font-semibold rounded-xl cursor-pointer border transition-colors ${
                     viewInvoice.status === 'PAID'
-                      ? 'border-emerald-700 text-emerald-800 bg-emerald-50'
-                      : 'border-amber-600 text-amber-700 bg-amber-50'
-                  }`}>
-                    {viewInvoice.status === 'PAID' ? '✓ PAID' : 'PENDING'}
-                  </div>
-                </div>
-
-                <div className="text-center">
-                  <div className="w-24 sm:w-32 border-b border-slate-400 mb-1" />
-                  <span className="text-[9.5px] text-slate-500 font-mono">Accounts Stamp</span>
-                </div>
+                      ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                      : 'border-[#C5E2CF] bg-[#EBF5EF] text-[#1C443A] hover:bg-[#D9EDE0]'
+                  }`}
+                >
+                  {viewInvoice.status === 'PAID' ? 'Mark as Pending' : '✓ Mark as PAID'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => printHtmlElement('printable-receipt', `Official-Fee-Receipt-${viewInvoice.invoice_no}`)}
+                  className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer border-none shadow-xs transition-all"
+                >
+                  <Printer className="w-3.5 h-3.5" /> Print 2-Copy A4 Slip
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewInvoice(null)}
+                  className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-800 border-none cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-2 print:hidden">
+            {/* Printable Dual Receipt Paper Container (Fits 1 Single A4 Page) */}
+            <div id="printable-receipt" className="print-dual-receipt space-y-3 bg-white text-slate-800 font-sans">
+              {(() => {
+                const inv = viewInvoice;
+                const paid = inv.paid_amount ?? (inv.status === 'PAID' ? inv.amount : 0);
+                const conc = inv.concession_amount || 0;
+                const bal = Math.max(0, (inv.amount || 0) - (paid + conc));
+                const studentObj = students.find(s => s.id === inv.student_id || s.admission_no === inv.admission_no || (s.full_name && inv.student_name && s.full_name.toLowerCase() === inv.student_name.toLowerCase()));
+
+                const totalAmt = inv.amount || 0;
+                const dueTuition = inv.tuition_fee ?? Math.round(totalAmt * 0.70);
+                const dueTransport = inv.transport_fee ?? Math.round(totalAmt * 0.15);
+                const dueExam = inv.exam_fee ?? Math.max(0, totalAmt - dueTuition - dueTransport);
+
+                const paidRatio = totalAmt > 0 ? Math.min(1, Math.max(0, paid / totalAmt)) : 0;
+                const paidTuition = paid >= totalAmt ? dueTuition : Math.round(dueTuition * paidRatio);
+                const paidTransport = paid >= totalAmt ? dueTransport : Math.round(dueTransport * paidRatio);
+                const paidExam = paid >= totalAmt ? dueExam : Math.max(0, paid - paidTuition - paidTransport);
+
+                const balTuition = Math.max(0, dueTuition - paidTuition);
+                const balTransport = Math.max(0, dueTransport - paidTransport);
+                const balExam = Math.max(0, dueExam - paidExam);
+
+                const renderCopy = (copyTitle: string, badgeBg: string) => (
+                  <div className="print-receipt-half p-3.5 sm:p-4 border border-[#122A24] rounded-2xl bg-white space-y-2.5">
+                    {/* Header */}
+                    <div className="flex items-start justify-between border-b border-[#122A24] pb-2">
+                      <div>
+                        <h3 className="font-display font-black text-sm sm:text-base text-[#122A24] uppercase tracking-tight">
+                          {selectedSchool?.school_name || 'Delhi Public School'}
+                        </h3>
+                        <p className="text-[10px] text-slate-600 font-medium">
+                          {selectedSchool?.address || 'Main Campus'} • Tel: {selectedSchool?.phone || '+91 11 2789 0000'}
+                        </p>
+                        <p className="text-[9.5px] font-semibold text-emerald-800">
+                          CBSE Affiliation No: {selectedSchool?.affiliation_no || '2130042'} | School Code: {selectedSchool?.school_code || 'DPS2026'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${badgeBg}`}>
+                          {copyTitle}
+                        </span>
+                        <div className="text-[10px] text-slate-500 mt-1">
+                          Session: <strong className="text-[#122A24]">{inv.academic_session || selectedSession || '2026-27'}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Scholar & Transaction Metadata Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-[#F8FAF9] p-2.5 rounded-xl border border-[#E8F0EA]">
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Receipt No:</span>
+                        <strong className="text-[#122A24] font-bold font-mono">{inv.invoice_no}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Date of Issue:</span>
+                        <strong className="text-[#122A24] font-bold font-mono">
+                          {inv.paid_date || inv.due_date || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Scholar Name:</span>
+                        <strong className="text-[#122A24] font-bold truncate block">{inv.student_name}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Admission / SR No:</span>
+                        <strong className="text-[#122A24] font-bold font-mono">{studentObj?.admission_no || inv.admission_no || inv.student_id || 'SR-2026'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Class &amp; Section:</span>
+                        <strong className="text-[#122A24] font-bold">{inv.class_name || `${studentObj?.class_name || 'Class 8'} - ${studentObj?.section || 'A'}`}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Father / Guardian:</span>
+                        <strong className="text-[#122A24] truncate block">{studentObj?.father_name || studentObj?.guardian_name || 'Guardian'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Fee Period / Scheme:</span>
+                        <strong className="text-emerald-900">{inv.month || (inv as any).fee_type || 'Tuition Fee Installment'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[9.5px]">Payment Mode:</span>
+                        <strong className="text-[#122A24] font-mono">{inv.payment_mode || 'CASH'}</strong>
+                      </div>
+                    </div>
+
+                    {/* Fee Heads Breakdown Table */}
+                    <table className="w-full text-[11px] border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 text-[#122A24] font-bold border-b border-slate-300">
+                          <th className="py-1 px-2 text-left w-8">SN</th>
+                          <th className="py-1 px-2 text-left">FEE PARTICULARS / HEADS</th>
+                          <th className="py-1 px-2 text-right w-24">DUE (₹)</th>
+                          <th className="py-1 px-2 text-right w-24 text-emerald-800">PAID (₹)</th>
+                          <th className="py-1 px-2 text-right w-24 text-rose-700">BALANCE (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        <tr>
+                          <td className="py-1 px-2">1</td>
+                          <td className="py-1 px-2">Tuition &amp; Composite Academic Fee</td>
+                          <td className="py-1 px-2 text-right font-semibold">₹{dueTuition.toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{paidTuition.toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{balTuition.toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1 px-2">2</td>
+                          <td className="py-1 px-2">Transport / School Bus Facility Charges</td>
+                          <td className="py-1 px-2 text-right font-semibold">₹{dueTransport.toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{paidTransport.toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{balTransport.toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1 px-2">3</td>
+                          <td className="py-1 px-2">Institutional Examination, Assessment &amp; Printing</td>
+                          <td className="py-1 px-2 text-right font-semibold">₹{dueExam.toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{paidExam.toLocaleString()}</td>
+                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{balExam.toLocaleString()}</td>
+                        </tr>
+
+                        {conc > 0 && (
+                          <tr className="bg-purple-50 text-purple-950 font-semibold">
+                            <td className="py-1 px-2 text-purple-700">✦</td>
+                            <td className="py-1 px-2">
+                              <span>Fee Waiver / Concession Applied ({inv.concession_reason || 'Management Waiver'})</span>
+                            </td>
+                            <td className="py-1 px-2 text-right text-purple-800">-₹{conc.toLocaleString()}</td>
+                            <td className="py-1 px-2 text-right text-purple-800">-₹{conc.toLocaleString()}</td>
+                            <td className="py-1 px-2 text-right text-purple-800">₹0</td>
+                          </tr>
+                        )}
+
+                        <tr className="border-t border-[#122A24] bg-emerald-50/60 font-bold">
+                          <td className="py-1.5 px-2" colSpan={2}>CONSOLIDATED RECEIPT TOTAL</td>
+                          <td className="py-1.5 px-2 text-right">₹{totalAmt.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right text-emerald-900 text-xs">₹{paid.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right text-rose-700 text-xs">₹{bal.toLocaleString()}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    {/* Amount in Words & Mode */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[10.5px] pt-1">
+                      <div>
+                        <span className="text-slate-500">Amount Received in Words: </span>
+                        <strong className="text-[#122A24] italic uppercase">{numberToWordsINR(paid)}</strong>
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        Status: <strong className={inv.status === 'PAID' ? 'text-emerald-700' : 'text-amber-700'}>{inv.status} ({bal === 0 ? 'Fully Cleared' : `₹${bal.toLocaleString()} Due`})</strong>
+                      </div>
+                    </div>
+
+                    {/* Signatures */}
+                    <div className="grid grid-cols-3 gap-2 pt-3 border-t border-dashed border-slate-300 text-[10px] text-center">
+                      <div>
+                        <div className="w-24 border-b border-slate-400 mx-auto mb-1" />
+                        <span className="text-slate-500">Cashier / Fee Clerk</span>
+                      </div>
+                      <div>
+                        <div className="px-2 py-0.5 bg-slate-100 border border-slate-300 rounded font-bold text-[9px] uppercase mx-auto inline-block mb-1">
+                          INSTITUTIONAL SEAL
+                        </div>
+                        <div className="text-slate-500 text-[9px]">Accounts Wing</div>
+                      </div>
+                      <div>
+                        <div className="w-24 border-b border-slate-400 mx-auto mb-1" />
+                        <span className="text-slate-500">Parent / Depositor Sign</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+
+                return (
+                  <>
+                    {/* Copy 1: School & Accounts Duplicate Copy */}
+                    {renderCopy('ACCOUNTS / SCHOOL DUPLICATE COPY', 'bg-[#122A24] text-white')}
+
+                    {/* Perforation Cut Line */}
+                    <div className="relative py-2 flex items-center justify-center select-none my-0.5">
+                      <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                        <div className="w-full border-t-2 border-dashed border-slate-300" />
+                      </div>
+                      <div className="relative flex items-center gap-1.5 bg-slate-100 px-3 py-0.5 rounded-full border border-slate-300 text-slate-600 shadow-2xs">
+                        <Scissors className="w-3.5 h-3.5 text-slate-500" />
+                        <span className="text-[8.5px] font-mono uppercase font-bold tracking-wider">
+                          Perforated Cut Line • 2 Copies on Single A4 Sheet
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Copy 2: Student / Parent Original Copy */}
+                    {renderCopy('PARENT / STUDENT ORIGINAL COPY', 'bg-emerald-800 text-white')}
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Mobile Footer Action Bar */}
+            <div className="flex sm:hidden items-center justify-between gap-2 pt-3 border-t border-slate-200 print:hidden">
               <button
+                type="button"
                 onClick={() => handleToggleInvoiceStatus(viewInvoice)}
-                className={`w-full sm:w-auto px-4 py-2.5 text-xs font-semibold rounded-full cursor-pointer border transition-colors ${
+                className={`flex-1 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer border transition-colors text-center ${
                   viewInvoice.status === 'PAID'
                     ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
                     : 'border-[#C5E2CF] bg-[#EBF5EF] text-[#1C443A] hover:bg-[#D9EDE0]'
                 }`}
               >
-                {viewInvoice.status === 'PAID' ? 'Mark as Pending Dues' : '✓ Mark as PAID'}
+                {viewInvoice.status === 'PAID' ? 'Mark Pending' : '✓ Mark PAID'}
               </button>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setViewInvoice(null)}
-                  className="flex-1 sm:flex-none px-4 py-2.5 border border-[#DCE8E0] bg-[#F4F8F5] rounded-full text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={() => printHtmlElement('printable-receipt', `Official-Fee-Receipt-${viewInvoice.invoice_no}`)}
-                  className="flex-1 sm:flex-none px-5 py-2.5 bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-semibold rounded-full flex items-center justify-center gap-1.5 shadow-xs cursor-pointer border-none"
-                >
-                  <Printer className="h-3.5 w-3.5" /> Print Receipt
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setViewInvoice(null)}
+                className="px-4 py-2 border border-[#DCE8E0] bg-[#F4F8F5] rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

@@ -141,4 +141,40 @@ export function printHtmlElement(elementId: string, docTitle?: string) {
   }
 }
 
+export function numberToWordsINR(num: number): string {
+  if (isNaN(num) || num <= 0) return 'Zero Rupees Only';
+  const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  const inWords = (n: number): string => {
+    let str = '';
+    if (n > 99) {
+      str += a[Math.floor(n / 100)] + 'Hundred ';
+      n %= 100;
+    }
+    if (n > 19) {
+      str += b[Math.floor(n / 10)] + ' ' + a[n % 10];
+    } else {
+      str += a[n];
+    }
+    return str;
+  };
+
+  let n = Math.floor(num);
+  const crore = Math.floor(n / 10000000);
+  n %= 10000000;
+  const lakh = Math.floor(n / 100000);
+  n %= 100000;
+  const thousand = Math.floor(n / 1000);
+  n %= 1000;
+
+  let res = '';
+  if (crore > 0) res += inWords(crore) + 'Crore ';
+  if (lakh > 0) res += inWords(lakh) + 'Lakh ';
+  if (thousand > 0) res += inWords(thousand) + 'Thousand ';
+  if (n > 0) res += inWords(n);
+
+  return 'Rupees ' + res.trim() + ' Only';
+}
+
 
