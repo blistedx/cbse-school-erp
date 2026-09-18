@@ -239,25 +239,20 @@ export function getStudentFeeSummary(
     if (inv.status === 'OVERDUE') hasOverdueInvoice = true;
   });
 
-  const totalPaidToDate = matchingInvoices.length > 0
-    ? totalPaidFromInvoices
-    : ((student.fee_status || '').toUpperCase() === 'PAID' ? schedule.totalAnnualBilled : 0);
-
+  const totalPaidToDate = totalPaidFromInvoices;
   const totalConcessions = totalConcessionsFromInvoices;
   const currentBalanceDue = schedule.currentBalanceDue;
   const totalPendingAnnual = Math.max(0, schedule.totalAnnualBilled - (totalPaidToDate + totalConcessions));
 
   let feeStatus: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'WAIVED' = 'PENDING';
-  if (totalConcessions >= schedule.totalAnnualBilled) {
+  if (totalConcessions >= schedule.totalAnnualBilled && schedule.totalAnnualBilled > 0) {
     feeStatus = 'WAIVED';
-  } else if (totalPendingAnnual === 0 || (currentBalanceDue === 0 && totalPaidToDate > 0)) {
+  } else if (totalPendingAnnual === 0 && totalPaidToDate > 0) {
     feeStatus = 'PAID';
   } else if (totalPaidToDate > 0) {
     feeStatus = 'PARTIAL';
   } else if (hasOverdueInvoice) {
     feeStatus = 'OVERDUE';
-  } else if ((student.fee_status || '').toUpperCase() === 'PAID' && matchingInvoices.length === 0) {
-    feeStatus = 'PAID';
   } else {
     feeStatus = 'PENDING';
   }
@@ -347,13 +342,8 @@ export function getStudentMonthlyFeeSchedule(
     totalConcessionsMoney += (Number(inv.concession_amount) || 0);
   });
 
-  const isProfilePaid = (student.fee_status || '').toUpperCase() === 'PAID';
-
-  // If student profile is marked PAID in full but has no individual invoice records:
-  let availablePaymentPool = hasExplicitInvoices
-    ? totalCollectedMoney
-    : (isProfilePaid ? totalAnnualBilled : 0);
-
+  // Strict Single Source of Truth: available payment pool derived strictly from real invoice records
+  let availablePaymentPool = totalCollectedMoney;
   let availableConcessionPool = totalConcessionsMoney;
 
   // 3. Distribute available payment pool strictly using FIFO (Water-flow) Allocation

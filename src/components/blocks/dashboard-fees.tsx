@@ -751,9 +751,13 @@ export function DashboardFees({
       const feeSummary = getStudentFeeSummary(stu, invoices);
       const matchingInvoices = feeSummary.matchingInvoices;
 
-      const totalPaid = feeSummary.totalPaidToDate;
-      const totalPending = feeSummary.currentBalanceDue;
-      const status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'WAIVED' = feeSummary.feeStatus;
+      const totalPaidMoney = feeSummary.totalPaidToDate;
+      const totalPaid = Math.min(totalDue, totalPaidMoney);
+      const totalPending = Math.max(0, totalDue - totalPaid);
+      const status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'WAIVED' =
+        (totalDue === 0 || (totalPending === 0 && totalPaid > 0))
+          ? 'PAID'
+          : (totalPaid > 0 ? 'PARTIAL' : 'PENDING');
 
       const ratio = totalDue > 0 ? Math.min(1, totalPaid / totalDue) : 0;
       const tuitionPaid = Math.round(netTuitionDue * ratio);
@@ -1072,18 +1076,7 @@ export function DashboardFees({
       );
       const paidFromInvoices = studentInvoices.reduce((acc, inv) => acc + (inv.paid_amount ?? (inv.status === 'PAID' ? Number(inv.amount) || 0 : 0)), 0);
 
-      let paidAmount = 0;
-      if (paidFromInvoices > 0) {
-        paidAmount = Math.min(totalRequired, paidFromInvoices);
-      } else if (s.fee_status === 'PAID') {
-        paidAmount = totalRequired;
-      } else if (s.fee_status === 'OVERDUE') {
-        paidAmount = 0;
-      } else if (s.fee_status === 'PARTIAL') {
-        paidAmount = Math.round(totalRequired * 0.5);
-      } else {
-        paidAmount = 0;
-      }
+      const paidAmount = Math.min(totalRequired, paidFromInvoices);
 
       const remainingDue = Math.max(0, totalRequired - paidAmount);
       const isFullPaid = remainingDue === 0;
