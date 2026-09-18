@@ -208,18 +208,42 @@ export default function LoginPage() {
     }
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          school_code: effectiveSchoolCode,
-          username: cleanUserId,
-          password: cleanPassword
-        })
-      });
+      let res: Response;
+      try {
+        res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            school_code: effectiveSchoolCode,
+            username: cleanUserId,
+            password: cleanPassword
+          })
+        });
+      } catch (fetchErr: any) {
+        // Quick retry once in case of transient network glitch during cold start/deployment
+        await new Promise(r => setTimeout(r, 600));
+        res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            school_code: effectiveSchoolCode,
+            username: cleanUserId,
+            password: cleanPassword
+          })
+        });
+      }
 
-      const data = await res.json();
-      if (data.success) {
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        if (!res.ok) {
+          setError(`Server busy (${res.status}). Please wait a few seconds and click Login again.`);
+          return;
+        }
+      }
+
+      if (data && data.success) {
         if (data.user?.is_god_admin || data.user?.role === 'AGENCY_SUPERADMIN' || isGod) {
           setSuccess('⚡ GOD ACCESS GRANTED! Welcome Administrator — Unlocking all schools on platform...');
         } else {
@@ -238,10 +262,10 @@ export default function LoginPage() {
           window.location.href = `/app?school=${encodeURIComponent(data.school?.school_code || effectiveSchoolCode || 'DPS2026')}`;
         }, 300);
       } else {
-        setError(data.error || 'Authentication failed. Please verify your school code and credentials.');
+        setError(data?.error || 'Authentication failed. Please verify your school code and credentials.');
       }
     } catch (err: any) {
-      setError('Connection error: ' + err.message);
+      setError('Connection issue: Server was deploying or network is slow. Please click Login again in a moment.');
     } finally {
       setLoading(false);
     }
