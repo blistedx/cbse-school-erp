@@ -51,13 +51,19 @@ import {
   AlertTriangle,
   MessageCircle,
   Lock,
-  Scissors
+  Scissors,
+  Bus,
+  Gift,
+  Percent,
+  ShieldCheck,
+  HelpCircle,
+  Send
 } from 'lucide-react';
 import { FeeInvoice, Student, School, ClassRoom, Teacher } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
 import { openWhatsAppDirect, buildFeeReminderText, buildFeeReceiptText } from '@/lib/whatsapp';
 import { apiFetch } from '@/lib/api-client';
-import { getStudentMonthlyFeeSchedule, getStudentFeeSummary, matchInvoicesForStudent } from '@/lib/monthly-fee-helper';
+import { getStudentMonthlyFeeSchedule, getStudentFeeSummary, matchInvoicesForStudent, CBSE_ACADEMIC_MONTHS } from '@/lib/monthly-fee-helper';
 import { getFeeRatesForClass } from '@/lib/fee-calculator';
 import { getSchoolInitials } from '@/lib/utils';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
@@ -683,6 +689,8 @@ export function DashboardFees({
   const [reportStatusFilter, setReportStatusFilter] = useState<'ALL' | 'PAID' | 'PARTIAL' | 'PENDING'>('ALL');
   const [reportSearch, setReportSearch] = useState('');
   const [isReportGenerated, setIsReportGenerated] = useState<boolean>(false);
+  const [reportViewTab, setReportViewTab] = useState<'REGISTER' | 'MONTH_RADAR' | 'FEE_HEADS' | 'DISCOUNTS_WAIVERS' | 'TRANSPORT_FLEET' | 'DEFAULTERS'>('REGISTER');
+  const [defaultersSeverityFilter, setDefaultersSeverityFilter] = useState<'ALL' | 'CRITICAL' | 'MODERATE' | 'MINOR'>('ALL');
 
   // Class-Wise Fee Slip Modal State
   const [showClassSlipsModal, setShowClassSlipsModal] = useState(false);
@@ -838,13 +846,252 @@ export function DashboardFees({
     });
   }, [scopedClassScholars, reportStatusFilter, reportHeadFilter, reportSearch]);
 
-  // Fees Report KPIs
+  // 1. Month-Wise Dues & Defaulters Radar (12 CBSE Academic Months)
+  const monthWiseRadarData = useMemo(() => {
+    return CBSE_ACADEMIC_MONTHS.map((mConfig) => {
+      let totalExpected = 0;
+      let totalCollected = 0;
+      let defaultersCount = 0;
+      let paidCount = 0;
+
+      scopedClassScholars.forEach(item => {
+        const schedule = getStudentMonthlyFeeSchedule(item.student, invoices);
+        const mItem = schedule.months.find(m => m.month === mConfig.name) || schedule.months[0];
+        const monthDemand = mItem ? mItem.totalBilled : item.totalDue;
+        const monthPaid = mItem ? mItem.paidAmount : item.totalPaid;
+        const monthDue = Math.max(0, monthDemand - monthPaid);
+
+        totalExpected += monthDemand;
+        totalCollected += monthPaid;
+
+        if (monthDue > 0) {
+          defaultersCount++;
+        } else if (monthDemand > 0 && monthPaid >= monthDemand) {
+          paidCount++;
+        }
+      });
+
+      const totalPending = Math.max(0, totalExpected - totalCollected);
+      const collectionRate = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0;
+
+      return {
+        monthName: mConfig.name,
+        monthShort: mConfig.short,
+        hasAnnual: mConfig.hasAnnual,
+        hasExam: mConfig.hasExam,
+        totalExpected,
+        totalCollected,
+        totalPending,
+        defaultersCount,
+        paidCount,
+        collectionRate,
+        status: totalPending === 0 && totalExpected > 0 ? 'CLEARED' : (totalCollected > 0 ? 'PARTIAL' : 'PENDING')
+      };
+    });
+  }, [scopedClassScholars, invoices]);
+
+  // 2. Fee-Head Wise Deep-Dive Analysis
+  const feeHeadsAnalytics = useMemo(() => {
+    const tuitionGross = scopedClassScholars.reduce((acc, r) => acc + (r.netTuitionDue + r.tuitionConcession), 0);
+    const tuitionConcessionTotal = scopedClassScholars.reduce((acc, r) => acc + r.tuitionConcession, 0);
+    const tuitionNetDemand = scopedClassScholars.reduce((acc, r) => acc + r.netTuitionDue, 0);
+    const tuitionCollected = scopedClassScholars.reduce((acc, r) => acc + r.tuitionPaid, 0);
+    const tuitionPending = scopedClassScholars.reduce((acc, r) => acc + r.tuitionPending, 0);
+
+    const transportOptedCount = scopedClassScholars.filter(r => r.transportOpted).length;
+    const transportGrossDemand = scopedClassScholars.reduce((acc, r) => acc + (r.siblingInfo.freeTransport ? r.transportMonthlyRate * (getPeriodMeta(reportPeriod).months) : r.transportDue), 0);
+    const transportFreeWaiver = scopedClassScholars.reduce((acc, r) => acc + (r.siblingInfo.freeTransport ? r.transportMonthlyRate * (getPeriodMeta(reportPeriod).months) : 0), 0);
+    const transportNetDemand = scopedClassScholars.reduce((acc, r) => acc + r.transportDue, 0);
+    const transportCollected = scopedClassScholars.reduce((acc, r) => acc + r.transportPaid, 0);
+    const transportPending = scopedClassScholars.reduce((acc, r) => acc + r.transportPending, 0);
+
+    const annualDemand = scopedClassScholars.reduce((acc, r) => acc + r.annualDue, 0);
+    const annualCollected = scopedClassScholars.reduce((acc, r) => acc + r.annualPaid, 0);
+    const annualPending = scopedClassScholars.reduce((acc, r) => acc + r.annualPending, 0);
+
+    const examDemand = scopedClassScholars.reduce((acc, r) => acc + r.examDue, 0);
+    const examCollected = scopedClassScholars.reduce((acc, r) => acc + r.examPaid, 0);
+    const examPending = scopedClassScholars.reduce((acc, r) => acc + r.examPending, 0);
+
+    return {
+      tuition: {
+        gross: tuitionGross,
+        concession: tuitionConcessionTotal,
+        netDemand: tuitionNetDemand,
+        collected: tuitionCollected,
+        pending: tuitionPending,
+        rate: tuitionNetDemand > 0 ? Math.round((tuitionCollected / tuitionNetDemand) * 100) : 0
+      },
+      transport: {
+        optedCount: transportOptedCount,
+        gross: transportGrossDemand,
+        freeWaiver: transportFreeWaiver,
+        netDemand: transportNetDemand,
+        collected: transportCollected,
+        pending: transportPending,
+        rate: transportNetDemand > 0 ? Math.round((transportCollected / transportNetDemand) * 100) : 0
+      },
+      annual: {
+        demand: annualDemand,
+        collected: annualCollected,
+        pending: annualPending,
+        rate: annualDemand > 0 ? Math.round((annualCollected / annualDemand) * 100) : 0
+      },
+      exam: {
+        demand: examDemand,
+        collected: examCollected,
+        pending: examPending,
+        rate: examDemand > 0 ? Math.round((examCollected / examDemand) * 100) : 0
+      }
+    };
+  }, [scopedClassScholars, reportPeriod]);
+
+  // 3. Discounts, Sibling Concessions & Waivers Ledger
+  const discountsAndWaiversData = useMemo(() => {
+    const list: Array<{
+      student: Student;
+      rollNo: number;
+      className: string;
+      section: string;
+      fatherName: string;
+      category: string;
+      discountPct: number;
+      amountSaved: number;
+      reason: string;
+      verifiedBy: string;
+    }> = [];
+
+    let totalSiblingSaved = 0;
+    let totalAdminWaivers = 0;
+
+    scopedClassScholars.forEach(item => {
+      const sib = item.siblingInfo;
+      if (sib.tuitionDiscountPct > 0 || sib.freeTransport) {
+        const savedTuition = item.tuitionConcession;
+        const savedTransport = sib.freeTransport ? (item.transportMonthlyRate * getPeriodMeta(reportPeriod).months) : 0;
+        const totalSaved = savedTuition + savedTransport;
+        totalSiblingSaved += totalSaved;
+
+        let cat = 'Sibling Concession';
+        if (sib.childOrder === 2) cat = '2nd Child (20% Tuition Concession)';
+        else if (sib.childOrder === 3) cat = '3rd Child (30% Tuition Concession)';
+        else if (sib.childOrder >= 4) cat = '4th+ Child (30% Tuition + 100% Free Bus)';
+
+        list.push({
+          student: item.student,
+          rollNo: item.rollNo,
+          className: item.className,
+          section: item.section,
+          fatherName: item.fatherName,
+          category: cat,
+          discountPct: sib.tuitionDiscountPct,
+          amountSaved: totalSaved,
+          reason: `Automated Sibling Cluster Policy (${sib.siblingCount} siblings in school)`,
+          verifiedBy: 'CBSE ERP Automated Rules'
+        });
+      }
+
+      // Check matching invoices for manual concession_amount
+      const studentInvs = matchInvoicesForStudent(item.student, invoices);
+      const manualConcession = studentInvs.reduce((acc, inv) => acc + (Number(inv.concession_amount) || 0), 0);
+      if (manualConcession > 0) {
+        totalAdminWaivers += manualConcession;
+        const latestConcessionInv = studentInvs.find(inv => (inv.concession_amount || 0) > 0);
+        list.push({
+          student: item.student,
+          rollNo: item.rollNo,
+          className: item.className,
+          section: item.section,
+          fatherName: item.fatherName,
+          category: 'Administrative / Principal Fee Waiver',
+          discountPct: 0,
+          amountSaved: manualConcession,
+          reason: latestConcessionInv?.concession_reason || 'Special Management Discretion Waiver',
+          verifiedBy: latestConcessionInv?.waived_by || 'Principal / Administrator'
+        });
+      }
+    });
+
+    return {
+      list,
+      totalSiblingSaved,
+      totalAdminWaivers,
+      totalDiscountsGranted: totalSiblingSaved + totalAdminWaivers,
+      beneficiaryCount: list.length
+    };
+  }, [scopedClassScholars, invoices, reportPeriod]);
+
+  // 4. Transport Fleet & Route Audit
+  const transportFleetData = useMemo(() => {
+    const slab1Students = scopedClassScholars.filter(r => r.transportOpted && r.transportSlab.includes('Slab 1'));
+    const slab2Students = scopedClassScholars.filter(r => r.transportOpted && r.transportSlab.includes('Slab 2'));
+    const slab3Students = scopedClassScholars.filter(r => r.transportOpted && r.transportSlab.includes('Slab 3'));
+    const slab4Students = scopedClassScholars.filter(r => r.transportOpted && (r.transportSlab.includes('Slab 4') || !r.transportSlab.includes('Slab')));
+    const selfStudents = scopedClassScholars.filter(r => !r.transportOpted);
+
+    const calcGroup = (group: typeof scopedClassScholars, label: string, rate: number) => {
+      const demand = group.reduce((acc, r) => acc + r.transportDue, 0);
+      const collected = group.reduce((acc, r) => acc + r.transportPaid, 0);
+      const pending = group.reduce((acc, r) => acc + r.transportPending, 0);
+      const freeCount = group.filter(r => r.siblingInfo.freeTransport).length;
+      return {
+        label,
+        rate,
+        count: group.length,
+        freeCount,
+        demand,
+        collected,
+        pending,
+        ratePct: demand > 0 ? Math.round((collected / demand) * 100) : 0
+      };
+    };
+
+    const slabs = [
+      calcGroup(slab1Students, 'Slab 1 (0-3 km)', 1200),
+      calcGroup(slab2Students, 'Slab 2 (3-6 km)', 1500),
+      calcGroup(slab3Students, 'Slab 3 (6-10 km)', 1800),
+      calcGroup(slab4Students, 'Slab 4 (10+ km)', 2200),
+    ];
+
+    const totalRiders = scopedClassScholars.filter(r => r.transportOpted).length;
+    const totalSelf = selfStudents.length;
+    const totalTransportBilled = scopedClassScholars.reduce((acc, r) => acc + r.transportDue, 0);
+    const totalTransportCollected = scopedClassScholars.reduce((acc, r) => acc + r.transportPaid, 0);
+    const totalTransportPending = scopedClassScholars.reduce((acc, r) => acc + r.transportPending, 0);
+
+    return {
+      slabs,
+      totalRiders,
+      totalSelf,
+      totalTransportBilled,
+      totalTransportCollected,
+      totalTransportPending,
+      selfCount: totalSelf
+    };
+  }, [scopedClassScholars]);
+
+  // 5. Defaulters List
+  const defaultersListData = useMemo(() => {
+    return filteredFeesReportList
+      .filter(r => {
+        if (r.totalPending <= 0) return false;
+        if (defaultersSeverityFilter === 'CRITICAL' && r.totalPending < 10000) return false;
+        if (defaultersSeverityFilter === 'MODERATE' && (r.totalPending < 4000 || r.totalPending >= 10000)) return false;
+        if (defaultersSeverityFilter === 'MINOR' && r.totalPending >= 4000) return false;
+        return true;
+      })
+      .sort((a, b) => b.totalPending - a.totalPending);
+  }, [filteredFeesReportList, defaultersSeverityFilter]);
+
+  // Enhanced Fees Report KPIs
   const feesReportKpis = useMemo(() => {
     const totalExpected = filteredFeesReportList.reduce((acc, r) => acc + r.totalDue, 0);
     const totalCollected = filteredFeesReportList.reduce((acc, r) => acc + r.totalPaid, 0);
     const totalPending = filteredFeesReportList.reduce((acc, r) => acc + r.totalPending, 0);
     const defaultersCount = filteredFeesReportList.filter(r => r.status !== 'PAID').length;
     const collectionRate = totalExpected > 0 ? Number(((totalCollected / totalExpected) * 100).toFixed(1)) : 0;
+    const totalSiblingDiscount = filteredFeesReportList.reduce((acc, r) => acc + r.tuitionConcession, 0);
+    const totalAdminWaivers = discountsAndWaiversData.totalAdminWaivers;
 
     return {
       totalExpected,
@@ -852,47 +1099,116 @@ export function DashboardFees({
       totalPending,
       defaultersCount,
       collectionRate,
+      totalSiblingDiscount,
+      totalAdminWaivers,
       totalScholars: filteredFeesReportList.length
     };
-  }, [filteredFeesReportList]);
+  }, [filteredFeesReportList, discountsAndWaiversData]);
 
-  // Export Comprehensive Fees Report CSV
+  // Export Comprehensive Fees Report CSV (Tailored to Active Tab)
   const handleExportFeesReportCsv = () => {
-    const headers = [
-      'Roll No', 'Admission No', 'Student Name', 'Class', 'Section', 'Father Name',
-      'Sibling Concession', 'Transport Slab',
-      'Tuition Due', 'Tuition Paid', 'Tuition Pending',
-      'Transport Due', 'Transport Paid', 'Transport Pending',
-      'Annual Due', 'Annual Paid', 'Annual Pending',
-      'Exam Due', 'Exam Paid', 'Exam Pending',
-      'Grand Total Due', 'Total Submitted (Paid)', 'Total Pending (Dues)', 'Fee Status'
-    ];
+    let headers: string[] = [];
+    let rows: (string | number)[][] = [];
+    let fileName = `CBSE_Fees_${reportViewTab}_${reportClass}_${selectedSession || '2026-27'}.csv`;
 
-    const rows = filteredFeesReportList.map(item => [
-      item.rollNo,
-      item.student.admission_no || item.student.id,
-      `"${item.student.full_name}"`,
-      item.className,
-      item.section,
-      `"${item.fatherName}"`,
-      item.siblingInfo.tuitionDiscountPct > 0 ? `${item.siblingInfo.tuitionDiscountPct}% Off (Child #${item.siblingInfo.childOrder})` : 'None',
-      item.transportOpted ? `"${item.transportSlab}"` : 'None',
-      item.netTuitionDue, item.tuitionPaid, item.tuitionPending,
-      item.transportDue, item.transportPaid, item.transportPending,
-      item.annualDue, item.annualPaid, item.annualPending,
-      item.examDue, item.examPaid, item.examPending,
-      item.totalDue, item.totalPaid, item.totalPending,
-      item.status
-    ]);
+    if (reportViewTab === 'MONTH_RADAR') {
+      headers = ['Academic Month', 'Cycle Details', 'Total Billed (INR)', 'Total Collected (INR)', 'Pending Dues (INR)', 'Defaulter Students Count', 'Paid Students Count', 'Collection Rate %', 'Status'];
+      rows = monthWiseRadarData.map(m => [
+        `"${m.monthName}"`,
+        `"${m.hasAnnual ? 'Tuition + Annual Fee' : (m.hasExam ? 'Tuition + Exam Fee' : 'Tuition Fee')}"`,
+        m.totalExpected,
+        m.totalCollected,
+        m.totalPending,
+        m.defaultersCount,
+        m.paidCount,
+        `${m.collectionRate}%`,
+        m.status
+      ]);
+    } else if (reportViewTab === 'FEE_HEADS') {
+      headers = ['Fee Head Component', 'Gross Billed (INR)', 'Concessions / Waivers (INR)', 'Net Demand (INR)', 'Total Collected (INR)', 'Pending Receivables (INR)', 'Recovery Rate %'];
+      rows = [
+        ['Tuition Fee', feeHeadsAnalytics.tuition.gross, feeHeadsAnalytics.tuition.concession, feeHeadsAnalytics.tuition.netDemand, feeHeadsAnalytics.tuition.collected, feeHeadsAnalytics.tuition.pending, `${feeHeadsAnalytics.tuition.rate}%`],
+        ['Transport Fleet Fee', feeHeadsAnalytics.transport.gross, feeHeadsAnalytics.transport.freeWaiver, feeHeadsAnalytics.transport.netDemand, feeHeadsAnalytics.transport.collected, feeHeadsAnalytics.transport.pending, `${feeHeadsAnalytics.transport.rate}%`],
+        ['Annual & Development Fee', feeHeadsAnalytics.annual.demand, 0, feeHeadsAnalytics.annual.demand, feeHeadsAnalytics.annual.collected, feeHeadsAnalytics.annual.pending, `${feeHeadsAnalytics.annual.rate}%`],
+        ['Examination Charges', feeHeadsAnalytics.exam.demand, 0, feeHeadsAnalytics.exam.demand, feeHeadsAnalytics.exam.collected, feeHeadsAnalytics.exam.pending, `${feeHeadsAnalytics.exam.rate}%`]
+      ];
+    } else if (reportViewTab === 'DISCOUNTS_WAIVERS') {
+      headers = ['Roll No', 'Admission No', 'Student Name', 'Class & Sec', 'Father Name', 'Concession Category', 'Discount %', 'Amount Saved (INR)', 'Reason & Rule', 'Verified By'];
+      rows = discountsAndWaiversData.list.map(d => [
+        d.rollNo,
+        d.student.admission_no || d.student.id,
+        `"${d.student.full_name}"`,
+        `"${d.className}-${d.section}"`,
+        `"${d.fatherName}"`,
+        `"${d.category}"`,
+        `${d.discountPct}%`,
+        d.amountSaved,
+        `"${d.reason}"`,
+        `"${d.verifiedBy}"`
+      ]);
+    } else if (reportViewTab === 'TRANSPORT_FLEET') {
+      headers = ['Transport Slab / Route', 'Monthly Rate (INR)', 'Scholar Count', 'Gross Billed (INR)', 'Collected (INR)', 'Pending (INR)', 'Recovery Rate %'];
+      rows = transportFleetData.slabs.map(s => [
+        `"${s.label}"`,
+        s.rate,
+        s.count,
+        s.demand,
+        s.collected,
+        s.pending,
+        `${s.ratePct}%`
+      ]);
+      rows.push(['Self Commuters', 0, transportFleetData.selfCount, 0, 0, 0, '100%']);
+    } else if (reportViewTab === 'DEFAULTERS') {
+      headers = ['Roll No', 'Admission No', 'Student Name', 'Class & Sec', 'Father Name', 'Parent Phone', 'Tuition Pending (INR)', 'Transport Pending (INR)', 'Annual Pending (INR)', 'Total Due Outstanding (INR)', 'Status'];
+      rows = defaultersListData.map(d => [
+        d.rollNo,
+        d.student.admission_no || d.student.id,
+        `"${d.student.full_name}"`,
+        `"${d.className}-${d.section}"`,
+        `"${d.fatherName}"`,
+        `"${d.student.parent_phone || d.student.phone || 'N/A'}"`,
+        d.tuitionPending,
+        d.transportPending,
+        d.annualPending,
+        d.totalPending,
+        d.status
+      ]);
+    } else {
+      headers = [
+        'Roll No', 'Admission No', 'Student Name', 'Class', 'Section', 'Father Name',
+        'Sibling Concession', 'Transport Slab',
+        'Tuition Due', 'Tuition Paid', 'Tuition Pending',
+        'Transport Due', 'Transport Paid', 'Transport Pending',
+        'Annual Due', 'Annual Paid', 'Annual Pending',
+        'Exam Due', 'Exam Paid', 'Exam Pending',
+        'Grand Total Due', 'Total Submitted (Paid)', 'Total Pending (Dues)', 'Fee Status'
+      ];
+      rows = filteredFeesReportList.map(item => [
+        item.rollNo,
+        item.student.admission_no || item.student.id,
+        `"${item.student.full_name}"`,
+        item.className,
+        item.section,
+        `"${item.fatherName}"`,
+        item.siblingInfo.tuitionDiscountPct > 0 ? `${item.siblingInfo.tuitionDiscountPct}% Off (Child #${item.siblingInfo.childOrder})` : 'None',
+        item.transportOpted ? `"${item.transportSlab}"` : 'None',
+        item.netTuitionDue, item.tuitionPaid, item.tuitionPending,
+        item.transportDue, item.transportPaid, item.transportPending,
+        item.annualDue, item.annualPaid, item.annualPending,
+        item.examDue, item.examPaid, item.examPending,
+        item.totalDue, item.totalPaid, item.totalPending,
+        item.status
+      ]);
+    }
 
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `CBSE_Fees_Report_${reportClass}_${reportPeriod}_${selectedSession || '2026-27'}.csv`;
+    link.download = fileName;
     link.click();
-    notify('Comprehensive Fees Report CSV downloaded!');
+    notify(`Report exported as CSV successfully!`);
   };
 
   // Open Single Student Fee Slip Modal
@@ -1992,45 +2308,128 @@ export function DashboardFees({
     });
   };
 
-  // Print Official CBSE Fees Report Engine Register
+  // Print Official CBSE Fees Report Engine Register (Tailored to Active Tab)
   const handlePrintFeesEngineReport = () => {
-    const stats = [
-      { label: 'Scholars Evaluated', value: `${feesReportKpis.totalScholars} Scholars` },
-      { label: 'Total Billed Due', value: `₹${feesReportKpis.totalExpected.toLocaleString()}` },
-      { label: 'Submitted / Paid', value: `₹${feesReportKpis.totalCollected.toLocaleString()}` },
-      { label: 'Pending Dues', value: `₹${feesReportKpis.totalPending.toLocaleString()}` },
-      { label: 'Recovery Rate', value: `${feesReportKpis.collectionRate}%` },
-    ];
+    let title = `Fees Report Register: ${reportClass} - Section ${reportSection}`;
+    let subtitle = `CBSE Institutional Dues Audit & Sibling Concession Ledger (${getPeriodMeta(reportPeriod).label})`;
+    let stats: Array<{ label: string; value: string | number }> = [];
+    let cols: ReportColumn[] = [];
+    let reportData: any[] = [];
 
-    const cols: ReportColumn[] = [
-      { header: 'ROLL', render: (item) => item.rollNo || '—', width: '6%', align: 'center' },
-      { header: 'SCHOLAR NAME', render: (item) => item.student.full_name, width: '18%' },
-      { header: 'ADM NO', render: (item) => item.student.admission_no || item.student.id.slice(0, 8), width: '10%' },
-      { header: 'CLASS & SEC', render: (item) => `${item.className}-${item.section}`, width: '10%' },
-      { header: 'TUITION', render: (item) => `₹${item.netTuitionDue.toLocaleString()}`, width: '10%', align: 'right' },
-      { header: 'TRANSPORT', render: (item) => `₹${item.transportDue.toLocaleString()}`, width: '10%', align: 'right' },
-      { header: 'ANNUAL', render: (item) => `₹${item.annualDue.toLocaleString()}`, width: '9%', align: 'right' },
-      { header: 'EXAM', render: (item) => `₹${item.examDue.toLocaleString()}`, width: '9%', align: 'right' },
-      { header: 'TOTAL DUE', render: (item) => `₹${item.totalDue.toLocaleString()}`, width: '10%', align: 'right' },
-      { header: 'PAID', render: (item) => `₹${item.totalPaid.toLocaleString()}`, width: '10%', align: 'right' },
-      { header: 'PENDING', render: (item) => `₹${item.totalPending.toLocaleString()}`, width: '10%', align: 'right' },
-      { header: 'STATUS', render: (item) => item.status, width: '8%', align: 'center' },
-    ];
+    if (reportViewTab === 'MONTH_RADAR') {
+      title = `Month-Wise Dues & Defaulters Radar: Session ${selectedSession || '2026-27'}`;
+      subtitle = `12-Month Academic Billing, Cleared Collections & Outstanding Receivables Summary`;
+      stats = [
+        { label: 'Total Demand', value: `₹${monthWiseRadarData.reduce((acc, m) => acc + m.totalExpected, 0).toLocaleString()}` },
+        { label: 'Total Realized', value: `₹${monthWiseRadarData.reduce((acc, m) => acc + m.totalCollected, 0).toLocaleString()}` },
+        { label: 'Outstanding Dues', value: `₹${monthWiseRadarData.reduce((acc, m) => acc + m.totalPending, 0).toLocaleString()}` },
+        { label: 'Defaulter Instances', value: `${monthWiseRadarData.reduce((acc, m) => acc + m.defaultersCount, 0)} Scholar Months` }
+      ];
+      cols = [
+        { header: 'MONTH', key: 'monthName', width: '15%' },
+        { header: 'BILLED DEMAND', render: (m) => `₹${m.totalExpected.toLocaleString()}`, width: '15%', align: 'right' },
+        { header: 'COLLECTED', render: (m) => `₹${m.totalCollected.toLocaleString()}`, width: '15%', align: 'right' },
+        { header: 'PENDING DUES', render: (m) => `₹${m.totalPending.toLocaleString()}`, width: '15%', align: 'right' },
+        { header: 'DEFAULTERS', render: (m) => `${m.defaultersCount} Students`, width: '15%', align: 'center' },
+        { header: 'PAID COUNT', render: (m) => `${m.paidCount} Cleared`, width: '13%', align: 'center' },
+        { header: 'RECOVERY %', render: (m) => `${m.collectionRate}%`, width: '12%', align: 'center' }
+      ];
+      reportData = monthWiseRadarData;
+    } else if (reportViewTab === 'DISCOUNTS_WAIVERS') {
+      title = `Discounts, Sibling Concessions & Waivers Audit Ledger`;
+      subtitle = `CBSE Concession Policy Audit: 2nd/3rd/4th Sibling Rules & Discretionary Relief (${selectedSession || '2026-27'})`;
+      stats = [
+        { label: 'Beneficiary Scholars', value: `${discountsAndWaiversData.beneficiaryCount} Scholars` },
+        { label: 'Sibling Concessions', value: `₹${discountsAndWaiversData.totalSiblingSaved.toLocaleString()}` },
+        { label: 'Admin Waivers', value: `₹${discountsAndWaiversData.totalAdminWaivers.toLocaleString()}` },
+        { label: 'Total Relief Granted', value: `₹${discountsAndWaiversData.totalDiscountsGranted.toLocaleString()}` }
+      ];
+      cols = [
+        { header: 'ROLL', render: (d) => d.rollNo || '—', width: '6%', align: 'center' },
+        { header: 'SCHOLAR NAME', render: (d) => d.student.full_name, width: '20%' },
+        { header: 'CLASS & SEC', render: (d) => `${d.className}-${d.section}`, width: '12%' },
+        { header: 'CATEGORY', key: 'category', width: '22%' },
+        { header: 'AMOUNT SAVED', render: (d) => `₹${d.amountSaved.toLocaleString()}`, width: '14%', align: 'right' },
+        { header: 'REASON & POLICY', key: 'reason', width: '26%' }
+      ];
+      reportData = discountsAndWaiversData.list;
+    } else if (reportViewTab === 'TRANSPORT_FLEET') {
+      title = `Transport Fleet & Route Revenue Audit`;
+      subtitle = `Distance Slabs, Monthly Route Rates, Ridership & Transport Dues Reconciliation`;
+      stats = [
+        { label: 'Bus Commuters', value: `${transportFleetData.totalRiders} Scholars` },
+        { label: 'Self Commuters', value: `${transportFleetData.selfCount} Scholars` },
+        { label: 'Total Transport Billed', value: `₹${transportFleetData.totalTransportBilled.toLocaleString()}` },
+        { label: 'Transport Collected', value: `₹${transportFleetData.totalTransportCollected.toLocaleString()}` },
+        { label: 'Transport Dues', value: `₹${transportFleetData.totalTransportPending.toLocaleString()}` }
+      ];
+      cols = [
+        { header: 'SLAB / ROUTE', key: 'label', width: '25%' },
+        { header: 'MONTHLY CHARGE', render: (s) => `₹${s.rate.toLocaleString()}/mo`, width: '15%', align: 'right' },
+        { header: 'RIDERS COUNT', render: (s) => `${s.count} Scholars`, width: '15%', align: 'center' },
+        { header: 'TOTAL DEMAND', render: (s) => `₹${s.demand.toLocaleString()}`, width: '15%', align: 'right' },
+        { header: 'COLLECTED', render: (s) => `₹${s.collected.toLocaleString()}`, width: '15%', align: 'right' },
+        { header: 'PENDING', render: (s) => `₹${s.pending.toLocaleString()}`, width: '15%', align: 'right' }
+      ];
+      reportData = transportFleetData.slabs;
+    } else if (reportViewTab === 'DEFAULTERS') {
+      title = `Pending Dues & Defaulters Recovery Docket`;
+      subtitle = `Scholars with Outstanding Fee Balances & Recovery Priority (${getPeriodMeta(reportPeriod).label})`;
+      stats = [
+        { label: 'Defaulter Scholars', value: `${defaultersListData.length} Scholars` },
+        { label: 'Total Outstanding', value: `₹${defaultersListData.reduce((acc, d) => acc + d.totalPending, 0).toLocaleString()}` },
+        { label: 'Scope Class', value: reportClass },
+        { label: 'Recovery Status', value: 'High Priority' }
+      ];
+      cols = [
+        { header: 'ROLL', render: (d) => d.rollNo || '—', width: '6%', align: 'center' },
+        { header: 'SCHOLAR NAME', render: (d) => d.student.full_name, width: '20%' },
+        { header: 'ADM NO', render: (d) => d.student.admission_no || d.student.id.slice(0, 8), width: '12%' },
+        { header: 'CLASS & SEC', render: (d) => `${d.className}-${d.section}`, width: '12%' },
+        { header: 'FATHER / PHONE', render: (d) => `${d.fatherName} (${d.student.parent_phone || d.student.phone || 'N/A'})`, width: '22%' },
+        { header: 'TOTAL DUE', render: (d) => `₹${d.totalPending.toLocaleString()}`, width: '16%', align: 'right' },
+        { header: 'STATUS', render: (d) => d.status, width: '12%', align: 'center' }
+      ];
+      reportData = defaultersListData;
+    } else {
+      stats = [
+        { label: 'Scholars Evaluated', value: `${feesReportKpis.totalScholars} Scholars` },
+        { label: 'Total Billed Due', value: `₹${feesReportKpis.totalExpected.toLocaleString()}` },
+        { label: 'Submitted / Paid', value: `₹${feesReportKpis.totalCollected.toLocaleString()}` },
+        { label: 'Pending Dues', value: `₹${feesReportKpis.totalPending.toLocaleString()}` },
+        { label: 'Recovery Rate', value: `${feesReportKpis.collectionRate}%` },
+      ];
+      cols = [
+        { header: 'ROLL', render: (item) => item.rollNo || '—', width: '6%', align: 'center' },
+        { header: 'SCHOLAR NAME', render: (item) => item.student.full_name, width: '18%' },
+        { header: 'ADM NO', render: (item) => item.student.admission_no || item.student.id.slice(0, 8), width: '10%' },
+        { header: 'CLASS & SEC', render: (item) => `${item.className}-${item.section}`, width: '10%' },
+        { header: 'TUITION', render: (item) => `₹${item.netTuitionDue.toLocaleString()}`, width: '10%', align: 'right' },
+        { header: 'TRANSPORT', render: (item) => `₹${item.transportDue.toLocaleString()}`, width: '10%', align: 'right' },
+        { header: 'ANNUAL', render: (item) => `₹${item.annualDue.toLocaleString()}`, width: '9%', align: 'right' },
+        { header: 'EXAM', render: (item) => `₹${item.examDue.toLocaleString()}`, width: '9%', align: 'right' },
+        { header: 'TOTAL DUE', render: (item) => `₹${item.totalDue.toLocaleString()}`, width: '10%', align: 'right' },
+        { header: 'PAID', render: (item) => `₹${item.totalPaid.toLocaleString()}`, width: '10%', align: 'right' },
+        { header: 'PENDING', render: (item) => `₹${item.totalPending.toLocaleString()}`, width: '10%', align: 'right' },
+        { header: 'STATUS', render: (item) => item.status, width: '8%', align: 'center' },
+      ];
+      reportData = filteredFeesReportList;
+    }
 
     setActiveFeeReportModal({
       isOpen: true,
-      title: `Fees Report Register: ${reportClass} - Section ${reportSection}`,
-      subtitle: `CBSE Institutional Dues Audit & Sibling Concession Ledger (${getPeriodMeta(reportPeriod).label})`,
+      title,
+      subtitle,
       filterSummary: [
         { label: 'Session', value: selectedSession || '2026-27' },
-        { label: 'Class', value: reportClass },
-        { label: 'Section', value: reportSection },
+        { label: 'Class Scope', value: reportClass },
+        { label: 'Section Scope', value: reportSection },
         { label: 'Fee Cycle', value: getPeriodMeta(reportPeriod).label },
-        { label: 'Scholars', value: `${filteredFeesReportList.length} Students` }
+        { label: 'Active View', value: reportViewTab }
       ],
       statsSummary: stats,
       columns: cols,
-      data: filteredFeesReportList,
+      data: reportData,
       onDownloadCSV: handleExportFeesReportCsv
     });
   };
@@ -2534,418 +2933,1310 @@ export function DashboardFees({
                 </div>
               </div>
 
-              {/* 5-Column High-Impact KPI Strip */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {/* 6-Column Executive Financial Intelligence KPI Matrix */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div className="p-4 rounded-2xl bg-[#122A24] text-white border border-[#1C443A] shadow-xs">
-                  <div className="text-[11px] font-mono uppercase tracking-wider text-slate-300">Total Billed Due</div>
-                  <div className="text-xl font-display font-black mt-1">₹{feesReportKpis.totalExpected.toLocaleString()}</div>
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-slate-300">Total Billed Demand</div>
+                  <div className="text-xl font-display font-black mt-1">₹{feesReportKpis.totalExpected.toLocaleString('en-IN')}</div>
                   <div className="text-[10px] text-slate-300 mt-0.5">{feesReportKpis.totalScholars} Scholars Evaluated</div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-[#F0FDF4] text-emerald-900 border border-[#BBF7D0] shadow-xs">
-                  <div className="text-[11px] font-mono uppercase tracking-wider text-emerald-700 font-bold">Total Fees Submitted</div>
-                  <div className="text-xl font-display font-black text-emerald-800 mt-1">₹{feesReportKpis.totalCollected.toLocaleString()}</div>
-                  <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">Cleared at Cash/Bank</div>
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-700 font-bold">Total Fees Submitted</div>
+                  <div className="text-xl font-display font-black text-emerald-800 mt-1">₹{feesReportKpis.totalCollected.toLocaleString('en-IN')}</div>
+                  <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">{feesReportKpis.collectionRate}% Collection Rate</div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-rose-50 text-rose-900 border border-rose-200 shadow-xs">
-                  <div className="text-[11px] font-mono uppercase tracking-wider text-rose-700 font-bold">Total Pending Dues</div>
-                  <div className="text-xl font-display font-black text-rose-700 mt-1">₹{feesReportKpis.totalPending.toLocaleString()}</div>
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-rose-700 font-bold">Total Pending Dues</div>
+                  <div className="text-xl font-display font-black text-rose-700 mt-1">₹{feesReportKpis.totalPending.toLocaleString('en-IN')}</div>
                   <div className="text-[10px] text-rose-600 font-semibold mt-0.5">Outstanding Receivables</div>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-amber-50 text-amber-900 border border-amber-200 shadow-xs">
-                  <div className="text-[11px] font-mono uppercase tracking-wider text-amber-700 font-bold">Defaulters / Pending</div>
-                  <div className="text-xl font-display font-black text-amber-800 mt-1">{feesReportKpis.defaultersCount} Scholars</div>
-                  <div className="text-[10px] text-amber-700 font-semibold mt-0.5">With Remaining Balances</div>
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-amber-700 font-bold">Sibling Concessions</div>
+                  <div className="text-xl font-display font-black text-amber-800 mt-1">₹{discountsAndWaiversData.totalSiblingSaved.toLocaleString('en-IN')}</div>
+                  <div className="text-[10px] text-amber-700 font-semibold mt-0.5">Automated Policy Relief</div>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-teal-50 text-teal-900 border border-teal-200 shadow-xs col-span-2 sm:col-span-1">
-                  <div className="text-[11px] font-mono uppercase tracking-wider text-teal-700 font-bold">Collection Recovery</div>
-                  <div className="text-xl font-display font-black text-teal-800 mt-1">{feesReportKpis.collectionRate}%</div>
-                  <div className="text-[10px] text-teal-700 font-semibold mt-0.5">Efficiency Score</div>
-                </div>
-              </div>
-
-              {/* In-Scope Refinement Bar */}
-              <div className="bg-[#F8FAF9] rounded-2xl p-4 border border-[#DCE8E0] space-y-3">
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                  {/* Search Scholar */}
-                  <div className="relative flex-1">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      placeholder={`Search in ${reportClass} by Name, Roll No, Adm No, Father...`}
-                      value={reportSearch}
-                      onChange={(e) => setReportSearch(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24] focus:outline-none focus:border-emerald-600"
-                    />
-                  </div>
-
-                  {/* Section Switcher (if ALL or specific) */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-mono text-slate-500">Section:</span>
-                    <select
-                      value={reportSection}
-                      onChange={(e) => setReportSection(e.target.value)}
-                      className="px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs font-bold text-[#122A24] focus:outline-none"
-                    >
-                      <option value="ALL">All Sections</option>
-                      <option value="A">Section A</option>
-                      <option value="B">Section B</option>
-                      <option value="C">Section C</option>
-                    </select>
-                  </div>
+                <div className="p-4 rounded-2xl bg-purple-50 text-purple-900 border border-purple-200 shadow-xs">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-purple-700 font-bold">Admin Waivers</div>
+                  <div className="text-xl font-display font-black text-purple-800 mt-1">₹{discountsAndWaiversData.totalAdminWaivers.toLocaleString('en-IN')}</div>
+                  <div className="text-[10px] text-purple-700 font-semibold mt-0.5">Principal Discretion</div>
                 </div>
 
-                {/* Status & Head Filters Strip */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E8F0EA] text-xs">
-                  {/* Status Pills */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[11px] font-mono text-slate-500 mr-1">Status:</span>
-                    {(['ALL', 'PAID', 'PARTIAL', 'PENDING'] as const).map(st => (
-                      <button
-                        key={st}
-                        type="button"
-                        onClick={() => setReportStatusFilter(st)}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
-                          reportStatusFilter === st
-                            ? 'bg-[#122A24] text-white border-[#122A24] shadow-2xs'
-                            : 'bg-white text-slate-600 border-[#DCE8E0] hover:bg-slate-50'
-                        }`}
-                      >
-                        {st === 'ALL' && `All (${scopedClassScholars.length})`}
-                        {st === 'PAID' && `✓ Paid (${scopedClassScholars.filter(x => x.status === 'PAID').length})`}
-                        {st === 'PARTIAL' && `⚡ Partial (${scopedClassScholars.filter(x => x.status === 'PARTIAL').length})`}
-                        {st === 'PENDING' && `⚠️ Pending (${scopedClassScholars.filter(x => x.status === 'PENDING').length})`}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Head Filter Pills */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[11px] font-mono text-slate-500 mr-1">Dues By Head:</span>
-                    {(['ALL', 'TUITION', 'TRANSPORT', 'ANNUAL', 'EXAM'] as const).map(hd => (
-                      <button
-                        key={hd}
-                        type="button"
-                        onClick={() => setReportHeadFilter(hd)}
-                        className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                          reportHeadFilter === hd
-                            ? 'bg-[#122A24] text-white border-[#122A24] font-bold shadow-2xs'
-                            : 'bg-white text-slate-600 border-[#DCE8E0] hover:bg-[#F8FAF9] hover:text-[#122A24]'
-                        }`}
-                      >
-                        {hd === 'ALL' ? 'All Heads' : hd.charAt(0) + hd.slice(1).toLowerCase()}
-                      </button>
-                    ))}
-                  </div>
+                <div className="p-4 rounded-2xl bg-teal-50 text-teal-900 border border-teal-200 shadow-xs">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-teal-700 font-bold">Defaulters / Overdue</div>
+                  <div className="text-xl font-display font-black text-teal-800 mt-1">{feesReportKpis.defaultersCount} Scholars</div>
+                  <div className="text-[10px] text-teal-700 font-semibold mt-0.5">Action Required</div>
                 </div>
               </div>
 
-              {/* Master Report Table */}
-              <div className="overflow-x-auto rounded-2xl border border-[#DCE8E0] bg-white shadow-2xs">
-                <table className="w-full text-left text-xs border-collapse font-sans min-w-[1380px]">
-                  <thead>
-                    <tr className="bg-[#122A24] text-white text-[11px] font-mono font-bold tracking-wider select-none border-b border-[#1C443A]">
-                      <th className="py-3.5 px-3 w-12 text-center">ROLL</th>
-                      <th className="py-3.5 px-3 min-w-[240px]">SCHOLAR PARTICULARS</th>
-                      <th className="py-3.5 px-3 w-28 text-center">CLASS &amp; SEC</th>
-                      <th className="py-3.5 px-3 w-24 text-center">TRANSPORT</th>
-                      <th className="py-3.5 px-3 w-28 text-right">TUITION FEE</th>
-                      <th className="py-3.5 px-3 w-28 text-right">TRANSPORT FEE</th>
-                      <th className="py-3.5 px-3 w-28 text-right">ANNUAL FEE</th>
-                      <th className="py-3.5 px-3 w-24 text-right">EXAM FEE</th>
-                      <th className="py-3.5 px-3 w-28 text-right text-slate-200">TOTAL DUE</th>
-                      <th className="py-3.5 px-3 w-28 text-right text-emerald-300">SUBMITTED</th>
-                      <th className="py-3.5 px-3 w-28 text-right text-rose-300">PENDING</th>
-                      <th className="py-3.5 px-3 w-28 text-center">STATUS</th>
-                      <th className="py-3.5 px-3 w-56 text-center">ACTIONS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E8F0EA] text-slate-700 font-medium">
-                    {filteredFeesReportList.length === 0 ? (
-                      <tr>
-                        <td colSpan={13} className="py-12 text-center text-slate-400">
-                          <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2 opacity-60" />
-                          <p className="font-bold text-sm text-slate-600">No matching student dues found</p>
-                          <p className="text-xs text-slate-400 mt-1">Try resetting filters or checking another section.</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredFeesReportList.map((item) => (
-                        <tr
-                          key={item.student.id}
-                          className="hover:bg-[#F4F8F5] transition-colors"
+              {/* 6-Sub-View Interactive Navigation Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0]">
+                <button
+                  type="button"
+                  onClick={() => setReportViewTab('REGISTER')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border-none ${
+                    reportViewTab === 'REGISTER'
+                      ? 'bg-[#122A24] text-white shadow-xs'
+                      : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/70'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span className="truncate">Master Register</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReportViewTab('MONTH_RADAR')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border-none ${
+                    reportViewTab === 'MONTH_RADAR'
+                      ? 'bg-[#122A24] text-white shadow-xs'
+                      : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/70'
+                  }`}
+                >
+                  <CalendarDays className="w-3.5 h-3.5" />
+                  <span className="truncate">Month-Wise Radar</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReportViewTab('FEE_HEADS')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border-none ${
+                    reportViewTab === 'FEE_HEADS'
+                      ? 'bg-[#122A24] text-white shadow-xs'
+                      : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/70'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span className="truncate">Fee-Head Audit</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReportViewTab('DISCOUNTS_WAIVERS')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border-none ${
+                    reportViewTab === 'DISCOUNTS_WAIVERS'
+                      ? 'bg-[#122A24] text-white shadow-xs'
+                      : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/70'
+                  }`}
+                >
+                  <Gift className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="truncate">Discounts &amp; Waivers</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReportViewTab('TRANSPORT_FLEET')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border-none ${
+                    reportViewTab === 'TRANSPORT_FLEET'
+                      ? 'bg-[#122A24] text-white shadow-xs'
+                      : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/70'
+                  }`}
+                >
+                  <Bus className="w-3.5 h-3.5" />
+                  <span className="truncate">Transport Fleet</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReportViewTab('DEFAULTERS')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 border-none ${
+                    reportViewTab === 'DEFAULTERS'
+                      ? 'bg-rose-700 text-white shadow-xs'
+                      : 'bg-transparent text-rose-700 hover:bg-rose-50'
+                  }`}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span className="truncate">Defaulters Center ({defaultersListData.length})</span>
+                </button>
+              </div>
+
+              {/* ─────────────────────────────────────────────────────────────
+                  VIEW 1: MASTER SCHOLAR REGISTER (FULL LEDGER WITH GRAND TOTAL)
+                  ───────────────────────────────────────────────────────────── */}
+              {reportViewTab === 'REGISTER' && (
+                <div className="space-y-4 animate-fade-in">
+                  {/* In-Scope Refinement Bar */}
+                  <div className="bg-[#F8FAF9] rounded-2xl p-4 border border-[#DCE8E0] space-y-3">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                      {/* Search Scholar */}
+                      <div className="relative flex-1">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          placeholder={`Search in ${reportClass} by Name, Roll No, Adm No, Father...`}
+                          value={reportSearch}
+                          onChange={(e) => setReportSearch(e.target.value)}
+                          className="w-full pl-8 pr-3 py-2 bg-white border border-[#DCE8E0] rounded-xl text-xs font-medium text-[#122A24] focus:outline-none focus:border-emerald-600"
+                        />
+                      </div>
+
+                      {/* Section Switcher */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-mono text-slate-500">Section:</span>
+                        <select
+                          value={reportSection}
+                          onChange={(e) => setReportSection(e.target.value)}
+                          className="px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs font-bold text-[#122A24] focus:outline-none"
                         >
-                          {/* Roll */}
-                          <td className="py-3.5 px-3 text-center font-mono font-bold text-slate-600 text-xs whitespace-nowrap">
-                            {item.rollNo}
-                          </td>
+                          <option value="ALL">All Sections</option>
+                          <option value="A">Section A</option>
+                          <option value="B">Section B</option>
+                          <option value="C">Section C</option>
+                        </select>
+                      </div>
+                    </div>
 
-                          {/* Scholar Particulars */}
-                          <td className="py-3.5 px-3">
-                            <div className="font-bold text-[#122A24] text-xs leading-snug whitespace-nowrap">{item.student.full_name}</div>
-                            <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
-                              <span>Adm: <strong className="text-slate-700 font-semibold">{item.student.admission_no || item.student.id.slice(0, 8)}</strong></span>
-                              <span className="text-slate-300">•</span>
-                              <span>F: {item.fatherName}</span>
-                            </div>
-                            {item.siblingInfo.tuitionDiscountPct > 0 && (
-                              <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10px] font-mono border border-amber-200 whitespace-nowrap">
-                                <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
-                                <span>
-                                  {item.siblingInfo.childOrder === 2 && '2nd Child: 20% Tuition Concession'}
-                                  {item.siblingInfo.childOrder === 3 && '3rd Child: 30% Tuition Concession'}
-                                  {item.siblingInfo.childOrder >= 4 && '4th Child: 30% + Free Bus'}
+                    {/* Status & Head Filters Strip */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E8F0EA] text-xs">
+                      {/* Status Pills */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-mono text-slate-500 mr-1">Status:</span>
+                        {(['ALL', 'PAID', 'PARTIAL', 'PENDING'] as const).map(st => (
+                          <button
+                            key={st}
+                            type="button"
+                            onClick={() => setReportStatusFilter(st)}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                              reportStatusFilter === st
+                                ? 'bg-[#122A24] text-white border-[#122A24] shadow-2xs'
+                                : 'bg-white text-slate-600 border-[#DCE8E0] hover:bg-slate-50'
+                            }`}
+                          >
+                            {st === 'ALL' && `All (${scopedClassScholars.length})`}
+                            {st === 'PAID' && `✓ Paid (${scopedClassScholars.filter(x => x.status === 'PAID').length})`}
+                            {st === 'PARTIAL' && `⚡ Partial (${scopedClassScholars.filter(x => x.status === 'PARTIAL').length})`}
+                            {st === 'PENDING' && `⚠️ Pending (${scopedClassScholars.filter(x => x.status === 'PENDING').length})`}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Head Filter Pills */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-mono text-slate-500 mr-1">Dues By Head:</span>
+                        {(['ALL', 'TUITION', 'TRANSPORT', 'ANNUAL', 'EXAM'] as const).map(hd => (
+                          <button
+                            key={hd}
+                            type="button"
+                            onClick={() => setReportHeadFilter(hd)}
+                            className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                              reportHeadFilter === hd
+                                ? 'bg-[#122A24] text-white border-[#122A24] font-bold shadow-2xs'
+                                : 'bg-white text-slate-600 border-[#DCE8E0] hover:bg-[#F8FAF9] hover:text-[#122A24]'
+                            }`}
+                          >
+                            {hd === 'ALL' ? 'All Heads' : hd.charAt(0) + hd.slice(1).toLowerCase()}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Master Report Table */}
+                  <div className="overflow-x-auto rounded-2xl border border-[#DCE8E0] bg-white shadow-2xs">
+                    <table className="w-full text-left text-xs border-collapse font-sans min-w-[1380px]">
+                      <thead>
+                        <tr className="bg-[#122A24] text-white text-[11px] font-mono font-bold tracking-wider select-none border-b border-[#1C443A]">
+                          <th className="py-3.5 px-3 w-12 text-center">ROLL</th>
+                          <th className="py-3.5 px-3 min-w-[240px]">SCHOLAR PARTICULARS</th>
+                          <th className="py-3.5 px-3 w-28 text-center">CLASS &amp; SEC</th>
+                          <th className="py-3.5 px-3 w-24 text-center">TRANSPORT</th>
+                          <th className="py-3.5 px-3 w-28 text-right">TUITION FEE</th>
+                          <th className="py-3.5 px-3 w-28 text-right">TRANSPORT FEE</th>
+                          <th className="py-3.5 px-3 w-28 text-right">ANNUAL FEE</th>
+                          <th className="py-3.5 px-3 w-24 text-right">EXAM FEE</th>
+                          <th className="py-3.5 px-3 w-28 text-right text-slate-200">TOTAL DUE</th>
+                          <th className="py-3.5 px-3 w-28 text-right text-emerald-300">SUBMITTED</th>
+                          <th className="py-3.5 px-3 w-28 text-right text-rose-300">PENDING</th>
+                          <th className="py-3.5 px-3 w-28 text-center">STATUS</th>
+                          <th className="py-3.5 px-3 w-56 text-center">ACTIONS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E8F0EA] text-slate-700 font-medium">
+                        {filteredFeesReportList.length === 0 ? (
+                          <tr>
+                            <td colSpan={13} className="py-12 text-center text-slate-400">
+                              <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto mb-2 opacity-60" />
+                              <p className="font-bold text-sm text-slate-600">No matching student dues found</p>
+                              <p className="text-xs text-slate-400 mt-1">Try resetting filters or checking another section.</p>
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredFeesReportList.map((item) => (
+                            <tr
+                              key={item.student.id}
+                              className="hover:bg-[#F4F8F5] transition-colors"
+                            >
+                              {/* Roll */}
+                              <td className="py-3.5 px-3 text-center font-mono font-bold text-slate-600 text-xs whitespace-nowrap">
+                                {item.rollNo}
+                              </td>
+
+                              {/* Scholar Particulars */}
+                              <td className="py-3.5 px-3">
+                                <div className="font-bold text-[#122A24] text-xs leading-snug whitespace-nowrap">{item.student.full_name}</div>
+                                <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
+                                  <span>Adm: <strong className="text-slate-700 font-semibold">{item.student.admission_no || item.student.id.slice(0, 8)}</strong></span>
+                                  <span className="text-slate-300">•</span>
+                                  <span>F: {item.fatherName}</span>
+                                </div>
+                                {item.siblingInfo.tuitionDiscountPct > 0 && (
+                                  <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10px] font-mono border border-amber-200 whitespace-nowrap">
+                                    <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                                    <span>
+                                      {item.siblingInfo.childOrder === 2 && '2nd Child: 20% Tuition Concession'}
+                                      {item.siblingInfo.childOrder === 3 && '3rd Child: 30% Tuition Concession'}
+                                      {item.siblingInfo.childOrder >= 4 && '4th Child: 30% + Free Bus'}
+                                    </span>
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Class & Section */}
+                              <td className="py-3.5 px-3 text-center whitespace-nowrap font-mono">
+                                <span className="px-2.5 py-1 bg-[#EBF5EF] border border-[#C5E2CF] rounded-lg font-bold text-[#122A24] text-[11px] inline-block">
+                                  {item.className} - {item.section}
+                                </span>
+                              </td>
+
+                              {/* Transport Slab */}
+                              <td className="py-3.5 px-3 text-center whitespace-nowrap font-mono text-[11px]">
+                                {item.transportOpted ? (
+                                  <div>
+                                    <span className="font-bold text-[#122A24]">{item.transportSlab}</span>
+                                    <div className="text-[10px] text-slate-400">₹{item.transportMonthlyRate.toLocaleString()}/mo</div>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 font-normal">Self</span>
+                                )}
+                              </td>
+
+                              {/* Tuition Breakdown */}
+                              <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap tabular-nums">
+                                <div className="font-bold text-[#122A24]">₹{item.netTuitionDue.toLocaleString()}</div>
+                                <div className="text-[10px] text-slate-400">
+                                  Pd: ₹{item.tuitionPaid.toLocaleString()}
+                                </div>
+                                {item.tuitionPending > 0 && (
+                                  <div className="text-[10px] text-rose-600 font-bold">
+                                    Due: ₹{item.tuitionPending.toLocaleString()}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Transport Breakdown */}
+                              <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap tabular-nums">
+                                <div className="font-bold text-[#122A24]">₹{item.transportDue.toLocaleString()}</div>
+                                <div className="text-[10px] text-slate-400">
+                                  Pd: ₹{item.transportPaid.toLocaleString()}
+                                </div>
+                                {item.transportPending > 0 && (
+                                  <div className="text-[10px] text-rose-600 font-bold">
+                                    Due: ₹{item.transportPending.toLocaleString()}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Annual Fee Breakdown */}
+                              <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap tabular-nums">
+                                <div className="font-bold text-[#122A24]">₹{item.annualDue.toLocaleString()}</div>
+                                <div className="text-[10px] text-slate-400">
+                                  Pd: ₹{item.annualPaid.toLocaleString()}
+                                </div>
+                                {item.annualPending > 0 && (
+                                  <div className="text-[10px] text-rose-600 font-bold">
+                                    Due: ₹{item.annualPending.toLocaleString()}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Exam Breakdown */}
+                              <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap tabular-nums">
+                                <div className="font-bold text-[#122A24]">₹{item.examDue.toLocaleString()}</div>
+                                <div className="text-[10px] text-slate-400">
+                                  Pd: ₹{item.examPaid.toLocaleString()}
+                                </div>
+                                {item.examPending > 0 && (
+                                  <div className="text-[10px] text-rose-600 font-bold">
+                                    Due: ₹{item.examPending.toLocaleString()}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Consolidated Total Due */}
+                              <td className="py-3.5 px-3 text-right font-mono font-bold text-[#122A24] whitespace-nowrap tabular-nums">
+                                ₹{item.totalDue.toLocaleString()}
+                              </td>
+
+                              {/* Submitted / Paid */}
+                              <td className="py-3.5 px-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap tabular-nums">
+                                ₹{item.totalPaid.toLocaleString()}
+                              </td>
+
+                              {/* Pending Dues */}
+                              <td className="py-3.5 px-3 text-right font-mono font-bold whitespace-nowrap tabular-nums">
+                                {item.totalPending > 0 ? (
+                                  <span className="text-rose-600 font-bold">₹{item.totalPending.toLocaleString()}</span>
+                                ) : (
+                                  <span className="text-emerald-700 font-bold">₹0 Nil</span>
+                                )}
+                              </td>
+
+                              {/* Status */}
+                              <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                                {item.status === 'PAID' && (
+                                  <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-emerald-200">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> PAID
+                                  </span>
+                                )}
+                                {item.status === 'PARTIAL' && (
+                                  <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-amber-200">
+                                    <AlertTriangle className="w-3 h-3 text-amber-600" /> PARTIAL
+                                  </span>
+                                )}
+                                {item.status === 'PENDING' && (
+                                  <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-rose-200">
+                                    <Clock className="w-3 h-3 text-rose-600" /> PENDING
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Actions */}
+                              <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-1.5 flex-nowrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenStudentSlip(item)}
+                                    className="px-2.5 py-1.5 bg-white hover:bg-[#F8FAF9] text-[#122A24] border border-[#DCE8E0] rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs hover:border-[#122A24]/30 shrink-0"
+                                    title="Print / View Official Fee Slip"
+                                  >
+                                    <Receipt className="w-3.5 h-3.5 text-emerald-700" />
+                                    <span>Slip</span>
+                                  </button>
+
+                                  {item.totalPending > 0 ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSendWhatsAppReminder(item)}
+                                      className="px-2.5 py-1.5 bg-[#EBF5EF] hover:bg-[#D8EEDF] text-[#122A24] border border-[#C5E2CF] rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0"
+                                      title="Send WhatsApp Fee Due Reminder"
+                                    >
+                                      <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
+                                      <span>WhatsApp</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSendWhatsAppReceipt(item)}
+                                      className="px-2.5 py-1.5 bg-[#F8FAF9] hover:bg-[#EBF5EF] text-slate-700 border border-[#DCE8E0] rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0"
+                                      title="Send WhatsApp Payment Receipt"
+                                    >
+                                      <MessageCircle className="w-3.5 h-3.5 text-slate-500" />
+                                      <span>Receipt</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickCollectFromMonthly(item.student, item.totalPending)}
+                                    className="px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white border-none rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0"
+                                    title="Quick Collect Counter"
+                                  >
+                                    <CreditCard className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Collect</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      {filteredFeesReportList.length > 0 && (
+                        <tfoot className="bg-[#122A24] text-white border-t-2 border-[#1C443A] font-mono font-bold text-xs select-none sticky bottom-0 z-10 shadow-lg">
+                          <tr>
+                            {/* Roll, Scholar Particulars, Class, Transport Span */}
+                            <td colSpan={4} className="py-4 px-4 text-left font-sans">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-extrabold text-white tracking-wide uppercase">Grand Total</span>
+                                <span className="px-2.5 py-0.5 rounded-full bg-emerald-900/90 text-emerald-200 text-[11px] font-mono font-semibold border border-emerald-600">
+                                  {filteredFeesReportList.length} Scholars
                                 </span>
                               </div>
-                            )}
-                          </td>
+                            </td>
 
-                          {/* Class & Section */}
-                          <td className="py-3.5 px-3 text-center whitespace-nowrap font-mono">
-                            <span className="px-2.5 py-1 bg-[#EBF5EF] border border-[#C5E2CF] rounded-lg font-bold text-[#122A24] text-[11px] inline-block">
-                              {item.className} - {item.section}
-                            </span>
-                          </td>
-
-                          {/* Transport Slab */}
-                          <td className="py-3.5 px-3 text-center whitespace-nowrap font-mono text-[11px]">
-                            {item.transportOpted ? (
-                              <div>
-                                <span className="font-bold text-[#122A24]">{item.transportSlab}</span>
-                                <div className="text-[10px] text-slate-400">₹{item.transportMonthlyRate.toLocaleString()}/mo</div>
+                            {/* Tuition Due / Paid */}
+                            <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap">
+                              <div className="text-white font-bold text-xs">
+                                ₹{filteredFeesReportList.reduce((acc, r) => acc + r.netTuitionDue, 0).toLocaleString('en-IN')}
                               </div>
-                            ) : (
-                              <span className="text-slate-400 font-normal">Self</span>
-                            )}
-                          </td>
-
-                          {/* Tuition Breakdown */}
-                          <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap tabular-nums">
-                            <div className="font-bold text-[#122A24]">₹{item.netTuitionDue.toLocaleString()}</div>
-                            <div className="text-[10px] text-slate-400">
-                              Pd: ₹{item.tuitionPaid.toLocaleString()}
-                            </div>
-                            {item.tuitionPending > 0 && (
-                              <div className="text-[10px] text-rose-600 font-bold">
-                                Due: ₹{item.tuitionPending.toLocaleString()}
+                              <div className="text-[10px] text-emerald-300 font-normal">
+                                Pd: ₹{filteredFeesReportList.reduce((acc, r) => acc + r.tuitionPaid, 0).toLocaleString('en-IN')}
                               </div>
-                            )}
-                          </td>
+                            </td>
 
-                          {/* Transport Breakdown */}
-                          <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap tabular-nums">
-                            <div className="font-bold text-[#122A24]">₹{item.transportDue.toLocaleString()}</div>
-                            <div className="text-[10px] text-slate-400">
-                              Pd: ₹{item.transportPaid.toLocaleString()}
-                            </div>
-                            {item.transportPending > 0 && (
-                              <div className="text-[10px] text-rose-600 font-bold">
-                                Due: ₹{item.transportPending.toLocaleString()}
+                            {/* Transport Due / Paid */}
+                            <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap">
+                              <div className="text-white font-bold text-xs">
+                                ₹{filteredFeesReportList.reduce((acc, r) => acc + r.transportDue, 0).toLocaleString('en-IN')}
                               </div>
-                            )}
-                          </td>
-
-                          {/* Annual Fee Breakdown */}
-                          <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap tabular-nums">
-                            <div className="font-bold text-[#122A24]">₹{item.annualDue.toLocaleString()}</div>
-                            <div className="text-[10px] text-slate-400">
-                              Pd: ₹{item.annualPaid.toLocaleString()}
-                            </div>
-                            {item.annualPending > 0 && (
-                              <div className="text-[10px] text-rose-600 font-bold">
-                                Due: ₹{item.annualPending.toLocaleString()}
+                              <div className="text-[10px] text-emerald-300 font-normal">
+                                Pd: ₹{filteredFeesReportList.reduce((acc, r) => acc + r.transportPaid, 0).toLocaleString('en-IN')}
                               </div>
-                            )}
-                          </td>
+                            </td>
 
-                          {/* Exam Breakdown */}
-                          <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap tabular-nums">
-                            <div className="font-bold text-[#122A24]">₹{item.examDue.toLocaleString()}</div>
-                            <div className="text-[10px] text-slate-400">
-                              Pd: ₹{item.examPaid.toLocaleString()}
-                            </div>
-                            {item.examPending > 0 && (
-                              <div className="text-[10px] text-rose-600 font-bold">
-                                Due: ₹{item.examPending.toLocaleString()}
+                            {/* Annual Due / Paid */}
+                            <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap">
+                              <div className="text-white font-bold text-xs">
+                                ₹{filteredFeesReportList.reduce((acc, r) => acc + r.annualDue, 0).toLocaleString('en-IN')}
                               </div>
-                            )}
-                          </td>
+                              <div className="text-[10px] text-emerald-300 font-normal">
+                                Pd: ₹{filteredFeesReportList.reduce((acc, r) => acc + r.annualPaid, 0).toLocaleString('en-IN')}
+                              </div>
+                            </td>
 
-                          {/* Consolidated Total Due */}
-                          <td className="py-3.5 px-3 text-right font-mono font-bold text-[#122A24] whitespace-nowrap tabular-nums">
-                            ₹{item.totalDue.toLocaleString()}
-                          </td>
+                            {/* Exam Due / Paid */}
+                            <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap">
+                              <div className="text-white font-bold text-xs">
+                                ₹{filteredFeesReportList.reduce((acc, r) => acc + r.examDue, 0).toLocaleString('en-IN')}
+                              </div>
+                              <div className="text-[10px] text-emerald-300 font-normal">
+                                Pd: ₹{filteredFeesReportList.reduce((acc, r) => acc + r.examPaid, 0).toLocaleString('en-IN')}
+                              </div>
+                            </td>
 
-                          {/* Submitted / Paid */}
-                          <td className="py-3.5 px-3 text-right font-mono font-bold text-emerald-700 whitespace-nowrap tabular-nums">
-                            ₹{item.totalPaid.toLocaleString()}
-                          </td>
+                            {/* Total Due */}
+                            <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap text-white font-extrabold text-sm">
+                              ₹{filteredFeesReportList.reduce((acc, r) => acc + r.totalDue, 0).toLocaleString('en-IN')}
+                            </td>
 
-                          {/* Pending Dues */}
-                          <td className="py-3.5 px-3 text-right font-mono font-bold whitespace-nowrap tabular-nums">
-                            {item.totalPending > 0 ? (
-                              <span className="text-rose-600 font-bold">₹{item.totalPending.toLocaleString()}</span>
-                            ) : (
-                              <span className="text-emerald-700 font-bold">₹0 Nil</span>
-                            )}
-                          </td>
+                            {/* Total Submitted / Paid */}
+                            <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap text-emerald-300 font-extrabold text-sm bg-emerald-950/80">
+                              ₹{filteredFeesReportList.reduce((acc, r) => acc + r.totalPaid, 0).toLocaleString('en-IN')}
+                            </td>
 
-                          {/* Status */}
-                          <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                            {item.status === 'PAID' && (
-                              <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-emerald-200">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> PAID
+                            {/* Total Pending */}
+                            <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap font-extrabold text-sm text-rose-300 bg-rose-950/60">
+                              ₹{filteredFeesReportList.reduce((acc, r) => acc + r.totalPending, 0).toLocaleString('en-IN')}
+                            </td>
+
+                            {/* Status Summary */}
+                            <td className="py-4 px-3 text-center whitespace-nowrap">
+                              <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-200 text-[10px] font-bold border border-emerald-500/30 inline-block">
+                                {filteredFeesReportList.filter(r => r.status === 'PAID').length} Paid / {filteredFeesReportList.filter(r => r.status !== 'PAID').length} Due
                               </span>
-                            )}
-                            {item.status === 'PARTIAL' && (
-                              <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-amber-200">
-                                <AlertTriangle className="w-3 h-3 text-amber-600" /> PARTIAL
-                              </span>
-                            )}
-                            {item.status === 'PENDING' && (
-                              <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-800 text-[10.5px] font-bold inline-flex items-center gap-1 border border-rose-200">
-                                <Clock className="w-3 h-3 text-rose-600" /> PENDING
-                              </span>
-                            )}
-                          </td>
+                            </td>
 
-                          {/* Actions */}
-                          <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                            <div className="flex items-center justify-center gap-1.5 flex-nowrap">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenStudentSlip(item)}
-                                className="px-2.5 py-1.5 bg-white hover:bg-[#F8FAF9] text-[#122A24] border border-[#DCE8E0] rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs hover:border-[#122A24]/30 shrink-0"
-                                title="Print / View Official Fee Slip"
-                              >
-                                <Receipt className="w-3.5 h-3.5 text-emerald-700" />
-                                <span>Slip</span>
-                              </button>
+                            {/* Actions Placeholder */}
+                            <td className="py-4 px-3 text-center whitespace-nowrap text-emerald-200/70 text-[11px] font-sans">
+                              Summary Verified ✓
+                            </td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </div>
+              )}
 
-                              {item.totalPending > 0 ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleSendWhatsAppReminder(item)}
-                                  className="px-2.5 py-1.5 bg-[#EBF5EF] hover:bg-[#D8EEDF] text-[#122A24] border border-[#C5E2CF] rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0"
-                                  title="Send WhatsApp Fee Due Reminder"
-                                >
-                                  <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
-                                  <span>WhatsApp</span>
-                                </button>
+              {/* ─────────────────────────────────────────────────────────────
+                  VIEW 2: 12-MONTH DUES & DEFAULTERS RADAR (APRIL TO MARCH)
+                  ───────────────────────────────────────────────────────────── */}
+              {reportViewTab === 'MONTH_RADAR' && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="bg-[#EBF5EF] rounded-2xl p-4 border border-[#C5E2CF] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <CalendarDays className="w-5 h-5 text-emerald-700 shrink-0" />
+                      <div>
+                        <h3 className="text-xs font-bold text-[#122A24] font-display">12-Month Academic Session Dues &amp; Defaulters Radar</h3>
+                        <p className="text-[11px] text-[#2D5A4E]">Month-by-month demand, cash realized, receivables, and exact student defaulter counts.</p>
+                      </div>
+                    </div>
+                    <div className="text-xs font-mono font-bold text-emerald-900 bg-white/80 px-3 py-1 rounded-xl border border-emerald-300">
+                      Scope: {reportClass} ({reportSection}) • {scopedClassScholars.length} Scholars
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-2xl border border-[#DCE8E0] bg-white shadow-2xs">
+                    <table className="w-full text-left text-xs border-collapse font-sans min-w-[1000px]">
+                      <thead>
+                        <tr className="bg-[#122A24] text-white text-[11px] font-mono font-bold tracking-wider select-none border-b border-[#1C443A]">
+                          <th className="py-3.5 px-4 w-12 text-center">#</th>
+                          <th className="py-3.5 px-4 min-w-[180px]">ACADEMIC MONTH</th>
+                          <th className="py-3.5 px-4 text-center min-w-[160px]">FEE PARTICULARS</th>
+                          <th className="py-3.5 px-4 text-right min-w-[130px]">BILLED DEMAND</th>
+                          <th className="py-3.5 px-4 text-right min-w-[130px]">COLLECTED</th>
+                          <th className="py-3.5 px-4 text-right min-w-[130px]">PENDING DUES</th>
+                          <th className="py-3.5 px-4 text-center min-w-[150px]">DEFAULTER SCHOLARS</th>
+                          <th className="py-3.5 px-4 text-center min-w-[130px]">CLEARED</th>
+                          <th className="py-3.5 px-4 text-center min-w-[120px]">RECOVERY %</th>
+                          <th className="py-3.5 px-4 text-center min-w-[110px]">STATUS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E8F0EA] text-slate-700 font-medium">
+                        {monthWiseRadarData.map((m, idx) => (
+                          <tr key={m.monthName} className="hover:bg-[#F4F8F5] transition-colors">
+                            <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-500">{idx + 1}</td>
+                            <td className="py-3.5 px-4 font-bold text-[#122A24]">
+                              <div className="flex items-center gap-2">
+                                <span>{m.monthName}</span>
+                                {m.hasAnnual && (
+                                  <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10px] font-mono border border-amber-200">
+                                    + Annual Fee
+                                  </span>
+                                )}
+                                {m.hasExam && (
+                                  <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 text-[10px] font-mono border border-blue-200">
+                                    + Exam Fee
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-mono text-[11px] text-slate-500">
+                              {m.hasAnnual ? 'Tuition + Annual Composite' : (m.hasExam ? 'Tuition + Term Assessment' : 'Monthly Tuition & Transport')}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-mono font-bold text-[#122A24] tabular-nums">
+                              ₹{m.totalExpected.toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700 tabular-nums">
+                              ₹{m.totalCollected.toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-mono font-bold tabular-nums">
+                              {m.totalPending > 0 ? (
+                                <span className="text-rose-600 font-bold">₹{m.totalPending.toLocaleString('en-IN')}</span>
                               ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleSendWhatsAppReceipt(item)}
-                                  className="px-2.5 py-1.5 bg-[#F8FAF9] hover:bg-[#EBF5EF] text-slate-700 border border-[#DCE8E0] rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0"
-                                  title="Send WhatsApp Payment Receipt"
-                                >
-                                  <MessageCircle className="w-3.5 h-3.5 text-slate-500" />
-                                  <span>Receipt</span>
-                                </button>
+                                <span className="text-emerald-700">₹0 Nil</span>
                               )}
-
-                              <button
-                                type="button"
-                                onClick={() => handleQuickCollectFromMonthly(item.student, item.totalPending)}
-                                className="px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white border-none rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0"
-                                title="Quick Collect Counter"
-                              >
-                                <CreditCard className="w-3.5 h-3.5 text-amber-400" />
-                                <span>Collect</span>
-                              </button>
-                            </div>
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-mono">
+                              {m.defaultersCount > 0 ? (
+                                <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-800 text-xs font-bold border border-rose-200 inline-block">
+                                  ⚠️ {m.defaultersCount} Students Pending
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200 inline-block">
+                                  ✓ 0 Defaulters
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-mono text-xs font-semibold text-slate-600">
+                              {m.paidCount} Scholars
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-mono font-bold">
+                              <div className="flex items-center justify-center gap-2">
+                                <span className={m.collectionRate >= 80 ? 'text-emerald-700' : (m.collectionRate >= 40 ? 'text-amber-700' : 'text-rose-600')}>
+                                  {m.collectionRate}%
+                                </span>
+                                <div className="w-12 bg-slate-200 h-1.5 rounded-full overflow-hidden shrink-0">
+                                  <div
+                                    className={`h-full rounded-full ${m.collectionRate >= 80 ? 'bg-emerald-600' : (m.collectionRate >= 40 ? 'bg-amber-500' : 'bg-rose-500')}`}
+                                    style={{ width: `${Math.min(100, m.collectionRate)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              {m.status === 'CLEARED' ? (
+                                <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
+                                  CLEARED
+                                </span>
+                              ) : m.status === 'PARTIAL' ? (
+                                <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200">
+                                  IN PROGRESS
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-800 text-[10px] font-bold border border-rose-200">
+                                  PENDING
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-[#122A24] text-white border-t-2 border-[#1C443A] font-mono font-bold text-xs select-none sticky bottom-0 z-10 shadow-lg">
+                        <tr>
+                          <td colSpan={3} className="py-4 px-4 text-left font-sans font-extrabold uppercase text-sm">
+                            12-Month Academic Grand Total
+                          </td>
+                          <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-white font-extrabold text-sm">
+                            ₹{monthWiseRadarData.reduce((acc, m) => acc + m.totalExpected, 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-emerald-300 font-extrabold text-sm bg-emerald-950/80">
+                            ₹{monthWiseRadarData.reduce((acc, m) => acc + m.totalCollected, 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-rose-300 font-extrabold text-sm bg-rose-950/60">
+                            ₹{monthWiseRadarData.reduce((acc, m) => acc + m.totalPending, 0).toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-4 px-4 text-center text-amber-300 font-mono text-xs">
+                            Avg Defaulters: {Math.round(monthWiseRadarData.reduce((acc, m) => acc + m.defaultersCount, 0) / 12)} / Mo
+                          </td>
+                          <td className="py-4 px-4 text-center text-emerald-200 text-xs">
+                            {scopedClassScholars.length} Scholars Scope
+                          </td>
+                          <td className="py-4 px-4 text-center text-white font-bold text-sm">
+                            {feesReportKpis.collectionRate}%
+                          </td>
+                          <td className="py-4 px-4 text-center text-emerald-300/80 text-[11px] font-sans">
+                            CBSE Verified ✓
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                  {filteredFeesReportList.length > 0 && (
-                    <tfoot className="bg-[#122A24] text-white border-t-2 border-[#1C443A] font-mono font-bold text-xs select-none sticky bottom-0 z-10 shadow-lg">
-                      <tr>
-                        {/* Roll, Scholar Particulars, Class, Transport Span */}
-                        <td colSpan={4} className="py-4 px-4 text-left font-sans">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-extrabold text-white tracking-wide uppercase">Grand Total</span>
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-900/90 text-emerald-200 text-[11px] font-mono font-semibold border border-emerald-600">
-                              {filteredFeesReportList.length} Scholars
-                            </span>
-                          </div>
-                        </td>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
 
-                        {/* Tuition Due / Paid */}
-                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap">
-                          <div className="text-white font-bold text-xs">
-                            ₹{filteredFeesReportList.reduce((acc, r) => acc + r.netTuitionDue, 0).toLocaleString('en-IN')}
-                          </div>
-                          <div className="text-[10px] text-emerald-300 font-normal">
-                            Pd: ₹{filteredFeesReportList.reduce((acc, r) => acc + r.tuitionPaid, 0).toLocaleString('en-IN')}
-                          </div>
-                        </td>
+              {/* ─────────────────────────────────────────────────────────────
+                  VIEW 3: FEE-HEAD COMPONENT DEEP-DIVE (TUITION, TRANSPORT, ANNUAL, EXAM)
+                  ───────────────────────────────────────────────────────────── */}
+              {reportViewTab === 'FEE_HEADS' && (
+                <div className="space-y-6 animate-fade-in">
+                  {/* 4 Dedicated Fee-Head Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Tuition Fee Card */}
+                    <div className="p-5 rounded-3xl bg-white border border-[#DCE8E0] shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#E8F0EA]">
+                        <div className="flex items-center gap-2">
+                          <GraduationCap className="w-5 h-5 text-emerald-700" />
+                          <span className="font-bold text-sm text-[#122A24]">Tuition Fee Head</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-mono font-bold border border-emerald-200">
+                          {feeHeadsAnalytics.tuition.rate}% Realized
+                        </span>
+                      </div>
+                      <div className="space-y-1.5 font-mono text-xs">
+                        <div className="flex justify-between text-slate-500">
+                          <span>Gross Demand:</span>
+                          <span className="font-bold text-slate-700">₹{feeHeadsAnalytics.tuition.gross.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-amber-700">
+                          <span>Sibling Concessions:</span>
+                          <span className="font-bold">-₹{feeHeadsAnalytics.tuition.concession.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-[#122A24] font-bold pt-1 border-t border-slate-100">
+                          <span>Net Billed Due:</span>
+                          <span>₹{feeHeadsAnalytics.tuition.netDemand.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-emerald-700 font-bold">
+                          <span>Collected / Paid:</span>
+                          <span>₹{feeHeadsAnalytics.tuition.collected.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-rose-600 font-bold">
+                          <span>Outstanding Pending:</span>
+                          <span>₹{feeHeadsAnalytics.tuition.pending.toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-2">
+                        <div className="bg-emerald-600 h-full rounded-full" style={{ width: `${feeHeadsAnalytics.tuition.rate}%` }} />
+                      </div>
+                    </div>
 
-                        {/* Transport Due / Paid */}
-                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap">
-                          <div className="text-white font-bold text-xs">
-                            ₹{filteredFeesReportList.reduce((acc, r) => acc + r.transportDue, 0).toLocaleString('en-IN')}
-                          </div>
-                          <div className="text-[10px] text-emerald-300 font-normal">
-                            Pd: ₹{filteredFeesReportList.reduce((acc, r) => acc + r.transportPaid, 0).toLocaleString('en-IN')}
-                          </div>
-                        </td>
+                    {/* Transport Fee Card */}
+                    <div className="p-5 rounded-3xl bg-white border border-[#DCE8E0] shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#E8F0EA]">
+                        <div className="flex items-center gap-2">
+                          <Bus className="w-5 h-5 text-blue-700" />
+                          <span className="font-bold text-sm text-[#122A24]">Transport Fee Head</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 text-[10px] font-mono font-bold border border-blue-200">
+                          {feeHeadsAnalytics.transport.optedCount} Commuters
+                        </span>
+                      </div>
+                      <div className="space-y-1.5 font-mono text-xs">
+                        <div className="flex justify-between text-slate-500">
+                          <span>Gross Potential:</span>
+                          <span className="font-bold text-slate-700">₹{feeHeadsAnalytics.transport.gross.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-amber-700">
+                          <span>Free Bus Concessions:</span>
+                          <span className="font-bold">-₹{feeHeadsAnalytics.transport.freeWaiver.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-[#122A24] font-bold pt-1 border-t border-slate-100">
+                          <span>Net Billed Due:</span>
+                          <span>₹{feeHeadsAnalytics.transport.netDemand.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-emerald-700 font-bold">
+                          <span>Collected / Paid:</span>
+                          <span>₹{feeHeadsAnalytics.transport.collected.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-rose-600 font-bold">
+                          <span>Outstanding Pending:</span>
+                          <span>₹{feeHeadsAnalytics.transport.pending.toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-2">
+                        <div className="bg-blue-600 h-full rounded-full" style={{ width: `${feeHeadsAnalytics.transport.rate}%` }} />
+                      </div>
+                    </div>
 
-                        {/* Annual Due / Paid */}
-                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap">
-                          <div className="text-white font-bold text-xs">
-                            ₹{filteredFeesReportList.reduce((acc, r) => acc + r.annualDue, 0).toLocaleString('en-IN')}
-                          </div>
-                          <div className="text-[10px] text-emerald-300 font-normal">
-                            Pd: ₹{filteredFeesReportList.reduce((acc, r) => acc + r.annualPaid, 0).toLocaleString('en-IN')}
-                          </div>
-                        </td>
+                    {/* Annual Fee Card */}
+                    <div className="p-5 rounded-3xl bg-white border border-[#DCE8E0] shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#E8F0EA]">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-5 h-5 text-purple-700" />
+                          <span className="font-bold text-sm text-[#122A24]">Annual Development</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-800 text-[10px] font-mono font-bold border border-purple-200">
+                          Cycle 1 / Annual
+                        </span>
+                      </div>
+                      <div className="space-y-1.5 font-mono text-xs">
+                        <div className="flex justify-between text-slate-500">
+                          <span>Gross Demand:</span>
+                          <span className="font-bold text-slate-700">₹{feeHeadsAnalytics.annual.demand.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-400">
+                          <span>Waivers / Relief:</span>
+                          <span>₹0 Nil</span>
+                        </div>
+                        <div className="flex justify-between text-[#122A24] font-bold pt-1 border-t border-slate-100">
+                          <span>Net Billed Due:</span>
+                          <span>₹{feeHeadsAnalytics.annual.demand.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-emerald-700 font-bold">
+                          <span>Collected / Paid:</span>
+                          <span>₹{feeHeadsAnalytics.annual.collected.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-rose-600 font-bold">
+                          <span>Outstanding Pending:</span>
+                          <span>₹{feeHeadsAnalytics.annual.pending.toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-2">
+                        <div className="bg-purple-600 h-full rounded-full" style={{ width: `${feeHeadsAnalytics.annual.rate}%` }} />
+                      </div>
+                    </div>
 
-                        {/* Exam Due / Paid */}
-                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap">
-                          <div className="text-white font-bold text-xs">
-                            ₹{filteredFeesReportList.reduce((acc, r) => acc + r.examDue, 0).toLocaleString('en-IN')}
-                          </div>
-                          <div className="text-[10px] text-emerald-300 font-normal">
-                            Pd: ₹{filteredFeesReportList.reduce((acc, r) => acc + r.examPaid, 0).toLocaleString('en-IN')}
-                          </div>
-                        </td>
+                    {/* Examination Charges Card */}
+                    <div className="p-5 rounded-3xl bg-white border border-[#DCE8E0] shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#E8F0EA]">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-5 h-5 text-amber-700" />
+                          <span className="font-bold text-sm text-[#122A24]">Exam &amp; Assessment</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-mono font-bold border border-amber-200">
+                          Term I &amp; II
+                        </span>
+                      </div>
+                      <div className="space-y-1.5 font-mono text-xs">
+                        <div className="flex justify-between text-slate-500">
+                          <span>Gross Demand:</span>
+                          <span className="font-bold text-slate-700">₹{feeHeadsAnalytics.exam.demand.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-slate-400">
+                          <span>Waivers / Relief:</span>
+                          <span>₹0 Nil</span>
+                        </div>
+                        <div className="flex justify-between text-[#122A24] font-bold pt-1 border-t border-slate-100">
+                          <span>Net Billed Due:</span>
+                          <span>₹{feeHeadsAnalytics.exam.demand.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-emerald-700 font-bold">
+                          <span>Collected / Paid:</span>
+                          <span>₹{feeHeadsAnalytics.exam.collected.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between text-rose-600 font-bold">
+                          <span>Outstanding Pending:</span>
+                          <span>₹{feeHeadsAnalytics.exam.pending.toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-2">
+                        <div className="bg-amber-500 h-full rounded-full" style={{ width: `${feeHeadsAnalytics.exam.rate}%` }} />
+                      </div>
+                    </div>
+                  </div>
 
-                        {/* Total Due */}
-                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap text-white font-extrabold text-sm">
-                          ₹{filteredFeesReportList.reduce((acc, r) => acc + r.totalDue, 0).toLocaleString('en-IN')}
-                        </td>
+                  {/* Comparative Head Breakdown Table */}
+                  <div className="overflow-x-auto rounded-2xl border border-[#DCE8E0] bg-white shadow-2xs">
+                    <table className="w-full text-left text-xs border-collapse font-sans min-w-[900px]">
+                      <thead>
+                        <tr className="bg-[#122A24] text-white text-[11px] font-mono font-bold tracking-wider select-none border-b border-[#1C443A]">
+                          <th className="py-3.5 px-4 min-w-[200px]">FEE HEAD COMPONENT</th>
+                          <th className="py-3.5 px-4 text-right min-w-[140px]">GROSS BILLED</th>
+                          <th className="py-3.5 px-4 text-right min-w-[140px]">CONCESSIONS / WAIVERS</th>
+                          <th className="py-3.5 px-4 text-right min-w-[140px]">NET DEMAND</th>
+                          <th className="py-3.5 px-4 text-right min-w-[140px]">COLLECTED</th>
+                          <th className="py-3.5 px-4 text-right min-w-[140px]">PENDING</th>
+                          <th className="py-3.5 px-4 text-center min-w-[120px]">RECOVERY %</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E8F0EA] text-slate-700 font-medium">
+                        <tr className="hover:bg-[#F4F8F5] transition-colors">
+                          <td className="py-3.5 px-4 font-bold text-[#122A24] flex items-center gap-2">
+                            <GraduationCap className="w-4 h-4 text-emerald-700" />
+                            <span>Tuition Fee</span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono tabular-nums">₹{feeHeadsAnalytics.tuition.gross.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono text-amber-700 tabular-nums">-₹{feeHeadsAnalytics.tuition.concession.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-[#122A24] tabular-nums">₹{feeHeadsAnalytics.tuition.netDemand.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700 tabular-nums">₹{feeHeadsAnalytics.tuition.collected.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-600 tabular-nums">₹{feeHeadsAnalytics.tuition.pending.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-700">{feeHeadsAnalytics.tuition.rate}%</td>
+                        </tr>
 
-                        {/* Total Submitted / Paid */}
-                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap text-emerald-300 font-extrabold text-sm bg-emerald-950/80">
-                          ₹{filteredFeesReportList.reduce((acc, r) => acc + r.totalPaid, 0).toLocaleString('en-IN')}
-                        </td>
+                        <tr className="hover:bg-[#F4F8F5] transition-colors">
+                          <td className="py-3.5 px-4 font-bold text-[#122A24] flex items-center gap-2">
+                            <Bus className="w-4 h-4 text-blue-700" />
+                            <span>Transport Fleet Fee ({feeHeadsAnalytics.transport.optedCount} Commuters)</span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono tabular-nums">₹{feeHeadsAnalytics.transport.gross.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono text-amber-700 tabular-nums">-₹{feeHeadsAnalytics.transport.freeWaiver.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-[#122A24] tabular-nums">₹{feeHeadsAnalytics.transport.netDemand.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700 tabular-nums">₹{feeHeadsAnalytics.transport.collected.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-600 tabular-nums">₹{feeHeadsAnalytics.transport.pending.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-700">{feeHeadsAnalytics.transport.rate}%</td>
+                        </tr>
 
-                        {/* Total Pending */}
-                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap font-extrabold text-sm text-rose-300 bg-rose-950/60">
-                          ₹{filteredFeesReportList.reduce((acc, r) => acc + r.totalPending, 0).toLocaleString('en-IN')}
-                        </td>
+                        <tr className="hover:bg-[#F4F8F5] transition-colors">
+                          <td className="py-3.5 px-4 font-bold text-[#122A24] flex items-center gap-2">
+                            <Building2 className="w-4 h-4 text-purple-700" />
+                            <span>Annual &amp; Composite Development Charges</span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono tabular-nums">₹{feeHeadsAnalytics.annual.demand.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono text-slate-400 tabular-nums">₹0 Nil</td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-[#122A24] tabular-nums">₹{feeHeadsAnalytics.annual.demand.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700 tabular-nums">₹{feeHeadsAnalytics.annual.collected.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-600 tabular-nums">₹{feeHeadsAnalytics.annual.pending.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-center font-mono font-bold text-purple-700">{feeHeadsAnalytics.annual.rate}%</td>
+                        </tr>
 
-                        {/* Status Summary */}
-                        <td className="py-4 px-3 text-center whitespace-nowrap">
-                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-200 text-[10px] font-bold border border-emerald-500/30 inline-block">
-                            {filteredFeesReportList.filter(r => r.status === 'PAID').length} Paid / {filteredFeesReportList.filter(r => r.status !== 'PAID').length} Due
-                          </span>
-                        </td>
+                        <tr className="hover:bg-[#F4F8F5] transition-colors">
+                          <td className="py-3.5 px-4 font-bold text-[#122A24] flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-amber-700" />
+                            <span>Examination &amp; Assessment Charges</span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-mono tabular-nums">₹{feeHeadsAnalytics.exam.demand.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono text-slate-400 tabular-nums">₹0 Nil</td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-[#122A24] tabular-nums">₹{feeHeadsAnalytics.exam.demand.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700 tabular-nums">₹{feeHeadsAnalytics.exam.collected.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-rose-600 tabular-nums">₹{feeHeadsAnalytics.exam.pending.toLocaleString('en-IN')}</td>
+                          <td className="py-3.5 px-4 text-center font-mono font-bold text-amber-700">{feeHeadsAnalytics.exam.rate}%</td>
+                        </tr>
+                      </tbody>
+                      <tfoot className="bg-[#122A24] text-white border-t-2 border-[#1C443A] font-mono font-bold text-xs select-none sticky bottom-0 z-10 shadow-lg">
+                        <tr>
+                          <td className="py-4 px-4 text-left font-sans font-extrabold uppercase text-sm">Consolidated Fee Heads Total</td>
+                          <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-white font-extrabold text-sm">
+                            ₹{(feeHeadsAnalytics.tuition.gross + feeHeadsAnalytics.transport.gross + feeHeadsAnalytics.annual.demand + feeHeadsAnalytics.exam.demand).toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-amber-300 font-extrabold text-sm">
+                            -₹{(feeHeadsAnalytics.tuition.concession + feeHeadsAnalytics.transport.freeWaiver).toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-white font-extrabold text-sm">
+                            ₹{feesReportKpis.totalExpected.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-emerald-300 font-extrabold text-sm bg-emerald-950/80">
+                            ₹{feesReportKpis.totalCollected.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-rose-300 font-extrabold text-sm bg-rose-950/60">
+                            ₹{feesReportKpis.totalPending.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-4 px-4 text-center text-white font-bold text-sm">
+                            {feesReportKpis.collectionRate}%
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
 
-                        {/* Actions Placeholder */}
-                        <td className="py-4 px-3 text-center whitespace-nowrap text-emerald-200/70 text-[11px] font-sans">
-                          Summary Verified ✓
-                        </td>
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
-              </div>
+              {/* ─────────────────────────────────────────────────────────────
+                  VIEW 4: DISCOUNTS, SIBLING CONCESSIONS & WAIVERS LEDGER
+                  ───────────────────────────────────────────────────────────── */}
+              {reportViewTab === 'DISCOUNTS_WAIVERS' && (
+                <div className="space-y-6 animate-fade-in">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-5 rounded-3xl bg-amber-50 border border-amber-200 shadow-2xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold uppercase text-amber-800">Sibling Concessions</span>
+                        <Sparkles className="w-4 h-4 text-amber-600" />
+                      </div>
+                      <div className="text-2xl font-display font-black text-amber-900">
+                        ₹{discountsAndWaiversData.totalSiblingSaved.toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-[11px] text-amber-700">
+                        20% (2nd), 30% (3rd) &amp; 30%+Free Bus (4th+)
+                      </div>
+                    </div>
+
+                    <div className="p-5 rounded-3xl bg-purple-50 border border-purple-200 shadow-2xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold uppercase text-purple-800">Administrative Waivers</span>
+                        <ShieldCheck className="w-4 h-4 text-purple-600" />
+                      </div>
+                      <div className="text-2xl font-display font-black text-purple-900">
+                        ₹{discountsAndWaiversData.totalAdminWaivers.toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-[11px] text-purple-700">
+                        Principal &amp; Management Approved Concessions
+                      </div>
+                    </div>
+
+                    <div className="p-5 rounded-3xl bg-[#122A24] text-white border border-[#1C443A] shadow-2xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold uppercase text-emerald-300">Total Financial Relief</span>
+                        <Gift className="w-4 h-4 text-amber-400" />
+                      </div>
+                      <div className="text-2xl font-display font-black text-white">
+                        ₹{discountsAndWaiversData.totalDiscountsGranted.toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-[11px] text-emerald-300">
+                        Granted across {discountsAndWaiversData.beneficiaryCount} Beneficiary Scholars
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Statutory Policy Notice */}
+                  <div className="p-4 rounded-2xl bg-[#EBF5EF] border border-[#C5E2CF] flex items-center gap-3 text-xs font-mono text-[#122A24]">
+                    <Info className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span>
+                      <strong>CBSE Concession Rule Matrix:</strong> 1st Child (Standard Rate) • 2nd Child (20% Tuition Concession) • 3rd Child (30% Tuition Concession) • 4th Child (30% Tuition Concession + 100% Free Bus).
+                    </span>
+                  </div>
+
+                  {/* Itemized Concessions Table */}
+                  <div className="overflow-x-auto rounded-2xl border border-[#DCE8E0] bg-white shadow-2xs">
+                    <table className="w-full text-left text-xs border-collapse font-sans min-w-[1000px]">
+                      <thead>
+                        <tr className="bg-[#122A24] text-white text-[11px] font-mono font-bold tracking-wider select-none border-b border-[#1C443A]">
+                          <th className="py-3.5 px-4 w-12 text-center">ROLL</th>
+                          <th className="py-3.5 px-4 min-w-[220px]">SCHOLAR NAME</th>
+                          <th className="py-3.5 px-4 text-center min-w-[120px]">CLASS &amp; SEC</th>
+                          <th className="py-3.5 px-4 min-w-[180px]">FATHER / GUARDIAN</th>
+                          <th className="py-3.5 px-4 min-w-[220px]">CONCESSION CATEGORY</th>
+                          <th className="py-3.5 px-4 text-right min-w-[140px]">SAVED AMOUNT</th>
+                          <th className="py-3.5 px-4 min-w-[240px]">REASON &amp; POLICY</th>
+                          <th className="py-3.5 px-4 text-center min-w-[140px]">VERIFIED BY</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E8F0EA] text-slate-700 font-medium">
+                        {discountsAndWaiversData.list.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="py-12 text-center text-slate-400">
+                              <Gift className="w-8 h-8 text-amber-500 mx-auto mb-2 opacity-60" />
+                              <p className="font-bold text-sm text-slate-600">No active discounts or concessions in this scope</p>
+                              <p className="text-xs text-slate-400 mt-1">Select &apos;All Classes&apos; to view school-wide sibling discounts.</p>
+                            </td>
+                          </tr>
+                        ) : (
+                          discountsAndWaiversData.list.map((d, idx) => (
+                            <tr key={`${d.student.id}-${idx}`} className="hover:bg-[#F4F8F5] transition-colors">
+                              <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-600">{d.rollNo}</td>
+                              <td className="py-3.5 px-4">
+                                <div className="font-bold text-[#122A24]">{d.student.full_name}</div>
+                                <div className="text-[11px] text-slate-400 font-mono">Adm: {d.student.admission_no || d.student.id.slice(0, 8)}</div>
+                              </td>
+                              <td className="py-3.5 px-4 text-center font-mono">
+                                <span className="px-2 py-0.5 rounded-md bg-[#EBF5EF] text-[#122A24] font-bold border border-[#C5E2CF]">
+                                  {d.className} - {d.section}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4 font-medium text-slate-700">{d.fatherName}</td>
+                              <td className="py-3.5 px-4">
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 border ${
+                                  d.category.includes('Sibling')
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                    : 'bg-purple-50 text-purple-800 border-purple-200'
+                                }`}>
+                                  <Sparkles className="w-3 h-3" />
+                                  <span>{d.category}</span>
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono font-extrabold text-emerald-700 tabular-nums">
+                                ₹{d.amountSaved.toLocaleString('en-IN')}
+                              </td>
+                              <td className="py-3.5 px-4 text-slate-600 font-mono text-[11px]">{d.reason}</td>
+                              <td className="py-3.5 px-4 text-center">
+                                <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-mono font-bold">
+                                  {d.verifiedBy}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      {discountsAndWaiversData.list.length > 0 && (
+                        <tfoot className="bg-[#122A24] text-white border-t-2 border-[#1C443A] font-mono font-bold text-xs select-none sticky bottom-0 z-10 shadow-lg">
+                          <tr>
+                            <td colSpan={5} className="py-4 px-4 text-left font-sans font-extrabold uppercase text-sm">
+                              Total Financial Relief Granted ({discountsAndWaiversData.beneficiaryCount} Beneficiaries)
+                            </td>
+                            <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-amber-300 font-extrabold text-sm">
+                              ₹{discountsAndWaiversData.totalDiscountsGranted.toLocaleString('en-IN')}
+                            </td>
+                            <td colSpan={2} className="py-4 px-4 text-center text-emerald-200/80 text-[11px] font-sans">
+                              Audited &amp; Compliant with CBSE Rules ✓
+                            </td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* ─────────────────────────────────────────────────────────────
+                  VIEW 5: TRANSPORT & ROUTE FLEET AUDIT
+                  ───────────────────────────────────────────────────────────── */}
+              {reportViewTab === 'TRANSPORT_FLEET' && (
+                <div className="space-y-6 animate-fade-in">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="p-5 rounded-3xl bg-blue-50 border border-blue-200 shadow-2xs space-y-1.5">
+                      <div className="flex items-center justify-between text-blue-800 text-xs font-mono font-bold uppercase">
+                        <span>Bus Commuters</span>
+                        <Bus className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div className="text-2xl font-display font-black text-blue-900">{transportFleetData.totalRiders} Scholars</div>
+                      <div className="text-[11px] text-blue-700">Opted for School Fleet</div>
+                    </div>
+
+                    <div className="p-5 rounded-3xl bg-slate-50 border border-slate-200 shadow-2xs space-y-1.5">
+                      <div className="flex items-center justify-between text-slate-700 text-xs font-mono font-bold uppercase">
+                        <span>Self Commuters</span>
+                        <User className="w-4 h-4 text-slate-500" />
+                      </div>
+                      <div className="text-2xl font-display font-black text-slate-800">{transportFleetData.selfCount} Scholars</div>
+                      <div className="text-[11px] text-slate-500">Private Transport / Walkers</div>
+                    </div>
+
+                    <div className="p-5 rounded-3xl bg-emerald-50 border border-emerald-200 shadow-2xs space-y-1.5">
+                      <div className="flex items-center justify-between text-emerald-800 text-xs font-mono font-bold uppercase">
+                        <span>Transport Collected</span>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      <div className="text-2xl font-display font-black text-emerald-900">₹{transportFleetData.totalTransportCollected.toLocaleString('en-IN')}</div>
+                      <div className="text-[11px] text-emerald-700">Realized Fleet Fees</div>
+                    </div>
+
+                    <div className="p-5 rounded-3xl bg-rose-50 border border-rose-200 shadow-2xs space-y-1.5">
+                      <div className="flex items-center justify-between text-rose-800 text-xs font-mono font-bold uppercase">
+                        <span>Transport Dues</span>
+                        <AlertCircle className="w-4 h-4 text-rose-600" />
+                      </div>
+                      <div className="text-2xl font-display font-black text-rose-900">₹{transportFleetData.totalTransportPending.toLocaleString('en-IN')}</div>
+                      <div className="text-[11px] text-rose-700">Uncollected Bus Dues</div>
+                    </div>
+                  </div>
+
+                  {/* Slab Breakdown Table */}
+                  <div className="overflow-x-auto rounded-2xl border border-[#DCE8E0] bg-white shadow-2xs">
+                    <table className="w-full text-left text-xs border-collapse font-sans min-w-[900px]">
+                      <thead>
+                        <tr className="bg-[#122A24] text-white text-[11px] font-mono font-bold tracking-wider select-none border-b border-[#1C443A]">
+                          <th className="py-3.5 px-4 min-w-[200px]">DISTANCE SLAB / ROUTE</th>
+                          <th className="py-3.5 px-4 text-right min-w-[130px]">MONTHLY RATE</th>
+                          <th className="py-3.5 px-4 text-center min-w-[130px]">COMMUTERS COUNT</th>
+                          <th className="py-3.5 px-4 text-center min-w-[140px]">FREE BUS BENEFICIARIES</th>
+                          <th className="py-3.5 px-4 text-right min-w-[140px]">TOTAL DEMAND</th>
+                          <th className="py-3.5 px-4 text-right min-w-[140px]">COLLECTED</th>
+                          <th className="py-3.5 px-4 text-right min-w-[140px]">PENDING DUES</th>
+                          <th className="py-3.5 px-4 text-center min-w-[110px]">RECOVERY %</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E8F0EA] text-slate-700 font-medium">
+                        {transportFleetData.slabs.map((s) => (
+                          <tr key={s.label} className="hover:bg-[#F4F8F5] transition-colors">
+                            <td className="py-3.5 px-4 font-bold text-[#122A24] flex items-center gap-2">
+                              <Bus className="w-4 h-4 text-blue-700" />
+                              <span>{s.label}</span>
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-mono tabular-nums text-slate-600">₹{s.rate.toLocaleString('en-IN')}/mo</td>
+                            <td className="py-3.5 px-4 text-center font-mono font-bold">{s.count} Scholars</td>
+                            <td className="py-3.5 px-4 text-center font-mono">
+                              {s.freeCount > 0 ? (
+                                <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[11px] font-bold border border-amber-200">
+                                  {s.freeCount} Free Bus (4th+ Sibling)
+                                </span>
+                              ) : (
+                                <span className="text-slate-400">0</span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-right font-mono font-bold text-[#122A24] tabular-nums">₹{s.demand.toLocaleString('en-IN')}</td>
+                            <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700 tabular-nums">₹{s.collected.toLocaleString('en-IN')}</td>
+                            <td className="py-3.5 px-4 text-right font-mono font-bold tabular-nums">
+                              {s.pending > 0 ? (
+                                <span className="text-rose-600 font-bold">₹{s.pending.toLocaleString('en-IN')}</span>
+                              ) : (
+                                <span className="text-emerald-700">₹0 Nil</span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-mono font-bold text-blue-800">{s.ratePct}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-[#122A24] text-white border-t-2 border-[#1C443A] font-mono font-bold text-xs select-none sticky bottom-0 z-10 shadow-lg">
+                        <tr>
+                          <td colSpan={2} className="py-4 px-4 text-left font-sans font-extrabold uppercase text-sm">
+                            Total Transport Fleet Summary
+                          </td>
+                          <td className="py-4 px-4 text-center text-white font-bold">{transportFleetData.totalRiders} Riders</td>
+                          <td className="py-4 px-4 text-center text-amber-300 font-mono text-xs">
+                            {scopedClassScholars.filter(r => r.siblingInfo.freeTransport).length} Free Bus Grants
+                          </td>
+                          <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-white font-extrabold text-sm">
+                            ₹{transportFleetData.totalTransportBilled.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-emerald-300 font-extrabold text-sm bg-emerald-950/80">
+                            ₹{transportFleetData.totalTransportCollected.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-rose-300 font-extrabold text-sm bg-rose-950/60">
+                            ₹{transportFleetData.totalTransportPending.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-4 px-4 text-center text-emerald-300 text-xs font-bold">
+                            {feeHeadsAnalytics.transport.rate}%
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* ─────────────────────────────────────────────────────────────
+                  VIEW 6: DEFAULTERS ACTION CENTER & BULK REMINDER DOCKET
+                  ───────────────────────────────────────────────────────────── */}
+              {reportViewTab === 'DEFAULTERS' && (
+                <div className="space-y-4 animate-fade-in">
+                  {/* Defaulters Control & Filter Bar */}
+                  <div className="bg-[#FFF5F5] rounded-2xl p-4 border border-rose-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                      <div>
+                        <h3 className="text-xs font-bold text-rose-900 font-display">
+                          Fee Defaulters Recovery Center ({defaultersListData.length} Scholars with Outstanding Dues)
+                        </h3>
+                        <p className="text-[11px] text-rose-700">
+                          Total Unpaid Receivables: <strong>₹{defaultersListData.reduce((acc, d) => acc + d.totalPending, 0).toLocaleString('en-IN')}</strong> in {reportClass}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                      <span className="text-[11px] font-mono text-rose-800 font-semibold mr-1">Severity:</span>
+                      {(['ALL', 'CRITICAL', 'MODERATE', 'MINOR'] as const).map(sev => (
+                        <button
+                          key={sev}
+                          type="button"
+                          onClick={() => setDefaultersSeverityFilter(sev)}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                            defaultersSeverityFilter === sev
+                              ? 'bg-rose-700 text-white border-rose-700 shadow-2xs'
+                              : 'bg-white text-rose-800 border-rose-300 hover:bg-rose-100'
+                          }`}
+                        >
+                          {sev === 'ALL' && `All (${filteredFeesReportList.filter(r => r.totalPending > 0).length})`}
+                          {sev === 'CRITICAL' && `🚨 Critical >₹10k (${filteredFeesReportList.filter(r => r.totalPending >= 10000).length})`}
+                          {sev === 'MODERATE' && `⚡ Moderate ₹4k-10k (${filteredFeesReportList.filter(r => r.totalPending >= 4000 && r.totalPending < 10000).length})`}
+                          {sev === 'MINOR' && `Minor <₹4k (${filteredFeesReportList.filter(r => r.totalPending > 0 && r.totalPending < 4000).length})`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Defaulters Table */}
+                  <div className="overflow-x-auto rounded-2xl border border-[#DCE8E0] bg-white shadow-2xs">
+                    <table className="w-full text-left text-xs border-collapse font-sans min-w-[1100px]">
+                      <thead>
+                        <tr className="bg-rose-950 text-white text-[11px] font-mono font-bold tracking-wider select-none border-b border-rose-900">
+                          <th className="py-3.5 px-4 w-12 text-center">ROLL</th>
+                          <th className="py-3.5 px-4 min-w-[220px]">DEFAULTER SCHOLAR</th>
+                          <th className="py-3.5 px-4 text-center min-w-[120px]">CLASS &amp; SEC</th>
+                          <th className="py-3.5 px-4 min-w-[200px]">PARENT / PHONE</th>
+                          <th className="py-3.5 px-4 text-right min-w-[120px]">TUITION DUE</th>
+                          <th className="py-3.5 px-4 text-right min-w-[120px]">TRANSPORT DUE</th>
+                          <th className="py-3.5 px-4 text-right min-w-[120px]">ANNUAL DUE</th>
+                          <th className="py-3.5 px-4 text-right min-w-[140px] bg-rose-900">TOTAL DUE</th>
+                          <th className="py-3.5 px-4 text-center min-w-[220px]">RECOVERY ACTIONS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#E8F0EA] text-slate-700 font-medium">
+                        {defaultersListData.length === 0 ? (
+                          <tr>
+                            <td colSpan={9} className="py-12 text-center text-slate-400">
+                              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-60" />
+                              <p className="font-bold text-sm text-slate-600">Zero defaulters found in this filter scope!</p>
+                              <p className="text-xs text-slate-400 mt-1">All scholars in this category have cleared their dues.</p>
+                            </td>
+                          </tr>
+                        ) : (
+                          defaultersListData.map((d) => (
+                            <tr key={d.student.id} className="hover:bg-rose-50/40 transition-colors">
+                              <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-600">{d.rollNo}</td>
+                              <td className="py-3.5 px-4">
+                                <div className="font-bold text-[#122A24]">{d.student.full_name}</div>
+                                <div className="text-[11px] text-slate-400 font-mono">Adm: {d.student.admission_no || d.student.id.slice(0, 8)}</div>
+                              </td>
+                              <td className="py-3.5 px-4 text-center font-mono">
+                                <span className="px-2 py-0.5 rounded-md bg-[#EBF5EF] text-[#122A24] font-bold border border-[#C5E2CF]">
+                                  {d.className} - {d.section}
+                                </span>
+                              </td>
+                              <td className="py-3.5 px-4">
+                                <div className="font-medium text-slate-700">{d.fatherName}</div>
+                                <div className="text-[11px] text-slate-500 font-mono">{d.student.parent_phone || d.student.phone || 'No phone'}</div>
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono text-slate-700 tabular-nums">
+                                ₹{d.tuitionPending.toLocaleString('en-IN')}
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono text-slate-700 tabular-nums">
+                                ₹{d.transportPending.toLocaleString('en-IN')}
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono text-slate-700 tabular-nums">
+                                ₹{d.annualPending.toLocaleString('en-IN')}
+                              </td>
+                              <td className="py-3.5 px-4 text-right font-mono font-black text-rose-700 text-sm bg-rose-50 tabular-nums">
+                                ₹{d.totalPending.toLocaleString('en-IN')}
+                              </td>
+                              <td className="py-3.5 px-4 text-center">
+                                <div className="flex items-center justify-center gap-1.5 flex-nowrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSendWhatsAppReminder(d)}
+                                    className="px-2.5 py-1.5 bg-[#EBF5EF] hover:bg-[#D8EEDF] text-[#122A24] border border-[#C5E2CF] rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0"
+                                    title="Send WhatsApp Fee Notice"
+                                  >
+                                    <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
+                                    <span>WhatsApp Notice</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickCollectFromMonthly(d.student, d.totalPending)}
+                                    className="px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white border-none rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0"
+                                    title="Collect Balance at Counter"
+                                  >
+                                    <CreditCard className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Collect</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      {defaultersListData.length > 0 && (
+                        <tfoot className="bg-rose-950 text-white border-t-2 border-rose-900 font-mono font-bold text-xs select-none sticky bottom-0 z-10 shadow-lg">
+                          <tr>
+                            <td colSpan={7} className="py-4 px-4 text-left font-sans font-extrabold uppercase text-sm">
+                              Total Overdue Balance ({defaultersListData.length} Defaulters)
+                            </td>
+                            <td className="py-4 px-4 text-right tabular-nums whitespace-nowrap text-amber-300 font-extrabold text-sm">
+                              ₹{defaultersListData.reduce((acc, d) => acc + d.totalPending, 0).toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-4 px-4 text-center text-rose-200/80 text-[11px] font-sans">
+                              Automated Reminders Ready ✓
+                            </td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </div>
+              )}
 
             </div>
           )}
