@@ -1189,7 +1189,7 @@ export function DashboardOverview({
       {/* ─────────────────────────────────────────────────────────────
           1. WELCOME HEADER ROW WITH FILTERS & EXPORT BUTTON
           ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-4 sm:p-7 relative z-20 overflow-hidden">
+      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-4 sm:p-7 relative z-30">
         {/* Editorial Watermark Typography - accurately reproducing the reference showcase aesthetic */}
         <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none select-none">
           <div 
@@ -1206,7 +1206,7 @@ export function DashboardOverview({
               Welcome back, {greetingName}
             </h1>
             <p className="text-xs sm:text-sm text-[#2D5A4E]/80 mt-0.5">
-              Here's what is happening across {selectedSchool?.school_name || 'campus'} today.
+              Here&apos;s what is happening across {selectedSchool?.school_name || 'campus'} today.
             </p>
           </div>
 
@@ -1222,7 +1222,7 @@ export function DashboardOverview({
                 <ChevronDown className={`w-3.5 h-3.5 text-[#2D5A4E]/70 transition-transform duration-150 ${timeDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
               {timeDropdownOpen && (
-                <div className="absolute left-0 sm:right-0 top-full mt-2 bg-white border border-[#DCE8E0] rounded-xl shadow-xl z-50 py-1.5 min-w-[130px] text-xs font-medium animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute left-0 top-full mt-2 bg-white border border-[#DCE8E0] rounded-xl shadow-xl z-50 py-1.5 min-w-[130px] text-xs font-medium animate-in fade-in zoom-in-95 duration-100">
                   {(['Daily', 'Weekly', 'Monthly'] as const).map(option => (
                     <button
                       key={option}
@@ -1256,7 +1256,7 @@ export function DashboardOverview({
                 <ChevronDown className={`w-3.5 h-3.5 text-[#2D5A4E]/70 transition-transform duration-150 ${feeCycleDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
               {feeCycleDropdownOpen && (
-                <div className="absolute left-0 sm:right-0 top-full mt-2 bg-white border border-[#DCE8E0] rounded-2xl shadow-2xl z-50 py-2.5 w-[calc(100vw-2rem)] sm:w-96 max-w-sm text-xs font-medium animate-in fade-in zoom-in-95 duration-100 max-h-96 overflow-y-auto">
+                <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 bg-white border border-[#DCE8E0] rounded-2xl shadow-2xl z-50 py-2.5 w-[min(calc(100vw-2.5rem),380px)] text-xs font-medium animate-in fade-in zoom-in-95 duration-100 max-h-[75vh] overflow-y-auto">
                   <div className="px-3.5 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 flex items-center justify-between">
                     <span>CBSE Academic Fee Cycles</span>
                     <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-mono">9 Cycles</span>
