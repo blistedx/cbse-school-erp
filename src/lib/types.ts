@@ -904,3 +904,211 @@ export interface StudentGatePass {
   date: string;
 }
 
+// ─────────────────────────────────────────────────────────────
+// FEE MASTER — SINGLE SOURCE OF TRUTH FOR ALL FINANCIAL DATA
+// ─────────────────────────────────────────────────────────────
+
+export type FeeLineType = 'DEMAND' | 'PAYMENT' | 'DISCOUNT' | 'WAIVER' | 'FINE' | 'REFUND' | 'ADJUSTMENT' | 'OPENING_BALANCE';
+
+export type FeeHead = 'TUITION' | 'ADMISSION' | 'TRANSPORT' | 'HOSTEL' | 'MESS' | 'EXAM' | 'LIBRARY_FINE' | 'LATE_FEE' | 'ACTIVITY' | 'SECURITY_DEPOSIT' | 'MISC';
+
+export type AcademicMonth = 'APR' | 'MAY' | 'JUN' | 'JUL' | 'AUG' | 'SEP' | 'OCT' | 'NOV' | 'DEC' | 'JAN' | 'FEB' | 'MAR';
+
+export type PaymentMode = 'CASH' | 'UPI' | 'CARD' | 'CHEQUE' | 'NEFT' | 'ONLINE';
+
+export type ConcessionType = 'SIBLING' | 'RTE' | 'STAFF_WARD' | 'MERIT' | 'SPORTS' | 'SINGLE_GIRL_CHILD' | 'PRINCIPAL_WAIVER' | 'EARLY_BIRD';
+
+/**
+ * FeeLedgerLine — Immutable, append-only financial record.
+ * Lines are NEVER edited or deleted. Corrections happen via ADJUSTMENT or cancellation lines.
+ * All money amounts are stored in PAISE (₹1 = 100 paise). Amount is always positive;
+ * line_type determines the sign convention (debit/credit).
+ */
+export interface FeeLedgerLine {
+  id: string;
+  school_id: string;
+  academic_session: string;
+
+  // Student identity (denormalized for query performance)
+  student_id: string;
+  class_name: string;
+  section: string;
+  admission_no: string;
+
+  // Core financial
+  line_type: FeeLineType;
+  fee_head: FeeHead;
+  month: AcademicMonth | null;    // null for annual/one-time heads
+
+  amount: number;                  // Always positive integer in PAISE
+
+  // For ADJUSTMENT lines that can go either way
+  adjustment_direction?: 'DEBIT' | 'CREDIT';
+
+  // Dates
+  txn_date: string;                // ISO date "YYYY-MM-DD"
+  due_date: string | null;         // For DEMAND lines
+
+  // Payment metadata
+  payment_mode: PaymentMode | null;
+  receipt_no: string | null;
+  cheque_no: string | null;
+  txn_ref: string | null;
+
+  // Concession metadata
+  concession_type: ConcessionType | null;
+
+  // Actors
+  collected_by: string | null;     // User ID
+  approved_by: string | null;      // User ID (for waivers, refunds)
+
+  // Cancellation (soft — original line stays, cancellation line points back)
+  is_cancelled: boolean;
+  cancelled_reason: string | null;
+  cancelled_by: string | null;
+  cancelled_at: string | null;
+
+  // Cross-references
+  linked_line_id: string | null;   // refund→payment, discount→demand, adjustment→original
+
+  remarks: string | null;
+  created_at: string;              // ISO timestamp
+}
+
+/**
+ * Per-student fee summary derived from the ledger.
+ */
+export interface LedgerFeeSummary {
+  totalDemand: number;     // paise
+  totalDiscount: number;   // paise
+  totalWaiver: number;     // paise
+  totalFine: number;       // paise
+  totalPaid: number;       // paise
+  totalRefund: number;     // paise
+  balance: number;         // paise (positive = owes, negative = advance)
+  status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'WAIVED' | 'ADVANCE';
+  headWise: {
+    fee_head: FeeHead;
+    demand: number;
+    paid: number;
+    discount: number;
+    waiver: number;
+    balance: number;
+  }[];
+  monthWise: {
+    month: AcademicMonth;
+    demand: number;
+    paid: number;
+    discount: number;
+    waiver: number;
+    fine: number;
+    balance: number;
+    status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'UPCOMING';
+  }[];
+}
+
+/**
+ * Filters for the generic report engine (getFeeAggregate).
+ */
+export interface FeeAggregateFilters {
+  session: string;
+  dateFrom?: string;
+  dateTo?: string;
+  months?: AcademicMonth[];
+  classes?: string[];
+  sections?: string[];
+  studentIds?: string[];
+  feeHeads?: FeeHead[];
+  lineTypes?: FeeLineType[];
+  paymentModes?: (PaymentMode | null)[];
+  concessionTypes?: (ConcessionType | null)[];
+  collectedBy?: string[];
+  transportRouteId?: string;
+  hostelBlockId?: string;
+  studentStatus?: 'ACTIVE' | 'INACTIVE' | 'ALUMNI';
+  includeCancelled?: boolean;
+}
+
+export type GroupByDimension =
+  | 'month' | 'class' | 'section' | 'fee_head' | 'payment_mode'
+  | 'concession_type' | 'collected_by' | 'date' | 'student'
+  | 'route' | 'category';
+
+/**
+ * A single row returned by getFeeAggregate. All money in paise.
+ */
+export interface FeeAggregateRow {
+  dimensions: Record<string, string>;
+  demand: number;
+  discount: number;
+  waiver: number;
+  fine: number;
+  collected: number;
+  refund: number;
+  balance: number;
+  studentCount: number;
+}
+
+/**
+ * Fee Configuration — single source of truth for all rate definitions.
+ * Stored per school per session. Replaces all hardcoded rate tables.
+ */
+export interface FeeConfig {
+  id: string;
+  school_id: string;
+  academic_session: string;
+
+  tuition_structure: {
+    class_group: string;
+    classes: string[];
+    monthly_fee_paise: number;
+  }[];
+
+  annual_fees: {
+    fee_head: string;
+    class_group: string;
+    amount_paise: number;
+    applies_to: 'NEW' | 'ALL';
+  }[];
+
+  transport_slabs: {
+    id: string;
+    slab_name: string;
+    monthly_fee_paise: number;
+  }[];
+
+  hostel_rates: {
+    room_type: 'WITHOUT_AC' | 'WITH_AC';
+    monthly_fee_paise: number;
+    security_deposit_paise: number;
+  }[];
+
+  exam_fees: {
+    exam_type: string;
+    months: AcademicMonth[];
+    amount_paise: number;
+  }[];
+
+  concession_rules: {
+    type: ConcessionType;
+    rule: string;
+    discount_percent?: number;
+    discount_amount_paise?: number;
+    applies_to_heads: FeeHead[];
+    sibling_rule?: {
+      first_child_percent: number;
+      second_child_percent: number;
+      third_plus_percent: number;
+    };
+  }[];
+
+  late_fee_rules: {
+    grace_days: number;
+    amount_paise: number;
+    max_months: number;
+  };
+
+  updated_at: string;
+  updated_by: string;
+}
+

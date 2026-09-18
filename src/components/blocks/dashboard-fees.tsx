@@ -67,6 +67,7 @@ import { getStudentMonthlyFeeSchedule, getStudentFeeSummary, matchInvoicesForStu
 import { getFeeRatesForClass } from '@/lib/fee-calculator';
 import { getSchoolInitials } from '@/lib/utils';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
+import { DashboardFeeMaster } from './dashboard-fee-master';
 
 export interface DashboardFeesProps {
   selectedSchool?: School | null;
@@ -75,7 +76,7 @@ export interface DashboardFeesProps {
   classes: ClassRoom[];
   teachers: Teacher[];
   selectedSession: string;
-  subTab?: 'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'slips' | 'payroll' | 'calendar';
+  subTab?: 'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'slips' | 'payroll' | 'calendar' | 'fee_master';
   userRole?: string;
   currentUser?: any;
   preselectedStudentId?: string;
@@ -150,8 +151,8 @@ export function DashboardFees({
     );
   }, [normalizedRole, currentUser]);
 
-  // Navigation Tabs (Fees Report Engine, Quick Collect, Month-Wise Sheet, Fee Master, Ledger, Payroll)
-  const [feeTab, setFeeTab] = useState<'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'payroll'>((subTab as any) || 'reports');
+  // Navigation Tabs (Unified Fee Master, Fees Report Engine, Quick Collect, Month-Wise Sheet, Fee Master, Ledger, Payroll)
+  const [feeTab, setFeeTab] = useState<'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'payroll' | 'fee_master'>((subTab as any) || 'fee_master');
   const [invoices, setInvoices] = useState<FeeInvoice[]>(initialInvoices || []);
 
   // Unique Chronologically Sorted Class Names
@@ -2569,9 +2570,23 @@ export function DashboardFees({
           </div>
         </div>
 
-        {/* 6 Primary Navigation Buttons (Responsive Multi-Row Grid) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10">
+        {/* 7 Primary Navigation Buttons (Responsive Multi-Row Grid) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10">
           
+          {/* Tab 0: Unified Fee Master & Ledger Engine */}
+          <button
+            type="button"
+            onClick={() => setFeeTab('fee_master')}
+            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+              feeTab === 'fee_master'
+                ? 'bg-[#122A24] text-white shadow-xs font-bold ring-1 ring-emerald-500/30'
+                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+            }`}
+          >
+            <Sparkles className="h-4 w-4 stroke-[1.75] shrink-0 text-emerald-400" />
+            <span className="truncate">Fee Master</span>
+          </button>
+
           {/* Tab 1: Comprehensive Fees Report Engine */}
           <button
             type="button"
@@ -2583,7 +2598,7 @@ export function DashboardFees({
             }`}
           >
             <BarChart2 className="h-4 w-4 stroke-[1.75] shrink-0 text-amber-400" />
-            <span className="truncate">Fees Report Engine</span>
+            <span className="truncate">Fees Report</span>
           </button>
 
           {/* Tab 2: Quick Collect Counter */}
@@ -2615,7 +2630,7 @@ export function DashboardFees({
             ) : (
               <Lock className="h-4 w-4 stroke-[1.75] shrink-0 text-amber-500" />
             )}
-            <span className="truncate">{isSuperAdmin ? 'Fee Master & Upload' : 'Fee Master (View Only)'}</span>
+            <span className="truncate">{isSuperAdmin ? 'Fee Structure' : 'Fee Structure (View)'}</span>
           </button>
 
           {/* Tab 5: Month-Wise Sheet */}
@@ -2662,6 +2677,19 @@ export function DashboardFees({
 
         </div>
       </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          TAB: UNIFIED FEE MASTER & 25 CANONICAL PRESET REPORTS
+          ───────────────────────────────────────────────────────────── */}
+      {feeTab === 'fee_master' && (
+        <div className="space-y-6 animate-fade-in">
+          <DashboardFeeMaster
+            school={selectedSchool}
+            students={students}
+            selectedSession={selectedSession}
+          />
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────
           TAB 0: COMPREHENSIVE INSTITUTIONAL FEES REPORT ENGINE
