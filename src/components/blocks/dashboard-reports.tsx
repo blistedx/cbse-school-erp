@@ -4,8 +4,8 @@
 import React, { useState, useMemo } from 'react';
 import { School, Student, Teacher, ClassRoom, FeeInvoice, AttendanceRecord, resolveTeacherRole, STAFF_ROLES } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
-import { getSchoolInitials } from '@/lib/utils';
-import { getStudentMonthlyFeeSchedule, CBSE_ACADEMIC_MONTHS } from '@/lib/monthly-fee-helper';
+import { getSchoolInitials, getTodayDateStr } from '@/lib/utils';
+import { getStudentMonthlyFeeSchedule, getStudentFeeSummary, CBSE_ACADEMIC_MONTHS } from '@/lib/monthly-fee-helper';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 import {
   Printer,
@@ -186,7 +186,7 @@ export function DashboardReports({
   }, [students, invoices, feeCycleFilter]);
 
 
-  const todayDateStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayDateStr = getTodayDateStr();
 
   // 2. Student Attendance Register Data (Derived from live attendance records)
   const studentAttendanceData = useMemo(() => {
@@ -617,7 +617,7 @@ export function DashboardReports({
           { header: 'Parent Contact', render: (s) => s.emergency_contact_phone || (s as any).emergency_contact || 'N/A' },
           { header: 'Blood Grp', render: (s) => s.blood_group || 'O+', align: 'center' },
           { header: 'PEN ID', render: (s) => (s as any).pen_no || s.apaar_id || 'PEN-PENDING' },
-          { header: 'Fee Status', render: (s) => s.fee_status || 'PENDING', align: 'right' }
+          { header: 'Fee Status', render: (s) => getStudentFeeSummary(s, invoices).feeStatus, align: 'right' }
         ];
         const filterSummary = [
           { label: 'Total Scholars', value: `${filteredStudentsDossier.length} Students` },
@@ -733,7 +733,8 @@ export function DashboardReports({
         const contactPhone = s.emergency_contact_phone || (s as any).emergency_contact || 'N/A';
         const penId = (s as any).pen_no || s.apaar_id || 'PEN-PENDING';
         const homeAddress = (s.residential_address || (s as any).address || 'Local Campus Resident').replace(/"/g, '""');
-        csvContent += `"${s.admission_no || s.id}","${s.full_name}","${s.class_name}","${s.section}","${s.father_name || 'N/A'}","${s.mother_name || 'N/A'}","${contactPhone}","${s.dob || '2012-05-14'}","${s.blood_group || 'O+'}","${s.aadhaar_no || 'XXXX-XXXX-XXXX'}","${penId}","${s.apaar_id || 'APAAR-PENDING'}","${homeAddress}","${s.fee_status || 'PENDING'}"\r\n`;
+        const feeStatus = getStudentFeeSummary(s, invoices).feeStatus;
+        csvContent += `"${s.admission_no || s.id}","${s.full_name}","${s.class_name}","${s.section}","${s.father_name || 'N/A'}","${s.mother_name || 'N/A'}","${contactPhone}","${s.dob || '2012-05-14'}","${s.blood_group || 'O+'}","${s.aadhaar_no || 'XXXX-XXXX-XXXX'}","${penId}","${s.apaar_id || 'APAAR-PENDING'}","${homeAddress}","${feeStatus}"\r\n`;
       });
     } else if (reportSubTab === 'employee_dossier') {
       csvContent += `Central School ERP - Faculty & Staff Statutory Employment Dossier - Session ${session}\r\n`;
@@ -1678,11 +1679,16 @@ export function DashboardReports({
                     <td className="py-3 px-3">{s.emergency_contact_phone || (s as any).emergency_contact || 'N/A'}</td>
                     <td className="py-3 px-3 text-[11px] text-[#0D652D]">{(s as any).pen_no || s.apaar_id || 'PENDING'}</td>
                     <td className="py-3 px-3.5 text-right">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        s.fee_status === 'PAID' ? 'bg-[#E6F4EA] text-[#0D652D] border border-[#CEEAD6]' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                      }`}>
-                        {s.fee_status || 'PENDING'}
-                      </span>
+                      {(() => {
+                        const feeSt = getStudentFeeSummary(s, invoices).feeStatus;
+                        return (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            feeSt === 'PAID' || feeSt === 'WAIVED' ? 'bg-[#E6F4EA] text-[#0D652D] border border-[#CEEAD6]' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                          }`}>
+                            {feeSt}
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}

@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 import BroadcastInboxModal from '@/components/broadcast-inbox-modal';
 import { StudentAttendanceHistoryModal } from '@/components/student-attendance-history';
+import { Student, FeeInvoice } from '@/lib/types';
+import { getStudentMonthlyFeeSchedule, getStudentFeeSummary, MonthlyFeeItem } from '@/lib/monthly-fee-helper';
 
 export interface RoleParentViewProps {
   activeTab: string;
@@ -57,10 +59,26 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
 
   // Fee Receipt Preview Modal
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<any | null>(null);
   const [showAttendanceHistoryModal, setShowAttendanceHistoryModal] = useState(false);
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [recentBroadcasts, setRecentBroadcasts] = useState<any[]>([]);
   const [liveDriverTelemetry, setLiveDriverTelemetry] = useState<any>(null);
+  const [parentInvoices, setParentInvoices] = useState<FeeInvoice[]>([]);
+
+  // Fetch real fee invoices for school/student
+  React.useEffect(() => {
+    const fetchInvoices = async () => {
+      try {
+        const res = await fetch('/api/fees');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.invoices)) {
+          setParentInvoices(data.invoices);
+        }
+      } catch (_) {}
+    };
+    fetchInvoices();
+  }, [activeTab, paymentSuccess]);
 
   // Poll live driver GPS telemetry from server
   React.useEffect(() => {
@@ -110,6 +128,7 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
 
   const studentData = {
     aarav: {
+      id: 'stu-aarav',
       name: 'Aarav Sharma',
       class: 'Class VI-A',
       rollNo: '24',
@@ -120,12 +139,12 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
       avatar: '👦',
       busNo: 'Bus #04 (Route South 2)',
       busEta: '4 mins away',
-      pendingFee: '₹28,500',
       bloodGroup: 'B+ Positive',
       house: 'Tagore (Green)',
       classTeacher: 'Mrs. Anjali Gupta (M.Sc, B.Ed)'
     },
     ananya: {
+      id: 'stu-ananya',
       name: 'Ananya Sharma',
       class: 'Class III-B',
       rollNo: '11',
@@ -136,14 +155,31 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
       avatar: '👧',
       busNo: 'Bus #04 (Route South 2)',
       busEta: '4 mins away',
-      pendingFee: '₹0 (Cleared)',
       bloodGroup: 'O+ Positive',
-      house: 'Shivaji (Red)',
-      classTeacher: 'Ms. Pooja Malhotra (B.El.Ed)'
+      house: 'Tagore (Green)',
+      classTeacher: 'Ms. Priya Verma (B.Ed, CTET)'
     }
   };
 
   const currentStudent = studentData[selectedStudent];
+
+  // Dynamic fee calculation for active student
+  const activeStudentObj: Student = {
+    id: currentStudent.id,
+    school_id: 'DPS2026',
+    admission_no: currentStudent.admNo,
+    full_name: currentStudent.name,
+    class_name: currentStudent.class,
+    section: 'A',
+    fee_status: 'PENDING',
+    status: 'ACTIVE',
+    gender: 'MALE',
+    guardian_name: 'Mr. Sharma',
+    guardian_phone: '9876543210'
+  };
+
+  const studentFeeSummary = getStudentFeeSummary(activeStudentObj, parentInvoices);
+  const studentFeeSchedule = getStudentMonthlyFeeSchedule(activeStudentObj, parentInvoices);
 
   // Daily Timetable
   const timetableToday = [
@@ -349,16 +385,20 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
                 <CreditCard className="w-4 h-4 text-neutral-400" />
               </div>
               <div className="my-2">
-                <div className="text-2xl font-black text-neutral-900 tracking-tight">{currentStudent.pendingFee}</div>
-                <div className="text-[10px] text-amber-600 font-medium">Q2 Term (Due 15 Sep)</div>
+                <div className="text-2xl font-black text-neutral-900 tracking-tight">
+                  {studentFeeSummary.currentBalanceDue > 0 ? `₹${studentFeeSummary.currentBalanceDue.toLocaleString('en-IN')}` : '₹0 (Cleared)'}
+                </div>
+                <div className="text-[10px] text-amber-600 font-medium">
+                  {studentFeeSummary.currentBalanceDue > 0 ? 'Current Academic Dues' : 'All Dues Cleared'}
+                </div>
               </div>
-              {currentStudent.pendingFee !== '₹0 (Cleared)' ? (
+              {studentFeeSummary.currentBalanceDue > 0 ? (
                 <button
                   onClick={() => {
                     setActiveTab('fees');
                     setShowFeePaymentModal(true);
                   }}
-                  className="w-full py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1"
+                  className="w-full py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1 cursor-pointer"
                 >
                   <span>Pay Now</span>
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -597,31 +637,39 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
           <div className="p-5 bg-gradient-to-br from-[#122A24] to-[#1C443A] text-white rounded-3xl shadow-lg relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-10 font-mono text-8xl font-black">₹</div>
             <div className="text-xs text-emerald-300 font-medium uppercase tracking-wider">Academic Session 2026-27</div>
-            <div className="text-3xl font-black text-white mt-1">₹28,500</div>
-            <div className="text-xs text-emerald-200 mt-1">Quarter 2 Installment • Due 15 Sep 2026</div>
+            <div className="text-3xl font-black text-white mt-1">
+              ₹{studentFeeSummary.currentBalanceDue.toLocaleString('en-IN')}
+            </div>
+            <div className="text-xs text-emerald-200 mt-1">
+              {studentFeeSummary.currentBalanceDue === 0 ? '✓ All current dues cleared in full' : 'Current Academic Dues • Due 15th of Month'}
+            </div>
 
             <div className="mt-4 pt-3 border-t border-emerald-700/50 space-y-1.5 text-xs text-neutral-200">
               <div className="flex justify-between">
-                <span>Tuition & Composite Fee:</span>
-                <span className="font-mono font-bold">₹22,000</span>
+                <span>Total Annual Demand:</span>
+                <span className="font-mono font-bold">₹{studentFeeSummary.totalAnnualDemand.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between">
-                <span>Air-Conditioned Transport (Zone 2):</span>
-                <span className="font-mono font-bold">₹4,500</span>
+                <span>Total Fee Paid to Date:</span>
+                <span className="font-mono font-bold text-emerald-300">₹{studentFeeSummary.totalPaidToDate.toLocaleString('en-IN')}</span>
               </div>
-              <div className="flex justify-between">
-                <span>STEM & Robotics Lab Charge:</span>
-                <span className="font-mono font-bold">₹2,000</span>
-              </div>
+              {studentFeeSummary.totalConcessions > 0 && (
+                <div className="flex justify-between">
+                  <span>Concession / Scholarship:</span>
+                  <span className="font-mono font-bold text-amber-300">-₹{studentFeeSummary.totalConcessions.toLocaleString('en-IN')}</span>
+                </div>
+              )}
             </div>
 
-            <button
-              onClick={() => setShowFeePaymentModal(true)}
-              className="w-full mt-4 py-3 bg-emerald-400 hover:bg-emerald-300 text-[#122A24] rounded-2xl font-extrabold text-sm shadow-md active:scale-98 transition-all flex items-center justify-center gap-2"
-            >
-              <CreditCard className="w-4 h-4" />
-              Pay ₹28,500 with UPI / Card / NetBanking
-            </button>
+            {studentFeeSummary.currentBalanceDue > 0 && (
+              <button
+                onClick={() => setShowFeePaymentModal(true)}
+                className="w-full mt-4 py-3 bg-emerald-400 hover:bg-emerald-300 text-[#122A24] rounded-2xl font-extrabold text-sm shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <CreditCard className="w-4 h-4" />
+                Pay ₹{studentFeeSummary.currentBalanceDue.toLocaleString('en-IN')} with UPI / Card / NetBanking
+              </button>
+            )}
           </div>
 
           {/* Past Payment Receipts Ledger */}
@@ -632,33 +680,34 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
             </h3>
 
             <div className="space-y-2.5">
-              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-xs text-neutral-900">Quarter 1 (Apr - Jun 2026)</div>
-                  <div className="text-[10px] text-neutral-500 font-mono">Paid on 05 Apr 2026 • Ref: UPI-94810294</div>
-                  <div className="text-xs font-black text-emerald-800 font-mono mt-0.5">₹28,500</div>
+              {studentFeeSchedule.months.filter(m => m.paidAmount > 0).map((m, idx) => (
+                <div key={m.id || idx} className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-xs text-neutral-900">{m.cycleName || m.month}</div>
+                    <div className="text-[10px] text-neutral-500 font-mono">
+                      Paid: {m.paidDate || 'Verified'} • {m.paymentMode || 'UPI / NetBanking'} • Inv #{m.invoiceNo}
+                    </div>
+                    <div className="text-xs font-black text-emerald-800 font-mono mt-0.5">
+                      ₹{m.paidAmount.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedReceipt(m);
+                      setShowReceiptModal(true);
+                    }}
+                    className="px-3 py-1.5 bg-neutral-900 hover:bg-black text-white text-xs font-semibold rounded-xl flex items-center gap-1 shadow-sm cursor-pointer"
+                  >
+                    <Download className="w-3 h-3" /> Receipt
+                  </button>
                 </div>
-                <button
-                  onClick={() => setShowReceiptModal(true)}
-                  className="px-3 py-1.5 bg-neutral-900 hover:bg-black text-white text-xs font-semibold rounded-xl flex items-center gap-1 shadow-sm"
-                >
-                  <Download className="w-3 h-3" /> Receipt
-                </button>
-              </div>
+              ))}
 
-              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-xs text-neutral-900">Annual Admission & Caution Deposit</div>
-                  <div className="text-[10px] text-neutral-500 font-mono">Paid on 10 Mar 2026 • Ref: HDFC-002931</div>
-                  <div className="text-xs font-black text-emerald-800 font-mono mt-0.5">₹15,000</div>
+              {studentFeeSchedule.months.filter(m => m.paidAmount > 0).length === 0 && (
+                <div className="py-6 text-center text-xs text-slate-400 font-mono">
+                  No payment records found for this academic session.
                 </div>
-                <button
-                  onClick={() => setShowReceiptModal(true)}
-                  className="px-3 py-1.5 bg-neutral-900 hover:bg-black text-white text-xs font-semibold rounded-xl flex items-center gap-1 shadow-sm"
-                >
-                  <Download className="w-3 h-3" /> Receipt
-                </button>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -1054,32 +1103,48 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
             <div className="p-4 bg-neutral-50 border border-neutral-300 rounded-2xl font-mono text-xs space-y-2 text-neutral-800">
               <div className="text-center pb-2 border-b border-neutral-200">
                 <div className="font-bold text-sm text-neutral-900">DPS INTERNATIONAL SCHOOL</div>
-                <div className="text-[10px] text-neutral-500">Tax Invoice & Fee Receipt #DPS-2026-8812</div>
+                <div className="text-[10px] text-neutral-500">Tax Invoice &amp; Fee Receipt #{selectedReceipt?.invoiceNo || `DPS-2026-${currentStudent.admNo.slice(-4)}`}</div>
               </div>
 
               <div className="grid grid-cols-2 gap-1 text-[11px] pt-1">
                 <div>Student: <span className="font-bold">{currentStudent.name}</span></div>
                 <div>Adm No: <span className="font-bold">{currentStudent.admNo}</span></div>
                 <div>Class: <span className="font-bold">{currentStudent.class}</span></div>
-                <div>Date: <span className="font-bold">29 Aug 2026</span></div>
+                <div>Date: <span className="font-bold">{selectedReceipt?.paidDate || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span></div>
               </div>
 
               <div className="border-t border-b border-neutral-200 py-2 space-y-1 text-[11px]">
                 <div className="flex justify-between">
-                  <span>Tuition & Smart Class:</span>
-                  <span>₹22,000</span>
+                  <span>Tuition &amp; Composite Fee:</span>
+                  <span>₹{(selectedReceipt?.tuitionFee || 1800).toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>School Transport Fee:</span>
-                  <span>₹4,500</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Robotics / STEM Lab:</span>
-                  <span>₹2,000</span>
-                </div>
-                <div className="flex justify-between font-bold text-neutral-900 pt-1 border-t border-neutral-200">
+                {(selectedReceipt?.transportFee || 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span>School Transport Fee:</span>
+                    <span>₹{selectedReceipt.transportFee.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                {(selectedReceipt?.annualFee || 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span>Annual &amp; Term Development Fee:</span>
+                    <span>₹{selectedReceipt.annualFee.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                {(selectedReceipt?.examFee || 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span>Examination &amp; Assessment Fee:</span>
+                    <span>₹{selectedReceipt.examFee.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                {(selectedReceipt?.concessionAmount || 0) > 0 && (
+                  <div className="flex justify-between text-amber-700">
+                    <span>Concession / Fee Waiver:</span>
+                    <span>-₹{selectedReceipt.concessionAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-neutral-900 pt-1 border-t border-neutral-200 text-xs">
                   <span>Total Amount Paid:</span>
-                  <span>₹28,500.00</span>
+                  <span className="text-emerald-800">₹{(selectedReceipt?.paidAmount || 0).toLocaleString('en-IN')}.00</span>
                 </div>
               </div>
 

@@ -59,7 +59,7 @@ import { sortClassesChronologically } from '@/lib/cbse-subjects';
 import { openWhatsAppDirect, buildMorningAbsentText } from '@/lib/whatsapp';
 import { sendLocalPushNotification } from '@/lib/push-notifications';
 import { apiFetch } from '@/lib/api-client';
-import { getSchoolInitials } from '@/lib/utils';
+import { getSchoolInitials, getTodayDateStr } from '@/lib/utils';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 import { StudentAttendanceHistoryModal } from '@/components/student-attendance-history';
 
@@ -515,8 +515,8 @@ export function DashboardAttendance({
 
   // Declare Holiday Form State
   const [newHolidayTitle, setNewHolidayTitle] = useState('');
-  const [newHolidayStartDate, setNewHolidayStartDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [newHolidayEndDate, setNewHolidayEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [newHolidayStartDate, setNewHolidayStartDate] = useState(() => getTodayDateStr());
+  const [newHolidayEndDate, setNewHolidayEndDate] = useState(() => getTodayDateStr());
   const [newHolidayApplicableTo, setNewHolidayApplicableTo] = useState<string>('ALL');
   const [customSelectedClassIds, setCustomSelectedClassIds] = useState<string[]>([]);
   const [newHolidayCategory, setNewHolidayCategory] = useState<'GAZETTED' | 'VACATION' | 'WEATHER_EMERGENCY' | 'RESTRICTED' | 'EVENT'>('VACATION');
@@ -667,13 +667,54 @@ export function DashboardAttendance({
   // TAB 1: MARK STUDENT ATTENDANCE STATE
   // ─────────────────────────────────────────────────────────────────
   const [selectedClassId, setSelectedClassId] = useState<string>(() => selectableClasses[0]?.id || '');
-  const [attendanceDate, setAttendanceDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [attendanceDate, setAttendanceDate] = useState<string>(() => getTodayDateStr());
   const [attendanceType, setAttendanceType] = useState<'STUDENT' | 'FACULTY'>('STUDENT');
   const [searchRosterQuery, setSearchRosterQuery] = useState<string>('');
   const [studentStatuses, setStudentStatuses] = useState<Record<string, 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE'>>({});
   const [savingAttendance, setSavingAttendance] = useState<boolean>(false);
   const [showAbsentAlertModal, setShowAbsentAlertModal] = useState<boolean>(false);
   const loadedContextKeyRef = React.useRef<string>('');
+
+  // Track last known today date string for automatic midnight rollover detection
+  const lastKnownTodayRef = React.useRef<string>(getTodayDateStr());
+
+  // Automatic midnight date-rollover listener (checks every 15 seconds and on tab focus/wake)
+  useEffect(() => {
+    const handleMidnightRollover = () => {
+      const currentToday = getTodayDateStr();
+      if (currentToday !== lastKnownTodayRef.current) {
+        const previousToday = lastKnownTodayRef.current;
+        lastKnownTodayRef.current = currentToday;
+
+        // If user was viewing previous day's attendance, advance date to today's date
+        setAttendanceDate(prevDate => (prevDate === previousToday ? currentToday : prevDate));
+        setSummaryDate(prevDate => (prevDate === previousToday ? currentToday : prevDate));
+        setNewHolidayStartDate(prevDate => (prevDate === previousToday ? currentToday : prevDate));
+        setNewHolidayEndDate(prevDate => (prevDate === previousToday ? currentToday : prevDate));
+
+        // Clear loaded context ref to force fresh roster evaluation for the new morning
+        loadedContextKeyRef.current = '';
+
+        // Trigger parent data refresh so fresh records for new day are fetched
+        onRefresh?.();
+      }
+    };
+
+    const interval = setInterval(handleMidnightRollover, 15000);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        handleMidnightRollover();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleMidnightRollover);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleMidnightRollover);
+    };
+  }, [onRefresh]);
 
   // Keep selectedClassId strictly within authorized selectableClasses
   useEffect(() => {
@@ -1308,8 +1349,8 @@ export function DashboardAttendance({
   // ─────────────────────────────────────────────────────────────────
   // TAB 3: ATTENDANCE SUMMARY & COMPARATIVE ANALYTICS
   // ─────────────────────────────────────────────────────────────────
-  const todayDateStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const [summaryDate, setSummaryDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const todayDateStr = useMemo(() => getTodayDateStr(), [attendanceDate]);
+  const [summaryDate, setSummaryDate] = useState<string>(() => getTodayDateStr());
 
   const classSummaryData = useMemo(() => {
     const targetList = isTeacher ? selectableClasses : sortedClasses;

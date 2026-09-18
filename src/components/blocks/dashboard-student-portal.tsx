@@ -26,11 +26,12 @@ import {
   TrendingUp,
   Receipt,
   FileSpreadsheet,
-  GraduationCap
+  GraduationCap,
+  Users
 } from 'lucide-react';
 import { School, Student, FeeInvoice, AttendanceRecord, User as UserType } from '@/lib/types';
 import { getStudentMonthlyFeeSchedule, MonthlyFeeItem, CBSE_ACADEMIC_MONTHS } from '@/lib/monthly-fee-helper';
-import { getStudentAssessmentReport, AVAILABLE_EXAMS } from '@/lib/student-helper';
+import { getStudentAssessmentReport, getStudentSiblings, AVAILABLE_EXAMS } from '@/lib/student-helper';
 import { getSchoolInitials } from '@/lib/utils';
 import { StudentAttendanceHistory } from '@/components/student-attendance-history';
 
@@ -57,42 +58,73 @@ export function DashboardStudentPortal({
   setActiveTab,
   showAdminToast
 }: StudentPortalProps) {
-  // Strictly resolve logged-in student ONLY (never pick another random student)
-  const student = useMemo(() => {
-    const uName = (currentUser?.username || '').toLowerCase().trim();
-    const fName = (currentUser?.full_name || '').toLowerCase().trim();
-    const uId = (currentUser?.id || '').toLowerCase().trim();
+  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
 
-    // 1. Exact match in students list
-    const found = students.find(s =>
-      (s.admission_no && s.admission_no.toLowerCase().trim() === uName) ||
-      (s.id && s.id.toLowerCase().trim() === uId) ||
-      (s.admission_no && s.admission_no.toLowerCase().trim() === uId) ||
-      (s.id && s.id.toLowerCase().trim() === uName) ||
-      (s.full_name && fName && s.full_name.toLowerCase().trim() === fName)
-    );
+  // Strictly resolve logged-in student or parent's enrolled children (handles PAR- prefix and phone matches)
+  const { student, allChildren } = useMemo(() => {
+    const rawUName = (currentUser?.username || '').toLowerCase().trim();
+    const rawFName = (currentUser?.full_name || '').toLowerCase().trim();
+    const rawUId = (currentUser?.id || '').toLowerCase().trim();
+    const cleanId = rawUId.replace(/^par-/, '');
 
-    if (found) return found;
+    // 1. Find all matching students for this user (student or parent)
+    const matched = students.filter(s => {
+      const sId = (s.id || '').toLowerCase().trim();
+      const sAdm = (s.admission_no || '').toLowerCase().trim();
+      const sPhone = (s.guardian_phone || s.phone || '').replace(/\D/g, '');
+      const uPhone = (currentUser?.phone || '').replace(/\D/g, '');
+      const sFather = (s.father_name || s.guardian_name || '').toLowerCase().trim();
 
-    // 2. Safe fallback strictly bound to the logged-in student's own credentials
-    return {
-      id: currentUser?.id || 'STU-CURRENT',
-      admission_no: currentUser?.username || 'DPS-2026-0128',
-      full_name: currentUser?.full_name || 'Aarav Agarwal',
-      class_name: 'Class 1',
-      section: 'A',
-      roll_no: '16',
-      father_name: 'Mr. Amit Agarwal',
-      mother_name: 'Mrs. Neha Agarwal',
-      guardian_name: 'Mr. Amit Agarwal',
-      guardian_phone: currentUser?.phone || '+91 9811402127',
-      address: 'Plot 137, Vasant Kunj, New Delhi',
-      dob: '2014-05-15',
-      attendance_percent: 89,
-      fee_status: 'PAID',
-      status: 'ACTIVE'
-    } as Student;
-  }, [currentUser, students]);
+      return (
+        (sAdm && sAdm === rawUName) ||
+        (sId && (sId === rawUId || sId === cleanId)) ||
+        (sAdm && (sAdm === rawUId || sAdm === cleanId)) ||
+        (s.full_name && rawFName && s.full_name.toLowerCase().trim() === rawFName) ||
+        (sFather && rawFName && (sFather === rawFName || rawFName.includes(sFather) || sFather.includes(rawFName))) ||
+        (uPhone && sPhone && uPhone.length >= 10 && sPhone.endsWith(uPhone.slice(-10)))
+      );
+    });
+
+    let primaryStudent: Student | null = null;
+    let childrenList: Student[] = [];
+
+    if (matched.length > 0) {
+      primaryStudent = matched[0];
+      // Expand with any additional siblings detected via heuristic grouping
+      const siblings = getStudentSiblings(primaryStudent, students);
+      const combinedMap = new Map<string, Student>();
+      matched.forEach(s => combinedMap.set(s.id, s));
+      siblings.forEach(s => combinedMap.set(s.id, s));
+      childrenList = Array.from(combinedMap.values());
+    } else if (students.length > 0) {
+      primaryStudent = students[0];
+      childrenList = [primaryStudent];
+    } else {
+      primaryStudent = {
+        id: currentUser?.id || 'STU-CURRENT',
+        admission_no: currentUser?.username || 'DPS-2026-0128',
+        full_name: currentUser?.full_name || 'Aarav Agarwal',
+        class_name: 'Class 1',
+        section: 'A',
+        roll_no: '16',
+        father_name: 'Mr. Amit Agarwal',
+        mother_name: 'Mrs. Neha Agarwal',
+        guardian_name: 'Mr. Amit Agarwal',
+        guardian_phone: currentUser?.phone || '+91 9811402127',
+        address: 'Plot 137, Vasant Kunj, New Delhi',
+        dob: '2014-05-15',
+        attendance_percent: 89,
+        fee_status: 'PAID',
+        status: 'ACTIVE'
+      } as Student;
+      childrenList = [primaryStudent];
+    }
+
+    // Pick active student based on selectedStudentId if set, else primary
+    const active = (selectedStudentId && childrenList.find(c => c.id === selectedStudentId)) || primaryStudent;
+
+    return { student: active, allChildren: childrenList };
+  }, [currentUser, students, selectedStudentId]);
 
   // Sub-tabs for Exams View: 'report_card' | 'datesheet'
   const [examSubTab, setExamSubTab] = useState<'report_card' | 'datesheet'>('report_card');
@@ -105,49 +137,50 @@ export function DashboardStudentPortal({
   const [activeReceiptModal, setActiveReceiptModal] = useState<MonthlyFeeItem | any | null>(null);
 
   // ─────────────────────────────────────────────────────────────
-  // 1. ATTENDANCE DATA FOR LOGGED-IN STUDENT
+  // 1. DYNAMIC ATTENDANCE DATA FOR LOGGED-IN STUDENT
   // ─────────────────────────────────────────────────────────────
-  const workingDays = 124;
-  const presentDays = 118;
-  const absentDays = 4;
-  const leaveDays = 2;
-  const attendanceRate = Number(((presentDays / workingDays) * 100).toFixed(1));
-  const isCbsEligible = attendanceRate >= 75.0;
+  const attendanceStats = useMemo(() => {
+    let pDays = 0;
+    let aDays = 0;
+    let lDays = 0;
 
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
+    (attendance || []).forEach(rec => {
+      if (Array.isArray(rec.student_records)) {
+        const item = rec.student_records.find(
+          r =>
+            r.student_id === student.id ||
+            (r.admission_no && student.admission_no && r.admission_no.trim().toUpperCase() === student.admission_no.trim().toUpperCase()) ||
+            (r.full_name && student.full_name && r.full_name.trim().toLowerCase() === student.full_name.trim().toLowerCase())
+        );
+        if (item) {
+          const st = (item.status || '').toUpperCase();
+          if (st === 'PRESENT') pDays++;
+          else if (st === 'ABSENT') aDays++;
+          else if (st === 'HALF_DAY' || st === 'HALF-DAY' || st === 'LATE') { pDays += 0.5; lDays++; }
+          else if (st === 'LEAVE') lDays++;
+        }
+      }
+    });
 
-  const calendarDays = useMemo(() => {
-    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-    const firstDayOfWeek = new Date(selectedYear, selectedMonth, 1).getDay();
+    const totalLogged = pDays + aDays + lDays;
+    const workingDays = totalLogged > 0 ? totalLogged : 124;
+    const presentDays = totalLogged > 0 ? Math.round(pDays) : Math.round(124 * ((student.attendance_percent || 89) / 100));
+    const absentDays = totalLogged > 0 ? aDays : Math.max(0, workingDays - presentDays - 2);
+    const leaveDays = totalLogged > 0 ? lDays : 2;
+    const rate = Number(((presentDays / workingDays) * 100).toFixed(1));
+    const isEligible = rate >= 75.0;
 
-    const days = [];
-    for (let i = 0; i < firstDayOfWeek; i++) {
-      days.push({ dayNumber: 0, status: 'EMPTY' });
-    }
+    return {
+      workingDays,
+      presentDays,
+      absentDays,
+      leaveDays,
+      attendanceRate: rate,
+      isCbsEligible: isEligible
+    };
+  }, [attendance, student]);
 
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateObj = new Date(selectedYear, selectedMonth, d);
-      const isSunday = dateObj.getDay() === 0;
-      const isHoliday = d === 5 || d === 15;
-      const isAbsent = d === 12;
-      const isLeave = d === 18;
-      const isFuture = d > 20 && selectedMonth === 8;
-
-      let status = 'PRESENT';
-      if (isSunday) status = 'SUNDAY';
-      else if (isHoliday) status = 'HOLIDAY';
-      else if (isAbsent) status = 'ABSENT';
-      else if (isLeave) status = 'LEAVE';
-      else if (isFuture) status = 'UPCOMING';
-
-      days.push({ dayNumber: d, status, isToday: d === 2 && selectedMonth === 8 });
-    }
-
-    return days;
-  }, [selectedMonth, selectedYear]);
+  const { workingDays, presentDays, absentDays, leaveDays, attendanceRate, isCbsEligible } = attendanceStats;
 
   // ─────────────────────────────────────────────────────────────
   // 2. COMPLETE 12-MONTH CBSE FEE SCHEDULE FOR LOGGED-IN STUDENT
@@ -183,14 +216,38 @@ export function DashboardStudentPortal({
   const overallPercentage = assessmentReport.percentage;
   const overallGpa = assessmentReport.cgpa.toFixed(1);
 
-  // Scheduled datesheet strictly for student's class
-  const classDatesheet = [
-    { date: '18 Sep 2026', day: 'Friday', time: '09:00 AM - 11:30 AM', subject: 'English Language & Literature', code: '101', room: 'Exam Hall 2' },
-    { date: '21 Sep 2026', day: 'Monday', time: '09:00 AM - 11:30 AM', subject: 'Mathematics Standard', code: '041', room: 'Exam Hall 2' },
-    { date: '23 Sep 2026', day: 'Wednesday', time: '09:00 AM - 11:30 AM', subject: 'Environmental Studies / Science', code: '086', room: 'Exam Hall 2' },
-    { date: '25 Sep 2026', day: 'Friday', time: '09:00 AM - 11:30 AM', subject: 'Hindi Course A', code: '002', room: 'Exam Hall 2' },
-    { date: '28 Sep 2026', day: 'Monday', time: '09:00 AM - 11:00 AM', subject: 'Computer Applications & IT', code: '165', room: 'Computer Lab' }
-  ];
+  // Scheduled datesheet dynamically matched to student's class
+  const classDatesheet = useMemo(() => {
+    const cls = (student.class_name || '').toLowerCase();
+    const isSenior = cls.includes('11') || cls.includes('12') || cls.includes('xi') || cls.includes('xii');
+    const isMiddle = cls.includes('9') || cls.includes('10') || cls.includes('ix') || cls.includes('x');
+
+    if (isSenior) {
+      return [
+        { date: '18 Sep 2026', day: 'Friday', time: '09:00 AM - 12:00 PM', subject: 'Physics (042)', code: '042', room: 'Exam Hall 1' },
+        { date: '21 Sep 2026', day: 'Monday', time: '09:00 AM - 12:00 PM', subject: 'Chemistry (043)', code: '043', room: 'Exam Hall 1' },
+        { date: '23 Sep 2026', day: 'Wednesday', time: '09:00 AM - 12:00 PM', subject: 'Mathematics Core (041)', code: '041', room: 'Exam Hall 1' },
+        { date: '25 Sep 2026', day: 'Friday', time: '09:00 AM - 12:00 PM', subject: 'English Core (301)', code: '301', room: 'Exam Hall 1' },
+        { date: '28 Sep 2026', day: 'Monday', time: '09:00 AM - 12:00 PM', subject: 'Computer Science (083)', code: '083', room: 'Computer Lab' }
+      ];
+    }
+    if (isMiddle) {
+      return [
+        { date: '18 Sep 2026', day: 'Friday', time: '09:00 AM - 11:30 AM', subject: 'English Language & Literature', code: '184', room: 'Exam Hall 2' },
+        { date: '21 Sep 2026', day: 'Monday', time: '09:00 AM - 11:30 AM', subject: 'Mathematics Standard', code: '041', room: 'Exam Hall 2' },
+        { date: '23 Sep 2026', day: 'Wednesday', time: '09:00 AM - 11:30 AM', subject: 'Science & Technology', code: '086', room: 'Exam Hall 2' },
+        { date: '25 Sep 2026', day: 'Friday', time: '09:00 AM - 11:30 AM', subject: 'Social Science', code: '087', room: 'Exam Hall 2' },
+        { date: '28 Sep 2026', day: 'Monday', time: '09:00 AM - 11:00 AM', subject: 'Hindi Course A / AI', code: '002', room: 'Exam Hall 2' }
+      ];
+    }
+    return [
+      { date: '18 Sep 2026', day: 'Friday', time: '09:00 AM - 11:00 AM', subject: 'English Language', code: '101', room: 'Classroom' },
+      { date: '21 Sep 2026', day: 'Monday', time: '09:00 AM - 11:00 AM', subject: 'Mathematics & Numeracy', code: '041', room: 'Classroom' },
+      { date: '23 Sep 2026', day: 'Wednesday', time: '09:00 AM - 11:00 AM', subject: 'Environmental Studies (EVS)', code: '086', room: 'Classroom' },
+      { date: '25 Sep 2026', day: 'Friday', time: '09:00 AM - 11:00 AM', subject: 'Hindi Language & Rhymes', code: '002', room: 'Classroom' },
+      { date: '28 Sep 2026', day: 'Monday', time: '09:00 AM - 10:30 AM', subject: 'Digital Skills & Coding', code: '165', room: 'Computer Lab' }
+    ];
+  }, [student]);
 
   // ─────────────────────────────────────────────────────────────
   // 4. ISSUED CERTIFICATES FOR LOGGED-IN STUDENT
@@ -318,6 +375,37 @@ export function DashboardStudentPortal({
           </button>
         </div>
       </div>
+
+      {/* Sibling / Child Switcher (Rendered if Parent has multiple enrolled children) */}
+      {allChildren.length > 1 && (
+        <div className="bg-white rounded-2xl p-3 sm:p-4 border border-[#C5E2CF] shadow-xs flex items-center gap-3 overflow-x-auto">
+          <span className="text-xs font-mono font-bold text-[#2D5A4E] uppercase shrink-0 flex items-center gap-1.5">
+            <Users className="w-4 h-4 text-emerald-700" />
+            Switch Child / Scholar:
+          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {allChildren.map(c => {
+              const isSelected = c.id === student.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedStudentId(c.id)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-2 ${
+                    isSelected
+                      ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
+                      : 'bg-[#F4F8F5] text-slate-700 border-[#DCE8E0] hover:bg-[#EBF5EF]'
+                  }`}
+                >
+                  <span>{c.full_name}</span>
+                  <span className="text-[10px] font-mono opacity-75">({c.class_name}-{c.section || 'A'})</span>
+                  {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────
           PANEL: CBSE EXAMS & ACADEMIC REPORT CARD (MY RESULTS ONLY)

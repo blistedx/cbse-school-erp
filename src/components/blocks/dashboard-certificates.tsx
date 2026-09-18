@@ -37,15 +37,17 @@ import {
   Palette,
   GraduationCap
 } from 'lucide-react';
-import { School, Student, Teacher, ClassRoom } from '@/lib/types';
+import { School, Student, Teacher, ClassRoom, FeeInvoice } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
 import { getSchoolInitials } from '@/lib/utils';
+import { getStudentFeeSummary } from '@/lib/monthly-fee-helper';
 
 interface DashboardCertificatesProps {
   selectedSchool: School | null;
   students: Student[];
   teachers: Teacher[];
   classes: ClassRoom[];
+  invoices?: FeeInvoice[];
   selectedSession: string;
   isSuperAdmin?: boolean;
 }
@@ -178,6 +180,7 @@ interface FormalCertificateProps {
   issueDate: string;
   signatoryTitle: string;
   customRemarks?: string;
+  invoices?: FeeInvoice[];
 }
 
 const FormalCertificateDocument: React.FC<FormalCertificateProps> = ({
@@ -191,7 +194,8 @@ const FormalCertificateDocument: React.FC<FormalCertificateProps> = ({
   certRefPrefix,
   issueDate,
   signatoryTitle,
-  customRemarks
+  customRemarks,
+  invoices = []
 }) => {
   if (targetType === 'STUDENT' && !activeStudent) {
     return (
@@ -219,6 +223,13 @@ const FormalCertificateDocument: React.FC<FormalCertificateProps> = ({
   const subjectPronoun = s?.gender === 'Female' ? 'She' : 'He';
   const relation = s?.gender === 'Female' ? 'Daughter' : 'Son';
   const studentAddress = s?.residential_address || (s?.city ? `${s.city}, ${s.state || 'Delhi'}` : 'Dwarka, New Delhi, India');
+
+  const feeSummary = s ? getStudentFeeSummary(s, invoices) : null;
+  const feeClearanceText = feeSummary
+    ? (feeSummary.feeStatus === 'PAID' || feeSummary.feeStatus === 'WAIVED' || feeSummary.currentBalanceDue === 0
+        ? `March ${selectedSession.split('-')[0] ? parseInt(selectedSession.split('-')[0]) + 1 : '2027'} (No Dues Outstanding - Cleared in Full)`
+        : `Pending Dues: ₹${feeSummary.currentBalanceDue.toLocaleString('en-IN')} (Under Settlement)`)
+    : 'March 2027 (No Dues Outstanding)';
 
   return (
     <div className="w-full max-w-2xl bg-white p-6 sm:p-9 rounded-2xl shadow-lg border-4 border-[#122A24] text-slate-800 relative select-text">
@@ -356,7 +367,7 @@ const FormalCertificateDocument: React.FC<FormalCertificateProps> = ({
               { no: '8.', label: 'Class in which pupil last studied', val: `${s.class_name} (Section ${s.section || 'A'})` },
               { no: '9.', label: 'School / Board Annual Examination last taken', val: `${s.class_name} CBSE Annual Assessment - PASSED` },
               { no: '10.', label: 'Whether qualified for promotion to higher class', val: 'YES, Promoted to next higher grade' },
-              { no: '11.', label: 'Month up to which school dues / fees have been paid', val: 'March 2026 (No Dues Outstanding)' },
+              { no: '11.', label: 'Month up to which school dues / fees have been paid', val: feeClearanceText },
               { no: '12.', label: 'Total Working Days & Total Days Present', val: '220 Days / 208 Days Present (94.5%)' },
               { no: '13.', label: 'General Conduct & Character', val: 'Exemplary & Diligent' },
               { no: '14.', label: 'Reason for leaving the school', val: customRemarks || 'Parent Relocation / Higher Studies' }

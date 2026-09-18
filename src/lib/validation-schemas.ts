@@ -48,7 +48,7 @@ export const createStudentSchema = z.object({
   guardian_phone: z.string().max(30).optional(),
   guardian_email: z.string().max(120).optional(),
   address: z.string().max(300).optional(),
-  fee_status: z.enum(['PAID', 'PENDING', 'PARTIAL', 'OVERDUE']).optional(),
+  fee_status: z.enum(['PAID', 'PENDING', 'PARTIAL', 'OVERDUE', 'WAIVED']).optional(),
   attendance_percent: z.number().min(0).max(100).optional(),
   passcode: z.string().max(100).optional(),
   photo: z.string().optional(),
@@ -93,6 +93,8 @@ export const updateTeacherSchema = createTeacherSchema.partial().strip();
 // 3. FEE INVOICES & TRANSACTIONS
 export const createFeeInvoiceSchema = z.object({
   school_id: z.string().max(50).optional(),
+  academic_session: z.string().max(20).optional(),
+  invoice_no: z.string().max(80).optional(),
   student_id: z.string().min(1, 'student_id is required').max(80),
   student_name: z.string().max(120).optional(),
   admission_no: z.string().max(50).optional(),
@@ -105,23 +107,32 @@ export const createFeeInvoiceSchema = z.object({
   admission_fee: z.number().min(0).optional(),
   annual_fee: z.number().min(0).optional(),
   exam_fee: z.number().min(0).optional(),
+  hostel_fee: z.number().min(0).optional(),
+  hostel_security: z.number().min(0).optional(),
   concession_amount: z.number().min(0).optional(),
   concession_reason: z.string().max(200).optional().nullable(),
+  waived_by: z.string().max(100).optional().nullable(),
+  waived_date: z.string().max(40).optional().nullable(),
   due_date: z.string().max(30).optional(),
-  status: z.enum(['PAID', 'PENDING', 'PARTIAL', 'OVERDUE']).optional(),
-  payment_mode: z.string().max(50).optional()
+  paid_date: z.string().max(30).optional(),
+  status: z.enum(['PAID', 'PENDING', 'PARTIAL', 'OVERDUE', 'WAIVED']).optional(),
+  payment_mode: z.string().max(50).optional(),
+  payment_history: z.array(z.any()).optional()
 }).strip();
 
 export const updateFeeInvoiceSchema = z.object({
   invoice_id: z.string().max(80).optional(),
   id: z.string().max(80).optional(),
-  status: z.enum(['PAID', 'PENDING', 'PARTIAL', 'OVERDUE']).optional(),
+  status: z.enum(['PAID', 'PENDING', 'PARTIAL', 'OVERDUE', 'WAIVED']).optional(),
   payment_mode: z.string().max(50).optional(),
   paid_amount: z.number().min(0).optional(),
+  additional_payment: z.number().min(0).optional(),
   waived_by: z.string().max(100).optional().nullable(),
   waived_date: z.string().max(40).optional().nullable(),
   concession_amount: z.number().min(0).optional(),
-  concession_reason: z.string().max(200).optional().nullable()
+  concession_reason: z.string().max(200).optional().nullable(),
+  remark: z.string().max(200).optional().nullable(),
+  receipt_no: z.string().max(80).optional().nullable()
 }).strip();
 
 // 4. CLASSES & SECTIONS

@@ -22,6 +22,8 @@ import {
   resolveTeacherRole
 } from './types';
 import { getDefaultCbseSubjectsForClass, sortClassesChronologically } from './cbse-subjects';
+import { getTodayDateStr } from './utils';
+import { getStudentFeeSummary, getSchoolFeeOverview } from './monthly-fee-helper';
 import bcrypt from 'bcryptjs';
 
 export async function hashPassword(plainText: string): Promise<string> {
@@ -2167,7 +2169,7 @@ export const Database = {
   async recordAttendance(data: Partial<AttendanceRecord>): Promise<AttendanceRecord> {
     ensureIndexes().catch(() => {});
     const academic_session = data.academic_session || '2026-27';
-    const date = data.date || new Date().toISOString().split('T')[0];
+    const date = data.date || getTodayDateStr();
     const rawClassName = (data.class_name || 'Class 10').trim();
     const rawSection = (data.section || 'A').trim();
     const school_id = data.school_id || '';
@@ -2386,7 +2388,55 @@ export const Database = {
     saveLocalStore();
     invalidateServerCache('fees');
     invalidateServerCache('overview');
+
+    // Automatically synchronize student fee_status
+    if (invoice.student_id || invoice.admission_no) {
+      await this.syncStudentFeeStatus(invoice.student_id, invoice.admission_no, invoice.school_id);
+    }
+
     return invoice;
+  },
+
+  async syncStudentFeeStatus(studentId?: string, admissionNo?: string, schoolId?: string): Promise<void> {
+    if (!studentId && !admissionNo) return;
+    const targetStudent = (memoryStore.students || []).find(s => {
+      if (studentId && s.id === studentId) return true;
+      if (admissionNo && s.admission_no && s.admission_no.toLowerCase().trim() === admissionNo.toLowerCase().trim()) {
+        if (schoolId && s.school_id && s.school_id !== schoolId) return false;
+        return true;
+      }
+      return false;
+    });
+
+    if (!targetStudent) return;
+
+    // Find all matching invoices
+    const studentInvoices = (memoryStore.fee_invoices || []).filter(inv => {
+      if (inv.student_id && inv.student_id === targetStudent.id) return true;
+      if (inv.admission_no && targetStudent.admission_no && inv.admission_no.toLowerCase().trim() === targetStudent.admission_no.toLowerCase().trim()) {
+        if (targetStudent.school_id && inv.school_id && inv.school_id !== targetStudent.school_id) return false;
+        return true;
+      }
+      return false;
+    });
+
+    const summary = getStudentFeeSummary(targetStudent, studentInvoices);
+    const newStatus = summary.feeStatus;
+
+    targetStudent.fee_status = newStatus;
+
+    try {
+      const db = await getDatabase();
+      if (db) {
+        await db.collection('students').updateOne(
+          { id: targetStudent.id },
+          { $set: { fee_status: newStatus } }
+        );
+      }
+    } catch (e) {}
+
+    saveLocalStore();
+    invalidateServerCache('students');
   },
 
   async updateFeeInvoice(
@@ -2401,6 +2451,7 @@ export const Database = {
       waived_by?: string;
       remark?: string;
       receipt_no?: string;
+      school_id?: string;
     }
   ): Promise<FeeInvoice | null> {
     await ensureIndexes();
@@ -2408,6 +2459,9 @@ export const Database = {
     if (idx < 0) return null;
 
     const inv = memoryStore.fee_invoices[idx];
+    if (updates.school_id && inv.school_id && inv.school_id !== updates.school_id) {
+      return null;
+    }
 
     // Handle Additional Partial Payment
     if (typeof updates.additional_payment === 'number' && updates.additional_payment > 0) {
@@ -2464,6 +2518,12 @@ export const Database = {
     saveLocalStore();
     invalidateServerCache('fees');
     invalidateServerCache('overview');
+
+    // Automatically synchronize student fee_status
+    if (inv.student_id || inv.admission_no) {
+      await this.syncStudentFeeStatus(inv.student_id, inv.admission_no, inv.school_id);
+    }
+
     return inv;
   },
 
@@ -2471,8 +2531,15 @@ export const Database = {
     return this.updateFeeInvoice(invoiceId, { status, payment_mode });
   },
 
-  async deleteFeeInvoice(invoiceId: string): Promise<boolean> {
+  async deleteFeeInvoice(invoiceId: string, schoolId?: string): Promise<boolean> {
     await ensureIndexes();
+    const idx = memoryStore.fee_invoices.findIndex(i => i.id === invoiceId);
+    if (idx < 0) return false;
+    const inv = memoryStore.fee_invoices[idx];
+    if (schoolId && inv.school_id && inv.school_id !== schoolId) {
+      return false;
+    }
+
     try {
       const db = await getDatabase();
       if (db) {
@@ -2483,13 +2550,14 @@ export const Database = {
     invalidateServerCache('fees');
     invalidateServerCache('overview');
 
-    const idx = memoryStore.fee_invoices.findIndex(i => i.id === invoiceId);
-    if (idx >= 0) {
-      memoryStore.fee_invoices.splice(idx, 1);
-      saveLocalStore();
-      return true;
+    memoryStore.fee_invoices.splice(idx, 1);
+    saveLocalStore();
+
+    if (inv && (inv.student_id || inv.admission_no)) {
+      await this.syncStudentFeeStatus(inv.student_id, inv.admission_no, inv.school_id);
     }
-    return false;
+
+    return true;
   },
 
   // HOLIDAYS & ACADEMIC CLOSURES
@@ -2778,7 +2846,8 @@ export const Database = {
   // OVERVIEW STATS
   async getSchoolOverview(schoolId: string, session?: string): Promise<SchoolOverview> {
     const targetSession = session || '2026-27';
-    const cacheKey = `overview:${schoolId}:${targetSession}`;
+    const todayDateStr = getTodayDateStr();
+    const cacheKey = `overview:${schoolId}:${targetSession}:${todayDateStr}`;
     return singleFlight(cacheKey, async () => {
       const [students, teachers, attendance, invoices] = await Promise.all([
         this.getStudents(schoolId, targetSession),
@@ -2790,15 +2859,10 @@ export const Database = {
       const totalStudents = students.length;
       const totalTeachers = teachers.length;
 
-      // Helper for local date string in YYYY-MM-DD
-      const now = new Date();
-      const localDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      const isoDateStr = now.toISOString().split('T')[0];
-
-      // Deduplicate attendance records by class & section for today
+      // Deduplicate attendance records by class & section strictly for today (IST midnight-aligned)
       const latestTodayMap = new Map<string, AttendanceRecord>();
       attendance.forEach(a => {
-        if (a.date === localDateStr || a.date === isoDateStr) {
+        if (a.date === todayDateStr) {
           const normClass = normalizeClassName(a.class_name);
           const key = `${normClass}_${(a.section || '').toLowerCase().trim()}`;
           latestTodayMap.set(key, a);
@@ -2841,11 +2905,10 @@ export const Database = {
 
       const attendanceToday = studentAttendanceToday;
 
-      const paidInvoices = invoices.filter(i => i.status === 'PAID');
-      const totalRevenue = paidInvoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-      const pendingInvoices = invoices.filter(i => i.status !== 'PAID');
-      const pendingFeeAmount = pendingInvoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-      const feeCollectionRate = invoices.length > 0 ? Math.round((paidInvoices.length / invoices.length) * 100) : 0;
+      const feeOverview = getSchoolFeeOverview(invoices);
+      const totalRevenue = feeOverview.totalRevenue;
+      const pendingFeeAmount = feeOverview.pendingFeeAmount;
+      const feeCollectionRate = feeOverview.feeCollectionRate;
 
       const overviewResult: SchoolOverview = {
         academic_session: targetSession,

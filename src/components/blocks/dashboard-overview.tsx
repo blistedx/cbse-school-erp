@@ -41,8 +41,8 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { School, Student, Teacher, ClassRoom, FeeInvoice, AttendanceRecord, SchoolOverview, User, Notice } from '@/lib/types';
-import { getSchoolInitials } from '@/lib/utils';
-import { CBSE_ACADEMIC_MONTHS, getStandardTuitionRate, getStandardAnnualFeeRate, getStandardTransportRate } from '@/lib/monthly-fee-helper';
+import { getSchoolInitials, getTodayDateStr } from '@/lib/utils';
+import { CBSE_ACADEMIC_MONTHS, getStandardTuitionRate, getStandardAnnualFeeRate, getStandardTransportRate, getSchoolFeeOverview } from '@/lib/monthly-fee-helper';
 
 export interface DashboardFeeCycleItem {
   id: string;
@@ -204,6 +204,7 @@ interface DashboardOverviewProps {
   setShowAddInvoice: (show: boolean) => void;
   setViewInvoice: (invoice: FeeInvoice) => void;
   setActiveTab: (tab: any) => void;
+  onRefresh?: () => void;
 }
 
 export function DashboardOverview({
@@ -223,7 +224,8 @@ export function DashboardOverview({
   setShowAddNotice,
   setShowAddInvoice,
   setViewInvoice,
-  setActiveTab
+  setActiveTab,
+  onRefresh
 }: DashboardOverviewProps) {
   // Chart & filter controls (Dynamic Timeframe for Fee Realization Trend)
   const [salesTimeframe, setSalesTimeframe] = useState<'quarterly' | 'monthly' | 'yearly'>('monthly');
@@ -271,10 +273,38 @@ export function DashboardOverview({
   const [noticeFilter, setNoticeFilter] = useState<'ALL' | 'CBSE' | 'EXAM' | 'HOLIDAY' | 'ACAD'>('ALL');
   const [feeStatusFilter, setFeeStatusFilter] = useState<'ALL' | 'Paid' | 'Pending' | 'Overdue'>('ALL');
 
-  // Dates & Range Helpers
+  // Dates & Range Helpers (Strict Indian Standard Time / Midnight Rollover Aware)
+  const [currentDateStr, setCurrentDateStr] = useState<string>(() => getTodayDateStr());
+
+  // Automatic midnight date-rollover watcher (checks every 15 seconds and on tab focus/wake)
+  useEffect(() => {
+    const handleMidnightRollover = () => {
+      const actualToday = getTodayDateStr();
+      if (actualToday !== currentDateStr) {
+        setCurrentDateStr(actualToday);
+        setSelectedCalendarDay(new Date().getDate());
+        onRefresh?.();
+      }
+    };
+
+    const interval = setInterval(handleMidnightRollover, 15000);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        handleMidnightRollover();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleMidnightRollover);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleMidnightRollover);
+    };
+  }, [currentDateStr, onRefresh]);
+
   const now = new Date();
-  const localDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const isoDateStr = now.toISOString().split('T')[0];
+  const todayDateStr = currentDateStr;
   const formattedToday = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
   // Weekly & Monthly Date Ranges
@@ -282,8 +312,8 @@ export function DashboardOverview({
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   const mondayDate = new Date(now);
   mondayDate.setDate(now.getDate() + mondayOffset);
-  const weekStartStr = `${mondayDate.getFullYear()}-${String(mondayDate.getMonth() + 1).padStart(2, '0')}-${String(mondayDate.getDate()).padStart(2, '0')}`;
-  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const weekStartStr = getTodayDateStr(mondayDate);
+  const currentMonthStr = todayDateStr.substring(0, 7);
   const formattedWeekRange = `${mondayDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - ${now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
   const formattedMonth = now.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
 
@@ -298,11 +328,11 @@ export function DashboardOverview({
     );
   }, [attendance]);
 
-  // Today's student attendance
+  // Today's student attendance strictly for todayDateStr
   const studentTodayMap = new Map<string, AttendanceRecord>();
   studentAttendanceRecords.forEach(a => {
     const aDate = a.date || (a.created_at ? a.created_at.split('T')[0] : '');
-    if (aDate === localDateStr || aDate === isoDateStr) {
+    if (aDate === todayDateStr) {
       const rawC = (a.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '').replace(/[-\s]+/g, '');
       const normClass = /^(pg|playgroup|play|prekg|prenursery)$/i.test(rawC) ? 'playgroup' : rawC;
       const key = `${normClass}_${(a.section || '').toLowerCase().trim()}`;
@@ -334,7 +364,7 @@ export function DashboardOverview({
   const weekAttendanceMap = new Map<string, AttendanceRecord>();
   studentAttendanceRecords.forEach(a => {
     const aDate = a.date || (a.created_at ? a.created_at.split('T')[0] : '');
-    if (aDate >= weekStartStr && aDate <= isoDateStr) {
+    if (aDate >= weekStartStr && aDate <= todayDateStr) {
       const key = `${aDate}_${(a.class_name || '').toLowerCase().trim()}_${(a.section || '').toLowerCase().trim()}`;
       weekAttendanceMap.set(key, a);
     }
@@ -387,9 +417,9 @@ export function DashboardOverview({
   const facultyTodayRecords = useMemo(() => {
     return facultyAttendanceRecords.filter(a => {
       const aDate = a.date || (a.created_at ? a.created_at.split('T')[0] : '');
-      return aDate === localDateStr || aDate === isoDateStr;
+      return aDate === todayDateStr;
     });
-  }, [facultyAttendanceRecords, localDateStr, isoDateStr]);
+  }, [facultyAttendanceRecords, todayDateStr]);
 
   const latestFacRec = facultyTodayRecords.length > 0 ? facultyTodayRecords[facultyTodayRecords.length - 1] : null;
   const isFacultyAttendanceMarkedToday = !!latestFacRec || (overview?.kpis?.isFacultyAttendanceMarkedToday ?? false);
@@ -407,7 +437,7 @@ export function DashboardOverview({
   const facultyWeekMap = new Map<string, AttendanceRecord>();
   facultyAttendanceRecords.forEach(a => {
     const aDate = a.date || (a.created_at ? a.created_at.split('T')[0] : '');
-    if (aDate >= weekStartStr && aDate <= isoDateStr) {
+    if (aDate >= weekStartStr && aDate <= todayDateStr) {
       facultyWeekMap.set(aDate, a);
     }
   });
@@ -480,10 +510,11 @@ export function DashboardOverview({
   ]);
 
   // 3. Fee & Revenue Statistics
-  const totalBilled = invoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  const totalPaid = invoices.filter(i => i.status === 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  const totalPending = invoices.filter(i => i.status !== 'PAID').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  const collectionRate = totalBilled > 0 ? Math.round((totalPaid / totalBilled) * 100) : (overview?.kpis?.feeCollectionRate ?? 0);
+  const feeOverview = useMemo(() => getSchoolFeeOverview(invoices), [invoices]);
+  const totalBilled = feeOverview.totalBilled;
+  const totalPaid = feeOverview.totalRevenue;
+  const totalPending = feeOverview.pendingFeeAmount;
+  const collectionRate = totalBilled > 0 ? feeOverview.feeCollectionRate : (overview?.kpis?.feeCollectionRate ?? 0);
 
   // Lakh formatter matching reference image e.g. ₹8.4L, ₹70.5L, ₹1.1L
   const formatLakh = (amount: number, fallback: string = '₹0') => {
@@ -1030,23 +1061,23 @@ export function DashboardOverview({
       const anyInv = inv as any;
       const invDate = inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
       if (timeFilter === 'Daily') {
-        return invDate === isoDateStr || invDate === localDateStr;
+        return invDate === todayDateStr;
       }
       if (timeFilter === 'Weekly') {
-        return invDate >= weekStartStr && invDate <= isoDateStr;
+        return invDate >= weekStartStr && invDate <= todayDateStr;
       }
       // Monthly
       return invDate.startsWith(currentMonthStr);
     });
-  }, [invoices, timeFilter, isoDateStr, localDateStr, weekStartStr, currentMonthStr]);
+  }, [invoices, timeFilter, todayDateStr, weekStartStr, currentMonthStr]);
 
   const todayInvoices = useMemo(() => {
     return (invoices || []).filter(inv => {
       const anyInv = inv as any;
       const invDate = inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
-      return invDate === isoDateStr || invDate === localDateStr;
+      return invDate === todayDateStr;
     });
-  }, [invoices, isoDateStr, localDateStr]);
+  }, [invoices, todayDateStr]);
 
   const mapInvoiceToTx = useCallback((inv: FeeInvoice, idx: number): DashboardTransaction => {
     const anyInv = inv as any;
@@ -1142,7 +1173,7 @@ export function DashboardOverview({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `erp_transactions_${isoDateStr}.csv`);
+    link.setAttribute('download', `erp_transactions_${todayDateStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

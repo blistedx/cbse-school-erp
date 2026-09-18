@@ -61,19 +61,26 @@ export async function PATCH(req: Request) {
     if (!validation.success) return validation.response;
 
     const body = validation.data;
+    const tenant = resolveTenantSchoolId(auth, (rawBody as any).school_id);
+    if (tenant instanceof NextResponse) return tenant;
+
     const adminUser = (auth as any)?.user?.full_name || (auth as any)?.user?.username || 'School Administrator';
 
     const updated = await Database.updateFeeInvoice(invoice_id, {
       status: body.status,
       payment_mode: body.payment_mode,
       paid_amount: body.paid_amount,
+      additional_payment: body.additional_payment,
       concession_amount: body.concession_amount,
       concession_reason: body.concession_reason,
-      waived_by: body.waived_by || adminUser
+      waived_by: body.waived_by || adminUser,
+      remark: body.remark || undefined,
+      receipt_no: body.receipt_no || undefined,
+      school_id: tenant
     });
 
     if (!updated) {
-      return NextResponse.json({ success: false, error: 'Invoice not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Invoice not found or unauthorized' }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, message: 'Fee invoice updated successfully!', invoice: updated });
@@ -94,7 +101,7 @@ export async function DELETE(req: Request) {
 
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ success: false, error: 'Invoice ID is required' }, { status: 400 });
-    const deleted = await Database.deleteFeeInvoice(id);
+    const deleted = await Database.deleteFeeInvoice(id, tenant);
     return NextResponse.json({ success: deleted });
   } catch (error: any) {
     console.error('[API_FEES_DELETE_ERROR]', error);

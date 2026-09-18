@@ -1,65 +1,33 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
+import {
+  OneTimeFeeHead,
+  TuitionFeeHead,
+  TransportFeeHead,
+  HostelFeeStructure,
+  DEFAULT_HOSTEL_FEES,
+  DEFAULT_ONE_TIME_FEES,
+  DEFAULT_TUITION_FEES,
+  DEFAULT_TRANSPORT_FEES,
+  getStandardTuitionRate,
+  getStandardAnnualFeeRate,
+  getStandardTransportRate
+} from './monthly-fee-helper';
 
-export interface OneTimeFeeHead {
-  id: string;
-  particulars: string;
-  amount: number;
-}
-
-export interface TuitionFeeHead {
-  id: string;
-  className: string;
-  monthlyFee: number;
-  quarterlyFee: number;
-}
-
-export interface TransportFeeHead {
-  id: string;
-  slab: string;
-  monthlyFee: number;
-}
-
-export interface HostelFeeStructure {
-  securityMoney: number; // ₹10,000 (Refundable)
-  withoutAcAnnual: number; // ₹72,000 (₹6,000/mo)
-  withoutAcMonthly: number; // ₹6,000
-  withAcAnnual: number; // ₹94,000 (~₹7,833/mo)
-  withAcMonthly: number; // 7833
-}
-
-export const DEFAULT_HOSTEL_FEES: HostelFeeStructure = {
-  securityMoney: 10000,
-  withoutAcAnnual: 72000,
-  withoutAcMonthly: 6000,
-  withAcAnnual: 94000,
-  withAcMonthly: 7833,
+export type {
+  OneTimeFeeHead,
+  TuitionFeeHead,
+  TransportFeeHead,
+  HostelFeeStructure
 };
 
-export const DEFAULT_ONE_TIME_FEES: OneTimeFeeHead[] = [
-  { id: '1', particulars: 'Prospectus + Registration Fees', amount: 1000 },
-  { id: '2', particulars: 'Admission Fee (Non-Refundable)', amount: 5000 },
-  { id: '3', particulars: 'Annual Fee (PG to VIII)', amount: 5000 },
-  { id: '4', particulars: 'Annual Fee (IX to XII)', amount: 6000 },
-  { id: '5', particulars: 'Hostel Security Money (Refundable)', amount: 10000 },
-  { id: '6', particulars: 'Transfer Certificate / Character Certificate', amount: 1000 },
-];
-
-export const DEFAULT_TUITION_FEES: TuitionFeeHead[] = [
-  { id: '1', className: 'PG, LKG & UKG', monthlyFee: 1000, quarterlyFee: 3000 },
-  { id: '2', className: 'Class I & II', monthlyFee: 1400, quarterlyFee: 4200 },
-  { id: '3', className: 'Class III to V', monthlyFee: 1600, quarterlyFee: 4800 },
-  { id: '4', className: 'Class VI to VIII', monthlyFee: 1800, quarterlyFee: 5400 },
-  { id: '5', className: 'Class IX & X', monthlyFee: 2000, quarterlyFee: 6000 },
-  { id: '6', className: 'Class XI & XII', monthlyFee: 2400, quarterlyFee: 7200 },
-];
-
-export const DEFAULT_TRANSPORT_FEES: TransportFeeHead[] = [
-  { id: '1', slab: '1 to 3 km', monthlyFee: 800 },
-  { id: '2', slab: '4 to 6 km', monthlyFee: 900 },
-  { id: '3', slab: '7 to 12 km', monthlyFee: 1100 },
-  { id: '4', slab: '13 to 16 km', monthlyFee: 1300 },
-  { id: '5', slab: '16 to 20 km', monthlyFee: 1800 },
-];
+export {
+  DEFAULT_HOSTEL_FEES,
+  DEFAULT_ONE_TIME_FEES,
+  DEFAULT_TUITION_FEES,
+  DEFAULT_TRANSPORT_FEES,
+  getStandardTuitionRate,
+  getStandardAnnualFeeRate,
+  getStandardTransportRate
+};
 
 /**
  * Retrieve current established fee structure from localStorage or fallback to defaults
@@ -97,83 +65,44 @@ export function getEstablishedFeeStructure() {
 
 /**
  * Map any class name string (e.g. "Class 6", "Class VI-A", "Nursery", "10", "Class 11 - PCM")
- * to its corresponding monthly tuition fee and annual fee.
+ * to its corresponding monthly tuition fee and annual fee using unified rate tables.
  */
 export function getFeeRatesForClass(className: string) {
-  const { oneTime, tuition } = getEstablishedFeeStructure();
+  const { oneTime } = getEstablishedFeeStructure();
+  const monthlyTuition = getStandardTuitionRate(className);
+  const annualFee = getStandardAnnualFeeRate(className);
+
   const normalized = (className || '').toUpperCase().trim();
-
-  // Determine Class Level (0 = Pre-primary, 1-12 = Grade)
   let gradeLevel = -1;
-
-  if (
-    normalized.includes('PG') ||
-    normalized.includes('PLAY') ||
-    normalized.includes('NURSERY') ||
-    normalized.includes('PRE-NURSERY') ||
-    normalized.includes('LKG') ||
-    normalized.includes('UKG') ||
-    normalized.includes('KG') ||
-    normalized.includes('CRECHE')
-  ) {
+  const numMatch = normalized.match(/(?:CLASS|STD|GRADE)?\s*(\d+)/i);
+  if (numMatch) {
+    gradeLevel = parseInt(numMatch[1], 10);
+  } else if (normalized.includes('XII') || normalized.includes('12')) {
+    gradeLevel = 12;
+  } else if (normalized.includes('XI') || normalized.includes('11')) {
+    gradeLevel = 11;
+  } else if (normalized.includes('X') || normalized.includes('10')) {
+    gradeLevel = 10;
+  } else if (normalized.includes('IX') || normalized.includes('9')) {
+    gradeLevel = 9;
+  } else if (normalized.includes('VIII') || normalized.includes('8')) {
+    gradeLevel = 8;
+  } else if (normalized.includes('VII') || normalized.includes('7')) {
+    gradeLevel = 7;
+  } else if (normalized.includes('VI') || normalized.includes('6')) {
+    gradeLevel = 6;
+  } else if (normalized.includes('V') || normalized.includes('5')) {
+    gradeLevel = 5;
+  } else if (normalized.includes('IV') || normalized.includes('4')) {
+    gradeLevel = 4;
+  } else if (normalized.includes('III') || normalized.includes('3')) {
+    gradeLevel = 3;
+  } else if (normalized.includes('II') || normalized.includes('2')) {
+    gradeLevel = 2;
+  } else if (normalized.includes('I') || normalized.includes('1')) {
+    gradeLevel = 1;
+  } else {
     gradeLevel = 0;
-  } else {
-    // Extract numerical or Roman numeral grade
-    const numMatch = normalized.match(/(?:CLASS|STD|GRADE)?\s*(\d+)/i);
-    if (numMatch) {
-      gradeLevel = parseInt(numMatch[1], 10);
-    } else if (normalized.includes('XII') || normalized.includes('12')) {
-      gradeLevel = 12;
-    } else if (normalized.includes('XI') || normalized.includes('11')) {
-      gradeLevel = 11;
-    } else if (normalized.includes('X') || normalized.includes('10')) {
-      gradeLevel = 10;
-    } else if (normalized.includes('IX') || normalized.includes('9')) {
-      gradeLevel = 9;
-    } else if (normalized.includes('VIII') || normalized.includes('8')) {
-      gradeLevel = 8;
-    } else if (normalized.includes('VII') || normalized.includes('7')) {
-      gradeLevel = 7;
-    } else if (normalized.includes('VI') || normalized.includes('6')) {
-      gradeLevel = 6;
-    } else if (normalized.includes('V') || normalized.includes('5')) {
-      gradeLevel = 5;
-    } else if (normalized.includes('IV') || normalized.includes('4')) {
-      gradeLevel = 4;
-    } else if (normalized.includes('III') || normalized.includes('3')) {
-      gradeLevel = 3;
-    } else if (normalized.includes('II') || normalized.includes('2')) {
-      gradeLevel = 2;
-    } else if (normalized.includes('I') || normalized.includes('1')) {
-      gradeLevel = 1;
-    }
-  }
-
-  // Monthly Tuition Rate
-  let monthlyTuition = 1800; // default Class 6-8
-  if (gradeLevel === 0) {
-    monthlyTuition = tuition.find(t => t.className.includes('PG'))?.monthlyFee || 1000;
-  } else if (gradeLevel === 1 || gradeLevel === 2) {
-    monthlyTuition = tuition.find(t => t.className.includes('I & II'))?.monthlyFee || 1400;
-  } else if (gradeLevel >= 3 && gradeLevel <= 5) {
-    monthlyTuition = tuition.find(t => t.className.includes('III to V'))?.monthlyFee || 1600;
-  } else if (gradeLevel >= 6 && gradeLevel <= 8) {
-    monthlyTuition = tuition.find(t => t.className.includes('VI to VIII'))?.monthlyFee || 1800;
-  } else if (gradeLevel === 9 || gradeLevel === 10) {
-    monthlyTuition = tuition.find(t => t.className.includes('IX & X'))?.monthlyFee || 2000;
-  } else if (gradeLevel >= 11) {
-    monthlyTuition = tuition.find(t => t.className.includes('XI & XII'))?.monthlyFee || 2400;
-  }
-
-  // Annual Fee: PG to VIII = 5000, IX to XII = 6000
-  let annualFee = 5000;
-  const annualLow = oneTime.find(o => o.particulars.includes('PG to VIII'))?.amount || 5000;
-  const annualHigh = oneTime.find(o => o.particulars.includes('IX to XII'))?.amount || 6000;
-
-  if (gradeLevel >= 9) {
-    annualFee = annualHigh;
-  } else {
-    annualFee = annualLow;
   }
 
   // Admission Fee

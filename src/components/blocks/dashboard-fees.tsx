@@ -57,7 +57,8 @@ import { FeeInvoice, Student, School, ClassRoom, Teacher } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
 import { openWhatsAppDirect, buildFeeReminderText, buildFeeReceiptText } from '@/lib/whatsapp';
 import { apiFetch } from '@/lib/api-client';
-import { getStudentMonthlyFeeSchedule } from '@/lib/monthly-fee-helper';
+import { getStudentMonthlyFeeSchedule, getStudentFeeSummary, matchInvoicesForStudent } from '@/lib/monthly-fee-helper';
+import { getFeeRatesForClass } from '@/lib/fee-calculator';
 import { getSchoolInitials } from '@/lib/utils';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 
@@ -344,7 +345,7 @@ export function DashboardFees({
   ];
 
   const DEFAULT_TUITION_FEES = [
-    { id: '1', className: 'PG, LKG & UKG', monthlyFee: 1000, quarterlyFee: 3000 },
+    { id: '1', className: 'PG, LKG & UKG', monthlyFee: 1200, quarterlyFee: 3600 },
     { id: '2', className: 'Class I & II', monthlyFee: 1400, quarterlyFee: 4200 },
     { id: '3', className: 'Class III to V', monthlyFee: 1600, quarterlyFee: 4800 },
     { id: '4', className: 'Class VI to VIII', monthlyFee: 1800, quarterlyFee: 5400 },
@@ -555,7 +556,7 @@ export function DashboardFees({
       'ONE_TIME,Annual Fee (IX to XII),6000,',
       'ONE_TIME,Hostel Security Money (Refundable),10000,',
       'ONE_TIME,Transfer Certificate / Character Certificate,1000,',
-      'TUITION,PG LKG & UKG,1000,3000',
+      'TUITION,PG LKG & UKG,1200,3600',
       'TUITION,Class I & II,1400,4200',
       'TUITION,Class III to V,1600,4800',
       'TUITION,Class VI to VIII,1800,5400',
@@ -584,9 +585,9 @@ export function DashboardFees({
     const raw = (className || '').trim().toLowerCase();
     const norm = raw.replace(/^class\s*/i, '').trim();
 
-    // 1. Playgroup, PG, Nursery, LKG, UKG -> ₹1,000 / month, ₹3,000 / quarter
+    // 1. Playgroup, PG, Nursery, LKG, UKG -> ₹1,200 / month, ₹3,600 / quarter
     if (/^(pg|play|playgroup|play-group|lkg|ukg|nursery|pre|kg|prep|infant)/i.test(norm) || raw.includes('playgroup')) {
-      return { monthly: 1000, quarterly: 3000 };
+      return { monthly: 1200, quarterly: 3600 };
     }
     // 2. Class I & II -> ₹1,400 / month, ₹4,200 / quarter
     if (/^(1|2|i|ii|1st|2nd)$/i.test(norm) || /^(i|ii)\b/i.test(norm)) {
@@ -746,57 +747,24 @@ export function DashboardFees({
       // Total Due
       const totalDue = netTuitionDue + transportDue + annualDue + examDue;
 
-      // Check Real Invoices in Database (Null-safe)
-      const matchingInvoices = (invoices || []).filter(inv => {
-        if (!inv) return false;
-        if (inv.student_id && inv.student_id === stu?.id) return true;
-        if (inv.admission_no && stu?.admission_no && inv.admission_no === stu.admission_no) return true;
-        if (inv.student_name && stuName && inv.student_name.toLowerCase().trim() === stuName.toLowerCase()) return true;
-        return false;
-      });
+      // Unified Single-Source Fee Summary for exact consistent dues and paid amounts
+      const feeSummary = getStudentFeeSummary(stu, invoices);
+      const matchingInvoices = feeSummary.matchingInvoices;
 
-      let totalPaid = 0;
-      let tuitionPaid = 0;
-      let transportPaid = 0;
-      let annualPaid = 0;
-      let examPaid = 0;
+      const totalPaid = feeSummary.totalPaidToDate;
+      const totalPending = feeSummary.currentBalanceDue;
+      const status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'WAIVED' = feeSummary.feeStatus;
 
-      if (matchingInvoices.length > 0) {
-        const invoicePaidSum = matchingInvoices.reduce((sum, inv) => sum + (inv.paid_amount ?? (inv.status === 'PAID' ? Number(inv.amount) || 0 : 0)), 0);
-        totalPaid = Math.min(totalDue, invoicePaidSum);
-        const ratio = totalDue > 0 ? (totalPaid / totalDue) : 0;
-        tuitionPaid = Math.round(netTuitionDue * ratio);
-        transportPaid = Math.round(transportDue * ratio);
-        annualPaid = Math.round(annualDue * ratio);
-        examPaid = Math.round(examDue * ratio);
-      } else if (stu.fee_status === 'PAID') {
-        totalPaid = totalDue;
-        tuitionPaid = netTuitionDue;
-        transportPaid = transportDue;
-        annualPaid = annualDue;
-        examPaid = examDue;
-      } else if (stu.fee_status === 'PARTIAL') {
-        totalPaid = Math.round(totalDue * 0.5);
-        tuitionPaid = Math.round(netTuitionDue * 0.5);
-        transportPaid = Math.round(transportDue * 0.5);
-        annualPaid = Math.round(annualDue * 0.5);
-        examPaid = Math.round(examDue * 0.5);
-      } else {
-        totalPaid = 0;
-      }
+      const ratio = totalDue > 0 ? Math.min(1, totalPaid / totalDue) : 0;
+      const tuitionPaid = Math.round(netTuitionDue * ratio);
+      const transportPaid = Math.round(transportDue * ratio);
+      const annualPaid = Math.round(annualDue * ratio);
+      const examPaid = Math.round(examDue * ratio);
 
-      const totalPending = Math.max(0, totalDue - totalPaid);
       const tuitionPending = Math.max(0, netTuitionDue - tuitionPaid);
       const transportPending = Math.max(0, transportDue - transportPaid);
       const annualPending = Math.max(0, annualDue - annualPaid);
       const examPending = Math.max(0, examDue - examPaid);
-
-      let status: 'PAID' | 'PARTIAL' | 'PENDING' = 'PENDING';
-      if (totalPending <= 0) {
-        status = 'PAID';
-      } else if (totalPaid > 0) {
-        status = 'PARTIAL';
-      }
 
       return {
         student: stu,
@@ -1225,7 +1193,8 @@ export function DashboardFees({
     if (remainingDue > 0) {
       setCollectBaseAmount(remainingDue.toString());
     } else {
-      setCollectBaseAmount('15000');
+      const classRates = getFeeRatesForClass(student.class_name);
+      setCollectBaseAmount((classRates.monthlyTuition || 1800).toString());
     }
     setFeeTab('collect');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1319,28 +1288,10 @@ export function DashboardFees({
   React.useEffect(() => {
     if (!selectedSingleStudent) return;
     const numMonths = Math.max(1, singleSelectedMonths.length);
-    let monthlyRate = 1800;
-    let annualRate = 5000;
-    let labExamRate = 1500;
-
-    const cls = (selectedSingleStudent.class_name || '').toLowerCase();
-    if (cls.includes('pg') || cls.includes('nursery') || cls.includes('lkg') || cls.includes('ukg') || cls.includes('playgroup')) {
-      monthlyRate = 1500;
-      annualRate = 4500;
-      labExamRate = 1000;
-    } else if (cls.includes('11') || cls.includes('12') || cls.includes('xi') || cls.includes('xii')) {
-      monthlyRate = 3500;
-      annualRate = 6500;
-      labExamRate = 2500;
-    } else if (cls.includes('9') || cls.includes('10') || cls.includes('ix') || cls.includes('x')) {
-      monthlyRate = 2800;
-      annualRate = 6000;
-      labExamRate = 2000;
-    } else if (cls.includes('6') || cls.includes('7') || cls.includes('8')) {
-      monthlyRate = 2200;
-      annualRate = 5500;
-      labExamRate = 1800;
-    }
+    const classRates = getFeeRatesForClass(selectedSingleStudent.class_name);
+    const monthlyRate = classRates.monthlyTuition || 1800;
+    const annualRate = classRates.annualFee || 5000;
+    const labExamRate = 1500;
 
     const hasTransport = selectedSingleStudent.transport_opted === 'YES' || Boolean(selectedSingleStudent.bus_route_no);
     const monthlyTransport = hasTransport ? 1200 : 0;
@@ -1441,20 +1392,9 @@ export function DashboardFees({
     let annualFee = 5000;
 
     if (selectedCollectStudent) {
-      const cls = (selectedCollectStudent.class_name || '').toLowerCase();
-      if (cls.includes('pg') || cls.includes('nursery') || cls.includes('lkg') || cls.includes('ukg')) {
-        monthlyTuition = 1500;
-        annualFee = 4500;
-      } else if (cls.includes('11') || cls.includes('12') || cls.includes('xi') || cls.includes('xii')) {
-        monthlyTuition = 3500;
-        annualFee = 6500;
-      } else if (cls.includes('9') || cls.includes('10') || cls.includes('ix') || cls.includes('x')) {
-        monthlyTuition = 2800;
-        annualFee = 6000;
-      } else if (cls.includes('6') || cls.includes('7') || cls.includes('8')) {
-        monthlyTuition = 2200;
-        annualFee = 5500;
-      }
+      const classRates = getFeeRatesForClass(selectedCollectStudent.class_name);
+      monthlyTuition = classRates.monthlyTuition || 1800;
+      annualFee = classRates.annualFee || 5000;
       setCollectAnnualFeeAmount(annualFee);
     }
 

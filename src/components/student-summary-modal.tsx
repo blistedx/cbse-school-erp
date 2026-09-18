@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { X, Users, Award, CreditCard, CalendarCheck, ShieldCheck, FileText, ChevronRight, Phone, MapPin, Camera, Loader2, Check, Eye, Download, ZoomIn, Upload, Mail, User, Calendar, BadgeCheck, Sparkles } from 'lucide-react';
 import { Student, FeeInvoice, AttendanceRecord } from '@/lib/types';
 import { getStudentSiblings, getStudentAssessmentReport, AVAILABLE_EXAMS } from '@/lib/student-helper';
-import { getStudentMonthlyFeeSchedule } from '@/lib/monthly-fee-helper';
+import { getStudentMonthlyFeeSchedule, getStudentFeeSummary, matchInvoicesForStudent } from '@/lib/monthly-fee-helper';
 import { compressImageFile } from '@/lib/image-compress';
 import { StudentAttendanceHistory } from '@/components/student-attendance-history';
 import { getSchoolInitials } from '@/lib/utils';
@@ -150,14 +150,17 @@ export function StudentSummaryModal({
     return getStudentMonthlyFeeSchedule(activeStudent, invoices);
   }, [activeStudent, invoices]);
 
-  const studentInvoices = useMemo(() => {
-    if (!activeStudent) return [];
-    return invoices.filter(
-      inv => inv.student_id === activeStudent.id || inv.admission_no === activeStudent.admission_no
-    );
+  const feeSummary = useMemo(() => {
+    if (!activeStudent) return null;
+    return getStudentFeeSummary(activeStudent, invoices);
   }, [activeStudent, invoices]);
 
-  const totalPending = monthlySchedule ? monthlySchedule.currentBalanceDue : 0;
+  const studentInvoices = useMemo(() => {
+    if (!activeStudent) return [];
+    return matchInvoicesForStudent(activeStudent, invoices);
+  }, [activeStudent, invoices]);
+
+  const totalPending = feeSummary ? feeSummary.currentBalanceDue : (monthlySchedule ? monthlySchedule.currentBalanceDue : 0);
 
   if (!isOpen || !activeStudent) return null;
 
@@ -658,9 +661,14 @@ export function StudentSummaryModal({
                           </div>
                           <div>
                             <span className="text-[10px] text-slate-500 block uppercase">Fee Status</span>
-                            <span className={`font-bold ${sib.fee_status === 'PAID' ? 'text-emerald-700' : 'text-amber-700'}`}>
-                              {sib.fee_status || 'PAID'}
-                            </span>
+                            {(() => {
+                              const sibFeeStatus = getStudentFeeSummary(sib, invoices).feeStatus;
+                              return (
+                                <span className={`font-bold ${sibFeeStatus === 'PAID' || sibFeeStatus === 'WAIVED' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                  {sibFeeStatus}
+                                </span>
+                              );
+                            })()}
                           </div>
                           {onSelectSibling && (
                             <button
@@ -926,9 +934,9 @@ export function StudentSummaryModal({
 
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`px-3 py-1 rounded-full text-xs font-mono font-semibold border ${
-                    totalPending === 0 || student.fee_status === 'PAID' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
+                    feeSummary?.feeStatus === 'PAID' || feeSummary?.feeStatus === 'WAIVED' || totalPending === 0 ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
                   }`}>
-                    Status: {totalPending === 0 || student.fee_status === 'PAID' ? 'PAID' : (student.fee_status || 'PENDING')}
+                    Status: {feeSummary?.feeStatus || (totalPending === 0 ? 'PAID' : (student.fee_status || 'PENDING'))}
                   </span>
                   {onCollectFee && totalPending > 0 && (
                     <button

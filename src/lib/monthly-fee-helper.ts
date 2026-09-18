@@ -37,6 +37,67 @@ export interface StudentMonthlyFeeSchedule {
   months: MonthlyFeeItem[];
 }
 
+export interface OneTimeFeeHead {
+  id: string;
+  particulars: string;
+  amount: number;
+}
+
+export interface TuitionFeeHead {
+  id: string;
+  className: string;
+  monthlyFee: number;
+  quarterlyFee: number;
+}
+
+export interface TransportFeeHead {
+  id: string;
+  slab: string;
+  monthlyFee: number;
+}
+
+export interface HostelFeeStructure {
+  securityMoney: number; // ₹10,000 (Refundable)
+  withoutAcAnnual: number; // ₹72,000 (₹6,000/mo)
+  withoutAcMonthly: number; // ₹6,000
+  withAcAnnual: number; // ₹94,000 (~₹7,833/mo)
+  withAcMonthly: number; // ₹7,833
+}
+
+export const DEFAULT_HOSTEL_FEES: HostelFeeStructure = {
+  securityMoney: 10000,
+  withoutAcAnnual: 72000,
+  withoutAcMonthly: 6000,
+  withAcAnnual: 94000,
+  withAcMonthly: 7833,
+};
+
+export const DEFAULT_ONE_TIME_FEES: OneTimeFeeHead[] = [
+  { id: '1', particulars: 'Prospectus + Registration Fees', amount: 1000 },
+  { id: '2', particulars: 'Admission Fee (Non-Refundable)', amount: 5000 },
+  { id: '3', particulars: 'Annual Fee (PG to VIII)', amount: 5000 },
+  { id: '4', particulars: 'Annual Fee (IX to XII)', amount: 6000 },
+  { id: '5', particulars: 'Hostel Security Money (Refundable)', amount: 10000 },
+  { id: '6', particulars: 'Transfer Certificate / Character Certificate', amount: 1000 },
+];
+
+export const DEFAULT_TUITION_FEES: TuitionFeeHead[] = [
+  { id: '1', className: 'PG, LKG & UKG', monthlyFee: 1200, quarterlyFee: 3600 },
+  { id: '2', className: 'Class I & II', monthlyFee: 1400, quarterlyFee: 4200 },
+  { id: '3', className: 'Class III to V', monthlyFee: 1600, quarterlyFee: 4800 },
+  { id: '4', className: 'Class VI to VIII', monthlyFee: 1800, quarterlyFee: 5400 },
+  { id: '5', className: 'Class IX & X', monthlyFee: 2000, quarterlyFee: 6000 },
+  { id: '6', className: 'Class XI & XII', monthlyFee: 2400, quarterlyFee: 7200 },
+];
+
+export const DEFAULT_TRANSPORT_FEES: TransportFeeHead[] = [
+  { id: '1', slab: '1 to 3 km', monthlyFee: 800 },
+  { id: '2', slab: '4 to 6 km', monthlyFee: 900 },
+  { id: '3', slab: '7 to 12 km', monthlyFee: 1100 },
+  { id: '4', slab: '13 to 16 km', monthlyFee: 1300 },
+  { id: '5', slab: '16 to 20 km', monthlyFee: 1800 },
+];
+
 export const CBSE_ACADEMIC_MONTHS = [
   { name: 'April 2026', short: 'Apr', index: 1, quarter: 'Q1' as const, cycleName: 'Cycle 1: April + Annual Term Fee', hasAnnual: true, hasExam: false, defaultDueDate: '2026-04-15' },
   { name: 'May 2026', short: 'May', index: 2, quarter: 'Q1' as const, cycleName: 'Cycle 2: May Tuition & Transport', hasAnnual: false, hasExam: false, defaultDueDate: '2026-05-15' },
@@ -98,6 +159,126 @@ export function getStandardTransportRate(student: Student): number {
 }
 
 /**
+ * Strict exact matching of invoices to a student.
+ * Eliminates substring matching leaks (e.g. '1' matching '10', '101').
+ */
+export function matchInvoicesForStudent(student: Student, existingInvoices: FeeInvoice[] = []): FeeInvoice[] {
+  if (!student || !Array.isArray(existingInvoices)) return [];
+  const studentAdmNo = (student.admission_no || '').toLowerCase().trim();
+  const studentId = (student.id || '').toLowerCase().trim();
+  const studentName = (student.full_name || '').toLowerCase().trim();
+
+  return existingInvoices.filter(inv => {
+    if (!inv) return false;
+    const invAdm = (inv.admission_no || '').toLowerCase().trim();
+    const invId = (inv.student_id || '').toLowerCase().trim();
+    const invName = (inv.student_name || '').toLowerCase().trim();
+
+    // 1. Direct Student ID Match (Highest Priority)
+    if (studentId && invId && studentId === invId) {
+      return true;
+    }
+
+    // 2. Strict Exact Admission Number Match
+    if (studentAdmNo && invAdm && studentAdmNo === invAdm) {
+      return true;
+    }
+
+    // 3. Fallback: Exact Student Name Match ONLY if ID and Admission No are missing on the invoice
+    if (!invId && !invAdm && studentName && invName && studentName === invName) {
+      return true;
+    }
+
+    return false;
+  });
+}
+
+export interface StudentFeeSummary {
+  studentId: string;
+  admissionNo: string;
+  studentName: string;
+  className: string;
+  section: string;
+  totalAnnualDemand: number;
+  totalPaidToDate: number;
+  totalConcessions: number;
+  currentBalanceDue: number;
+  totalPendingAnnual: number;
+  feeStatus: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'WAIVED';
+  matchingInvoices: FeeInvoice[];
+}
+
+/**
+ * Single source of truth calculation for any student's complete fee status,
+ * paid amount, and outstanding dues balance across the entire ERP.
+ */
+export function getStudentFeeSummary(
+  student: Student,
+  existingInvoices: FeeInvoice[] = [],
+  options: {
+    baseTuition?: number;
+    annualFee?: number;
+    transportFee?: number;
+    currentDate?: string;
+  } = {}
+): StudentFeeSummary {
+  const schedule = getStudentMonthlyFeeSchedule(student, existingInvoices, options);
+  const matchingInvoices = matchInvoicesForStudent(student, existingInvoices);
+
+  let totalPaidFromInvoices = 0;
+  let totalConcessionsFromInvoices = 0;
+  let hasOverdueInvoice = false;
+
+  matchingInvoices.forEach(inv => {
+    const invAmt = Number(inv.amount) || 0;
+    const invPaid = typeof inv.paid_amount === 'number'
+      ? inv.paid_amount
+      : (inv.status === 'PAID' ? invAmt : 0);
+    totalPaidFromInvoices += invPaid;
+    totalConcessionsFromInvoices += (Number(inv.concession_amount) || 0);
+    if (inv.status === 'OVERDUE') hasOverdueInvoice = true;
+  });
+
+  const totalPaidToDate = matchingInvoices.length > 0
+    ? totalPaidFromInvoices
+    : ((student.fee_status || '').toUpperCase() === 'PAID' ? schedule.totalAnnualBilled : 0);
+
+  const totalConcessions = totalConcessionsFromInvoices;
+  const currentBalanceDue = schedule.currentBalanceDue;
+  const totalPendingAnnual = Math.max(0, schedule.totalAnnualBilled - (totalPaidToDate + totalConcessions));
+
+  let feeStatus: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'WAIVED' = 'PENDING';
+  if (totalConcessions >= schedule.totalAnnualBilled) {
+    feeStatus = 'WAIVED';
+  } else if (totalPendingAnnual === 0 || (currentBalanceDue === 0 && totalPaidToDate > 0)) {
+    feeStatus = 'PAID';
+  } else if (totalPaidToDate > 0) {
+    feeStatus = 'PARTIAL';
+  } else if (hasOverdueInvoice) {
+    feeStatus = 'OVERDUE';
+  } else if ((student.fee_status || '').toUpperCase() === 'PAID' && matchingInvoices.length === 0) {
+    feeStatus = 'PAID';
+  } else {
+    feeStatus = 'PENDING';
+  }
+
+  return {
+    studentId: student.id,
+    admissionNo: student.admission_no || '',
+    studentName: student.full_name,
+    className: student.class_name,
+    section: student.section || 'A',
+    totalAnnualDemand: schedule.totalAnnualBilled,
+    totalPaidToDate,
+    totalConcessions,
+    currentBalanceDue,
+    totalPendingAnnual,
+    feeStatus,
+    matchingInvoices
+  };
+}
+
+/**
  * Computes or resolves a student's full 12-month CBSE academic fee schedule.
  * Implements strict FIFO water-flow ledger accounting so that monthly paid amounts
  * never exceed the monthly demand, and total paid strictly balances with actual receipts.
@@ -113,20 +294,9 @@ export function getStudentMonthlyFeeSchedule(
   } = {}
 ): StudentMonthlyFeeSchedule {
   const studentAdmNo = (student.admission_no || '').toLowerCase().trim();
-  const studentId = (student.id || '').toLowerCase().trim();
-  const studentName = (student.full_name || '').toLowerCase().trim();
 
-  // Find all invoices matching this student
-  const studentInvoices = existingInvoices.filter(inv => {
-    const invAdm = (inv.admission_no || '').toLowerCase().trim();
-    const invId = (inv.student_id || '').toLowerCase().trim();
-    const invName = (inv.student_name || '').toLowerCase().trim();
-    return (
-      (studentAdmNo && invAdm && (studentAdmNo === invAdm || invAdm.includes(studentAdmNo) || studentAdmNo.includes(invAdm))) ||
-      (studentId && invId && studentId === invId) ||
-      (studentName && invName && studentName === invName)
-    );
-  });
+  // Strict exact matching
+  const studentInvoices = matchInvoicesForStudent(student, existingInvoices);
 
   const baseTuition = options.baseTuition ?? getStandardTuitionRate(student.class_name);
   const annualFeeDefault = options.annualFee ?? getStandardAnnualFeeRate(student.class_name);
@@ -149,12 +319,15 @@ export function getStudentMonthlyFeeSchedule(
       return invMonth === targetShort || invMonth === targetMonthName || (invMonth.includes(targetShort) && !invMonth.includes('-'));
     });
 
+    const concessionAmount = matchedInvoice ? (Number(matchedInvoice.concession_amount) || 0) : 0;
+
     return {
       mConfig,
       tuitionFee,
       annualFee,
       transportFee,
       examFee,
+      concessionAmount,
       totalBilled,
       matchedInvoice
     };
@@ -164,12 +337,14 @@ export function getStudentMonthlyFeeSchedule(
 
   // 2. Calculate actual total paid money deposited by this student
   let totalCollectedMoney = 0;
-  let hasExplicitInvoices = studentInvoices.length > 0;
+  let totalConcessionsMoney = 0;
+  const hasExplicitInvoices = studentInvoices.length > 0;
 
   studentInvoices.forEach(inv => {
     const invAmount = Number(inv.amount) || 0;
     const invPaid = typeof inv.paid_amount === 'number' ? inv.paid_amount : (inv.status === 'PAID' ? invAmount : 0);
     totalCollectedMoney += invPaid;
+    totalConcessionsMoney += (Number(inv.concession_amount) || 0);
   });
 
   const isProfilePaid = (student.fee_status || '').toUpperCase() === 'PAID';
@@ -179,15 +354,28 @@ export function getStudentMonthlyFeeSchedule(
     ? totalCollectedMoney
     : (isProfilePaid ? totalAnnualBilled : 0);
 
+  let availableConcessionPool = totalConcessionsMoney;
+
   // 3. Distribute available payment pool strictly using FIFO (Water-flow) Allocation
-  // This guarantees that for ANY month, paidAmount is capped at totalBilled, and no month shows "Billed 6400 Paid 15000"
   let unallocatedPaid = availablePaymentPool;
+  let unallocatedConcession = availableConcessionPool;
 
   const monthlyItems: MonthlyFeeItem[] = rawMonths.map(({ mConfig, tuitionFee, annualFee, transportFee, examFee, totalBilled, matchedInvoice }) => {
+    let monthConcession = 0;
+    if (unallocatedConcession >= totalBilled) {
+      monthConcession = totalBilled;
+      unallocatedConcession -= totalBilled;
+    } else if (unallocatedConcession > 0) {
+      monthConcession = unallocatedConcession;
+      unallocatedConcession = 0;
+    }
+
+    const netMonthDemand = Math.max(0, totalBilled - monthConcession);
+
     let paidAmount = 0;
-    if (unallocatedPaid >= totalBilled) {
-      paidAmount = totalBilled;
-      unallocatedPaid -= totalBilled;
+    if (unallocatedPaid >= netMonthDemand) {
+      paidAmount = netMonthDemand;
+      unallocatedPaid -= netMonthDemand;
     } else if (unallocatedPaid > 0) {
       paidAmount = unallocatedPaid;
       unallocatedPaid = 0;
@@ -195,7 +383,7 @@ export function getStudentMonthlyFeeSchedule(
       paidAmount = 0;
     }
 
-    const balanceDue = Math.max(0, totalBilled - paidAmount);
+    const balanceDue = Math.max(0, netMonthDemand - paidAmount);
     const isPastOrCurrent = mConfig.index <= 6; // April to September 2026
 
     let status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'UPCOMING';
@@ -231,7 +419,7 @@ export function getStudentMonthlyFeeSchedule(
       transportFee,
       examFee,
       activityFee: 0,
-      concessionAmount: 0,
+      concessionAmount: monthConcession,
       totalBilled,
       paidAmount,
       balanceDue,
@@ -254,3 +442,74 @@ export function getStudentMonthlyFeeSchedule(
     months: monthlyItems
   };
 }
+
+export interface SchoolFeeOverviewMetrics {
+  totalBilled: number;
+  totalRevenue: number;
+  pendingFeeAmount: number;
+  totalConcessions: number;
+  feeCollectionRate: number;
+  paidInvoicesCount: number;
+  pendingInvoicesCount: number;
+}
+
+/**
+ * Universal single-source-of-truth aggregator for school-wide fee metrics across all screens.
+ * Accurately accounts for partial payments, waivers, and net remaining balances.
+ */
+export function getSchoolFeeOverview(invoices: FeeInvoice[] = []): SchoolFeeOverviewMetrics {
+  if (!Array.isArray(invoices) || invoices.length === 0) {
+    return {
+      totalBilled: 0,
+      totalRevenue: 0,
+      pendingFeeAmount: 0,
+      totalConcessions: 0,
+      feeCollectionRate: 0,
+      paidInvoicesCount: 0,
+      pendingInvoicesCount: 0
+    };
+  }
+
+  let totalBilled = 0;
+  let totalRevenue = 0;
+  let pendingFeeAmount = 0;
+  let totalConcessions = 0;
+  let paidInvoicesCount = 0;
+  let pendingInvoicesCount = 0;
+
+  invoices.forEach(inv => {
+    if (!inv) return;
+    const billed = Number(inv.amount) || 0;
+    const paid = typeof inv.paid_amount === 'number'
+      ? inv.paid_amount
+      : (inv.status === 'PAID' ? billed : 0);
+    const concession = Number(inv.concession_amount) || 0;
+    const balance = Math.max(0, billed - (paid + concession));
+
+    totalBilled += billed;
+    totalRevenue += paid;
+    totalConcessions += concession;
+    pendingFeeAmount += balance;
+
+    if (balance === 0 && (paid > 0 || concession > 0)) {
+      paidInvoicesCount++;
+    } else {
+      pendingInvoicesCount++;
+    }
+  });
+
+  const feeCollectionRate = totalBilled > 0
+    ? Math.min(100, Math.round(((totalRevenue + totalConcessions) / totalBilled) * 100))
+    : 0;
+
+  return {
+    totalBilled,
+    totalRevenue,
+    pendingFeeAmount,
+    totalConcessions,
+    feeCollectionRate,
+    paidInvoicesCount,
+    pendingInvoicesCount
+  };
+}
+

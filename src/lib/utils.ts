@@ -177,4 +177,23 @@ export function numberToWordsINR(num: number): string {
   return 'Rupees ' + res.trim() + ' Only';
 }
 
-
+/**
+ * Returns today's standard date in YYYY-MM-DD string format in Indian Standard Time (Asia/Kolkata).
+ * Eliminates midnight rollover bugs where UTC toISOString() is 5.5 hours behind and returns yesterday's date until 5:30 AM.
+ */
+export function getTodayDateStr(date: Date = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(date);
+  } catch (_) {
+    const d = new Date(date.getTime() + (330 + date.getTimezoneOffset()) * 60000);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+}

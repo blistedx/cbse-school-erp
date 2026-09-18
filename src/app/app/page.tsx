@@ -94,7 +94,7 @@ import { TaskCompletionOverlay, TaskCelebrationData, TaskCelebrationType } from 
 import { getAllSiblingGroups, SiblingGroup } from '@/lib/student-helper';
 import { ANTIGRAVITY_THEMES, applyAntigravityTheme, getSavedThemeId } from '@/lib/themes';
 import { compressImageFile } from '@/lib/image-compress';
-import { getSchoolInitials, printHtmlElement, numberToWordsINR } from '@/lib/utils';
+import { getSchoolInitials, printHtmlElement, numberToWordsINR, getTodayDateStr } from '@/lib/utils';
 import { ThinkingOrb, ThinkingOrbThinkingDemo, ThinkingOrbSyncPill } from '@/components/ui/thinking-orbs';
 
 // Instant Module Loading Fallback using ThinkingOrb
@@ -1070,7 +1070,7 @@ function ERPWorkspaceContent() {
   const [attendanceMode, setAttendanceMode] = useState<'students' | 'faculty' | 'logs'>('students');
   const [selectedAttendanceClass, setSelectedAttendanceClass] = useState<string>('Class 10');
   const [selectedAttendanceSection, setSelectedAttendanceSection] = useState<string>('A');
-  const [selectedAttendanceDate, setSelectedAttendanceDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [selectedAttendanceDate, setSelectedAttendanceDate] = useState<string>(() => getTodayDateStr());
   const [studentAttendanceMap, setStudentAttendanceMap] = useState<Record<string, 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY'>>({});
   const [facultyAttendanceMap, setFacultyAttendanceMap] = useState<Record<string, 'PRESENT' | 'HOLIDAY' | 'LEAVE' | 'HALF_DAY' | 'ABSENT'>>({});
   const [attendanceFacultyDeptFilter, setAttendanceFacultyDeptFilter] = useState<string>('ALL');
@@ -1115,6 +1115,38 @@ function ERPWorkspaceContent() {
         window.removeEventListener('offline', handleOffline);
       };
     }
+  }, [selectedSchool, selectedSession]);
+
+  // 🌙 Automatic Midnight 12:00 AM IST Rollover Watcher
+  // When day changes (e.g. at 12:00 AM or waking laptop/browser at 8:00 AM), automatically refreshes ERP data & attendance date
+  useEffect(() => {
+    let lastTrackedDay = getTodayDateStr();
+
+    const checkDateChange = () => {
+      const currentDay = getTodayDateStr();
+      if (currentDay !== lastTrackedDay) {
+        lastTrackedDay = currentDay;
+        setSelectedAttendanceDate(currentDay);
+        if (selectedSchool) {
+          loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession, true);
+        }
+      }
+    };
+
+    const interval = setInterval(checkDateChange, 15000);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkDateChange();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', checkDateChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', checkDateChange);
+    };
   }, [selectedSchool, selectedSession]);
 
   // ⚡ Instant Module Preloader: Pre-warms every chunk in background so tabs switch at 0ms!
@@ -1556,10 +1588,10 @@ function ERPWorkspaceContent() {
     student_name: '',
     admission_no: '',
     class_name: 'Class 10 - A',
-    tuition_fee: 12000,
-    transport_fee: 2000,
+    tuition_fee: 2000,
+    transport_fee: 0,
     exam_fee: 1000,
-    amount: 15000,
+    amount: 3000,
     payment_mode: 'UPI / Online',
     due_date: new Date().toISOString().split('T')[0],
     status: 'PENDING' as 'PAID' | 'PENDING' | 'OVERDUE'
@@ -2419,8 +2451,9 @@ function ERPWorkspaceContent() {
       const url = '/api/students';
       const method = isEditing ? 'PATCH' : 'POST';
       const finalFeeStatus = (!isEditing && collectFeeNow) ? 'PAID' : (studentForm.fee_status || 'PENDING');
+      const { fee_status: _omittedFeeStatus, ...studentFormDataWithoutFeeStatus } = studentForm;
       const payload = isEditing
-        ? { id: editingStudentId, school_id: selectedSchool.id, academic_session: studentForm.academic_session || selectedSession, ...studentForm }
+        ? { id: editingStudentId, school_id: selectedSchool.id, academic_session: studentForm.academic_session || selectedSession, ...studentFormDataWithoutFeeStatus }
         : { school_id: selectedSchool.id, academic_session: studentForm.academic_session || selectedSession, ...studentForm, fee_status: finalFeeStatus };
 
       const res = await apiFetch(url, {
@@ -3028,10 +3061,10 @@ function ERPWorkspaceContent() {
           student_name: '',
           admission_no: '',
           class_name: 'Class 10 - A',
-          tuition_fee: 12000,
-          transport_fee: 2000,
+          tuition_fee: 2000,
+          transport_fee: 0,
           exam_fee: 1000,
-          amount: 15000,
+          amount: 3000,
           payment_mode: 'UPI / Online',
           due_date: new Date().toISOString().split('T')[0],
           status: 'PENDING'
@@ -5413,6 +5446,7 @@ function ERPWorkspaceContent() {
               setShowAddInvoice={setShowAddInvoice}
               setViewInvoice={setViewInvoice}
               setActiveTab={setActiveTab}
+              onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession, true)}
             />
           )}
 
@@ -8522,7 +8556,7 @@ function ERPWorkspaceContent() {
 
           {/* TAB 5: ATTENDANCE HUB (STUDENT vs ADMIN/FACULTY) */}
           {activeTab === 'attendance' && allowedTabs.includes('attendance') && (
-            effectiveRole === 'STUDENT' ? (
+            (effectiveRole === 'STUDENT' || effectiveRole === 'PARENT') ? (
               <DashboardStudentPortal
                 currentUser={currentUser}
                 selectedSchool={selectedSchool}
@@ -8818,7 +8852,7 @@ function ERPWorkspaceContent() {
           {/* TAB: CERTIFICATES & DOCKET STUDIO */}
           {activeTab === 'certificates' && (
             <div className="space-y-6 animate-fade-in">
-              {effectiveRole === 'STUDENT' ? (
+              {(effectiveRole === 'STUDENT' || effectiveRole === 'PARENT') ? (
                 <DashboardStudentPortal
                   currentUser={currentUser}
                   selectedSchool={selectedSchool}
@@ -8836,6 +8870,7 @@ function ERPWorkspaceContent() {
                   students={students}
                   teachers={teachers}
                   classes={classes}
+                  invoices={invoices}
                   selectedSession={selectedSession}
                   isSuperAdmin={isSuperAdmin}
                 />
@@ -10278,7 +10313,7 @@ function ERPWorkspaceContent() {
 
           {/* TAB: CBSE EXAMINATIONS & DIGITAL MARKSHEETS */}
           {activeTab === 'exams' && (
-            effectiveRole === 'STUDENT' ? (
+            (effectiveRole === 'STUDENT' || effectiveRole === 'PARENT') ? (
               <DashboardStudentPortal
                 currentUser={currentUser}
                 selectedSchool={selectedSchool}
@@ -13042,7 +13077,7 @@ function ERPWorkspaceContent() {
                   </span>
                 </div>
                 <div className="text-slate-500 text-[10.5px]">
-                  Date: Today ({formatDateDisplay(new Date().toISOString().split('T')[0])}) • ISO Realtime Timestamp
+                  Date: Today ({formatDateDisplay(getTodayDateStr())}) • ISO Realtime Timestamp
                 </div>
               </div>
 

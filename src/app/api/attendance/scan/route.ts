@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { Database, isSameClass } from '@/lib/db';
 import { AttendanceRecord } from '@/lib/types';
 import { extractToken, verifySessionToken } from '@/lib/auth-guard';
+import { getTodayDateStr } from '@/lib/utils';
 
 export async function POST(req: Request) {
   try {
@@ -68,9 +69,9 @@ export async function POST(req: Request) {
       }, { status: 404 });
     }
 
-    // 3. Current Date strictly for TODAY (YYYY-MM-DD)
+    // 3. Current Date strictly for TODAY in IST (YYYY-MM-DD)
     const now = new Date();
-    const todayDate = now.toISOString().split('T')[0];
+    const todayDate = getTodayDateStr();
     const checkInTime = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 
     const className = student.class_name || 'Class 10';
