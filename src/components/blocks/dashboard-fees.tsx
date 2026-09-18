@@ -2869,6 +2869,88 @@ export function DashboardFees({
                       ))
                     )}
                   </tbody>
+                  {filteredFeesReportList.length > 0 && (
+                    <tfoot className="bg-[#122A24] text-white border-t-2 border-[#1C443A] font-mono font-bold text-xs select-none sticky bottom-0 z-10 shadow-lg">
+                      <tr>
+                        {/* Roll, Scholar Particulars, Class, Transport Span */}
+                        <td colSpan={4} className="py-4 px-4 text-left font-sans">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-extrabold text-white tracking-wide uppercase">Grand Total</span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-900/90 text-emerald-200 text-[11px] font-mono font-semibold border border-emerald-600">
+                              {filteredFeesReportList.length} Scholars
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Tuition Due / Paid */}
+                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap">
+                          <div className="text-white font-bold text-xs">
+                            ₹{filteredFeesReportList.reduce((acc, r) => acc + r.netTuitionDue, 0).toLocaleString('en-IN')}
+                          </div>
+                          <div className="text-[10px] text-emerald-300 font-normal">
+                            Pd: ₹{filteredFeesReportList.reduce((acc, r) => acc + r.tuitionPaid, 0).toLocaleString('en-IN')}
+                          </div>
+                        </td>
+
+                        {/* Transport Due / Paid */}
+                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap">
+                          <div className="text-white font-bold text-xs">
+                            ₹{filteredFeesReportList.reduce((acc, r) => acc + r.transportDue, 0).toLocaleString('en-IN')}
+                          </div>
+                          <div className="text-[10px] text-emerald-300 font-normal">
+                            Pd: ₹{filteredFeesReportList.reduce((acc, r) => acc + r.transportPaid, 0).toLocaleString('en-IN')}
+                          </div>
+                        </td>
+
+                        {/* Annual Due / Paid */}
+                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap">
+                          <div className="text-white font-bold text-xs">
+                            ₹{filteredFeesReportList.reduce((acc, r) => acc + r.annualDue, 0).toLocaleString('en-IN')}
+                          </div>
+                          <div className="text-[10px] text-emerald-300 font-normal">
+                            Pd: ₹{filteredFeesReportList.reduce((acc, r) => acc + r.annualPaid, 0).toLocaleString('en-IN')}
+                          </div>
+                        </td>
+
+                        {/* Exam Due / Paid */}
+                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap">
+                          <div className="text-white font-bold text-xs">
+                            ₹{filteredFeesReportList.reduce((acc, r) => acc + r.examDue, 0).toLocaleString('en-IN')}
+                          </div>
+                          <div className="text-[10px] text-emerald-300 font-normal">
+                            Pd: ₹{filteredFeesReportList.reduce((acc, r) => acc + r.examPaid, 0).toLocaleString('en-IN')}
+                          </div>
+                        </td>
+
+                        {/* Total Due */}
+                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap text-white font-extrabold text-sm">
+                          ₹{filteredFeesReportList.reduce((acc, r) => acc + r.totalDue, 0).toLocaleString('en-IN')}
+                        </td>
+
+                        {/* Total Submitted / Paid */}
+                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap text-emerald-300 font-extrabold text-sm bg-emerald-950/80">
+                          ₹{filteredFeesReportList.reduce((acc, r) => acc + r.totalPaid, 0).toLocaleString('en-IN')}
+                        </td>
+
+                        {/* Total Pending */}
+                        <td className="py-4 px-3 text-right tabular-nums whitespace-nowrap font-extrabold text-sm text-rose-300 bg-rose-950/60">
+                          ₹{filteredFeesReportList.reduce((acc, r) => acc + r.totalPending, 0).toLocaleString('en-IN')}
+                        </td>
+
+                        {/* Status Summary */}
+                        <td className="py-4 px-3 text-center whitespace-nowrap">
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-200 text-[10px] font-bold border border-emerald-500/30 inline-block">
+                            {filteredFeesReportList.filter(r => r.status === 'PAID').length} Paid / {filteredFeesReportList.filter(r => r.status !== 'PAID').length} Due
+                          </span>
+                        </td>
+
+                        {/* Actions Placeholder */}
+                        <td className="py-4 px-3 text-center whitespace-nowrap text-emerald-200/70 text-[11px] font-sans">
+                          Summary Verified ✓
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
 
