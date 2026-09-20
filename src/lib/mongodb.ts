@@ -23,7 +23,18 @@ declare global {
 }
 
 export function getMongoUri(): string {
-  return process.env.MONGODB_URI || '';
+  let uri = process.env.MONGODB_URI || '';
+  if (!uri && typeof window === 'undefined' && process.env.NEXT_RUNTIME !== 'edge') {
+    try {
+      const dotenv = require('dotenv');
+      dotenv.config({ path: '.env.local' });
+      dotenv.config({ path: '.env' });
+      uri = process.env.MONGODB_URI || '';
+    } catch {
+      // ignore
+    }
+  }
+  return uri;
 }
 
 export function isMongoConfigured(): boolean {
