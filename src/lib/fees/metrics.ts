@@ -120,12 +120,12 @@ export function computeStudentFeeState(
     });
   }
 
-  const advanceAmount = Math.max(0, availablePayment);
+  const advanceInflow = Math.max(availablePayment, Math.max(0, totalCollected - billedDueToDate));
 
   let status: StudentFeeState['status'] = 'DUE';
   if (totalCollected === 0 && billedDueToDate > 0) {
     status = 'NEVER_PAID';
-  } else if (pendingDues === 0 && advanceAmount > 0) {
+  } else if (pendingDues === 0 && advanceInflow > 0) {
     status = 'ADVANCE';
   } else if (pendingDues === 0) {
     status = 'PAID';
@@ -150,7 +150,7 @@ export function computeStudentFeeState(
     totalCollected,
     pendingDues,
     upcomingDues,
-    advanceAmount,
+    advanceAmount: advanceInflow,
     status,
     demands: processedDemands,
     payments: activePayments,

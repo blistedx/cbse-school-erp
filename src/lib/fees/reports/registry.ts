@@ -88,9 +88,12 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
     }
 
     for (const s of ctx.students) {
+      if (ctx.filters.className && s.class_name !== ctx.filters.className) continue;
+      if (ctx.filters.section && (s.section || 'A') !== ctx.filters.section) continue;
+
       const cls = s.class_name || 'Class 1';
       const sec = s.section || 'A';
-      const key = `${cls} - ${sec}`;
+      const key = ctx.filters.section ? `${cls} - ${sec}` : cls;
 
       if (!classSecMap.has(key)) {
         classSecMap.set(key, {
@@ -555,11 +558,16 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
   advance_payers: (ctx) => {
     const rows: Record<string, any>[] = [];
     let grandAdvance = 0;
+    let grandBilledToDate = 0;
+    let grandPaid = 0;
 
     for (const s of ctx.students) {
       const state = computeStudentFeeState(s.id, ctx.demands, ctx.payments, ctx.asOfDate);
-      if (state.advanceAmount > 0) {
-        grandAdvance += state.advanceAmount;
+      const adv = Math.max(state.advanceAmount, Math.max(0, state.totalCollected - state.billedDueToDate));
+      if (adv > 0) {
+        grandAdvance += adv;
+        grandBilledToDate += state.billedDueToDate;
+        grandPaid += state.totalCollected;
         rows.push({
           studentName: s.full_name || 'Scholar',
           admissionNo: s.admission_no || s.id,
@@ -568,7 +576,7 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
           mobile: s.father_phone || s.guardian_phone || s.phone || 'N/A',
           billedToDatePaise: state.billedDueToDate,
           paidPaise: state.totalCollected,
-          advancePaise: state.advanceAmount,
+          advancePaise: adv,
         });
       }
     }
@@ -581,8 +589,8 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
         classSection: '',
         fatherName: '',
         mobile: '',
-        billedToDatePaise: 0,
-        paidPaise: 0,
+        billedToDatePaise: grandBilledToDate,
+        paidPaise: grandPaid,
         advancePaise: grandAdvance,
       },
       summaryKpis: [
@@ -960,7 +968,11 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
     let grandAmount = 0;
 
     for (const s of ctx.students) {
-      const sDemands = ctx.demands.filter(d => d.studentId === s.id && d.discountAmount > 0);
+      const sDemands = ctx.demands.filter(d => 
+        d.studentId === s.id && 
+        d.discountAmount > 0 && 
+        !d.discountReason?.includes('Sibling')
+      );
       for (const d of sDemands) {
         grandAmount += d.discountAmount;
         rows.push({
@@ -968,7 +980,7 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
           admissionNo: s.admission_no || s.id,
           classSection: `${s.class_name} - ${s.section || 'A'}`,
           concessionType: d.feeHead,
-          reason: d.discountReason || 'Statutory Sibling Concession',
+          reason: d.discountReason || 'Manual Fee Concession',
           amountPaise: d.discountAmount,
           approvedBy: 'PRINCIPAL / ACCOUNTS',
         });

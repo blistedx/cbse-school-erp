@@ -60,16 +60,28 @@ function getTransportRatePaise(slabId) {
   return 90000;
 }
 
-function generateDemandsForStudent(student, session, siblingTier) {
+function getHostelRatePaise(roomType) {
+  const r = String(roomType || 'DOUBLE').toUpperCase();
+  if (r.includes('SINGLE')) return 800000; // ₹8,000/mo
+  if (r.includes('TRIPLE')) return 500000; // ₹5,000/mo
+  return 650000; // ₹6,500/mo (Double Sharing)
+}
+
+function generateDemandsForStudent(student, session, siblingTier, manualConcession = null) {
   const schoolId = student.school_id || 'DPS2026';
   const isRte = String(student.is_rte || '').toUpperCase() === 'YES';
   const isTransport = String(student.transport_opted || '').toUpperCase() === 'YES';
+  const isHostel = String(student.hostel_opted || '').toUpperCase() === 'YES';
   const transportSlab = student.transport_slab_id || '1';
-  const isNewAdmission = !!(student.admission_no && (student.admission_no.includes('2026') || student.admission_no.includes('ADM-')));
+  
+  // STRICT NEW ADMISSION RULE:
+  // Only students explicitly marked with admission_type === 'NEW' or admission_no === 'ADM-0556' receive one-time admission/registration charges.
+  const isNewAdmission = student.admission_type === 'NEW' || student.admission_no === 'ADM-0556';
 
   const tuitionMonthly = getTuitionRatePaise(student.class_name);
   const annualFee = getAnnualFeePaise(student.class_name);
   const transportMonthly = getTransportRatePaise(transportSlab);
+  const hostelMonthly = getHostelRatePaise(student.hostel_room_type || 'DOUBLE');
 
   const demands = [];
   const studentName = student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Scholar';
@@ -101,7 +113,7 @@ function generateDemandsForStudent(student, session, siblingTier) {
     });
   }
 
-  // 2. One-Time Charges (Admission & Registration)
+  // 2. One-Time Charges (Admission & Registration) — ONLY FOR NEW ADMISSIONS
   if (isNewAdmission && !isRte) {
     demands.push({
       id: `DEM-${student.id}-REGISTRATION-ONETIME`,
@@ -143,14 +155,22 @@ function generateDemandsForStudent(student, session, siblingTier) {
     });
   }
 
-  // 3. 12 Academic Months (Tuition & Transport)
+  // 3. 12 Academic Months (Tuition, Transport, Hostel, Exams)
   for (const m of MONTH_SCHEDULE) {
     if (!isRte) {
       let tuitionDisc = 0;
       let tuitionDiscReason = null;
+      
+      // Automatic sibling discount
       if (siblingTier && siblingTier.tuitionDiscountPct > 0) {
         tuitionDisc = Math.round((tuitionMonthly * siblingTier.tuitionDiscountPct) / 100);
         tuitionDiscReason = `Sibling Concession (${siblingTier.tuitionDiscountPct}% on tuition)`;
+      }
+
+      // Manual concession override (if assigned)
+      if (manualConcession && manualConcession.month === m.key) {
+        tuitionDisc = manualConcession.amountPaise;
+        tuitionDiscReason = manualConcession.reason;
       }
 
       demands.push({
@@ -174,6 +194,7 @@ function generateDemandsForStudent(student, session, siblingTier) {
       });
     }
 
+    // Transport Demand
     if (isTransport) {
       let transDisc = 0;
       let transDiscReason = null;
@@ -203,6 +224,30 @@ function generateDemandsForStudent(student, session, siblingTier) {
       });
     }
 
+    // Hostel Demand
+    if (isHostel) {
+      demands.push({
+        id: `DEM-${student.id}-HOSTEL-${m.key}`,
+        schoolId,
+        sessionId: session,
+        studentId: student.id,
+        studentName,
+        admissionNo: admNo,
+        className: cls,
+        section: sec,
+        feeHead: 'HOSTEL',
+        period: m.key,
+        periodLabel: `${m.label} (Hostel & Mess)`,
+        grossAmount: hostelMonthly,
+        discountAmount: 0,
+        discountReason: null,
+        netAmount: hostelMonthly,
+        dueDate: m.due,
+        createdAt: now,
+      });
+    }
+
+    // Exam & Lab Assessments
     if (m.key === 'JUL' && !isRte) {
       demands.push({
         id: `DEM-${student.id}-EXAM-JUL`,
@@ -293,7 +338,7 @@ function generateDemandsForStudent(student, session, siblingTier) {
 const PAYMENT_MODES = ['UPI', 'CASH', 'UPI', 'ONLINE', 'CHEQUE', 'UPI', 'CASH'];
 
 async function seedUnifiedFeeEngine() {
-  console.log('⚡ Starting Unified Single Source of Truth Fee Seed...');
+  console.log('⚡ Starting Enhanced Fee Seed (Realistic Allocations, Cancelled Receipts, Manual Concessions)...');
   const client = new MongoClient(envUri);
   await client.connect();
   const db = client.db('edugit');
@@ -303,6 +348,43 @@ async function seedUnifiedFeeEngine() {
 
   const students = await db.collection('students').find({ school_id: schoolId }).toArray();
   console.log(`📋 Found ${students.length} students enrolled in ${schoolId}`);
+
+  // Ensure explicit admission attributes
+  const studentUpdates = [];
+  for (let i = 0; i < students.length; i++) {
+    const s = students[i];
+    const isNew = s.admission_no === 'ADM-0556' || s.admission_no === 'DPS-2026-0263';
+    // Realistic Transport (14 students) and Hostel (6 students)
+    const isTrans = i < 14;
+    const slabId = String((i % 4) + 1);
+    const isHost = i >= 20 && i < 26;
+    const roomType = i % 2 === 0 ? 'DOUBLE' : 'SINGLE';
+
+    s.admission_type = isNew ? 'NEW' : 'EXISTING';
+    s.admission_session = isNew ? '2026-27' : '2025-26';
+    s.transport_opted = isTrans ? 'YES' : 'NO';
+    s.transport_slab_id = isTrans ? slabId : null;
+    s.hostel_opted = isHost ? 'YES' : 'NO';
+    s.hostel_room_type = isHost ? roomType : null;
+
+    studentUpdates.push({
+      updateOne: {
+        filter: { _id: s._id },
+        update: {
+          $set: {
+            admission_type: s.admission_type,
+            admission_session: s.admission_session,
+            transport_opted: s.transport_opted,
+            transport_slab_id: s.transport_slab_id,
+            hostel_opted: s.hostel_opted,
+            hostel_room_type: s.hostel_room_type,
+          }
+        }
+      }
+    });
+  }
+  await db.collection('students').bulkWrite(studentUpdates);
+  console.log('✅ Synchronized student admission, transport, and hostel attributes in DB');
 
   // Sibling mapping
   const familyMap = new Map();
@@ -331,6 +413,44 @@ async function seedUnifiedFeeEngine() {
 
   console.log(`👨‍👩‍👧 Mapped ${siblingTierMap.size} sibling discount beneficiaries`);
 
+  // 5 Explicit Manual Concessions
+  const manualConcessionConfigs = [
+    { studentIndex: 10, month: 'MAY', amountPaise: 80000, reason: 'Merit Scholarship (CBSE State Top 1%)', approvedBy: 'PRINCIPAL / GOVERNING BODY' },
+    { studentIndex: 45, month: 'JUL', amountPaise: 50000, reason: 'Staff Ward Special Fee Waiver', approvedBy: 'SECRETARY / ACCOUNTS' },
+    { studentIndex: 100, month: 'AUG', amountPaise: 100000, reason: 'National Sports Champion Waiver', approvedBy: 'MANAGEMENT' },
+    { studentIndex: 150, month: 'SEP', amountPaise: 60000, reason: 'Special Hardship COVID Relief', approvedBy: 'ACCOUNTS OFFICER' },
+    { studentIndex: 200, month: 'OCT', amountPaise: 40000, reason: 'EWS Discretionary Principal Waiver', approvedBy: 'PRINCIPAL' },
+  ];
+
+  const manualConcessionDocs = [];
+  const manualConcessionsByStudentId = new Map();
+
+  for (const mcc of manualConcessionConfigs) {
+    const s = students[mcc.studentIndex];
+    if (s) {
+      manualConcessionsByStudentId.set(s.id, mcc);
+      manualConcessionDocs.push({
+        id: `CNC-${s.id}-${mcc.month}`,
+        schoolId,
+        sessionId: session,
+        studentId: s.id,
+        studentName: s.full_name || 'Scholar',
+        admissionNo: s.admission_no || s.id,
+        className: s.class_name,
+        section: s.section || 'A',
+        month: mcc.month,
+        amountPaise: mcc.amountPaise,
+        reason: mcc.reason,
+        approvedBy: mcc.approvedBy,
+        createdAt: '2026-04-10T10:00:00.000Z',
+      });
+    }
+  }
+
+  await db.collection('fee_concessions').deleteMany({ sessionId: session });
+  await db.collection('fee_concessions').insertMany(manualConcessionDocs);
+  console.log(`🎁 Seeded ${manualConcessionDocs.length} distinct manual concessions in fee_concessions collection`);
+
   const allDemands = [];
   const allPayments = [];
   const legacyLedgerLines = [];
@@ -339,10 +459,11 @@ async function seedUnifiedFeeEngine() {
   for (let idx = 0; idx < students.length; idx++) {
     const s = students[idx];
     const siblingTier = siblingTierMap.get(s.id) || null;
+    const manualConcession = manualConcessionsByStudentId.get(s.id) || null;
     const isRte = String(s.is_rte || '').toUpperCase() === 'YES';
 
     // 1. Generate full demands for session 2026-27
-    const studentDemands = generateDemandsForStudent(s, session, siblingTier);
+    const studentDemands = generateDemandsForStudent(s, session, siblingTier, manualConcession);
     allDemands.push(...studentDemands);
 
     // Populate legacy ledger demands
@@ -352,7 +473,7 @@ async function seedUnifiedFeeEngine() {
         school_id: schoolId,
         academic_session: session,
         student_id: s.id,
-        class_name: s.className,
+        class_name: s.class_name,
         section: s.section || 'A',
         admission_no: s.admission_no || '',
         line_type: 'DEMAND',
@@ -372,7 +493,7 @@ async function seedUnifiedFeeEngine() {
           school_id: schoolId,
           academic_session: session,
           student_id: s.id,
-          class_name: s.className,
+          class_name: s.class_name,
           section: s.section || 'A',
           admission_no: s.admission_no || '',
           line_type: 'DISCOUNT',
@@ -381,8 +502,8 @@ async function seedUnifiedFeeEngine() {
           slot_id: d.period === 'ONE_TIME' ? 'ONE_TIME' : `SLOT_${d.period}`,
           amount: d.discountAmount,
           txn_date: d.dueDate,
-          concession_type: 'SIBLING',
-          remarks: d.discountReason || 'Sibling Concession',
+          concession_type: d.discountReason?.includes('Sibling') ? 'SIBLING' : 'MANUAL',
+          remarks: d.discountReason || 'Fee Concession',
           is_cancelled: false,
           created_at: d.createdAt,
         });
@@ -393,17 +514,17 @@ async function seedUnifiedFeeEngine() {
 
     // 2. Realistic Cohort Distribution
     // 0 to 67   (~68%): Fully Paid Apr–Aug
-    // 68 to 82  (~15%): Partially Paid (e.g. Apr paid, or Apr-May paid)
-    // 83 to 89  (~7%) : Annual Fee Defaulters (Annual Fee Unpaid)
-    // 90 to 99  (~10%): Never Paid / Complete Defaulters (0 paid)
+    // 68 to 82  (~15%): Partially Paid
+    // 83 to 89  (~7%) : Annual Fee Defaulters
+    // 90 to 99  (~10%): Never Paid / Complete Defaulters (86 students)
     const cohortVal = (idx * 43 + 17) % 100;
-    const isNeverPaid = cohortVal >= 90; // 51 students never paid
-    const isAnnualDefaulter = cohortVal >= 83 && cohortVal < 90; // 35 students annual unpaid
+    const isNeverPaid = cohortVal >= 90;
+    const isAnnualDefaulter = cohortVal >= 83 && cohortVal < 90;
     const isPartial = cohortVal >= 68 && cohortVal < 83;
-    const isAdvance = cohortVal < 5;
+    const isAdvance = idx === 3 || idx === 7 || idx === 12; // 3 explicit advance payers
     const isRegularPaid = !isNeverPaid && !isAnnualDefaulter && !isPartial;
 
-    // Payment 1: April Slot (Annual Fee + Tuition APR + Admission/Prospectus if new)
+    // Payment 1: April Slot
     if (!isNeverPaid && !isAnnualDefaulter) {
       receiptCounter++;
       const aprRecNo = `DPS2-REC-2604-${String(receiptCounter).padStart(4, '0')}`;
@@ -411,7 +532,7 @@ async function seedUnifiedFeeEngine() {
       const mode = PAYMENT_MODES[idx % PAYMENT_MODES.length];
 
       const aprDemands = studentDemands.filter(d => 
-        d.period === 'APR' || (d.period === 'ONE_TIME' && s.admission_no === 'ADM-0556')
+        d.period === 'APR' || (d.period === 'ONE_TIME' && s.admission_type === 'NEW')
       );
 
       const allocatedHeads = aprDemands.map(d => ({
@@ -444,29 +565,6 @@ async function seedUnifiedFeeEngine() {
           cancelled: false,
           createdAt: `${aprDate}T10:00:00.000Z`,
         });
-
-        for (const ah of allocatedHeads) {
-          legacyLedgerLines.push({
-            id: `FLL-PAY-${s.id}-${ah.feeHead}-${ah.period}`,
-            school_id: schoolId,
-            academic_session: session,
-            student_id: s.id,
-            class_name: s.class_name,
-            section: s.section || 'A',
-            admission_no: s.admission_no || '',
-            line_type: 'PAYMENT',
-            fee_head: ah.feeHead,
-            month: ah.period === 'ONE_TIME' ? null : ah.period,
-            slot_id: ah.period === 'ONE_TIME' ? 'ONE_TIME' : `SLOT_${ah.period}`,
-            amount: ah.amountPaise,
-            txn_date: aprDate,
-            payment_mode: mode,
-            receipt_no: aprRecNo,
-            collected_by: 'ACCOUNTS_OFFICE',
-            is_cancelled: false,
-            created_at: `${aprDate}T10:00:00.000Z`,
-          });
-        }
       }
     }
 
@@ -507,29 +605,6 @@ async function seedUnifiedFeeEngine() {
           cancelled: false,
           createdAt: `${mjDate}T10:30:00.000Z`,
         });
-
-        for (const ah of allocatedHeads) {
-          legacyLedgerLines.push({
-            id: `FLL-PAY-${s.id}-${ah.feeHead}-${ah.period}`,
-            school_id: schoolId,
-            academic_session: session,
-            student_id: s.id,
-            class_name: s.class_name,
-            section: s.section || 'A',
-            admission_no: s.admission_no || '',
-            line_type: 'PAYMENT',
-            fee_head: ah.feeHead,
-            month: ah.period,
-            slot_id: `SLOT_${ah.period}`,
-            amount: ah.amountPaise,
-            txn_date: mjDate,
-            payment_mode: mode,
-            receipt_no: mjRecNo,
-            collected_by: 'ACCOUNTS_OFFICE',
-            is_cancelled: false,
-            created_at: `${mjDate}T10:30:00.000Z`,
-          });
-        }
       }
     }
 
@@ -570,29 +645,6 @@ async function seedUnifiedFeeEngine() {
           cancelled: false,
           createdAt: `${julDate}T11:00:00.000Z`,
         });
-
-        for (const ah of allocatedHeads) {
-          legacyLedgerLines.push({
-            id: `FLL-PAY-${s.id}-${ah.feeHead}-${ah.period}`,
-            school_id: schoolId,
-            academic_session: session,
-            student_id: s.id,
-            class_name: s.class_name,
-            section: s.section || 'A',
-            admission_no: s.admission_no || '',
-            line_type: 'PAYMENT',
-            fee_head: ah.feeHead,
-            month: ah.period,
-            slot_id: `SLOT_${ah.period}`,
-            amount: ah.amountPaise,
-            txn_date: julDate,
-            payment_mode: mode,
-            receipt_no: julRecNo,
-            collected_by: 'ACCOUNTS_OFFICE',
-            is_cancelled: false,
-            created_at: `${julDate}T11:00:00.000Z`,
-          });
-        }
       }
     }
 
@@ -633,34 +685,51 @@ async function seedUnifiedFeeEngine() {
           cancelled: false,
           createdAt: `${augDate}T11:15:00.000Z`,
         });
+      }
+    }
 
-        for (const ah of allocatedHeads) {
-          legacyLedgerLines.push({
-            id: `FLL-PAY-${s.id}-${ah.feeHead}-${ah.period}`,
-            school_id: schoolId,
-            academic_session: session,
-            student_id: s.id,
-            class_name: s.class_name,
-            section: s.section || 'A',
-            admission_no: s.admission_no || '',
-            line_type: 'PAYMENT',
-            fee_head: ah.feeHead,
-            month: ah.period,
-            slot_id: `SLOT_${ah.period}`,
-            amount: ah.amountPaise,
-            txn_date: augDate,
-            payment_mode: mode,
-            receipt_no: augRecNo,
-            collected_by: 'ACCOUNTS_OFFICE',
-            is_cancelled: false,
-            created_at: `${augDate}T11:15:00.000Z`,
-          });
-        }
+    // Advance Payments: Future Slots (OCT, NOV, DEC) for Advance Cohort
+    if (isAdvance) {
+      receiptCounter++;
+      const advRecNo = `DPS2-REC-2609-ADV-${String(receiptCounter).padStart(4, '0')}`;
+      const advDate = `2026-09-${String(2 + (idx % 5)).padStart(2, '0')}`;
+      const mode = 'ONLINE';
+
+      const futureDemands = studentDemands.filter(d => d.period === 'OCT' || d.period === 'NOV');
+      const allocatedHeads = futureDemands.map(d => ({
+        feeHead: d.feeHead,
+        period: d.period,
+        amountPaise: d.netAmount,
+      }));
+      const totalPaid = allocatedHeads.reduce((a, b) => a + b.amountPaise, 0);
+
+      if (totalPaid > 0) {
+        allPayments.push({
+          id: `PAY-${s.id}-ADVANCE-Q3`,
+          receiptNo: advRecNo,
+          schoolId,
+          sessionId: session,
+          studentId: s.id,
+          studentName: s.full_name || 'Scholar',
+          admissionNo: s.admission_no || s.id,
+          className: s.class_name,
+          section: s.section || 'A',
+          fatherName: s.father_name || 'Parent',
+          mobile: s.father_phone || s.guardian_phone || s.phone || '9811000000',
+          allocatedHeads,
+          amountPaid: totalPaid,
+          mode,
+          paidOn: advDate,
+          collectedBy: 'ONLINE_PORTAL',
+          remarks: 'Advance Fee Payment for Q3 (Oct & Nov)',
+          cancelled: false,
+          createdAt: `${advDate}T14:20:00.000Z`,
+        });
       }
     }
   }
 
-  // Preserve Anand Shukla's explicit receipts
+  // Preserve Anand Shukla's explicit payments
   const anand = students.find(s => s.admission_no === 'ADM-0556');
   if (anand) {
     allPayments.push({
@@ -688,48 +757,6 @@ async function seedUnifiedFeeEngine() {
       createdAt: '2026-09-20T09:18:44.561Z',
     });
 
-    legacyLedgerLines.push({
-      id: `FLL-PAY-${anand.id}-REGISTRATION-ONETIME`,
-      school_id: schoolId,
-      academic_session: session,
-      student_id: anand.id,
-      class_name: anand.class_name,
-      section: anand.section || 'A',
-      admission_no: anand.admission_no,
-      line_type: 'PAYMENT',
-      fee_head: 'REGISTRATION',
-      month: null,
-      slot_id: 'ONE_TIME',
-      amount: 100000,
-      txn_date: '2026-09-20',
-      payment_mode: 'CASH',
-      receipt_no: 'DPS2-REC-924372-632',
-      collected_by: 'admin',
-      is_cancelled: false,
-      created_at: '2026-09-20T09:18:44.561Z',
-    });
-
-    legacyLedgerLines.push({
-      id: `FLL-PAY-${anand.id}-ADMISSION-ONETIME`,
-      school_id: schoolId,
-      academic_session: session,
-      student_id: anand.id,
-      class_name: anand.class_name,
-      section: anand.section || 'A',
-      admission_no: anand.admission_no,
-      line_type: 'PAYMENT',
-      fee_head: 'ADMISSION',
-      month: null,
-      slot_id: 'ONE_TIME',
-      amount: 500000,
-      txn_date: '2026-09-20',
-      payment_mode: 'CASH',
-      receipt_no: 'DPS2-REC-924372-632',
-      collected_by: 'admin',
-      is_cancelled: false,
-      created_at: '2026-09-20T09:18:44.561Z',
-    });
-
     allPayments.push({
       id: `PAY-${anand.id}-TRANSPORT-JUL-REC483760`,
       receiptNo: 'DPS2-REC-483760-813',
@@ -753,27 +780,46 @@ async function seedUnifiedFeeEngine() {
       cancelled: false,
       createdAt: '2026-09-20T10:51:24.136Z',
     });
+  }
 
-    legacyLedgerLines.push({
-      id: `FLL-PAY-${anand.id}-TRANSPORT-JUL`,
-      school_id: schoolId,
-      academic_session: session,
-      student_id: anand.id,
-      class_name: anand.class_name,
-      section: anand.section || 'A',
-      admission_no: anand.admission_no,
-      line_type: 'PAYMENT',
-      fee_head: 'TRANSPORT',
-      month: 'JUL',
-      slot_id: 'SLOT_JUL',
-      amount: 80000,
-      txn_date: '2026-09-20',
-      payment_mode: 'UPI',
-      receipt_no: 'DPS2-REC-483760-813',
-      collected_by: 'admin',
-      is_cancelled: false,
-      created_at: '2026-09-20T10:51:24.136Z',
-    });
+  // 5 Explicit CANCELLED Receipts for Testing Cancellation Workflows
+  const cancelledReceiptConfigs = [
+    { studentIndex: 15, recNo: 'DPS2-REC-VOID-0001', amountPaise: 140000, reason: 'Cheque Bounced / Insufficient Funds', mode: 'CHEQUE', date: '2026-05-10' },
+    { studentIndex: 25, recNo: 'DPS2-REC-VOID-0002', amountPaise: 160000, reason: 'Duplicate Online Transaction Entry', mode: 'ONLINE', date: '2026-06-12' },
+    { studentIndex: 50, recNo: 'DPS2-REC-VOID-0003', amountPaise: 180000, reason: 'Wrong Student Account Credited', mode: 'UPI', date: '2026-07-08' },
+    { studentIndex: 75, recNo: 'DPS2-REC-VOID-0004', amountPaise: 200000, reason: 'Bank Chargeback Received', mode: 'ONLINE', date: '2026-08-14' },
+    { studentIndex: 95, recNo: 'DPS2-REC-VOID-0005', amountPaise: 240000, reason: 'Cancelled by Administrator on Request', mode: 'CASH', date: '2026-08-20' },
+  ];
+
+  for (const crc of cancelledReceiptConfigs) {
+    const s = students[crc.studentIndex];
+    if (s) {
+      allPayments.push({
+        id: `PAY-${s.id}-CANCELLED-${crc.recNo}`,
+        receiptNo: crc.recNo,
+        schoolId,
+        sessionId: session,
+        studentId: s.id,
+        studentName: s.full_name || 'Scholar',
+        admissionNo: s.admission_no || s.id,
+        className: s.class_name,
+        section: s.section || 'A',
+        fatherName: s.father_name || 'Parent',
+        mobile: s.father_phone || s.guardian_phone || s.phone || '9811000000',
+        allocatedHeads: [
+          { feeHead: 'TUITION', period: 'MAY', amountPaise: crc.amountPaise },
+        ],
+        amountPaid: crc.amountPaise,
+        mode: crc.mode,
+        paidOn: crc.date,
+        collectedBy: 'ACCOUNTS_OFFICE',
+        remarks: crc.reason,
+        cancelled: true,
+        cancelledReason: crc.reason,
+        cancelledAt: `${crc.date}T16:00:00.000Z`,
+        createdAt: `${crc.date}T10:00:00.000Z`,
+      });
+    }
   }
 
   // 3. Atomically overwrite fee_demands, fee_payments, fee_ledger, fee_receipts
@@ -813,6 +859,7 @@ async function seedUnifiedFeeEngine() {
     collected_by: p.collectedBy,
     remarks: p.remarks,
     is_cancelled: p.cancelled,
+    cancelled_reason: p.cancelledReason || null,
     allocated_heads: p.allocatedHeads.map(h => ({
       fee_head: h.feeHead,
       month: h.period === 'ONE_TIME' ? null : h.period,
@@ -825,7 +872,7 @@ async function seedUnifiedFeeEngine() {
 
   console.log('\n--- SEED COMPLETED SUCCESSFULLY ---');
   console.log(`Total Demands Seeded   : ${allDemands.length}`);
-  console.log(`Total Receipts Issued  : ${allPayments.length}`);
+  console.log(`Total Receipts Issued  : ${allPayments.length} (including 5 cancelled)`);
   console.log(`Legacy Ledger Lines    : ${legacyLedgerLines.length}`);
 
   await client.close();
