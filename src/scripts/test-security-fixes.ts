@@ -42,10 +42,10 @@ async function runTests() {
 
   // Test 4.2: Querying fees with mismatched school_id
   try {
-    const res2 = await fetch(`${BASE_URL}/api/fees?school_id=OTHER_SCHOOL_999`, { headers: authHeaders });
-    assert('Query /api/fees with mismatched school_id returns 403 Forbidden', res2.status === 403, `Status: ${res2.status}`);
+    const res2 = await fetch(`${BASE_URL}/api/fee-master?school_id=OTHER_SCHOOL_999`, { headers: authHeaders });
+    assert('Query /api/fee-master with mismatched school_id returns 403 Forbidden', res2.status === 403, `Status: ${res2.status}`);
   } catch (err: any) {
-    assert('Query /api/fees with mismatched school_id returns 403 Forbidden', false, err.message);
+    assert('Query /api/fee-master with mismatched school_id returns 403 Forbidden', false, err.message);
   }
 
   // Test 4.3: Querying own school data succeeds

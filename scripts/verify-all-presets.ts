@@ -1,14 +1,12 @@
-import 'dotenv/config';
-import { ALL_REPORT_PRESETS } from '../src/lib/fee-report-presets';
-import { getFeeAggregate } from '../src/lib/fee-ledger';
+import { REPORT_CONFIGS, getFeeAggregate } from '../src/lib/fees-engine';
 
 async function main() {
-  console.log('=== VERIFYING ALL 24 REPORT PRESETS FOR DPS2026 ===\n');
+  console.log('=== VERIFYING ALL REPORT PRESETS FOR DPS2026 ===\n');
 
   let passed = 0;
   let failed = 0;
 
-  for (const preset of ALL_REPORT_PRESETS) {
+  for (const preset of REPORT_CONFIGS) {
     try {
       const rows = await getFeeAggregate(
         'DPS2026',
@@ -34,7 +32,7 @@ async function main() {
   }
 
   console.log(`\n========================================`);
-  console.log(`Result: ${passed}/${ALL_REPORT_PRESETS.length} Presets Passed, ${failed} Failed.`);
+  console.log(`Result: ${passed}/${REPORT_CONFIGS.length} Presets Passed, ${failed} Failed.`);
   console.log(`========================================\n`);
 
   process.exit(failed > 0 ? 1 : 0);

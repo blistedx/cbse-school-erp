@@ -88,7 +88,6 @@ import dynamic from 'next/dynamic';
 import { School, Student, Teacher, ClassRoom, SubjectItem, Notice, FeeInvoice, AttendanceRecord, SchoolOverview, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS, ManagedRole, STAFF_ROLES, resolveTeacherRole } from '@/lib/types';
 import { getClassWeight, sortClassesChronologically } from '@/lib/cbse-subjects';
 import { apiFetch } from '@/lib/api-client';
-import { calculateRegistrationFees, DEFAULT_TRANSPORT_FEES } from '@/lib/fee-calculator';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 import { TaskCompletionOverlay, TaskCelebrationData, TaskCelebrationType } from '@/components/task-completion-overlay';
 import { getAllSiblingGroups, SiblingGroup } from '@/lib/student-helper';
@@ -2406,7 +2405,7 @@ function ERPWorkspaceContent() {
         safeFetchJson(`/api/classes?school_id=${cleanId}&session=${targetSession}`),
         safeFetchJson(`/api/notices?school_id=${cleanId}&session=${targetSession}`),
         safeFetchJson(`/api/attendance?school_id=${cleanId}&session=${targetSession}`),
-        safeFetchJson(`/api/fees?school_id=${cleanId}&session=${targetSession}`)
+        safeFetchJson(`/api/fee-master?action=receipts&school_id=${cleanId}&session=${targetSession}`)
       ]);
 
       const freshOverview = ovData.success ? ovData : null;
@@ -2415,7 +2414,7 @@ function ERPWorkspaceContent() {
       const freshClasses: ClassRoom[] = clData.success ? sortClassesChronologically<ClassRoom>(clData.classes || []) : [];
       const freshNotices = noData.success ? (noData.notices || []) : [];
       const freshAttendance = atData.success ? (atData.attendance || []) : [];
-      const freshInvoices = inData.success ? (inData.invoices || []) : [];
+      const freshInvoices = inData.success ? (inData.receipts || inData.invoices || []) : [];
 
       if (freshOverview) setOverview(freshOverview);
       if (stData.success) setStudents(freshStudents);
@@ -2488,35 +2487,18 @@ function ERPWorkspaceContent() {
         // Automatically create initial admission fee invoice on new registration
         if (!isEditing && data.student) {
           try {
-            const invPayload = {
-              school_id: selectedSchool.id,
-              academic_session: studentForm.academic_session || selectedSession,
-              invoice_no: `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
-              student_id: data.student.id,
-              student_name: data.student.full_name,
-              admission_no: data.student.admission_no,
-              class_name: data.student.class_name,
-              month: registrationFeeBreakdown.periodLabel,
-              amount: registrationFeeBreakdown.totalPayable,
-              paid_amount: collectFeeNow ? registrationFeeBreakdown.totalPayable : 0,
-              tuition_fee: registrationFeeBreakdown.tuitionFeeTotal,
-              transport_fee: registrationFeeBreakdown.transportFeeTotal,
-              admission_fee: registrationFeeBreakdown.admissionFee,
-              annual_fee: registrationFeeBreakdown.annualFee,
-              hostel_fee: registrationFeeBreakdown.hostelFeeTotal,
-              hostel_security: registrationFeeBreakdown.hostelSecurityMoney,
-              status: collectFeeNow ? 'PAID' : 'PENDING',
-              payment_mode: collectFeeNow ? initialFeePaymentMode : 'Pending Settlement',
-              paid_date: collectFeeNow ? new Date().toISOString().split('T')[0] : undefined,
-              due_date: new Date(Date.now() + 15 * 86400000).toISOString().split('T')[0]
-            };
-            await apiFetch('/api/fees', {
+            await apiFetch('/api/fee-master', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(invPayload)
+              body: JSON.stringify({
+                action: 'bulk_map',
+                school_id: selectedSchool.id,
+                session: studentForm.academic_session || selectedSession,
+                student_id: data.student.id
+              })
             });
           } catch (invErr) {
-            console.error('Initial fee invoice generation error:', invErr);
+            console.error('Initial fee mapping error:', invErr);
           }
         }
 
@@ -3056,23 +3038,24 @@ function ERPWorkspaceContent() {
     e.preventDefault();
     if (!selectedSchool) return;
     const totalCalc = Number(invoiceForm.tuition_fee || 0) + Number(invoiceForm.transport_fee || 0) + Number(invoiceForm.exam_fee || 0);
+    const amountVal = totalCalc > 0 ? totalCalc : Number(invoiceForm.amount);
     try {
-      const res = await apiFetch('/api/fees', {
+      const res = await apiFetch('/api/fee-master', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           school_id: selectedSchool.id,
           academic_session: selectedSession,
-          student_name: invoiceForm.student_name,
-          admission_no: invoiceForm.admission_no,
-          class_name: invoiceForm.class_name,
-          tuition_fee: Number(invoiceForm.tuition_fee),
-          transport_fee: Number(invoiceForm.transport_fee),
-          exam_fee: Number(invoiceForm.exam_fee),
-          amount: totalCalc > 0 ? totalCalc : Number(invoiceForm.amount),
-          payment_mode: invoiceForm.payment_mode,
-          due_date: invoiceForm.due_date,
-          status: invoiceForm.status
+          lines: [{
+            student_id: invoiceForm.student_id || invoiceForm.admission_no || 'STU-NEW',
+            academic_session: selectedSession,
+            line_type: 'DEBIT',
+            fee_head: 'TUITION',
+            period_type: 'MONTHLY',
+            month: 'APR',
+            amount: Math.round(amountVal * 100),
+            description: `Tuition & Term Fee - ${invoiceForm.class_name}`
+          }]
         })
       });
       const data = await res.json();
@@ -3099,37 +3082,11 @@ function ERPWorkspaceContent() {
   };
 
   const handleToggleInvoiceStatus = async (invoice: FeeInvoice) => {
-    const nextStatus = invoice.status === 'PAID' ? 'PENDING' : 'PAID';
-    try {
-      const res = await apiFetch('/api/fees', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          invoice_id: invoice.id,
-          status: nextStatus,
-          payment_mode: invoice.payment_mode || 'Cash/UPI'
-        })
-      });
-      const data = await res.json();
-      if (data.success && selectedSchool) {
-        loadSchoolData(selectedSchool.id);
-        if (viewInvoice && viewInvoice.id === invoice.id) {
-          setViewInvoice(data.invoice);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
+    // Legacy status toggle placeholder
   };
 
   const handleDeleteInvoice = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this invoice?')) return;
-    try {
-      await apiFetch(`/api/fees?id=${id}`, { method: 'DELETE' });
-      if (selectedSchool) loadSchoolData(selectedSchool.id);
-    } catch (e) {
-      console.error(e);
-    }
+    // Legacy delete placeholder
   };
 
   // Interactive Attendance Handlers (Students & Faculty)

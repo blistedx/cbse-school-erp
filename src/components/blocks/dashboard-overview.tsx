@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 import { School, Student, Teacher, ClassRoom, FeeInvoice, AttendanceRecord, SchoolOverview, User, Notice } from '@/lib/types';
 import { getSchoolInitials, getTodayDateStr } from '@/lib/utils';
-import { CBSE_ACADEMIC_MONTHS, getStandardTuitionRate, getStandardAnnualFeeRate, getStandardTransportRate, getSchoolFeeOverview } from '@/lib/monthly-fee-helper';
+import { ACADEMIC_MONTHS, MONTH_FULL_NAMES } from '@/lib/fees-engine/constants';
 
 export interface DashboardFeeCycleItem {
   id: string;

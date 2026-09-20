@@ -623,27 +623,23 @@ export function DashboardDataHub({
       } else if (selectedUploadCategory === 'fees') {
         for (let i = 0; i < parsedRows.length; i++) {
           const r = parsedRows[i];
-          const amt = parseFloat(r.amount) || 5000;
-          const paid = parseFloat(r.paid_amount) || (r.status === 'PAID' ? amt : 0);
-          const payload = {
-            school_id: schoolId,
+          const amtPaise = Math.round((parseFloat(r.amount) || 5000) * 100);
+          const line = {
             student_id: r.student_id || r.admission_no || `DPS-${i}`,
-            student_name: r.student_name || r.full_name || 'Student',
-            class_name: r.class_name || 'Class 1 - A',
             academic_session: selectedSession,
-            invoice_no: r.invoice_no || `INV-${Date.now()}-${i}`,
-            month: r.month || 'Term 1',
-            amount: amt,
-            paid_amount: paid,
-            status: r.status || (paid >= amt ? 'PAID' : 'PENDING'),
-            due_date: r.due_date || new Date().toISOString().split('T')[0]
+            line_type: 'DEBIT',
+            fee_head: 'TUITION',
+            period_type: 'MONTHLY',
+            month: r.month || 'APR',
+            amount: amtPaise,
+            description: `Imported Fee: ${r.invoice_no || r.month || 'Tuition'}`
           };
 
           try {
-            const res = await apiFetch('/api/fees', {
+            const res = await apiFetch('/api/fee-master', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
+              body: JSON.stringify({ lines: [line] })
             });
             const data = await res.json();
             if (data.success) successCount++;

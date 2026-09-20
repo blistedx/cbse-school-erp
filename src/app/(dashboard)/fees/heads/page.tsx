@@ -60,10 +60,10 @@ export default function FeeHeadsPage() {
   const fetchHeads = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiFetch('/api/fees/heads');
+      const res = await apiFetch('/api/finance');
       const data = await res.json();
       if (data.success) {
-        setHeads(data.data || []);
+        setHeads(data.fee_heads || []);
       } else {
         showNotification(data.error || 'Failed to load fee heads', 'error');
       }
@@ -92,13 +92,13 @@ export default function FeeHeadsPage() {
   };
 
   const handleOpenEditModal = (head: FeeHeadItem) => {
-    setEditingId(head._id || head.id || null);
+    setEditingId((head as any)._id || head.id || null);
     setForm({
       name: head.name,
       code: head.code,
-      type: head.type || 'recurring',
-      frequency: head.frequency || 'monthly',
-      isRefundable: Boolean(head.isRefundable)
+      type: (head as any).type || 'recurring',
+      frequency: (head.frequency || 'monthly').toLowerCase() as any,
+      isRefundable: Boolean((head as any).isRefundable || head.is_refundable)
     });
     setShowModal(true);
   };
@@ -112,12 +112,19 @@ export default function FeeHeadsPage() {
 
     setSubmitting(true);
     try {
-      const endpoint = '/api/fees/heads';
-      const method = editingId ? 'PUT' : 'POST';
-      const payload = editingId ? { id: editingId, ...form } : form;
+      const endpoint = '/api/finance';
+      const payload = {
+        action: 'save_fee_head',
+        id: editingId || undefined,
+        name: form.name.trim(),
+        code: form.code.trim().toUpperCase(),
+        frequency: form.frequency.toUpperCase(),
+        is_refundable: form.isRefundable,
+        category: 'ACADEMIC'
+      };
 
       const res = await apiFetch(endpoint, {
-        method,
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
@@ -144,8 +151,10 @@ export default function FeeHeadsPage() {
     if (!confirm('Are you sure you want to deactivate this fee head?')) return;
 
     try {
-      const res = await apiFetch(`/api/fees/heads?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE',
+      const res = await apiFetch('/api/finance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_fee_head', id }),
       });
       const data = await res.json();
       if (data.success) {

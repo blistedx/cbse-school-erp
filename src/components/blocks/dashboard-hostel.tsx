@@ -30,12 +30,6 @@ import {
 } from 'lucide-react';
 import { Student, HostelRoom, HostelFeeHead } from '@/lib/types';
 import { getSchoolInitials } from '@/lib/utils';
-import {
-  DEFAULT_HOSTEL_FEES,
-  DEFAULT_ONE_TIME_FEES,
-  DEFAULT_TUITION_FEES,
-  HostelFeeStructure
-} from '@/lib/fee-calculator';
 
 export interface DashboardHostelProps {
   students?: Student[];

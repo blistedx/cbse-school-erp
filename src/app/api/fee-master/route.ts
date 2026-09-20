@@ -19,7 +19,7 @@ import {
   bulkMapFees,
   seedRealisticFeeData,
   executeReport,
-  invalidateLedgerCache,
+  getSchoolFeeOverviewAggregation,
 } from '@/lib/fees-engine';
 import { Database } from '@/lib/db';
 import type { FeeAggregateFilters, GroupByDimension } from '@/lib/fees-engine';
@@ -107,76 +107,18 @@ export async function GET(req: Request) {
     if (action === 'overview') {
       const students = await Database.getStudents(tenant, session);
       const activeStudents = students.filter(s => s.status === 'ACTIVE');
-      const lines = await getSchoolLedgerLines(tenant, session, {});
+      const studentsMap = new Map(activeStudents.map(s => [s.id, s]));
 
-      const linesByStudent = new Map<string, any[]>();
-      for (const line of lines) {
-        if (!linesByStudent.has(line.student_id)) linesByStudent.set(line.student_id, []);
-        linesByStudent.get(line.student_id)!.push(line);
-      }
-
-      let totalBilled = 0;
-      let totalCollected = 0;
-      let totalDiscount = 0;
-      let zeroPaidStudents = 0;
-
-      // We can also aggregate over all lines directly
-      for (const line of lines) {
-        if (line.is_cancelled) continue;
-        if (line.line_type === 'DEMAND' || line.line_type === 'OPENING_BALANCE') totalBilled += line.amount;
-        else if (line.line_type === 'PAYMENT') totalCollected += line.amount;
-        else if (line.line_type === 'DISCOUNT' || line.line_type === 'WAIVER') totalDiscount += line.amount;
-      }
-
-      // Check students with nothing paid
-      const topPendingList: any[] = [];
-      for (const st of activeStudents) {
-        const stLines = linesByStudent.get(st.id) || [];
-        const paidLines = stLines.filter(l => l.line_type === 'PAYMENT' && !l.is_cancelled);
-        const demandLines = stLines.filter(l => (l.line_type === 'DEMAND' || l.line_type === 'OPENING_BALANCE') && !l.is_cancelled);
-        const discLines = stLines.filter(l => (l.line_type === 'DISCOUNT' || l.line_type === 'WAIVER') && !l.is_cancelled);
-
-        const d = demandLines.reduce((acc, l) => acc + l.amount, 0);
-        const p = paidLines.reduce((acc, l) => acc + l.amount, 0);
-        const disc = discLines.reduce((acc, l) => acc + l.amount, 0);
-        const bal = Math.max(0, d - disc - p);
-
-        if (d > 0 && p === 0) zeroPaidStudents++;
-
-        if (bal > 0) {
-          topPendingList.push({
-            studentId: st.id,
-            studentName: `${st.first_name || ''} ${st.last_name || ''}`.trim() || st.admission_no,
-            classSection: `${st.class_name} - ${st.section || 'A'}`,
-            fatherName: st.father_name || 'N/A',
-            mobile: st.emergency_contact || st.mobile || 'N/A',
-            pendingPaise: bal,
-          });
-        }
-      }
-
-      // Sort top pending by highest balance first
-      topPendingList.sort((a, b) => b.pendingPaise - a.pendingPaise);
-
-      // Execute 'This Month' class breakdown
-      const thisMonthReport = await executeReport(tenant, 'month_class_collection', { session, months: ['SEP'] }, activeStudents);
-
-      const totalPending = Math.max(0, totalBilled - totalDiscount - totalCollected);
-      const collectionRate = (totalBilled - totalDiscount) > 0
-        ? Math.round((totalCollected / (totalBilled - totalDiscount)) * 100)
-        : 0;
+      const [overviewAgg, thisMonthReport] = await Promise.all([
+        getSchoolFeeOverviewAggregation(tenant, session, studentsMap),
+        executeReport(tenant, 'month_class_collection', { session, months: ['SEP'] }, activeStudents),
+      ]);
 
       return NextResponse.json({
         success: true,
         overview: {
-          totalBilledPaise: totalBilled,
-          totalCollectedPaise: totalCollected,
-          totalPendingPaise: totalPending,
-          totalDiscountPaise: totalDiscount,
-          collectionPercentage: collectionRate,
-          studentsWithNothingPaid: zeroPaidStudents,
+          ...overviewAgg,
           thisMonthBreakdown: thisMonthReport.rows,
-          topPending: topPendingList.slice(0, 10),
         },
       });
     }

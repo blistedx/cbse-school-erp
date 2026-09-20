@@ -40,7 +40,6 @@ import {
 import { School, Student, Teacher, ClassRoom, FeeInvoice } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
 import { getSchoolInitials } from '@/lib/utils';
-import { getStudentFeeSummary } from '@/lib/monthly-fee-helper';
 
 interface DashboardCertificatesProps {
   selectedSchool: School | null;

@@ -1,5 +1,4 @@
 import { Student, FeeInvoice, AttendanceRecord } from '@/lib/types';
-import { getStudentFeeSummary } from '@/lib/monthly-fee-helper';
 
 export function normalizeName(name?: string): string {
   if (!name) return '';
@@ -114,16 +113,17 @@ export function getAllSiblingGroups(students: Student[], invoices: FeeInvoice[] 
       const familySurname = (student.full_name || '').trim().split(' ').pop() || 'Family';
       const familyName = `${familySurname} Household (${cluster.length} Scholars)`;
 
-      // Calculate family fee dues using unified fee engine
+      // Calculate family fee dues from invoices if available
       let totalDues = 0;
       let allSiblingsPaid = true;
-      cluster.forEach(s => {
-        const summary = getStudentFeeSummary(s, invoices);
-        totalDues += summary.currentBalanceDue;
-        if (summary.feeStatus !== 'PAID' && summary.feeStatus !== 'WAIVED') {
-          allSiblingsPaid = false;
-        }
-      });
+      if (Array.isArray(invoices) && invoices.length > 0) {
+        cluster.forEach(s => {
+          const sInvoices = invoices.filter(inv => inv.student_id === s.id || inv.admission_no === s.admission_no);
+          const studentDue = sInvoices.reduce((acc, inv) => acc + (inv.status !== 'PAID' ? ((Number(inv.amount) || 0) - (Number(inv.paid_amount) || 0)) : 0), 0);
+          totalDues += studentDue;
+          if (studentDue > 0) allSiblingsPaid = false;
+        });
+      }
 
       groups.push({
         id: `fam-${student.id}`,

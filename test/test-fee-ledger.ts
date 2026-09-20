@@ -17,8 +17,8 @@
 import {
   computeSummaryFromLines,
   ACADEMIC_MONTHS,
-} from '../src/lib/fee-ledger';
-import type { FeeLedgerLine, AcademicMonth } from '../src/lib/types';
+} from '../src/lib/fees-engine';
+import type { FeeLedgerLine, AcademicMonth } from '../src/lib/fees-engine';
 
 // ─── Test Helpers ───
 

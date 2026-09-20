@@ -5,7 +5,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { X, Users, Award, CreditCard, CalendarCheck, ShieldCheck, FileText, ChevronRight, Phone, MapPin, Camera, Loader2, Check, Eye, Download, ZoomIn, Upload, Mail, User, Calendar, BadgeCheck, Sparkles } from 'lucide-react';
 import { Student, FeeInvoice, AttendanceRecord } from '@/lib/types';
 import { getStudentSiblings, getStudentAssessmentReport, AVAILABLE_EXAMS } from '@/lib/student-helper';
-import { getStudentMonthlyFeeSchedule, getStudentFeeSummary, matchInvoicesForStudent } from '@/lib/monthly-fee-helper';
 import { compressImageFile } from '@/lib/image-compress';
 import { StudentAttendanceHistory } from '@/components/student-attendance-history';
 import { getSchoolInitials } from '@/lib/utils';

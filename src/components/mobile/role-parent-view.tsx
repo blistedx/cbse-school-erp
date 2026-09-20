@@ -30,9 +30,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import BroadcastInboxModal from '@/components/broadcast-inbox-modal';
-import { StudentAttendanceHistoryModal } from '@/components/student-attendance-history';
 import { Student, FeeInvoice } from '@/lib/types';
-import { getStudentMonthlyFeeSchedule, getStudentFeeSummary, MonthlyFeeItem } from '@/lib/monthly-fee-helper';
 
 export interface RoleParentViewProps {
   activeTab: string;
@@ -66,19 +64,20 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
   const [liveDriverTelemetry, setLiveDriverTelemetry] = useState<any>(null);
   const [parentInvoices, setParentInvoices] = useState<FeeInvoice[]>([]);
 
-  // Fetch real fee invoices for school/student
+  // Fetch real fee ledger for school/student
   React.useEffect(() => {
     const fetchInvoices = async () => {
       try {
-        const res = await fetch('/api/fees');
+        const studentId = currentStudent?.id || currentStudent?.admNo || 'STU-DPS-0001';
+        const res = await fetch(`/api/fee-master?action=student_ledger_view&student_id=${encodeURIComponent(studentId)}&session=2026-27`);
         const data = await res.json();
-        if (data.success && Array.isArray(data.invoices)) {
-          setParentInvoices(data.invoices);
+        if (data.success && Array.isArray(data.ledgerView)) {
+          setParentInvoices(data.ledgerView);
         }
       } catch (_) {}
     };
     fetchInvoices();
-  }, [activeTab, paymentSuccess]);
+  }, [activeTab, paymentSuccess, selectedStudent]);
 
   // Poll live driver GPS telemetry from server
   React.useEffect(() => {

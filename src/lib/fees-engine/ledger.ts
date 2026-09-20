@@ -40,35 +40,16 @@ export async function ensureLedgerIndexes(): Promise<void> {
     if (!db) return;
     const col = db.collection(COLLECTION);
     await Promise.all([
-      col.createIndex({ school_id: 1, academic_session: 1, student_id: 1 }),
+      col.createIndex({ school_id: 1, academic_session: 1, is_cancelled: 1 }),
+      col.createIndex({ school_id: 1, student_id: 1, academic_session: 1, is_cancelled: 1 }),
+      col.createIndex({ school_id: 1, academic_session: 1, line_type: 1 }),
+      col.createIndex({ school_id: 1, academic_session: 1, fee_head: 1, month: 1 }),
       col.createIndex({ school_id: 1, txn_date: 1 }),
-      col.createIndex({ school_id: 1, fee_head: 1, month: 1 }),
       col.createIndex({ school_id: 1, receipt_no: 1 }, { sparse: true }),
-      col.createIndex({ school_id: 1, line_type: 1, is_cancelled: 1 }),
     ]);
     indexesEnsured = true;
   } catch (e) {
     console.error('[fees-engine/ledger] Error ensuring indexes:', e);
-  }
-}
-
-interface LedgerCacheEntry {
-  timestamp: number;
-  lines: FeeLedgerLine[];
-}
-
-const ledgerCache = new Map<string, LedgerCacheEntry>();
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
-
-export function invalidateLedgerCache(schoolId?: string, session?: string) {
-  if (schoolId && session) {
-    ledgerCache.delete(`${schoolId}:${session}`);
-  } else if (schoolId) {
-    for (const key of ledgerCache.keys()) {
-      if (key.startsWith(`${schoolId}:`)) ledgerCache.delete(key);
-    }
-  } else {
-    ledgerCache.clear();
   }
 }
 
@@ -141,7 +122,6 @@ export async function postLedgerLines(
         prepared.map(l => sanitizeDocNoBinary({ ...l })),
         { ordered: true }
       );
-      invalidateLedgerCache(schoolId);
     }
   } catch (e: any) {
     console.error('[fees-engine/ledger] Error posting lines:', e);
@@ -184,8 +164,6 @@ export async function cancelLedgerLine(
       },
     }
   );
-
-  invalidateLedgerCache(schoolId);
 
   return {
     ...original,
@@ -231,16 +209,6 @@ export async function getSchoolLedgerLines(
   session: string = '2026-27',
   additionalFilter: Record<string, any> = {}
 ): Promise<FeeLedgerLine[]> {
-  const hasExtraFilter = Object.keys(additionalFilter).length > 0;
-  const cacheKey = `${schoolId}:${session}`;
-
-  if (!hasExtraFilter) {
-    const cached = ledgerCache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
-      return cached.lines;
-    }
-  }
-
   await ensureLedgerIndexes();
   try {
     const db = await getDatabase();
@@ -254,18 +222,162 @@ export async function getSchoolLedgerLines(
       const docs = await db.collection(COLLECTION)
         .find(filter)
         .sort({ txn_date: -1, created_at: -1 })
-        .limit(100000)
         .toArray();
-      const lines = docs as unknown as FeeLedgerLine[];
-      if (!hasExtraFilter) {
-        ledgerCache.set(cacheKey, { timestamp: Date.now(), lines });
-      }
-      return lines;
+      return docs as unknown as FeeLedgerLine[];
     }
   } catch (e) {
     console.error('[fees-engine/ledger] Error fetching school ledger lines:', e);
   }
   return [];
+}
+
+export interface SchoolFeeOverviewAggregate {
+  totalBilledPaise: number;
+  totalCollectedPaise: number;
+  totalPendingPaise: number;
+  totalDiscountPaise: number;
+  collectionPercentage: number;
+  studentsWithNothingPaid: number;
+  topPending: Array<{
+    studentId: string;
+    studentName: string;
+    admissionNo: string;
+    classSection: string;
+    fatherName: string;
+    mobile: string;
+    pendingPaise: number;
+  }>;
+}
+
+export async function getSchoolFeeOverviewAggregation(
+  schoolId: string,
+  session: string = '2026-27',
+  studentsMap?: Map<string, any>
+): Promise<SchoolFeeOverviewAggregate> {
+  await ensureLedgerIndexes();
+  const db = await getDatabase();
+  if (!db) {
+    return {
+      totalBilledPaise: 0,
+      totalCollectedPaise: 0,
+      totalPendingPaise: 0,
+      totalDiscountPaise: 0,
+      collectionPercentage: 0,
+      studentsWithNothingPaid: 0,
+      topPending: [],
+    };
+  }
+
+  const pipeline = [
+    {
+      $match: {
+        school_id: schoolId,
+        academic_session: session,
+        is_cancelled: { $ne: true },
+      },
+    },
+    {
+      $group: {
+        _id: '$student_id',
+        studentId: { $first: '$student_id' },
+        admissionNo: { $first: '$admission_no' },
+        className: { $first: '$class_name' },
+        section: { $first: '$section' },
+        demand: {
+          $sum: {
+            $cond: [
+              { $in: ['$line_type', ['DEMAND', 'OPENING_BALANCE', 'FINE']] },
+              '$amount',
+              {
+                $cond: [
+                  { $and: [{ $eq: ['$line_type', 'ADJUSTMENT'] }, { $ne: ['$adjustment_direction', 'CREDIT'] }] },
+                  '$amount',
+                  0,
+                ],
+              },
+            ],
+          },
+        },
+        paid: {
+          $sum: {
+            $cond: [
+              { $eq: ['$line_type', 'PAYMENT'] },
+              '$amount',
+              {
+                $cond: [
+                  { $and: [{ $eq: ['$line_type', 'ADJUSTMENT'] }, { $eq: ['$adjustment_direction', 'CREDIT'] }] },
+                  '$amount',
+                  0,
+                ],
+              },
+            ],
+          },
+        },
+        discount: {
+          $sum: {
+            $cond: [{ $in: ['$line_type', ['DISCOUNT', 'WAIVER']] }, '$amount', 0],
+          },
+        },
+      },
+    },
+  ];
+
+  const studentAggregates = await db.collection(COLLECTION).aggregate(pipeline).toArray();
+
+  let totalBilled = 0;
+  let totalCollected = 0;
+  let totalDiscount = 0;
+  let zeroPaidStudents = 0;
+  const pendingList: Array<any> = [];
+
+  for (const row of studentAggregates) {
+    const demand = Number(row.demand) || 0;
+    const paid = Number(row.paid) || 0;
+    const discount = Number(row.discount) || 0;
+    const bal = Math.max(0, demand - discount - paid);
+
+    totalBilled += demand;
+    totalCollected += paid;
+    totalDiscount += discount;
+
+    if (demand > 0 && paid === 0) {
+      zeroPaidStudents++;
+    }
+
+    if (bal > 0) {
+      const st = studentsMap?.get(row.studentId);
+      const studentName = st ? (`${st.first_name || ''} ${st.last_name || ''}`.trim() || st.admission_no) : (row.studentId);
+      const fatherName = st?.father_name || 'N/A';
+      const mobile = st?.emergency_contact || st?.mobile || 'N/A';
+      const classSection = st ? `${st.class_name} - ${st.section || 'A'}` : `${row.className || ''} - ${row.section || 'A'}`;
+
+      pendingList.push({
+        studentId: row.studentId,
+        studentName,
+        admissionNo: row.admissionNo || st?.admission_no || '',
+        classSection,
+        fatherName,
+        mobile,
+        pendingPaise: bal,
+      });
+    }
+  }
+
+  pendingList.sort((a, b) => b.pendingPaise - a.pendingPaise);
+
+  const netDemand = Math.max(0, totalBilled - totalDiscount);
+  const collectionPercentage = netDemand > 0 ? Math.round((totalCollected / netDemand) * 100) : 0;
+  const totalPending = Math.max(0, totalBilled - totalDiscount - totalCollected);
+
+  return {
+    totalBilledPaise: totalBilled,
+    totalCollectedPaise: totalCollected,
+    totalPendingPaise: totalPending,
+    totalDiscountPaise: totalDiscount,
+    collectionPercentage,
+    studentsWithNothingPaid: zeroPaidStudents,
+    topPending: pendingList.slice(0, 10),
+  };
 }
 
 export function computeSummaryFromLines(lines: FeeLedgerLine[]): LedgerFeeSummary {

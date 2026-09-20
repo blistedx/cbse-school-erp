@@ -23,7 +23,7 @@ import {
 } from './types';
 import { getDefaultCbseSubjectsForClass, sortClassesChronologically } from './cbse-subjects';
 import { getTodayDateStr } from './utils';
-import { getStudentFeeSummary, getSchoolFeeOverview } from './monthly-fee-helper';
+import { getSchoolFeeOverviewAggregation, getStudentLedger, computeSummaryFromLines } from './fees-engine/ledger';
 import bcrypt from 'bcryptjs';
 
 export async function hashPassword(plainText: string): Promise<string> {
@@ -2410,18 +2410,31 @@ export const Database = {
 
     if (!targetStudent) return;
 
-    // Find all matching invoices
-    const studentInvoices = (memoryStore.fee_invoices || []).filter(inv => {
-      if (inv.student_id && inv.student_id === targetStudent.id) return true;
-      if (inv.admission_no && targetStudent.admission_no && inv.admission_no.toLowerCase().trim() === targetStudent.admission_no.toLowerCase().trim()) {
-        if (targetStudent.school_id && inv.school_id && inv.school_id !== targetStudent.school_id) return false;
-        return true;
-      }
-      return false;
-    });
+    const school = targetStudent.school_id || schoolId || 'DPS2026';
+    const lines = await getStudentLedger(school, targetStudent.id, targetStudent.academic_session || '2026-27', false);
+    let newStatus: 'PAID' | 'PARTIAL' | 'OVERDUE' | 'PENDING' = 'PAID';
 
-    const summary = getStudentFeeSummary(targetStudent, studentInvoices);
-    const newStatus = summary.feeStatus;
+    if (lines.length > 0) {
+      const sum = computeSummaryFromLines(lines);
+      newStatus = sum.status;
+    } else {
+      // Fallback to legacy invoices
+      const studentInvoices = (memoryStore.fee_invoices || []).filter(inv => {
+        if (inv.student_id && inv.student_id === targetStudent.id) return true;
+        if (inv.admission_no && targetStudent.admission_no && inv.admission_no.toLowerCase().trim() === targetStudent.admission_no.toLowerCase().trim()) {
+          if (targetStudent.school_id && inv.school_id && inv.school_id !== targetStudent.school_id) return false;
+          return true;
+        }
+        return false;
+      });
+      const totalGross = studentInvoices.reduce((acc, inv) => acc + (Number(inv.total_amount) || 0), 0);
+      const totalPaid = studentInvoices.reduce((acc, inv) => acc + (Number(inv.paid_amount) || 0), 0);
+      const totalConcession = studentInvoices.reduce((acc, inv) => acc + (Number((inv as any).concession_amount) || 0), 0);
+      const bal = totalGross - totalConcession - totalPaid;
+      if (bal <= 0) newStatus = 'PAID';
+      else if (totalPaid > 0) newStatus = 'PARTIAL';
+      else newStatus = 'PENDING';
+    }
 
     targetStudent.fee_status = newStatus;
 
@@ -2849,11 +2862,12 @@ export const Database = {
     const todayDateStr = getTodayDateStr();
     const cacheKey = `overview:${schoolId}:${targetSession}:${todayDateStr}`;
     return singleFlight(cacheKey, async () => {
-      const [students, teachers, attendance, invoices] = await Promise.all([
+      const [students, teachers, attendance, invoices, feeAgg] = await Promise.all([
         this.getStudents(schoolId, targetSession),
         this.getTeachers(schoolId, targetSession),
         this.getAttendance(schoolId, targetSession),
-        this.getFeeInvoices(schoolId, targetSession)
+        this.getFeeInvoices(schoolId, targetSession),
+        getSchoolFeeOverviewAggregation(schoolId, targetSession)
       ]);
 
       const totalStudents = students.length;
@@ -2905,10 +2919,22 @@ export const Database = {
 
       const attendanceToday = studentAttendanceToday;
 
-      const feeOverview = getSchoolFeeOverview(invoices);
-      const totalRevenue = feeOverview.totalRevenue;
-      const pendingFeeAmount = feeOverview.pendingFeeAmount;
-      const feeCollectionRate = feeOverview.feeCollectionRate;
+      let totalRevenue = 0;
+      let pendingFeeAmount = 0;
+      let feeCollectionRate = 0;
+
+      if (feeAgg && (feeAgg.totalBilledPaise > 0 || feeAgg.totalCollectedPaise > 0)) {
+        totalRevenue = Math.round(feeAgg.totalCollectedPaise / 100);
+        pendingFeeAmount = Math.round(feeAgg.totalPendingPaise / 100);
+        feeCollectionRate = feeAgg.collectionPercentage;
+      } else {
+        const totalGross = invoices.reduce((acc, inv) => acc + (Number(inv.total_amount) || 0), 0);
+        const totalPaid = invoices.reduce((acc, inv) => acc + (Number(inv.paid_amount) || 0), 0);
+        const totalConcession = invoices.reduce((acc, inv) => acc + (Number((inv as any).concession_amount) || 0), 0);
+        totalRevenue = totalPaid;
+        pendingFeeAmount = Math.max(0, totalGross - totalConcession - totalPaid);
+        feeCollectionRate = (totalGross - totalConcession) > 0 ? Math.round((totalPaid / (totalGross - totalConcession)) * 100) : 0;
+      }
 
       const overviewResult: SchoolOverview = {
         academic_session: targetSession,

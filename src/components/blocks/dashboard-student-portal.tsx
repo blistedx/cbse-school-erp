@@ -30,7 +30,6 @@ import {
   Users
 } from 'lucide-react';
 import { School, Student, FeeInvoice, AttendanceRecord, User as UserType } from '@/lib/types';
-import { getStudentMonthlyFeeSchedule, MonthlyFeeItem, CBSE_ACADEMIC_MONTHS } from '@/lib/monthly-fee-helper';
 import { getStudentAssessmentReport, getStudentSiblings, AVAILABLE_EXAMS } from '@/lib/student-helper';
 import { getSchoolInitials } from '@/lib/utils';
 import { StudentAttendanceHistory } from '@/components/student-attendance-history';

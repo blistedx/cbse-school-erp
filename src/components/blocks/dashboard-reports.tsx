@@ -5,7 +5,6 @@ import React, { useState, useMemo } from 'react';
 import { School, Student, Teacher, ClassRoom, FeeInvoice, AttendanceRecord, resolveTeacherRole, STAFF_ROLES } from '@/lib/types';
 import { sortClassesChronologically } from '@/lib/cbse-subjects';
 import { getSchoolInitials, getTodayDateStr } from '@/lib/utils';
-import { getStudentMonthlyFeeSchedule, getStudentFeeSummary, CBSE_ACADEMIC_MONTHS } from '@/lib/monthly-fee-helper';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 import {
   Printer,

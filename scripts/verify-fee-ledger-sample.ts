@@ -1,7 +1,4 @@
-import 'dotenv/config';
-import { getDatabase } from '../src/lib/mongodb';
-import { getStudentFeeSummaryFromLedger, getFeeAggregate } from '../src/lib/fee-ledger';
-import { paiseToRupees } from '../src/lib/fee-constants';
+import { getStudentFeeSummaryFromLedger, getFeeAggregate, paiseToRupees } from '../src/lib/fees-engine';
 
 async function verify() {
   const db = await getDatabase();

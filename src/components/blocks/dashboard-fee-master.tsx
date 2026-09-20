@@ -78,6 +78,7 @@ export function DashboardFeeMaster({
 
   // ─── TAB 1: OVERVIEW STATE ───
   const [overviewLoading, setOverviewLoading] = useState<boolean>(true);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const [overviewData, setOverviewData] = useState<{
     totalBilledPaise: number;
     totalCollectedPaise: number;
@@ -195,15 +196,19 @@ export function DashboardFeeMaster({
   // ─── LOAD OVERVIEW DATA ───
   const loadOverview = useCallback(async () => {
     setOverviewLoading(true);
+    setOverviewError(null);
     try {
       const schoolId = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
       const res = await apiFetch(`/api/fee-master?action=overview&session=${session}&school_id=${encodeURIComponent(schoolId)}`);
       const data = await res.json();
       if (data.success && data.overview) {
         setOverviewData(data.overview);
+      } else {
+        setOverviewError(data?.error || 'Failed to load fee overview metrics.');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('[loadOverview error]', e);
+      setOverviewError(e?.message || 'Network error loading overview metrics.');
     } finally {
       setOverviewLoading(false);
     }
@@ -579,6 +584,25 @@ export function DashboardFeeMaster({
       ═══════════════════════════════════════════════════════ */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {overviewError && (
+            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-bold">Error loading overview metrics</p>
+                  <p className="text-[11px] text-rose-600">{overviewError}</p>
+                </div>
+              </div>
+              <button
+                onClick={loadOverview}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Retry
+              </button>
+            </div>
+          )}
+
           {/* 6 Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
             {/* 1. Total Billed */}
