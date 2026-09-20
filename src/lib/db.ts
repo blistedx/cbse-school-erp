@@ -273,7 +273,7 @@ async function ensureIndexes() {
     const db = await getDatabase();
     if (!db) return;
 
-    // Build indexes in background without blocking API queries
+    // Build indexes in background without blocking API queries (including automatic TTL cleanup)
     Promise.all([
       db.collection('schools').createIndex({ school_code: 1 }, { unique: true }),
       db.collection('schools').createIndex({ id: 1 }),
@@ -285,8 +285,15 @@ async function ensureIndexes() {
       db.collection('notices').createIndex({ school_id: 1, academic_session: 1, created_at: -1 }),
       db.collection('attendance').createIndex({ school_id: 1, academic_session: 1, date: -1 }),
       db.collection('fee_invoices').createIndex({ school_id: 1, academic_session: 1, invoice_no: 1 }),
+      db.collection('fee_receipts').createIndex({ school_id: 1, receipt_no: 1 }),
+      db.collection('fee_receipts').createIndex({ school_id: 1, academic_session: 1, payment_date: -1 }),
       db.collection('holidays').createIndex({ school_id: 1, academic_session: 1, start_date: 1, end_date: 1 }),
       db.collection('exams').createIndex({ school_id: 1, academic_session: 1, date: -1 }),
+      db.collection('media_metadata').createIndex({ id: 1 }),
+      // Time-To-Live (TTL) Automatic Rolling Expiry Indexes:
+      db.collection('transport_telemetry').createIndex({ created_at: 1 }, { expireAfterSeconds: 2592000, sparse: true }), // 30-day auto-purge
+      db.collection('broadcast_notifications').createIndex({ created_at: 1 }, { expireAfterSeconds: 7776000, sparse: true }), // 90-day auto-purge
+      db.collection('push_subscriptions').createIndex({ updated_at: 1 }, { expireAfterSeconds: 15552000, sparse: true }), // 180-day stale token purge
     ]).catch((e) => {
       console.warn('[MongoDB] Index setup note:', e.message);
     });
@@ -1337,6 +1344,15 @@ export const Database = {
     const rawUpdateImg = (sanitizedUpdates.photo && sanitizedUpdates.photo.startsWith('data:')) ? sanitizedUpdates.photo :
       ((sanitizedUpdates.avatar && sanitizedUpdates.avatar.startsWith('data:')) ? sanitizedUpdates.avatar : null);
     if (rawUpdateImg) {
+      // Auto-cleanup: delete previous orphaned blob image if exists
+      const existingStudent = memoryStore.students.find(s => s.id === studentId || s.admission_no === studentId);
+      if (existingStudent?.photo && existingStudent.photo.startsWith('http')) {
+        deleteMediaVaultFile(existingStudent.photo).catch(() => {});
+      }
+      if (existingStudent?.avatar && existingStudent.avatar !== existingStudent.photo && existingStudent.avatar.startsWith('http')) {
+        deleteMediaVaultFile(existingStudent.avatar).catch(() => {});
+      }
+
       const mediaId = `MEDIA-STU-${studentId}`;
       const savedMedia = await saveMediaVaultFile({
         id: mediaId,
@@ -1688,6 +1704,12 @@ export const Database = {
     const rawTeacherUpdateImg = (sanitizedUpdates.photo && sanitizedUpdates.photo.startsWith('data:')) ? sanitizedUpdates.photo :
       ((sanitizedUpdates.avatar && sanitizedUpdates.avatar.startsWith('data:')) ? sanitizedUpdates.avatar : null);
     if (rawTeacherUpdateImg) {
+      // Auto-cleanup: delete previous orphaned blob image if exists
+      const existingTeacher = memoryStore.teachers.find(t => t.id === teacherId || t.staff_code === teacherId);
+      if (existingTeacher?.photo && existingTeacher.photo.startsWith('http')) {
+        deleteMediaVaultFile(existingTeacher.photo).catch(() => {});
+      }
+
       const mediaId = `MEDIA-TCH-${teacherId}`;
       const savedMedia = await saveMediaVaultFile({
         id: mediaId,
