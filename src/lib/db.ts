@@ -2981,6 +2981,18 @@ export const Database = {
           pendingFeeAmount,
           totalRevenue
         },
+        financials: feeAgg ? {
+          totalDemand: Math.round(feeAgg.totalBilledPaise / 100),
+          totalCollected: Math.round(feeAgg.totalCollectedPaise / 100),
+          totalOutstanding: Math.round(feeAgg.totalPendingPaise / 100),
+          totalDiscount: Math.round(feeAgg.totalDiscountPaise / 100),
+          collectionRate: feeAgg.collectionPercentage,
+          zeroPaidStudents: feeAgg.studentsWithNothingPaid,
+          topPending: feeAgg.topPending,
+          monthWiseTrend: feeAgg.monthWiseTrend || [],
+          cycleMetrics: feeAgg.cycleMetrics || {},
+        } : null,
+        feeOverview: feeAgg || null,
         recentStudents: students.slice(-5).reverse(),
         recentInvoices: []
       };

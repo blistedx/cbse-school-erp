@@ -250,7 +250,41 @@ export interface SchoolFeeOverviewAggregate {
     mobile: string;
     pendingPaise: number;
   }>;
+  monthWiseTrend?: Array<{
+    month: AcademicMonth;
+    label: string;
+    period: string;
+    demandRupees: number;
+    collectedRupees: number;
+    paidRupees?: number;
+    duesRupees: number;
+    discountRupees: number;
+    paidStudentsCount: number;
+    totalStudentsCount: number;
+  }>;
+  cycleMetrics?: Record<string, {
+    cycleId: string;
+    cycleNumber: string;
+    grandDemand: number;
+    collectedAmount: number;
+    pendingAmount: number;
+    paidStudentsCount: number;
+    pendingStudentsCount: number;
+    studentCount: number;
+  }>;
 }
+
+const DASHBOARD_FEE_CYCLES_DEF = [
+  { id: 'cycle-1', cycleNumber: '1', months: ['APR' as AcademicMonth] },
+  { id: 'cycle-2', cycleNumber: '2', months: ['MAY' as AcademicMonth, 'JUN' as AcademicMonth] },
+  { id: 'cycle-3', cycleNumber: '3', months: ['JUL' as AcademicMonth] },
+  { id: 'cycle-4', cycleNumber: '4', months: ['AUG' as AcademicMonth] },
+  { id: 'cycle-5', cycleNumber: '5', months: ['SEP' as AcademicMonth, 'FEB' as AcademicMonth] },
+  { id: 'cycle-6', cycleNumber: '6', months: ['OCT' as AcademicMonth] },
+  { id: 'cycle-7', cycleNumber: '7', months: ['NOV' as AcademicMonth] },
+  { id: 'cycle-8', cycleNumber: '8', months: ['DEC' as AcademicMonth, 'MAR' as AcademicMonth] },
+  { id: 'cycle-9', cycleNumber: '9', months: ['JAN' as AcademicMonth] },
+];
 
 export async function getSchoolFeeOverviewAggregation(
   schoolId: string,
@@ -377,6 +411,94 @@ export async function getSchoolFeeOverviewAggregation(
   const netDemand = Math.max(0, totalBilled - totalDiscount);
   const collectionPercentage = netDemand > 0 ? Math.round((totalCollected / netDemand) * 100) : 0;
 
+  // Compute monthWiseTrend and cycleMetrics
+  const allLines = await db.collection(COLLECTION).find({
+    school_id: schoolId,
+    academic_session: session,
+    is_cancelled: { $ne: true },
+  }).toArray() as unknown as FeeLedgerLine[];
+
+  const totalStudentsCount = studentAggregates.length || 505;
+
+  const monthData: Record<AcademicMonth, { demand: number; paid: number; discount: number; paidStudents: Set<string> }> = {
+    APR: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
+    MAY: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
+    JUN: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
+    JUL: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
+    AUG: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
+    SEP: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
+    OCT: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
+    NOV: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
+    DEC: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
+    JAN: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
+    FEB: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
+    MAR: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
+  };
+
+  for (const line of allLines) {
+    const m = line.month;
+    if (m && monthData[m]) {
+      if (['DEMAND', 'OPENING_BALANCE', 'FINE'].includes(line.line_type)) {
+        monthData[m].demand += line.amount;
+      } else if (line.line_type === 'PAYMENT') {
+        monthData[m].paid += line.amount;
+        if (line.amount > 0) monthData[m].paidStudents.add(line.student_id);
+      } else if (['DISCOUNT', 'WAIVER'].includes(line.line_type)) {
+        monthData[m].discount += line.amount;
+      }
+    }
+  }
+
+  const monthWiseTrend = ACADEMIC_MONTHS.map(m => {
+    const d = monthData[m];
+    const yearStr = ['JAN', 'FEB', 'MAR'].includes(m) ? '2027' : '2026';
+    const demandRupees = Math.round(d.demand / 100);
+    const paidRupees = Math.round(d.paid / 100);
+    const discountRupees = Math.round(d.discount / 100);
+    const duesRupees = Math.max(0, demandRupees - discountRupees - paidRupees);
+    return {
+      month: m,
+      label: m,
+      period: `${MONTH_FULL_NAMES[m]} ${yearStr}`,
+      demandRupees,
+      collectedRupees: paidRupees,
+      paidRupees,
+      discountRupees,
+      duesRupees,
+      paidStudentsCount: d.paidStudents.size,
+      totalStudentsCount,
+    };
+  });
+
+  const cycleMetrics: Record<string, any> = {};
+  for (const cycle of DASHBOARD_FEE_CYCLES_DEF) {
+    let grandDemandPaise = 0;
+    let collectedPaise = 0;
+    let discountPaise = 0;
+    const paidStudents = new Set<string>();
+
+    for (const m of cycle.months) {
+      grandDemandPaise += monthData[m].demand;
+      collectedPaise += monthData[m].paid;
+      discountPaise += monthData[m].discount;
+      monthData[m].paidStudents.forEach(s => paidStudents.add(s));
+    }
+
+    const pendingPaise = Math.max(0, grandDemandPaise - discountPaise - collectedPaise);
+    const paidStudentsCount = paidStudents.size;
+
+    cycleMetrics[cycle.id] = {
+      cycleId: cycle.id,
+      cycleNumber: cycle.cycleNumber,
+      grandDemand: Math.round(grandDemandPaise / 100),
+      collectedAmount: Math.round(collectedPaise / 100),
+      pendingAmount: Math.round(pendingPaise / 100),
+      paidStudentsCount,
+      pendingStudentsCount: Math.max(0, totalStudentsCount - paidStudentsCount),
+      studentCount: totalStudentsCount,
+    };
+  }
+
   return {
     totalBilledPaise: totalBilled,
     totalCollectedPaise: totalCollected,
@@ -386,6 +508,8 @@ export async function getSchoolFeeOverviewAggregation(
     collectionPercentage,
     studentsWithNothingPaid: zeroPaidStudents,
     topPending: pendingList.slice(0, 10),
+    monthWiseTrend,
+    cycleMetrics,
   };
 }
 

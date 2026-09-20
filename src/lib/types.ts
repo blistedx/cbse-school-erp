@@ -425,6 +425,8 @@ export interface SchoolOverview {
   };
   recentStudents: Student[];
   recentInvoices: FeeInvoice[];
+  financials?: any;
+  feeOverview?: any;
 }
 
 export interface AuditLogEntry {
