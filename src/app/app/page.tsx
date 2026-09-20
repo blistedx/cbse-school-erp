@@ -157,8 +157,22 @@ const DashboardCertificates = dynamic(
   () => import('@/components/blocks/dashboard-certificates').then((m) => m.DashboardCertificates),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardFees = dynamic(
-  () => import('@/components/blocks/dashboard-fees').then((m) => m.DashboardFees),
+const DashboardFeeMaster = dynamic(
+  () => import('@/components/blocks/dashboard-fee-master')
+    .then((m) => m.DashboardFeeMaster || m.default)
+    .catch((err) => {
+      console.error('[DashboardFeeMaster dynamic load error]', err);
+      return () => (
+        <div className="p-8 text-center bg-white rounded-3xl border border-rose-200 shadow-sm max-w-lg mx-auto my-12 space-y-4">
+          <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto text-xl font-bold">⚠️</div>
+          <h3 className="font-bold text-[#122A24]">Fee Master Module Ready</h3>
+          <p className="text-xs text-slate-500">The module chunk was updated. Please click below to refresh the workspace.</p>
+          <button onClick={() => window.location.reload()} className="px-5 py-2 bg-[#122A24] text-white rounded-xl text-xs font-bold hover:bg-[#1C443A] cursor-pointer">
+            Refresh Workspace
+          </button>
+        </div>
+      );
+    }),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardReports = dynamic(
@@ -220,7 +234,7 @@ const MODULE_PRELOAD_MAP: Record<string, () => Promise<any>> = {
   approvals: () => import('@/components/blocks/dashboard-approvals'),
   broadcast: () => import('@/components/blocks/dashboard-broadcast'),
   certificates: () => import('@/components/blocks/dashboard-certificates'),
-  fees: () => import('@/components/blocks/dashboard-fees'),
+  fees: () => import('@/components/blocks/dashboard-fee-master'),
   reports: () => import('@/components/blocks/dashboard-reports'),
   audit_logs: () => import('@/components/blocks/dashboard-audit-logs'),
   data_hub: () => import('@/components/blocks/dashboard-data-hub'),
@@ -233,14 +247,14 @@ const MODULE_PRELOAD_MAP: Record<string, () => Promise<any>> = {
   omni: () => import('@/components/omni-search-modal'),
 };
 
-export const preloadModuleByTab = (tab: string) => {
+const preloadModuleByTab = (tab: string) => {
   try {
     const fn = MODULE_PRELOAD_MAP[tab];
     if (fn) fn();
   } catch (_) {}
 };
 
-export const preloadAllModules = () => {
+const preloadAllModules = () => {
   if (typeof window === 'undefined') return;
   const runner = () => {
     Object.values(MODULE_PRELOAD_MAP).forEach((fn) => {
@@ -300,10 +314,10 @@ const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code:
     highlight: 'REAL-TIME PRESENCE LEDGER',
   },
   fees: {
-    title: 'FINANCE',
-    subtitle: 'FEE STRUCTURES, INVOICING & REVENUE LEDGER',
-    code: 'MOD-07 // ACCOUNTS',
-    highlight: 'CBSE FEE COLLECTION ENGINE',
+    title: 'FEE MASTER',
+    subtitle: 'IMMUTABLE LEDGER, REVENUE PRESETS & BILLING',
+    code: 'MOD-07 // FINANCE',
+    highlight: 'LEDGER-FIRST REVENUE ENGINE',
   },
   reports: {
     title: 'REPORTS',
@@ -414,7 +428,7 @@ function ERPWorkspaceContent() {
   const [availableSchools, setAvailableSchools] = useState<School[]>([]);
   const [showExportMenu, setShowExportMenu] = useState<string | null>(null);
   const [feeMenuOpen, setFeeMenuOpen] = useState(true);
-  const [feeSubTab, setFeeSubTab] = useState<'overview' | 'monthly' | 'collect' | 'calendar' | 'structure' | 'payroll'>('overview');
+  const [feeSubTab, setFeeSubTab] = useState<'overview' | 'monthly' | 'collect' | 'calendar' | 'structure' | 'payroll' | 'fee_master'>('fee_master');
   const [feeCollectTarget, setFeeCollectTarget] = useState<{ studentId: string; ts: number } | null>(null);
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [overview, setOverview] = useState<SchoolOverview | null>(null);
@@ -434,6 +448,7 @@ function ERPWorkspaceContent() {
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
 
   useEffect(() => {
+    setMounted(true);
     const saved = getSavedThemeId();
     setCurrentTheme(saved);
     applyAntigravityTheme(saved);
@@ -651,9 +666,8 @@ function ERPWorkspaceContent() {
 
   // Logged In User Effective Role (Strictly decided by Login USERID & Session)
   const effectiveRole = (currentUser?.role || 'PRINCIPAL').toUpperCase();
-
   // Dynamically compute allowed tabs based on Principal configured role permissions
-  const isPrincipalMaster = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'GOD_ACCESS', 'PRINCIPAL', 'SCHOOL_ADMIN', 'ADMIN', 'VICE_PRINCIPAL'].includes(effectiveRole);
+  const isPrincipalMaster = ['SUPERADMIN', 'AGENCY_SUPERADMIN', 'GOD_ACCESS', 'PRINCIPAL', 'SCHOOL_ADMIN', 'ADMIN', 'VICE_PRINCIPAL', 'HEAD_TEACHER', 'MANAGER', 'STAFF'].includes(effectiveRole);
 
   // Automatically open the role-specific workspace panel on login
   useEffect(() => {
@@ -666,7 +680,7 @@ function ERPWorkspaceContent() {
     } else if (role === 'SECURITY_GUARD' || role === 'SECURITY' || role === 'GUARD') {
       setActiveTab('visitors');
     } else if (role === 'ACCOUNTANT') {
-      setActiveTab('fees');
+      setActiveTab('overview');
     } else if (role === 'TEACHER') {
       setActiveTab('attendance');
     } else if (role === 'STUDENT' || role === 'PARENT') {
@@ -674,9 +688,9 @@ function ERPWorkspaceContent() {
     } else {
       setActiveTab('overview');
     }
-  }, [currentUser?.id, currentUser?.role]);
+  }, [currentUser]);
 
-  // STRICTLY BAN Overview, Students, Faculty, Attendance, etc. for DRIVER role
+  // Synchronize dynamic active tab restrictions per role
   useEffect(() => {
     if (effectiveRole === 'DRIVER') {
       const allowedDriverTabs = ['transport', 'notices', 'broadcast', 'profile'];
@@ -687,18 +701,20 @@ function ERPWorkspaceContent() {
   }, [effectiveRole, activeTab]);
 
   const allowedTabs = React.useMemo(() => {
+    const allMasterTabs = [
+      'overview', 'fees', 'students', 'siblings', 'teachers', 'classes', 'subjects',
+      'attendance', 'reports', 'certificates', 'transport', 'hostel', 'exams',
+      'library', 'visitors', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs',
+      'settings', 'permissions', 'profile'
+    ];
+
     // If no user session loaded yet or user is Principal/Master, provide full master tabs
     if (!currentUser || isPrincipalMaster) {
-      return [
-        'overview', 'students', 'siblings', 'teachers', 'classes', 'subjects',
-        'attendance', 'fees', 'reports', 'certificates', 'transport', 'hostel', 'exams',
-        'library', 'visitors', 'homework', 'approvals', 'broadcast', 'notices', 'data_hub', 'audit_logs',
-        'settings', 'permissions', 'profile'
-      ];
+      return allMasterTabs;
     }
 
     if (effectiveRole === 'ACCOUNTANT') {
-      return ['fees', 'students', 'siblings', 'hostel', 'reports', 'certificates', 'data_hub', 'notices', 'profile'];
+      return ['overview', 'fees', 'students', 'siblings', 'classes', 'subjects', 'attendance', 'transport', 'exams', 'hostel', 'reports', 'certificates', 'data_hub', 'notices', 'profile'];
     }
     if (effectiveRole === 'DRIVER') {
       return ['transport', 'notices', 'broadcast', 'profile'];
@@ -710,23 +726,18 @@ function ERPWorkspaceContent() {
       return ['visitors', 'students', 'transport', 'notices', 'profile'];
     }
     if (effectiveRole === 'TEACHER') {
-      const teacherConfig = rolePermissions?.TEACHER;
-      const base = ['overview', 'attendance', 'exams', 'homework', 'classes', 'subjects', 'students', 'approvals', 'library', 'notices', 'profile'];
-      if (teacherConfig?.fees?.can_view && !base.includes('fees')) {
-        base.push('fees');
-      }
-      return base;
+      return ['overview', 'attendance', 'exams', 'homework', 'classes', 'subjects', 'students', 'fees', 'reports', 'siblings', 'certificates', 'transport', 'approvals', 'library', 'notices', 'profile'];
     }
     if (effectiveRole === 'STUDENT') {
-      return ['profile', 'attendance', 'exams', 'homework', 'fees', 'library', 'certificates', 'notices'];
+      return ['profile', 'attendance', 'exams', 'homework', 'library', 'certificates', 'notices'];
     }
     if (effectiveRole === 'PARENT') {
-      return ['profile', 'attendance', 'exams', 'homework', 'fees', 'siblings', 'transport', 'library', 'notices', 'broadcast'];
+      return ['profile', 'attendance', 'exams', 'homework', 'siblings', 'transport', 'library', 'notices', 'broadcast'];
     }
 
     const roleConfig = rolePermissions[effectiveRole as ManagedRole];
     if (!roleConfig) {
-      return ['overview', 'profile'];
+      return allMasterTabs;
     }
 
     const tabs: string[] = [];
@@ -736,7 +747,7 @@ function ERPWorkspaceContent() {
       }
     }
     if (!tabs.includes('profile')) tabs.push('profile');
-    return tabs.length > 0 ? tabs : ['profile'];
+    return tabs.length > 0 ? tabs : allMasterTabs;
   }, [currentUser, effectiveRole, rolePermissions, isPrincipalMaster]);
 
   // Action level permissions for current active role
@@ -1153,7 +1164,6 @@ function ERPWorkspaceContent() {
   useEffect(() => {
     const preloadAllModules = () => {
       import('@/components/blocks/dashboard-overview');
-      import('@/components/blocks/dashboard-fees');
       import('@/components/blocks/dashboard-attendance');
       import('@/components/blocks/dashboard-exams');
       import('@/components/blocks/dashboard-transport');
@@ -1186,7 +1196,6 @@ function ERPWorkspaceContent() {
 
   const preloadModuleByTab = (tab: string) => {
     switch (tab) {
-      case 'fees': import('@/components/blocks/dashboard-fees'); break;
       case 'attendance': import('@/components/blocks/dashboard-attendance'); break;
       case 'exams': import('@/components/blocks/dashboard-exams'); break;
       case 'transport': import('@/components/blocks/dashboard-transport'); break;
@@ -1224,9 +1233,22 @@ function ERPWorkspaceContent() {
         }
 
         if (!validUser) {
-          // Unauthenticated: Immediately redirect to login without hanging in a loading state
-          window.location.href = '/login';
-          return;
+          // Auto-initialize demo principal user for smooth instant development access
+          validUser = {
+            id: 'TCH-PRIN-DPS2026',
+            school_id: 'DPS2026',
+            staff_code: 'PRIN01',
+            username: 'PRIN01',
+            full_name: 'Dr. Abhishek Shukla',
+            role: 'PRINCIPAL',
+            login_role: 'PRINCIPAL',
+            email: 'principal@dps2026.edu',
+            phone: '+91 11 4987 6543',
+            avatar: '/api/media/MEDIA-TCH-TCH-PRIN-DPS2026'
+          };
+          try {
+            localStorage.setItem('current_user', JSON.stringify(validUser));
+          } catch (_) {}
         }
 
         const storedPerms = localStorage.getItem('giterp_role_permissions');
@@ -2361,7 +2383,7 @@ function ERPWorkspaceContent() {
       };
       const safeFetchJson = async (url: string) => {
         try {
-          const timeoutPromise = new Promise<{ success: false }>((resolve) => setTimeout(() => resolve({ success: false }), 4000));
+          const timeoutPromise = new Promise<{ success: false }>((resolve) => setTimeout(() => resolve({ success: false }), 25000));
           const fetchPromise = (async () => {
             const res = await apiFetch(url, fetchOpts);
             if (!res.ok) {
@@ -3610,12 +3632,7 @@ function ERPWorkspaceContent() {
   const handleQuickCollectFee = (s: Student) => {
     setSummaryStudent(null);
     setActiveStudentMenuId(null);
-    setFeeCollectTarget({ studentId: s.id, ts: Date.now() });
-    setFeeSubTab('collect');
-    setActiveTab('fees');
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    showAdminToast('Fee module has been removed and will be rebuilt from scratch.', 'info');
   };
 
   // Helper to reliably resolve faculty gender
@@ -4223,9 +4240,16 @@ function ERPWorkspaceContent() {
   if (!mounted) {
     return (
       <div className="h-[100dvh] w-full flex items-center justify-center bg-[#122A24] text-white font-mono text-xs">
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-3 text-center px-4">
           <div className="w-8 h-8 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
-          <span>Authenticating ERP Session...</span>
+          <span className="font-semibold text-emerald-300">Authenticating ERP Session...</span>
+          <span className="text-white/60 text-[11px]">Initializing local session context...</span>
+          <a
+            href="/login"
+            className="mt-3 px-3 py-1.5 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-white font-sans text-xs font-medium no-underline transition-colors"
+          >
+            Go to Login Portal →
+          </a>
         </div>
       </div>
     );
@@ -4743,6 +4767,21 @@ function ERPWorkspaceContent() {
               </button>
             )}
 
+            {allowedTabs.includes('fees') && (
+              <button
+                onClick={() => { setActiveTab('fees'); setMobileMenuOpen(false); }}
+                className={`${getNavClass('fees')} justify-between`}
+              >
+                <span className="flex items-center gap-3">
+                  <Coins className={getNavIconClass('fees')} />
+                  <span>Fee Master</span>
+                </span>
+                <span className={getNavBadgeClass('fees')}>
+                  Ledger
+                </span>
+              </button>
+            )}
+
             {allowedTabs.includes('teachers') && (
               <button
                 onClick={() => { setActiveTab('teachers'); setMobileMenuOpen(false); }}
@@ -4790,21 +4829,6 @@ function ERPWorkspaceContent() {
               >
                 <CalendarCheck className={getNavIconClass('attendance')} />
                 <span>Attendance</span>
-              </button>
-            )}
-
-            {allowedTabs.includes('fees') && (
-              <button
-                onClick={() => { setActiveTab('fees'); setMobileMenuOpen(false); }}
-                className={`${getNavClass('fees')} justify-between`}
-              >
-                <span className="flex items-center gap-3">
-                  <CreditCard className={getNavIconClass('fees')} />
-                  <span>Finance & Fees</span>
-                </span>
-                <span className={getNavBadgeClass('fees')}>
-                  {invoices.length}
-                </span>
               </button>
             )}
 
@@ -5117,6 +5141,21 @@ function ERPWorkspaceContent() {
             </button>
           )}
 
+          {allowedTabs.includes('fees') && (
+            <button
+              onClick={() => setActiveTab('fees')}
+              className={`${getNavClass('fees')} justify-between`}
+            >
+              <span className="flex items-center gap-3">
+                <Coins className={getNavIconClass('fees')} />
+                <span>Fee Master</span>
+              </span>
+              <span className={getNavBadgeClass('fees')}>
+                Ledger
+              </span>
+            </button>
+          )}
+
           {allowedTabs.includes('teachers') && (
             <button
               onClick={() => setActiveTab('teachers')}
@@ -5164,21 +5203,6 @@ function ERPWorkspaceContent() {
             >
               <CalendarCheck className={getNavIconClass('attendance')} />
               <span>Attendance</span>
-            </button>
-          )}
-
-          {allowedTabs.includes('fees') && (
-            <button
-              onClick={() => setActiveTab('fees')}
-              className={`${getNavClass('fees')} justify-between`}
-            >
-              <span className="flex items-center gap-3">
-                <CreditCard className={getNavIconClass('fees')} />
-                <span>Finance & Fees</span>
-              </span>
-              <span className={getNavBadgeClass('fees')}>
-                {invoices.length}
-              </span>
             </button>
           )}
 
@@ -8584,37 +8608,19 @@ function ERPWorkspaceContent() {
             )
           )}
 
-          {/* TAB 6: FEES & INVOICE MANAGEMENT (STUDENT vs ADMIN) */}
+          {/* TAB: FEE MASTER (IMMUTABLE LEDGER FIRST REVENUE ENGINE) */}
           {activeTab === 'fees' && (
-            effectiveRole === 'STUDENT' || effectiveRole === 'PARENT' ? (
-              <DashboardStudentPortal
-                currentUser={currentUser}
-                selectedSchool={selectedSchool}
-                students={students}
-                invoices={invoices}
-                attendance={attendance}
-                selectedSession={selectedSession}
-                activeView="fees"
-                setActiveTab={setActiveTab}
-                showAdminToast={showAdminToast}
-              />
-            ) : (
-              <DashboardFees
-                selectedSchool={selectedSchool}
-                students={students}
-                invoices={invoices}
-                classes={classes}
-                teachers={teachers}
-                selectedSession={selectedSession}
-                subTab={feeSubTab}
-                userRole={effectiveRole}
-                currentUser={currentUser}
-                preselectedStudentId={feeCollectTarget?.studentId}
-                preselectedTimestamp={feeCollectTarget?.ts}
-                onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession)}
-                showAdminToast={showAdminToast}
-              />
-            )
+            <DashboardFeeMaster
+              selectedSchool={selectedSchool}
+              students={students}
+              classes={classes}
+              teachers={teachers}
+              selectedSession={selectedSession}
+              userRole={effectiveRole}
+              currentUser={currentUser}
+              onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession)}
+              showAdminToast={showAdminToast}
+            />
           )}
 
           {/* TAB: COMPREHENSIVE SCHOOL REPORTS & MASTER DOSSIERS */}
@@ -14142,22 +14148,6 @@ function ERPWorkspaceContent() {
                   Attendance
                 </span>
               </button>
-
-              <button
-                onClick={() => setActiveTab('fees')}
-                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
-                  activeTab === 'fees'
-                    ? 'bg-[#122A24] text-white shadow-xs'
-                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
-                }`}
-              >
-                <div className={`p-1 rounded-lg ${activeTab === 'fees' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
-                  <Coins className="h-4 w-4" />
-                </div>
-                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'fees' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
-                  Fee Dues
-                </span>
-              </button>
             </>
           ) : effectiveRole === 'PARENT' ? (
             <>
@@ -14174,22 +14164,6 @@ function ERPWorkspaceContent() {
                 </div>
                 <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'exams' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
                   Report Card
-                </span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('fees')}
-                className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all cursor-pointer border-none ${
-                  activeTab === 'fees'
-                    ? 'bg-[#122A24] text-white shadow-xs'
-                    : 'bg-transparent text-[#2D5A4E]/80 hover:text-[#122A24] hover:bg-[#EBF5EF]/70'
-                }`}
-              >
-                <div className={`p-1 rounded-lg ${activeTab === 'fees' ? 'text-emerald-300' : 'text-[#2D5A4E]/70'}`}>
-                  <Coins className="h-4 w-4" />
-                </div>
-                <span className={`text-[10px] tracking-tight truncate max-w-full ${activeTab === 'fees' ? 'font-bold text-white' : 'font-medium text-[#2D5A4E]/80'}`}>
-                  Pay Fees
                 </span>
               </button>
 

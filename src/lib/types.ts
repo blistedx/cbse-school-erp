@@ -149,6 +149,13 @@ export interface Student {
   // Medical / Emergency
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
+  emergency_contact?: string;
+  mobile?: string;
+  first_name?: string;
+  last_name?: string;
+  family_id?: string;
+  concession_category?: string;
+  is_new_admission?: 'YES' | 'NO' | string;
   medical_conditions?: string;
 }
 
@@ -910,13 +917,58 @@ export interface StudentGatePass {
 
 export type FeeLineType = 'DEMAND' | 'PAYMENT' | 'DISCOUNT' | 'WAIVER' | 'FINE' | 'REFUND' | 'ADJUSTMENT' | 'OPENING_BALANCE';
 
-export type FeeHead = 'TUITION' | 'ADMISSION' | 'TRANSPORT' | 'HOSTEL' | 'MESS' | 'EXAM' | 'LIBRARY_FINE' | 'LATE_FEE' | 'ACTIVITY' | 'SECURITY_DEPOSIT' | 'MISC';
+export type FeeHead =
+  | 'TUITION'
+  | 'ADMISSION'
+  | 'PROSPECTUS'
+  | 'ANNUAL'
+  | 'TRANSPORT'
+  | 'HOSTEL'
+  | 'MESS'
+  | 'SECURITY_DEPOSIT'
+  | 'TC'
+  | 'EXAM'
+  | 'LATE_FEE'
+  | 'LAB'
+  | 'FILE_MISC'
+  | 'LIBRARY_FINE'
+  | 'ACTIVITY'
+  | 'MISC';
+
+export const NON_REFUNDABLE_FEE_HEADS: FeeHead[] = [
+  'ADMISSION',
+  'PROSPECTUS',
+  'ANNUAL',
+  'FILE_MISC',
+  'TC',
+];
 
 export type AcademicMonth = 'APR' | 'MAY' | 'JUN' | 'JUL' | 'AUG' | 'SEP' | 'OCT' | 'NOV' | 'DEC' | 'JAN' | 'FEB' | 'MAR';
 
 export type PaymentMode = 'CASH' | 'UPI' | 'CARD' | 'CHEQUE' | 'NEFT' | 'ONLINE';
 
-export type ConcessionType = 'SIBLING' | 'RTE' | 'STAFF_WARD' | 'MERIT' | 'SPORTS' | 'SINGLE_GIRL_CHILD' | 'PRINCIPAL_WAIVER' | 'EARLY_BIRD';
+export type ConcessionType = 'SIBLING' | 'RTE' | 'STAFF_WARD' | 'MERIT' | 'SPORTS' | 'SINGLE_GIRL_CHILD' | 'PRINCIPAL_WAIVER' | 'EARLY_BIRD' | 'ADVANCE_YEARLY';
+
+/**
+ * FeeDepositSlot — Configurable Deposit Schedule 2026-27
+ */
+export interface FeeDepositSlot {
+  slot_id: string;
+  slot_name: string;
+  months: AcademicMonth[];
+  due_day: number;
+  due_month: AcademicMonth;
+  includes_annual_fee?: boolean;
+}
+
+/**
+ * SiblingConcessionTier — Rules for auto-applying sibling discounts
+ */
+export interface SiblingConcessionTier {
+  child_order: number;
+  tuition_discount_percent: number;
+  free_transport?: boolean;
+}
 
 /**
  * FeeLedgerLine — Immutable, append-only financial record.
@@ -939,6 +991,7 @@ export interface FeeLedgerLine {
   line_type: FeeLineType;
   fee_head: FeeHead;
   month: AcademicMonth | null;    // null for annual/one-time heads
+  slot_id?: string | null;
 
   amount: number;                  // Always positive integer in PAISE
 
@@ -1005,6 +1058,17 @@ export interface LedgerFeeSummary {
     balance: number;
     status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'UPCOMING';
   }[];
+  slotWise?: {
+    slot_id: string;
+    slot_name: string;
+    demand: number;
+    paid: number;
+    discount: number;
+    waiver: number;
+    fine: number;
+    balance: number;
+    status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'UPCOMING';
+  }[];
 }
 
 /**
@@ -1027,12 +1091,14 @@ export interface FeeAggregateFilters {
   hostelBlockId?: string;
   studentStatus?: 'ACTIVE' | 'INACTIVE' | 'ALUMNI';
   includeCancelled?: boolean;
+  pendingOnly?: boolean;
+  minBalance?: number;
 }
 
 export type GroupByDimension =
   | 'month' | 'class' | 'section' | 'fee_head' | 'payment_mode'
   | 'concession_type' | 'collected_by' | 'date' | 'student'
-  | 'route' | 'category';
+  | 'route' | 'category' | 'status' | 'receipt_no';
 
 /**
  * A single row returned by getFeeAggregate. All money in paise.
@@ -1058,37 +1124,61 @@ export interface FeeConfig {
   school_id: string;
   academic_session: string;
 
+  // 1. One-Time & Annual Charges
+  one_time_annual_charges: {
+    prospectus_registration_paise: number;
+    admission_fee_paise: number;
+    annual_fee_pg_to_viii_paise: number;
+    annual_fee_ix_to_xii_paise: number;
+    hostel_security_deposit_paise: number;
+    tc_fee_paise: number;
+  };
+
+  // 2. Class-Wise Tuition Structure
   tuition_structure: {
     class_group: string;
     classes: string[];
     monthly_fee_paise: number;
+    quarterly_fee_paise: number;
   }[];
 
-  annual_fees: {
-    fee_head: string;
-    class_group: string;
-    amount_paise: number;
-    applies_to: 'NEW' | 'ALL';
-  }[];
-
+  // 3. Transport Distance Slabs
   transport_slabs: {
     id: string;
     slab_name: string;
+    distance_label?: string;
     monthly_fee_paise: number;
   }[];
 
+  // 4. Deposit Schedule
+  deposit_schedule: FeeDepositSlot[];
+
+  // 5. Hostel Rates
   hostel_rates: {
     room_type: 'WITHOUT_AC' | 'WITH_AC';
     monthly_fee_paise: number;
     security_deposit_paise: number;
   }[];
 
+  // 6. Exam Fees
   exam_fees: {
     exam_type: string;
-    months: AcademicMonth[];
+    name: string;
+    applicable_classes: string[];
     amount_paise: number;
+    due_month: AcademicMonth;
   }[];
 
+  // 7. Lab Fees
+  lab_fees: {
+    lab_type: string;
+    applicable_classes: string[];
+    amount_paise: number;
+    billing_cycle: 'ANNUAL' | 'QUARTERLY';
+  }[];
+
+  // 8. Sibling Concessions & Waivers
+  sibling_concession_rules: SiblingConcessionTier[];
   concession_rules: {
     type: ConcessionType;
     rule: string;
@@ -1102,13 +1192,181 @@ export interface FeeConfig {
     };
   }[];
 
+  // 9. Late Fee Rules
   late_fee_rules: {
     grace_days: number;
+    rule_type?: 'FLAT' | 'PERCENTAGE';
+    flat_amount_paise?: number;
+    percentage_rate?: number;
     amount_paise: number;
     max_months: number;
   };
 
   updated_at: string;
   updated_by: string;
+}
+
+// ─────────────────────────────────────────────────────────────
+// NEW UNIFIED CBSE FEE & INSTITUTIONAL FINANCE CORE MODELS
+// ─────────────────────────────────────────────────────────────
+
+export type FeeCategoryType = 'ACADEMIC' | 'TRANSPORT' | 'HOSTEL' | 'ACTIVITY' | 'EXAM' | 'SECURITY' | 'LAB' | 'LIBRARY' | 'MISC';
+export type FeeFrequencyType = 'MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'ANNUALLY' | 'ONE_TIME';
+
+export interface FeeHeadItem {
+  id: string;
+  school_id: string;
+  name: string; // e.g. 'Tuition Fee', 'Transport Fee', 'Annual Charges'
+  code: string; // e.g. 'TUI', 'TRN', 'ANN'
+  category: FeeCategoryType;
+  frequency: FeeFrequencyType;
+  is_refundable: boolean;
+  is_optional: boolean;
+  default_amount: number;
+  description?: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  created_at?: string;
+}
+
+export interface ClassFeeHeadAllocation {
+  head_id: string;
+  head_name: string;
+  head_code: string;
+  category: FeeCategoryType;
+  frequency: FeeFrequencyType;
+  amount: number; // In INR Rupees
+  due_day?: number; // e.g., 10th of cycle
+  late_fine_per_day?: number;
+}
+
+export interface ClassFeeStructure {
+  id: string;
+  school_id: string;
+  academic_session: string; // e.g. '2025-2026'
+  class_name: string; // e.g. 'Class 1', 'Class 10', 'Nursery'
+  stream?: string; // 'SCIENCE', 'COMMERCE', 'ARTS', 'GENERAL'
+  allocations: ClassFeeHeadAllocation[];
+  total_monthly_amount: number;
+  total_annual_amount: number;
+  updated_at?: string;
+}
+
+export interface StudentConcession {
+  id: string;
+  school_id: string;
+  student_id: string;
+  student_name: string;
+  admission_no: string;
+  class_name: string;
+  academic_session: string;
+  concession_type: 'SIBLING' | 'STAFF_WARD' | 'MERIT' | 'RTE' | 'NEED_BASED' | 'SPECIAL';
+  discount_mode: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  discount_value: number; // e.g., 25 for 25%, or 5000 for ₹5000
+  applicable_heads: string[]; // ['ALL'] or list of head_ids
+  approved_by: string;
+  reason?: string;
+  created_at?: string;
+}
+
+export interface FeeReceiptLine {
+  head_id: string;
+  head_name: string;
+  category: FeeCategoryType;
+  period_label: string; // e.g., 'Apr 2025', 'Q1 2025', 'Annual'
+  base_amount: number;
+  concession_amount: number;
+  net_amount: number;
+}
+
+export interface FeeReceipt {
+  id: string;
+  receipt_no: string; // e.g. 'REC-2025-00101'
+  school_id: string;
+  academic_session: string;
+  student_id: string;
+  student_name: string;
+  admission_no: string;
+  roll_no?: string;
+  class_name: string;
+  section: string;
+  father_name?: string;
+  phone?: string;
+  payment_date: string; // YYYY-MM-DD
+  months_covered: string[]; // e.g. ['APR', 'MAY', 'JUN']
+  lines: FeeReceiptLine[];
+  subtotal: number;
+  discount_total: number;
+  late_fine: number;
+  total_paid: number;
+  payment_mode: 'CASH' | 'UPI_QR' | 'CHEQUE' | 'BANK_TRANSFER' | 'CARD';
+  transaction_ref?: string; // Cheque No / UPI UTR
+  bank_name?: string;
+  collected_by: string;
+  remarks?: string;
+  created_at?: string;
+}
+
+export type FinanceEntryType = 'INCOME' | 'EXPENSE';
+export type FinanceCategoryType =
+  | 'FEE_COLLECTION'
+  | 'DONATION'
+  | 'GOVT_GRANT'
+  | 'CANTEEN_BOOKSTORE'
+  | 'MISC_INCOME'
+  | 'STAFF_SALARY'
+  | 'ELECTRICITY_WATER'
+  | 'BUILDING_MAINTENANCE'
+  | 'TRANSPORT_FUEL'
+  | 'LAB_SPORTS_SUPPLIES'
+  | 'EXAM_EXPENSES'
+  | 'MARKETING_ADVERTISING'
+  | 'MISC_EXPENSE';
+
+export interface FinanceEntry {
+  id: string;
+  school_id: string;
+  academic_session: string;
+  entry_type: FinanceEntryType;
+  category: FinanceCategoryType;
+  voucher_no: string; // e.g. 'VOU-2025-001'
+  date: string; // YYYY-MM-DD
+  amount: number;
+  payment_mode: 'CASH' | 'BANK_TRANSFER' | 'CHEQUE' | 'UPI';
+  account_name: 'Cash Counter' | 'Main School Bank A/c' | 'Fee Collection Bank A/c' | 'Petty Cash';
+  party_name: string; // Vendor name or Payer name
+  description: string;
+  reference_no?: string; // Bill no / Invoice no
+  approved_by?: string;
+  created_by: string;
+  created_at?: string;
+}
+
+export interface PayrollRecord {
+  id: string;
+  school_id: string;
+  academic_session: string;
+  month_year: string; // e.g. 'APR_2025'
+  teacher_id: string;
+  staff_name: string;
+  designation: string;
+  department: string;
+  bank_account_no?: string;
+  bank_ifsc?: string;
+  basic_pay: number;
+  hra: number;
+  da: number;
+  special_allowance: number;
+  gross_salary: number;
+  pf_deduction: number;
+  esi_deduction: number;
+  tds_deduction: number;
+  advance_deduction: number;
+  total_deductions: number;
+  net_salary: number;
+  status: 'GENERATED' | 'APPROVED' | 'DISBURSED';
+  disbursement_date?: string;
+  payment_mode?: 'BANK_TRANSFER' | 'CASH' | 'CHEQUE';
+  transaction_ref?: string;
+  created_at?: string;
 }
 

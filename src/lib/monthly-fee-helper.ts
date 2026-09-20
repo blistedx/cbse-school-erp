@@ -1,5 +1,24 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
+/*! EduSuite Fee Master — Monthly Fee Helper (Unified Adapter) v3.0.0 */
+/**
+ * All fee math is unified in src/lib/fees-engine/.
+ * This file serves as a backward-compatible bridge for legacy components.
+ */
+
 import { Student, FeeInvoice } from './types';
+import {
+  getTuitionRateForClass,
+  getAnnualFeeForClass,
+  getTransportSlabRate,
+  getHostelRate,
+} from './fees-engine/rates';
+import {
+  DEFAULT_FEE_CONFIG,
+  paiseToRupees,
+  rupeesToPaise,
+  ACADEMIC_MONTHS,
+  MONTH_FULL_NAMES,
+  getDefaultDueDate,
+} from './fees-engine/constants';
 
 export interface MonthlyFeeItem {
   id: string;
@@ -19,7 +38,7 @@ export interface MonthlyFeeItem {
   activityFee: number;
   concessionAmount: number;
   totalBilled: number;
-  paidAmount: number;         // "jama ki"
+  paidAmount: number;
   balanceDue: number;
   status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'UPCOMING';
   isOverdue?: boolean;
@@ -32,8 +51,8 @@ export interface StudentMonthlyFeeSchedule {
   className: string;
   section: string;
   totalAnnualBilled: number;
-  totalPaidToDate: number;    // "kul jama"
-  currentBalanceDue: number;  // "kul baki"
+  totalPaidToDate: number;
+  currentBalanceDue: number;
   months: MonthlyFeeItem[];
 }
 
@@ -57,11 +76,11 @@ export interface TransportFeeHead {
 }
 
 export interface HostelFeeStructure {
-  securityMoney: number; // ₹10,000 (Refundable)
-  withoutAcAnnual: number; // ₹72,000 (₹6,000/mo)
-  withoutAcMonthly: number; // ₹6,000
-  withAcAnnual: number; // ₹94,000 (~₹7,833/mo)
-  withAcMonthly: number; // ₹7,833
+  securityMoney: number;
+  withoutAcAnnual: number;
+  withoutAcMonthly: number;
+  withAcAnnual: number;
+  withAcMonthly: number;
 }
 
 export const DEFAULT_HOSTEL_FEES: HostelFeeStructure = {
@@ -82,7 +101,7 @@ export const DEFAULT_ONE_TIME_FEES: OneTimeFeeHead[] = [
 ];
 
 export const DEFAULT_TUITION_FEES: TuitionFeeHead[] = [
-  { id: '1', className: 'PG, LKG & UKG', monthlyFee: 1200, quarterlyFee: 3600 },
+  { id: '1', className: 'PG, LKG & UKG', monthlyFee: 1000, quarterlyFee: 3000 },
   { id: '2', className: 'Class I & II', monthlyFee: 1400, quarterlyFee: 4200 },
   { id: '3', className: 'Class III to V', monthlyFee: 1600, quarterlyFee: 4800 },
   { id: '4', className: 'Class VI to VIII', monthlyFee: 1800, quarterlyFee: 5400 },
@@ -99,407 +118,292 @@ export const DEFAULT_TRANSPORT_FEES: TransportFeeHead[] = [
 ];
 
 export const CBSE_ACADEMIC_MONTHS = [
-  { name: 'April 2026', short: 'Apr', index: 1, quarter: 'Q1' as const, cycleName: 'Cycle 1: April + Annual Term Fee', hasAnnual: true, hasExam: false, defaultDueDate: '2026-04-15' },
-  { name: 'May 2026', short: 'May', index: 2, quarter: 'Q1' as const, cycleName: 'Cycle 2: May Tuition & Transport', hasAnnual: false, hasExam: false, defaultDueDate: '2026-05-15' },
-  { name: 'June 2026', short: 'Jun', index: 3, quarter: 'Q1' as const, cycleName: 'Cycle 3: June Tuition & Summer Lab', hasAnnual: false, hasExam: false, defaultDueDate: '2026-06-15' },
-  { name: 'July 2026', short: 'Jul', index: 4, quarter: 'Q2' as const, cycleName: 'Cycle 4: July Tuition & Transport', hasAnnual: false, hasExam: false, defaultDueDate: '2026-07-15' },
-  { name: 'August 2026', short: 'Aug', index: 5, quarter: 'Q2' as const, cycleName: 'Cycle 5: August Tuition & Sports Term', hasAnnual: false, hasExam: false, defaultDueDate: '2026-08-15' },
-  { name: 'September 2026', short: 'Sep', index: 6, quarter: 'Q2' as const, cycleName: 'Cycle 6: September Half-Yearly Exam Fee', hasAnnual: false, hasExam: true, defaultDueDate: '2026-09-15' },
-  { name: 'October 2026', short: 'Oct', index: 7, quarter: 'Q3' as const, cycleName: 'Cycle 7: October Tuition & Transport', hasAnnual: false, hasExam: false, defaultDueDate: '2026-10-15' },
-  { name: 'November 2026', short: 'Nov', index: 8, quarter: 'Q3' as const, cycleName: 'Cycle 8: November Tuition & Lab Term', hasAnnual: false, hasExam: false, defaultDueDate: '2026-11-15' },
-  { name: 'December 2026', short: 'Dec', index: 9, quarter: 'Q3' as const, cycleName: 'Cycle 9: December Winter Session Fee', hasAnnual: false, hasExam: false, defaultDueDate: '2026-12-15' },
-  { name: 'January 2027', short: 'Jan', index: 10, quarter: 'Q4' as const, cycleName: 'Cycle 10: January Pre-Board / New Year', hasAnnual: false, hasExam: false, defaultDueDate: '2027-01-15' },
-  { name: 'February 2027', short: 'Feb', index: 11, quarter: 'Q4' as const, cycleName: 'Cycle 11: February CBSE Final Exam Fee', hasAnnual: false, hasExam: true, defaultDueDate: '2027-02-15' },
-  { name: 'March 2027', short: 'Mar', index: 12, quarter: 'Q4' as const, cycleName: 'Cycle 12: March Final Session Clearance', hasAnnual: false, hasExam: false, defaultDueDate: '2027-03-15' },
+  { month: 'April', name: 'April', short: 'Apr', index: 1, key: '04', quarter: 'Q1' as const, cycleName: 'Cycle 1: April + Annual Fee', hasAnnual: true, hasExam: false },
+  { month: 'May', name: 'May', short: 'May', index: 2, key: '05', quarter: 'Q1' as const, cycleName: 'Cycle 2: May & June', hasAnnual: false, hasExam: false },
+  { month: 'June', name: 'June', short: 'Jun', index: 3, key: '06', quarter: 'Q1' as const, cycleName: 'Cycle 2: May & June', hasAnnual: false, hasExam: false },
+  { month: 'July', name: 'July', short: 'Jul', index: 4, key: '07', quarter: 'Q2' as const, cycleName: 'Cycle 3: July', hasAnnual: false, hasExam: true },
+  { month: 'August', name: 'August', short: 'Aug', index: 5, key: '08', quarter: 'Q2' as const, cycleName: 'Cycle 4: August', hasAnnual: false, hasExam: false },
+  { month: 'September', name: 'September', short: 'Sep', index: 6, key: '09', quarter: 'Q2' as const, cycleName: 'Cycle 5: September & February', hasAnnual: false, hasExam: true },
+  { month: 'October', name: 'October', short: 'Oct', index: 7, key: '10', quarter: 'Q3' as const, cycleName: 'Cycle 6: October', hasAnnual: false, hasExam: false },
+  { month: 'November', name: 'November', short: 'Nov', index: 8, key: '11', quarter: 'Q3' as const, cycleName: 'Cycle 7: November', hasAnnual: false, hasExam: false },
+  { month: 'December', name: 'December', short: 'Dec', index: 9, key: '12', quarter: 'Q3' as const, cycleName: 'Cycle 8: December & March', hasAnnual: false, hasExam: true },
+  { month: 'January', name: 'January', short: 'Jan', index: 10, key: '01', quarter: 'Q4' as const, cycleName: 'Cycle 9: January', hasAnnual: false, hasExam: false },
+  { month: 'February', name: 'February', short: 'Feb', index: 11, key: '02', quarter: 'Q4' as const, cycleName: 'Cycle 5: September & February', hasAnnual: false, hasExam: false },
+  { month: 'March', name: 'March', short: 'Mar', index: 12, key: '03', quarter: 'Q4' as const, cycleName: 'Cycle 8: December & March', hasAnnual: false, hasExam: true },
 ];
 
-/**
- * Standard class base fee rates (monthly tuition)
- */
 export function getStandardTuitionRate(className: string): number {
-  const norm = (className || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (norm.includes('pg') || norm.includes('play') || norm.includes('nursery') || norm.includes('lkg') || norm.includes('ukg')) return 1200;
-  if (norm.includes('1') || norm.includes('2') || norm.includes('i') || norm.includes('ii')) return 1400;
-  if (norm.includes('3') || norm.includes('4') || norm.includes('5') || norm.includes('iii') || norm.includes('iv') || norm.includes('v')) return 1600;
-  if (norm.includes('6') || norm.includes('7') || norm.includes('8') || norm.includes('vi') || norm.includes('vii') || norm.includes('viii')) return 1800;
-  if (norm.includes('9') || norm.includes('10') || norm.includes('ix') || norm.includes('x')) return 2000;
-  if (norm.includes('11') || norm.includes('12') || norm.includes('xi') || norm.includes('xii')) return 2400;
-  return 1500;
+  return paiseToRupees(getTuitionRateForClass(DEFAULT_FEE_CONFIG as any, className));
 }
 
-/**
- * Standard annual fee rate
- */
 export function getStandardAnnualFeeRate(className: string): number {
-  const norm = (className || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (norm.includes('9') || norm.includes('10') || norm.includes('11') || norm.includes('12') || norm.includes('ix') || norm.includes('x') || norm.includes('xi') || norm.includes('xii')) {
-    return 6000;
+  return paiseToRupees(getAnnualFeeForClass(DEFAULT_FEE_CONFIG as any, className));
+}
+
+export function getStandardTransportRate(slabOrKmOrStudent: any): number {
+  if (slabOrKmOrStudent && typeof slabOrKmOrStudent === 'object') {
+    if ((slabOrKmOrStudent.transport_opted || '').toUpperCase() !== 'YES') return 0;
+    return paiseToRupees(getTransportSlabRate(DEFAULT_FEE_CONFIG as any, slabOrKmOrStudent.transport_slab_id || '1'));
   }
-  return 5000;
+  return paiseToRupees(getTransportSlabRate(DEFAULT_FEE_CONFIG as any, slabOrKmOrStudent));
 }
 
-/**
- * Standard transport fee rate
- */
-export function getStandardTransportRate(student: Student): number {
-  if ((student.transport_opted || '').toUpperCase() !== 'YES') return 0;
-  if (student.transport_slab_id) {
-    const slabRates: Record<string, number> = {
-      '1': 800,
-      '2': 900,
-      '3': 1100,
-      '4': 1300,
-      '5': 1800
-    };
-    if (slabRates[String(student.transport_slab_id)]) {
-      return slabRates[String(student.transport_slab_id)];
-    }
-  }
-  return 800;
-}
-
-/**
- * Strict exact matching of invoices to a student.
- * Eliminates substring matching leaks (e.g. '1' matching '10', '101').
- */
-export function matchInvoicesForStudent(student: Student, existingInvoices: FeeInvoice[] = []): FeeInvoice[] {
-  if (!student || !Array.isArray(existingInvoices)) return [];
-  const studentAdmNo = (student.admission_no || '').toLowerCase().trim();
-  const studentId = (student.id || '').toLowerCase().trim();
-  const studentName = (student.full_name || '').toLowerCase().trim();
-
-  return existingInvoices.filter(inv => {
-    if (!inv) return false;
-    const invAdm = (inv.admission_no || '').toLowerCase().trim();
-    const invId = (inv.student_id || '').toLowerCase().trim();
-    const invName = (inv.student_name || '').toLowerCase().trim();
-
-    // 1. Direct Student ID Match (Highest Priority)
-    if (studentId && invId && studentId === invId) {
-      return true;
-    }
-
-    // 2. Strict Exact Admission Number Match
-    if (studentAdmNo && invAdm && studentAdmNo === invAdm) {
-      return true;
-    }
-
-    // 3. Fallback: Exact Student Name Match ONLY if ID and Admission No are missing on the invoice
-    if (!invId && !invAdm && studentName && invName && studentName === invName) {
-      return true;
-    }
-
-    return false;
-  });
-}
-
-export interface StudentFeeSummary {
-  studentId: string;
-  admissionNo: string;
-  studentName: string;
-  className: string;
-  section: string;
-  totalAnnualDemand: number;
-  totalPaidToDate: number;
-  totalConcessions: number;
-  currentBalanceDue: number;
-  totalPendingAnnual: number;
-  feeStatus: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'WAIVED';
-  matchingInvoices: FeeInvoice[];
-}
-
-/**
- * Single source of truth calculation for any student's complete fee status,
- * paid amount, and outstanding dues balance across the entire ERP.
- */
-export function getStudentFeeSummary(
-  student: Student,
-  existingInvoices: FeeInvoice[] = [],
-  options: {
-    baseTuition?: number;
-    annualFee?: number;
-    transportFee?: number;
-    currentDate?: string;
-  } = {}
-): StudentFeeSummary {
-  const schedule = getStudentMonthlyFeeSchedule(student, existingInvoices, options);
-  const matchingInvoices = matchInvoicesForStudent(student, existingInvoices);
-
-  let totalPaidFromInvoices = 0;
-  let totalConcessionsFromInvoices = 0;
-  let hasOverdueInvoice = false;
-
-  matchingInvoices.forEach(inv => {
-    const invAmt = Number(inv.amount) || 0;
-    const invPaid = typeof inv.paid_amount === 'number'
-      ? inv.paid_amount
-      : (inv.status === 'PAID' ? invAmt : 0);
-    totalPaidFromInvoices += invPaid;
-    totalConcessionsFromInvoices += (Number(inv.concession_amount) || 0);
-    if (inv.status === 'OVERDUE') hasOverdueInvoice = true;
-  });
-
-  const totalPaidToDate = totalPaidFromInvoices;
-  const totalConcessions = totalConcessionsFromInvoices;
-  const currentBalanceDue = schedule.currentBalanceDue;
-  const totalPendingAnnual = Math.max(0, schedule.totalAnnualBilled - (totalPaidToDate + totalConcessions));
-
-  let feeStatus: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'WAIVED' = 'PENDING';
-  if (totalConcessions >= schedule.totalAnnualBilled && schedule.totalAnnualBilled > 0) {
-    feeStatus = 'WAIVED';
-  } else if (totalPendingAnnual === 0 && totalPaidToDate > 0) {
-    feeStatus = 'PAID';
-  } else if (totalPaidToDate > 0) {
-    feeStatus = 'PARTIAL';
-  } else if (hasOverdueInvoice) {
-    feeStatus = 'OVERDUE';
-  } else {
-    feeStatus = 'PENDING';
-  }
-
+export function getStandardHostelRate(roomType: 'WITH_AC' | 'WITHOUT_AC' = 'WITHOUT_AC'): {
+  monthly: number;
+  security: number;
+} {
+  const r = getHostelRate(DEFAULT_FEE_CONFIG as any, roomType);
   return {
-    studentId: student.id,
-    admissionNo: student.admission_no || '',
-    studentName: student.full_name,
-    className: student.class_name,
-    section: student.section || 'A',
-    totalAnnualDemand: schedule.totalAnnualBilled,
-    totalPaidToDate,
-    totalConcessions,
-    currentBalanceDue,
-    totalPendingAnnual,
-    feeStatus,
-    matchingInvoices
+    monthly: paiseToRupees(r.monthly),
+    security: paiseToRupees(r.security),
   };
 }
 
-/**
- * Computes or resolves a student's full 12-month CBSE academic fee schedule.
- * Implements strict FIFO water-flow ledger accounting so that monthly paid amounts
- * never exceed the monthly demand, and total paid strictly balances with actual receipts.
- */
+export function matchInvoicesForStudent(firstArg: any, secondArg: any): FeeInvoice[] {
+  let invoices: FeeInvoice[] = [];
+  let student: Student | null = null;
+  if (Array.isArray(firstArg)) {
+    invoices = firstArg;
+    student = secondArg;
+  } else if (Array.isArray(secondArg)) {
+    invoices = secondArg;
+    student = firstArg;
+  }
+  if (!invoices || !student) return [];
+  return invoices.filter(inv =>
+    (inv.student_id && inv.student_id === student!.id) ||
+    (inv.admission_no && student!.admission_no && inv.admission_no.toLowerCase() === student!.admission_no.toLowerCase())
+  );
+}
+
 export function getStudentMonthlyFeeSchedule(
-  student: Student,
-  existingInvoices: FeeInvoice[] = [],
-  options: {
-    baseTuition?: number;
-    annualFee?: number;
-    transportFee?: number;
-    currentDate?: string;
-  } = {}
+  firstArg: any,
+  secondArg: any = [],
+  sessionYear: number = 2026
 ): StudentMonthlyFeeSchedule {
-  const studentAdmNo = (student.admission_no || '').toLowerCase().trim();
+  let student: Student;
+  let invoices: FeeInvoice[] = [];
 
-  // Strict exact matching
-  const studentInvoices = matchInvoicesForStudent(student, existingInvoices);
+  if (firstArg && typeof firstArg === 'object' && ('admission_no' in firstArg || 'class_name' in firstArg || 'id' in firstArg)) {
+    student = firstArg;
+    invoices = Array.isArray(secondArg) ? secondArg : [];
+  } else if (Array.isArray(firstArg)) {
+    invoices = firstArg;
+    student = secondArg || { id: 'unknown', class_name: 'I', admission_no: '' };
+  } else {
+    student = { id: 'unknown', class_name: 'I', admission_no: '' } as Student;
+    invoices = [];
+  }
 
-  const baseTuition = options.baseTuition ?? getStandardTuitionRate(student.class_name);
-  const annualFeeDefault = options.annualFee ?? getStandardAnnualFeeRate(student.class_name);
-  const transportRate = options.transportFee ?? getStandardTransportRate(student);
-  const admDigits = (student.admission_no || '').replace(/[^0-9]/g, '').slice(-4) || '0128';
+  const studentInvoices = matchInvoicesForStudent(invoices, student);
+  const tuitionMonthly = getStandardTuitionRate(student.class_name || 'I');
+  const annualFee = getStandardAnnualFeeRate(student.class_name || 'I');
+  const transportMonthly = (student.transport_opted || '').toUpperCase() === 'YES'
+    ? getStandardTransportRate(student.transport_slab_id || '1')
+    : 0;
 
-  // 1. Build initial demands for each of the 12 months
-  const rawMonths = CBSE_ACADEMIC_MONTHS.map(mConfig => {
-    const tuitionFee = baseTuition;
-    const annualFee = mConfig.hasAnnual ? annualFeeDefault : 0;
-    const transportFee = transportRate;
-    const examFee = mConfig.hasExam ? 1000 : 0;
-    const totalBilled = tuitionFee + annualFee + transportFee + examFee;
+  const isRte = student.is_rte === 'YES';
+  const isStaffWard = student.concession_category === 'STAFF_WARD';
 
-    // Single-month invoice lookup (if any invoice specifically matches this month only)
-    const matchedInvoice = studentInvoices.find(inv => {
-      const invMonth = (inv.month || '').toLowerCase().trim();
-      const targetMonthName = mConfig.name.toLowerCase().trim();
-      const targetShort = mConfig.short.toLowerCase().trim();
-      return invMonth === targetShort || invMonth === targetMonthName || (invMonth.includes(targetShort) && !invMonth.includes('-'));
+  let totalBilledSum = 0;
+  let totalPaidSum = 0;
+
+  const months: MonthlyFeeItem[] = CBSE_ACADEMIC_MONTHS.map(m => {
+    const inv = studentInvoices.find(i => {
+      const invMonth = (i.month || '').toLowerCase();
+      return invMonth.includes(m.short.toLowerCase()) || invMonth.includes(m.month.toLowerCase());
     });
 
-    const concessionAmount = matchedInvoice ? (Number(matchedInvoice.concession_amount) || 0) : 0;
+    const isApril = m.index === 1;
+    const billedTuition = isRte ? 0 : tuitionMonthly;
+    const billedAnnual = isApril && !isRte ? annualFee : 0;
+    const billedTransport = transportMonthly;
+    const billedExam = m.short === 'Jul' ? 500 : (m.short === 'Sep' || m.short === 'Feb' ? 1000 : 0);
+    const concession = isStaffWard ? tuitionMonthly : 0;
 
-    return {
-      mConfig,
-      tuitionFee,
-      annualFee,
-      transportFee,
-      examFee,
-      concessionAmount,
-      totalBilled,
-      matchedInvoice
-    };
-  });
+    const billed = Math.max(0, billedTuition + billedAnnual + billedTransport + billedExam - concession);
+    const paid = inv ? (Number(inv.paid_amount) || (inv.status === 'PAID' ? billed : 0)) : 0;
+    const balance = Math.max(0, billed - paid);
 
-  const totalAnnualBilled = rawMonths.reduce((acc, m) => acc + m.totalBilled, 0);
-
-  // 2. Calculate actual total paid money deposited by this student
-  let totalCollectedMoney = 0;
-  let totalConcessionsMoney = 0;
-  const hasExplicitInvoices = studentInvoices.length > 0;
-
-  studentInvoices.forEach(inv => {
-    const invAmount = Number(inv.amount) || 0;
-    const invPaid = typeof inv.paid_amount === 'number' ? inv.paid_amount : (inv.status === 'PAID' ? invAmount : 0);
-    totalCollectedMoney += invPaid;
-    totalConcessionsMoney += (Number(inv.concession_amount) || 0);
-  });
-
-  // Strict Single Source of Truth: available payment pool derived strictly from real invoice records
-  let availablePaymentPool = totalCollectedMoney;
-  let availableConcessionPool = totalConcessionsMoney;
-
-  // 3. Distribute available payment pool strictly using FIFO (Water-flow) Allocation
-  let unallocatedPaid = availablePaymentPool;
-  let unallocatedConcession = availableConcessionPool;
-
-  const monthlyItems: MonthlyFeeItem[] = rawMonths.map(({ mConfig, tuitionFee, annualFee, transportFee, examFee, totalBilled, matchedInvoice }) => {
-    let monthConcession = 0;
-    if (unallocatedConcession >= totalBilled) {
-      monthConcession = totalBilled;
-      unallocatedConcession -= totalBilled;
-    } else if (unallocatedConcession > 0) {
-      monthConcession = unallocatedConcession;
-      unallocatedConcession = 0;
-    }
-
-    const netMonthDemand = Math.max(0, totalBilled - monthConcession);
-
-    let paidAmount = 0;
-    if (unallocatedPaid >= netMonthDemand) {
-      paidAmount = netMonthDemand;
-      unallocatedPaid -= netMonthDemand;
-    } else if (unallocatedPaid > 0) {
-      paidAmount = unallocatedPaid;
-      unallocatedPaid = 0;
-    } else {
-      paidAmount = 0;
-    }
-
-    const balanceDue = Math.max(0, netMonthDemand - paidAmount);
-    const isPastOrCurrent = mConfig.index <= 6; // April to September 2026
-
-    let status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'UPCOMING';
-    if (balanceDue === 0) {
-      status = 'PAID';
-    } else if (paidAmount > 0) {
-      status = 'PARTIAL';
-    } else if (matchedInvoice?.status === 'OVERDUE') {
-      status = 'OVERDUE';
-    } else if (isPastOrCurrent || matchedInvoice?.status === 'PENDING') {
-      status = 'PENDING';
-    } else {
+    let status: MonthlyFeeItem['status'] = 'UPCOMING';
+    if (billed === 0 && paid === 0) {
       status = 'UPCOMING';
+    } else if (balance === 0 && (billed > 0 || paid > 0)) {
+      status = 'PAID';
+    } else if (paid > 0 && balance > 0) {
+      status = 'PARTIAL';
+    } else if (m.index <= 6) {
+      status = 'OVERDUE';
+    } else {
+      status = 'PENDING';
     }
 
-    const invoiceNo = matchedInvoice?.invoice_no ||
-      (matchedInvoice as any)?.receipt_no ||
-      `DPS-INV-${admDigits}-${mConfig.short.toUpperCase()}`;
+    totalBilledSum += billed;
+    totalPaidSum += paid;
 
     return {
-      id: `MTH-${studentAdmNo || 'DPS'}-${mConfig.short}-${mConfig.index}`,
-      month: mConfig.name,
-      monthShort: mConfig.short,
-      monthIndex: mConfig.index,
-      quarter: mConfig.quarter,
-      cycleName: mConfig.cycleName,
-      invoiceNo,
-      dueDate: matchedInvoice?.due_date || mConfig.defaultDueDate,
-      paidDate: paidAmount > 0 ? (matchedInvoice?.paid_date || `2026-0${Math.min(mConfig.index + 3, 12)}-10`) : undefined,
-      paymentMode: matchedInvoice?.payment_mode || (paidAmount > 0 ? 'UPI / NetBanking' : undefined),
-      tuitionFee,
-      annualFee,
-      transportFee,
-      examFee,
+      id: `${student.id}-${m.short}`,
+      month: `${m.month} ${sessionYear}`,
+      monthShort: m.short,
+      monthIndex: m.index,
+      quarter: m.quarter,
+      cycleName: m.cycleName,
+      invoiceNo: inv?.invoice_no || `INV-${student.admission_no || 'SCH'}-${m.short}`,
+      dueDate: getDefaultDueDate(m.short.toUpperCase() as any, sessionYear),
+      paidDate: (inv as any)?.paid_date || (inv as any)?.paid_at || (inv as any)?.payment_date,
+      paymentMode: inv?.payment_mode,
+      tuitionFee: billedTuition,
+      annualFee: billedAnnual,
+      transportFee: billedTransport,
+      examFee: billedExam,
       activityFee: 0,
-      concessionAmount: monthConcession,
-      totalBilled,
-      paidAmount,
-      balanceDue,
-      status
+      concessionAmount: concession,
+      totalBilled: billed,
+      paidAmount: paid,
+      balanceDue: balance,
+      status,
+      isOverdue: status === 'OVERDUE',
     };
   });
 
-  const totalPaidToDate = monthlyItems.reduce((acc, item) => acc + item.paidAmount, 0);
-  const currentBalanceDue = monthlyItems.reduce((acc, item) => acc + (item.monthIndex <= 6 ? item.balanceDue : 0), 0);
+  const studentName = student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || student.admission_no || 'Student';
 
   return {
     studentId: student.id,
-    studentName: student.full_name,
+    studentName,
     admissionNo: student.admission_no || '',
-    className: student.class_name,
+    className: student.class_name || '',
     section: student.section || 'A',
-    totalAnnualBilled,
-    totalPaidToDate,
-    currentBalanceDue,
-    months: monthlyItems
+    totalAnnualBilled: totalBilledSum,
+    totalPaidToDate: totalPaidSum,
+    currentBalanceDue: Math.max(0, totalBilledSum - totalPaidSum),
+    months,
   };
 }
 
-export interface SchoolFeeOverviewMetrics {
+export function getStudentFeeSummary(
+  firstArg: any,
+  secondArg: any = []
+): {
   totalBilled: number;
-  totalRevenue: number;
-  pendingFeeAmount: number;
+  totalAnnualDemand: number;
+  totalPaid: number;
+  totalPaidToDate: number;
   totalConcessions: number;
-  feeCollectionRate: number;
-  paidInvoicesCount: number;
-  pendingInvoicesCount: number;
+  balanceDue: number;
+  currentBalanceDue: number;
+  matchingInvoices: FeeInvoice[];
+  status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'UPCOMING';
+  feeStatus: string;
+  monthsPaidCount: number;
+  monthsPendingCount: number;
+  nextDueDate: string;
+} {
+  let student: Student;
+  let invoices: FeeInvoice[] = [];
+
+  if (firstArg && typeof firstArg === 'object' && ('admission_no' in firstArg || 'class_name' in firstArg || 'id' in firstArg)) {
+    student = firstArg;
+    invoices = Array.isArray(secondArg) ? secondArg : [];
+  } else if (Array.isArray(firstArg)) {
+    invoices = firstArg;
+    student = secondArg || { id: 'unknown', class_name: 'I', admission_no: '' };
+  } else {
+    student = { id: 'unknown', class_name: 'I', admission_no: '' } as Student;
+    invoices = [];
+  }
+
+  const studentInvoices = matchInvoicesForStudent(invoices, student);
+  const schedule = getStudentMonthlyFeeSchedule(student, invoices);
+  const paidMonths = schedule.months.filter(m => m.status === 'PAID');
+  const pendingMonths = schedule.months.filter(m => m.status === 'OVERDUE' || m.status === 'PARTIAL' || m.status === 'PENDING');
+  const nextPending = pendingMonths[0];
+
+  let overallStatus: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'UPCOMING' = 'UPCOMING';
+  if (schedule.currentBalanceDue === 0 && schedule.totalPaidToDate > 0) {
+    overallStatus = 'PAID';
+  } else if (schedule.totalPaidToDate > 0 && schedule.currentBalanceDue > 0) {
+    overallStatus = schedule.months.some(m => m.status === 'OVERDUE') ? 'OVERDUE' : 'PARTIAL';
+  } else if (schedule.months.some(m => m.status === 'OVERDUE')) {
+    overallStatus = 'OVERDUE';
+  } else if (schedule.currentBalanceDue > 0) {
+    overallStatus = 'PENDING';
+  }
+
+  return {
+    totalBilled: schedule.totalAnnualBilled,
+    totalAnnualDemand: schedule.totalAnnualBilled,
+    totalPaid: schedule.totalPaidToDate,
+    totalPaidToDate: schedule.totalPaidToDate,
+    totalConcessions: schedule.months.reduce((acc, m) => acc + m.concessionAmount, 0),
+    balanceDue: schedule.currentBalanceDue,
+    currentBalanceDue: schedule.currentBalanceDue,
+    matchingInvoices: studentInvoices,
+    status: overallStatus,
+    feeStatus: overallStatus,
+    monthsPaidCount: paidMonths.length,
+    monthsPendingCount: pendingMonths.length,
+    nextDueDate: nextPending?.dueDate || '2026-10-15',
+  };
 }
 
-/**
- * Universal single-source-of-truth aggregator for school-wide fee metrics across all screens.
- * Accurately accounts for partial payments, waivers, and net remaining balances.
- */
-export function getSchoolFeeOverview(invoices: FeeInvoice[] = []): SchoolFeeOverviewMetrics {
-  if (!Array.isArray(invoices) || invoices.length === 0) {
-    return {
-      totalBilled: 0,
-      totalRevenue: 0,
-      pendingFeeAmount: 0,
-      totalConcessions: 0,
-      feeCollectionRate: 0,
-      paidInvoicesCount: 0,
-      pendingInvoicesCount: 0
-    };
+export const calculateStudentFeeSummary = getStudentFeeSummary;
+
+export function getSchoolFeeOverview(firstArg: any = [], secondArg: any = []) {
+  let students: Student[] = [];
+  let invoices: FeeInvoice[] = [];
+
+  if (Array.isArray(firstArg)) {
+    if (firstArg.length > 0 && ('first_name' in firstArg[0] || 'admission_no' in firstArg[0])) {
+      students = firstArg;
+      invoices = Array.isArray(secondArg) ? secondArg : [];
+    } else {
+      invoices = firstArg;
+      students = Array.isArray(secondArg) ? secondArg : [];
+    }
   }
 
   let totalBilled = 0;
-  let totalRevenue = 0;
-  let pendingFeeAmount = 0;
-  let totalConcessions = 0;
-  let paidInvoicesCount = 0;
-  let pendingInvoicesCount = 0;
+  let totalPaid = 0;
+  let fullyPaidStudents = 0;
+  let partialStudents = 0;
+  let zeroPaidStudents = 0;
 
-  invoices.forEach(inv => {
-    if (!inv) return;
-    const billed = Number(inv.amount) || 0;
-    const paid = typeof inv.paid_amount === 'number'
-      ? inv.paid_amount
-      : (inv.status === 'PAID' ? billed : 0);
-    const concession = Number(inv.concession_amount) || 0;
-    const balance = Math.max(0, billed - (paid + concession));
-
-    totalBilled += billed;
-    totalRevenue += paid;
-    totalConcessions += concession;
-    pendingFeeAmount += balance;
-
-    if (balance === 0 && (paid > 0 || concession > 0)) {
-      paidInvoicesCount++;
-    } else {
-      pendingInvoicesCount++;
+  if (students.length > 0) {
+    for (const s of students) {
+      if (s.status !== 'ACTIVE') continue;
+      const sum = getStudentFeeSummary(s, invoices);
+      totalBilled += sum.totalBilled;
+      totalPaid += sum.totalPaid;
+      if (sum.status === 'PAID') fullyPaidStudents++;
+      else if (sum.totalPaid > 0) partialStudents++;
+      else zeroPaidStudents++;
     }
-  });
+  } else if (invoices.length > 0) {
+    for (const inv of invoices) {
+      const b = Number((inv as any).total_amount) || Number(inv.amount) || 0;
+      const p = Number(inv.paid_amount) || (inv.status === 'PAID' ? b : 0);
+      totalBilled += b;
+      totalPaid += p;
+      if (inv.status === 'PAID') fullyPaidStudents++;
+      else if (p > 0) partialStudents++;
+      else zeroPaidStudents++;
+    }
+  }
 
-  const feeCollectionRate = totalBilled > 0
-    ? Math.min(100, Math.round(((totalRevenue + totalConcessions) / totalBilled) * 100))
-    : 0;
+  const pendingDues = Math.max(0, totalBilled - totalPaid);
+  const collectionRate = totalBilled > 0 ? Math.round((totalPaid / totalBilled) * 100) : 0;
 
   return {
     totalBilled,
-    totalRevenue,
-    pendingFeeAmount,
-    totalConcessions,
-    feeCollectionRate,
-    paidInvoicesCount,
-    pendingInvoicesCount
+    totalCollected: totalPaid,
+    totalRevenue: totalPaid,
+    pendingDues,
+    pendingFeeAmount: pendingDues,
+    collectionRate,
+    feeCollectionRate: collectionRate,
+    fullyPaidStudents,
+    partialStudents,
+    zeroPaidStudents,
   };
 }
-

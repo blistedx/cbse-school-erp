@@ -12,6 +12,20 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   allowedDevOrigins: ['localhost', '127.0.0.1', '192.168.1.100', '192.168.*.*'],
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+        dns: false,
+        child_process: false,
+      };
+    }
+    return config;
+  },
   async headers() {
     return [
       {

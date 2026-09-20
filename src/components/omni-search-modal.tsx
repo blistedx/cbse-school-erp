@@ -32,11 +32,11 @@ interface OmniSearchModalProps {
   onSelectTeacher?: (t: Teacher) => void;
 }
 
-type SearchCategory = 'ALL' | 'STUDENTS' | 'TEACHERS' | 'INVOICES' | 'CLASSES' | 'NOTICES' | 'MODULES';
+type SearchCategory = 'ALL' | 'STUDENTS' | 'TEACHERS' | 'CLASSES' | 'NOTICES' | 'MODULES';
 
 interface SearchResultItem {
   id: string;
-  category: 'STUDENT' | 'TEACHER' | 'INVOICE' | 'CLASS' | 'NOTICE' | 'MODULE';
+  category: 'STUDENT' | 'TEACHER' | 'CLASS' | 'NOTICE' | 'MODULE';
   title: string;
   subtitle: string;
   tag?: string;
@@ -52,7 +52,6 @@ const ERP_MODULES = [
   { id: 'students', title: 'Scholars Directory', desc: 'Manage Student Profiles, Admissions & Roll Numbers', icon: GraduationCap, tab: 'students' },
   { id: 'teachers', title: 'Faculty & Staff Directory', desc: 'Teachers, Biometrics, Designations & Qualifications', icon: Users, tab: 'teachers' },
   { id: 'attendance', title: 'Attendance Register', desc: 'Daily Classroom Attendance & Staff Biometric Logs', icon: CalendarCheck, tab: 'attendance' },
-  { id: 'fees', title: 'Fee Accounting & Collection', desc: 'Invoices, Receipts, Dues & Online Collection Engine', icon: CreditCard, tab: 'fees' },
   { id: 'classes', title: 'Class & Timetable Matrix', desc: 'Class Sections, Rooms & Class Teachers', icon: Building2, tab: 'classes' },
   { id: 'subjects', title: 'Curriculum & Subjects', desc: 'CBSE Syllabus, Subject Codes & Academic Tracks', icon: BookOpen, tab: 'subjects' },
   { id: 'exams', title: 'Assessments & Marksheets', desc: 'CBSE Report Cards, Term Exams & Grading', icon: Award, tab: 'exams' },
@@ -181,43 +180,6 @@ export function OmniSearchModal({
       });
     };
 
-    // Helper: Push Invoices
-    const pushInvoices = (limit = 15) => {
-      const matchedInvoices = invoices.filter(inv => {
-        if (!inv) return false;
-        if (!q) return true;
-        const anyInv = inv as any;
-        const invNo = (inv.invoice_no || inv.id || anyInv.receipt_no || '').toLowerCase();
-        const sname = (inv.student_name || '').toLowerCase();
-        const adm = (inv.admission_no || '').toLowerCase();
-        const cls = (inv.class_name || '').toLowerCase();
-        const status = (inv.status || '').toLowerCase();
-        const mode = (inv.payment_mode || '').toLowerCase();
-        const term = (inv.month || anyInv.fee_type || '').toLowerCase();
-        return invNo.includes(q) || sname.includes(q) || adm.includes(q) || cls.includes(q) || status.includes(q) || mode.includes(q) || term.includes(q);
-      }).slice(0, limit);
-
-      matchedInvoices.forEach(inv => {
-        const amt = Number(inv.amount) || 0;
-        const isPaid = inv.status === 'PAID';
-        results.push({
-          id: `inv-${inv.id}`,
-          category: 'INVOICE',
-          title: `Invoice #${inv.invoice_no || inv.id} — ₹${amt.toLocaleString('en-IN')}`,
-          subtitle: `Scholar: ${inv.student_name} (${inv.class_name || 'N/A'}) • Due: ${inv.due_date || 'N/A'} • Mode: ${inv.payment_mode || 'Cash/Counter'}`,
-          tag: isPaid ? 'PAID' : 'PENDING',
-          tagColor: isPaid ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200',
-          icon: CreditCard,
-          iconColor: 'text-emerald-700',
-          iconBg: 'bg-emerald-50',
-          action: () => {
-            onNavigateTab('fees');
-            onClose();
-          }
-        });
-      });
-    };
-
     // Helper: Push Classes
     const pushClasses = (limit = 10) => {
       const matchedClasses = classes.filter(c => {
@@ -312,8 +274,6 @@ export function OmniSearchModal({
       pushStudents(50);
     } else if (activeCategory === 'TEACHERS') {
       pushTeachers(50);
-    } else if (activeCategory === 'INVOICES') {
-      pushInvoices(50);
     } else if (activeCategory === 'CLASSES') {
       pushClasses(50);
     } else if (activeCategory === 'NOTICES') {
@@ -326,21 +286,19 @@ export function OmniSearchModal({
         // When typing a query: prioritize concrete records over modules!
         pushStudents(12);
         pushTeachers(8);
-        pushInvoices(10);
         pushClasses(6);
         pushNotices(6);
         pushModules(6);
       } else {
-        // When query is empty: show key modules first, then recent scholars & invoices
+        // When query is empty: show key modules first, then recent scholars
         pushModules(6);
         pushStudents(6);
-        pushInvoices(6);
         pushTeachers(4);
       }
     }
 
     return results;
-  }, [query, activeCategory, students, teachers, invoices, classes, notices, onNavigateTab, onClose, onSelectStudent, onSelectTeacher]);
+  }, [query, activeCategory, students, teachers, classes, notices, onNavigateTab, onClose, onSelectStudent, onSelectTeacher]);
 
   // Handle Keyboard Navigation (Arrow Up, Arrow Down, Enter)
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -382,7 +340,7 @@ export function OmniSearchModal({
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search scholars, staff, invoices, classes, notices, modules..."
+            placeholder="Search scholars, staff, classes, notices, modules..."
             className="flex-1 bg-transparent border-none text-sm sm:text-base font-semibold text-[#122A24] focus:outline-none placeholder:text-slate-400"
           />
           {query && (
@@ -407,7 +365,6 @@ export function OmniSearchModal({
             { id: 'ALL', label: 'All Results' },
             { id: 'STUDENTS', label: `Scholars (${students.length})` },
             { id: 'TEACHERS', label: `Faculty (${teachers.length})` },
-            { id: 'INVOICES', label: `Invoices (${invoices.length})` },
             { id: 'CLASSES', label: `Classes (${classes.length})` },
             { id: 'NOTICES', label: `Circulars (${notices.length})` },
             { id: 'MODULES', label: 'ERP Modules' },

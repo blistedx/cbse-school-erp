@@ -1389,12 +1389,11 @@ export function DashboardOverview({
 
           {/* Row 1, Col 4: Fees collected (Dynamic Fee Cycle) */}
           <div 
-            onClick={() => setActiveTab('fees')}
-            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
+            className="select-none flex flex-col justify-between"
           >
             <div>
-              <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
-                <CreditCard className="w-4 h-4 shrink-0 text-emerald-400 group-hover:text-white" />
+              <div className="flex items-center gap-2 text-emerald-300">
+                <CreditCard className="w-4 h-4 shrink-0 text-emerald-400" />
                 <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90">
                   Fees collected
                 </span>
@@ -1414,8 +1413,7 @@ export function DashboardOverview({
 
           {/* Row 2, Col 1: Fees pending (Dynamic Fee Cycle) */}
           <div 
-            onClick={() => setActiveTab('fees')}
-            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
+            className="select-none flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
@@ -2225,8 +2223,6 @@ export function DashboardOverview({
                         onClick={() => {
                           if (tx.raw) {
                             setViewInvoice(tx.raw);
-                          } else {
-                            setActiveTab('fees');
                           }
                         }}
                         className="p-1 rounded-md text-emerald-800 hover:text-[#122A24] hover:bg-emerald-100/60 transition-colors border-none bg-transparent cursor-pointer"

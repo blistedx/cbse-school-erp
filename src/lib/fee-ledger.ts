@@ -1,4 +1,4 @@
-/*! Giterp Fee Master — Core Ledger Engine v1.0.0 */
+/*! Giterp Fee Master — Core Ledger Engine v2.0.0 */
 /**
  * fee-ledger.ts — THE SINGLE SOURCE OF TRUTH for all financial data.
  *
@@ -23,14 +23,23 @@ import {
   FeeAggregateRow,
   GroupByDimension,
   Student,
+  NON_REFUNDABLE_FEE_HEADS,
 } from './types';
 import {
   getFeeConfig,
   getTuitionRateForClass,
+  getQuarterlyTuitionRateForClass,
   getAnnualFeeForClass,
+  getProspectusFee,
+  getAdmissionFee,
+  getTCFee,
+  getHostelSecurityDeposit,
   getTransportSlabRate,
   getHostelRate,
-  getExamFeeForMonth,
+  getExamFee,
+  getLabFeeForClass,
+  calculateSiblingDiscount,
+  getDepositSchedule,
 } from './fee-config';
 
 const COLLECTION = 'fee_ledger';
@@ -126,6 +135,13 @@ export async function postLedgerLines(
     }
     if (!raw.student_id) throw new Error(`Line ${idx}: student_id is required`);
 
+    // REFUND protection: strictly block refunds for non-refundable fee heads
+    if (raw.line_type === 'REFUND' && NON_REFUNDABLE_FEE_HEADS.includes(raw.fee_head)) {
+      throw new Error(
+        `Refunds are strictly prohibited for non-refundable fee head "${raw.fee_head}". Prospectus, registration, admission, annual, and miscellaneous file charges cannot be refunded.`
+      );
+    }
+
     const line: FeeLedgerLine = {
       id: raw.id || generateLineId(),
       school_id: schoolId, // ALWAYS from JWT, never from line data
@@ -137,6 +153,7 @@ export async function postLedgerLines(
       line_type: raw.line_type,
       fee_head: raw.fee_head,
       month: raw.month || null,
+      slot_id: raw.slot_id || null,
       amount: Math.round(raw.amount), // Ensure integer paise
       adjustment_direction: raw.line_type === 'ADJUSTMENT' ? (raw.adjustment_direction || 'DEBIT') : undefined,
       txn_date: raw.txn_date || todayDate,
@@ -165,8 +182,6 @@ export async function postLedgerLines(
   try {
     const db = await getDatabase();
     if (db) {
-      // Use ordered insertMany for transactional-like behavior
-      // MongoDB insertMany with ordered:true stops on first error
       await db.collection(COLLECTION).insertMany(
         prepared.map(l => sanitizeDocNoBinary({ ...l })),
         { ordered: true }
@@ -220,7 +235,6 @@ export async function cancelLedgerLine(
     }
   );
 
-  // Return the cancelled line
   return {
     ...original,
     is_cancelled: true,
@@ -228,6 +242,29 @@ export async function cancelLedgerLine(
     cancelled_by: cancelledBy,
     cancelled_at: now,
   };
+}
+
+/**
+ * Find a specific ledger line by its receipt number.
+ */
+export async function getLineByReceiptNo(
+  schoolId: string,
+  receiptNo: string
+): Promise<FeeLedgerLine | null> {
+  await ensureLedgerIndexes();
+  try {
+    const db = await getDatabase();
+    if (db) {
+      const doc = await db.collection(COLLECTION).findOne({
+        school_id: schoolId,
+        receipt_no: receiptNo,
+      });
+      if (doc) return doc as unknown as FeeLedgerLine;
+    }
+  } catch (e) {
+    console.error('[getLineByReceiptNo mongo error]', e);
+  }
+  return null;
 }
 
 /**
@@ -266,6 +303,37 @@ export async function getStudentLedger(
 }
 
 /**
+ * Get school-wide ledger lines with optional filtering.
+ */
+export async function getSchoolLedgerLines(
+  schoolId: string,
+  session: string = '2026-27',
+  additionalFilter: Record<string, any> = {}
+): Promise<FeeLedgerLine[]> {
+  await ensureLedgerIndexes();
+  try {
+    const db = await getDatabase();
+    if (db) {
+      const filter: any = {
+        school_id: schoolId,
+        academic_session: session,
+        is_cancelled: { $ne: true },
+        ...additionalFilter,
+      };
+      const docs = await db.collection(COLLECTION)
+        .find(filter)
+        .sort({ txn_date: -1, created_at: -1 })
+        .limit(2000)
+        .toArray();
+      return docs as unknown as FeeLedgerLine[];
+    }
+  } catch (e) {
+    console.error('[fee-ledger] Error fetching school ledger lines:', e);
+  }
+  return [];
+}
+
+/**
  * Get a comprehensive fee summary for a student from the ledger.
  * This is THE canonical function — every screen reads from here.
  */
@@ -277,6 +345,8 @@ export async function getStudentFeeSummaryFromLedger(
   const lines = await getStudentLedger(schoolId, studentId, session, false);
   return computeSummaryFromLines(lines);
 }
+
+export const getStudentFeeSummary = getStudentFeeSummaryFromLedger;
 
 /**
  * Pure computation: derive summary from a set of ledger lines.
@@ -294,6 +364,8 @@ export function computeSummaryFromLines(lines: FeeLedgerLine[]): LedgerFeeSummar
   const headMap = new Map<FeeHead, { demand: number; paid: number; discount: number; waiver: number; balance: number }>();
   // Month-wise accumulator
   const monthMap = new Map<AcademicMonth, { demand: number; paid: number; discount: number; waiver: number; fine: number; balance: number }>();
+  // Slot-wise accumulator
+  const slotMap = new Map<string, { demand: number; paid: number; discount: number; waiver: number; fine: number; balance: number }>();
 
   for (const line of lines) {
     if (line.is_cancelled) continue;
@@ -324,7 +396,7 @@ export function computeSummaryFromLines(lines: FeeLedgerLine[]): LedgerFeeSummar
         if (line.adjustment_direction === 'CREDIT') {
           totalPaid += amt; // Treated like a payment
         } else {
-          totalDemand += amt; // Treated like additional demand
+          totalDemand += amt; // Treated like additional debit demand (e.g. Bounced cheque)
         }
         break;
     }
@@ -353,10 +425,24 @@ export function computeSummaryFromLines(lines: FeeLedgerLine[]): LedgerFeeSummar
       else if (line.line_type === 'WAIVER') mw.waiver += amt;
       else if (line.line_type === 'FINE') { mw.fine += amt; mw.demand += amt; }
     }
+
+    // Slot-wise
+    if (line.slot_id) {
+      const sk = line.slot_id;
+      if (!slotMap.has(sk)) slotMap.set(sk, { demand: 0, paid: 0, discount: 0, waiver: 0, fine: 0, balance: 0 });
+      const sw = slotMap.get(sk)!;
+      if (line.line_type === 'DEMAND' || line.line_type === 'OPENING_BALANCE') sw.demand += amt;
+      else if (line.line_type === 'ADJUSTMENT' && line.adjustment_direction !== 'CREDIT') sw.demand += amt;
+      else if (line.line_type === 'PAYMENT') sw.paid += amt;
+      else if (line.line_type === 'ADJUSTMENT' && line.adjustment_direction === 'CREDIT') sw.paid += amt;
+      else if (line.line_type === 'DISCOUNT') sw.discount += amt;
+      else if (line.line_type === 'WAIVER') sw.waiver += amt;
+      else if (line.line_type === 'FINE') { sw.fine += amt; sw.demand += amt; }
+    }
   }
 
   // Compute balances
-  const balance = totalDemand - totalDiscount - totalWaiver - totalPaid + totalRefund;
+  const rawBalance = totalDemand - totalDiscount - totalWaiver - totalPaid + totalRefund;
 
   // Head-wise balances
   const headWise = Array.from(headMap.entries()).map(([fee_head, h]) => ({
@@ -365,7 +451,7 @@ export function computeSummaryFromLines(lines: FeeLedgerLine[]): LedgerFeeSummar
     paid: h.paid,
     discount: h.discount,
     waiver: h.waiver,
-    balance: h.demand - h.paid - h.discount - h.waiver,
+    balance: Math.max(0, h.demand - h.paid - h.discount - h.waiver),
   }));
 
   // Determine current academic month index for overdue detection
@@ -378,14 +464,18 @@ export function computeSummaryFromLines(lines: FeeLedgerLine[]): LedgerFeeSummar
     const mw = monthMap.get(month) || { demand: 0, paid: 0, discount: 0, waiver: 0, fine: 0, balance: 0 };
     const bal = mw.demand - mw.paid - mw.discount - mw.waiver;
     let status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'UPCOMING' = 'UPCOMING';
-    if (mw.demand === 0 && idx > currentAcademicIndex) status = 'UPCOMING';
-    else if (bal <= 0) status = 'PAID';
-    else if (mw.paid > 0) status = 'PARTIAL';
-    else if (idx <= currentAcademicIndex) status = mw.demand > 0 ? 'PENDING' : 'UPCOMING';
-    else status = 'UPCOMING';
 
-    // Mark overdue if past due and unpaid
-    if (bal > 0 && idx < currentAcademicIndex) status = 'OVERDUE';
+    if (mw.demand === 0 && idx > currentAcademicIndex) {
+      status = 'UPCOMING';
+    } else if (bal <= 0 && mw.demand > 0) {
+      status = 'PAID';
+    } else if (mw.paid > 0 && bal > 0) {
+      status = 'PARTIAL';
+    } else if (idx <= currentAcademicIndex) {
+      status = mw.demand > 0 ? (idx < currentAcademicIndex ? 'OVERDUE' : 'PENDING') : 'UPCOMING';
+    } else {
+      status = 'UPCOMING';
+    }
 
     return {
       month,
@@ -399,16 +489,17 @@ export function computeSummaryFromLines(lines: FeeLedgerLine[]): LedgerFeeSummar
     };
   });
 
-  // Overall status
+  // Overall status determination
   let status: LedgerFeeSummary['status'] = 'PENDING';
   if (totalDemand === 0) {
     status = 'PENDING';
-  } else if (balance < 0) {
+  } else if (rawBalance < 0) {
     status = 'ADVANCE';
-  } else if (balance === 0) {
+  } else if (rawBalance === 0) {
     if (totalWaiver + totalDiscount >= totalDemand) status = 'WAIVED';
     else status = 'PAID';
   } else if (totalPaid > 0) {
+    // Has paid some amount but still has outstanding balance
     const hasOverdue = monthWise.some(m => m.status === 'OVERDUE');
     status = hasOverdue ? 'OVERDUE' : 'PARTIAL';
   } else {
@@ -423,13 +514,12 @@ export function computeSummaryFromLines(lines: FeeLedgerLine[]): LedgerFeeSummar
     totalFine,
     totalPaid,
     totalRefund,
-    balance: Math.max(0, balance), // Display as 0 if advance
+    balance: Math.max(0, rawBalance),
     status,
     headWise,
     monthWise,
   };
 }
-
 
 // ─── Report Engine: getFeeAggregate ───
 
@@ -444,10 +534,9 @@ export async function getFeeAggregate(
 ): Promise<FeeAggregateRow[]> {
   await ensureLedgerIndexes();
 
-  // Build match stage
   const match: any = {
     school_id: schoolId,
-    academic_session: filters.session,
+    academic_session: filters.session || '2026-27',
   };
 
   if (!filters.includeCancelled) {
@@ -487,7 +576,7 @@ export async function getFeeAggregate(
   }
 
   // Build group stage
-  const groupId: any = {};
+  const groupId: Record<string, any> = {};
   for (const dim of groupBy) {
     switch (dim) {
       case 'month': groupId.month = '$month'; break;
@@ -500,11 +589,11 @@ export async function getFeeAggregate(
       case 'date': groupId.txn_date = '$txn_date'; break;
       case 'student': groupId.student_id = '$student_id'; break;
       case 'category': groupId.category = '$concession_type'; break;
+      case 'receipt_no': groupId.receipt_no = '$receipt_no'; break;
       default: break;
     }
   }
 
-  // If no groupBy, aggregate everything into one row
   const groupIdExpr = Object.keys(groupId).length > 0 ? groupId : null;
 
   try {
@@ -518,7 +607,17 @@ export async function getFeeAggregate(
             demand: {
               $sum: {
                 $cond: [
-                  { $in: ['$line_type', ['DEMAND', 'OPENING_BALANCE']] },
+                  {
+                    $or: [
+                      { $in: ['$line_type', ['DEMAND', 'OPENING_BALANCE']] },
+                      {
+                        $and: [
+                          { $eq: ['$line_type', 'ADJUSTMENT'] },
+                          { $ne: ['$adjustment_direction', 'CREDIT'] }
+                        ]
+                      }
+                    ]
+                  },
                   '$amount',
                   0,
                 ],
@@ -541,7 +640,21 @@ export async function getFeeAggregate(
             },
             collected: {
               $sum: {
-                $cond: [{ $eq: ['$line_type', 'PAYMENT'] }, '$amount', 0],
+                $cond: [
+                  {
+                    $or: [
+                      { $eq: ['$line_type', 'PAYMENT'] },
+                      {
+                        $and: [
+                          { $eq: ['$line_type', 'ADJUSTMENT'] },
+                          { $eq: ['$adjustment_direction', 'CREDIT'] }
+                        ]
+                      }
+                    ]
+                  },
+                  '$amount',
+                  0,
+                ],
               },
             },
             refund: {
@@ -573,28 +686,52 @@ export async function getFeeAggregate(
         },
       ];
 
+      if (filters.pendingOnly || (filters.minBalance !== undefined && filters.minBalance > 0)) {
+        const minBal = filters.minBalance || 1;
+        pipeline.push({
+          $match: {
+            balance: { $gte: minBal }
+          }
+        });
+      }
+
       const results = await db.collection(COLLECTION).aggregate(pipeline).toArray();
 
-      return results.map(r => ({
-        dimensions: r.dimensions || {},
-        demand: Math.round(r.demand || 0),
-        discount: Math.round(r.discount || 0),
-        waiver: Math.round(r.waiver || 0),
-        fine: Math.round(r.fine || 0),
-        collected: Math.round(r.collected || 0),
-        refund: Math.round(r.refund || 0),
-        balance: Math.round(r.balance || 0),
-        studentCount: r.studentCount || 0,
-      }));
+      const mapped = results.map(r => {
+        const demand = Math.round(r.demand || 0);
+        const collected = Math.round(r.collected || 0);
+        const discount = Math.round(r.discount || 0);
+        const waiver = Math.round(r.waiver || 0);
+        const fine = Math.round(r.fine || 0);
+        const refund = Math.round(r.refund || 0);
+        const rawBal = (demand + fine + refund) - (collected + discount + waiver);
+        const balance = Math.max(0, Math.round(r.balance !== undefined ? r.balance : rawBal));
+
+        return {
+          dimensions: r.dimensions || {},
+          demand,
+          discount,
+          waiver,
+          fine,
+          collected,
+          refund,
+          balance,
+          studentCount: r.studentCount || 0,
+        };
+      });
+
+      if (filters.pendingOnly) {
+        return mapped.filter(r => r.balance > 0);
+      }
+
+      return mapped;
     }
   } catch (e) {
     console.error('[fee-ledger] Aggregate error:', e);
   }
 
-  // Fallback: empty
   return [];
 }
-
 
 // ─── Demand Generation ───
 
@@ -711,9 +848,9 @@ export async function generateMonthlyDemand(
 
     // 4. Annual fee (April only)
     if (isApril) {
-      const annualKey = `${student.id}:ACTIVITY`;
+      const annualKey = `${student.id}:ANNUAL`;
       if (!existingDemands.has(annualKey)) {
-        const annualFee = isRte ? 0 : getAnnualFeeForClass(config, student.class_name, 'ACTIVITY');
+        const annualFee = isRte ? 0 : getAnnualFeeForClass(config, student.class_name);
         if (annualFee > 0) {
           allLines.push({
             student_id: student.id,
@@ -722,34 +859,13 @@ export async function generateMonthlyDemand(
             admission_no: student.admission_no || '',
             academic_session: session,
             line_type: 'DEMAND',
-            fee_head: 'ACTIVITY',
-            month: null, // Annual fee is not month-specific
+            fee_head: 'ANNUAL',
+            month: 'APR',
             amount: annualFee,
             txn_date: dueDate,
             due_date: dueDate,
           });
         }
-      }
-    }
-
-    // 5. Exam fee (if applicable for this month)
-    const examFee = getExamFeeForMonth(config, month);
-    if (examFee > 0) {
-      const examKey = `${student.id}:EXAM`;
-      if (!existingDemands.has(examKey)) {
-        allLines.push({
-          student_id: student.id,
-          class_name: student.class_name,
-          section: student.section || 'A',
-          admission_no: student.admission_no || '',
-          academic_session: session,
-          line_type: 'DEMAND',
-          fee_head: 'EXAM',
-          month,
-          amount: examFee,
-          txn_date: dueDate,
-          due_date: dueDate,
-        });
       }
     }
   }
@@ -760,133 +876,4 @@ export async function generateMonthlyDemand(
 
   const posted = await postLedgerLines(schoolId, allLines, actorId);
   return { created: posted.length, skipped, lines: posted };
-}
-
-
-// ─── Backward Compatibility Bridge ───
-
-/**
- * Convert old-style fee status queries to use the ledger.
- * This bridges the gap so that all existing consumers get consistent data.
- */
-export function ledgerStatusToLegacy(
-  summary: LedgerFeeSummary
-): 'PAID' | 'PENDING' | 'OVERDUE' | 'PARTIAL' | 'WAIVED' {
-  switch (summary.status) {
-    case 'PAID': return 'PAID';
-    case 'ADVANCE': return 'PAID'; // Advance = paid beyond demand
-    case 'WAIVED': return 'WAIVED';
-    case 'PARTIAL': return 'PARTIAL';
-    case 'OVERDUE': return 'OVERDUE';
-    case 'PENDING':
-    default: return 'PENDING';
-  }
-}
-
-/**
- * Get all lines for a school+session (for reports that need raw data).
- * With optional filters.
- */
-export async function getSchoolLedgerLines(
-  schoolId: string,
-  session: string,
-  additionalFilter?: Record<string, any>
-): Promise<FeeLedgerLine[]> {
-  await ensureLedgerIndexes();
-  try {
-    const db = await getDatabase();
-    if (!db) return [];
-    const filter: any = {
-      school_id: schoolId,
-      academic_session: session,
-      is_cancelled: { $ne: true },
-      ...additionalFilter,
-    };
-    const docs = await db.collection(COLLECTION)
-      .find(filter)
-      .sort({ txn_date: 1, created_at: 1 })
-      .toArray();
-    return docs as unknown as FeeLedgerLine[];
-  } catch (e) {
-    console.error('[fee-ledger] Error fetching school lines:', e);
-    return [];
-  }
-}
-
-/**
- * Look up a single ledger line by receipt number.
- */
-export async function getLineByReceiptNo(
-  schoolId: string,
-  receiptNo: string
-): Promise<FeeLedgerLine | null> {
-  try {
-    const db = await getDatabase();
-    if (!db) return null;
-    const doc = await db.collection(COLLECTION).findOne({
-      school_id: schoolId,
-      receipt_no: receiptNo,
-    });
-    return doc as unknown as FeeLedgerLine | null;
-  } catch (e) {
-    return null;
-  }
-}
-
-/**
- * Get total student count with outstanding balance for a school.
- * Used by dashboard KPIs.
- */
-export async function getDefaulterCount(
-  schoolId: string,
-  session: string
-): Promise<number> {
-  try {
-    const db = await getDatabase();
-    if (!db) return 0;
-
-    const pipeline = [
-      {
-        $match: {
-          school_id: schoolId,
-          academic_session: session,
-          is_cancelled: { $ne: true },
-        },
-      },
-      {
-        $group: {
-          _id: '$student_id',
-          totalDebit: {
-            $sum: {
-              $cond: [
-                { $in: ['$line_type', ['DEMAND', 'FINE', 'OPENING_BALANCE', 'REFUND']] },
-                '$amount',
-                0,
-              ],
-            },
-          },
-          totalCredit: {
-            $sum: {
-              $cond: [
-                { $in: ['$line_type', ['PAYMENT', 'DISCOUNT', 'WAIVER']] },
-                '$amount',
-                0,
-              ],
-            },
-          },
-        },
-      },
-      {
-        $match: {
-          $expr: { $gt: ['$totalDebit', '$totalCredit'] },
-        },
-      },
-      { $count: 'defaulterCount' },
-    ];
-
-    const results = await db.collection(COLLECTION).aggregate(pipeline).toArray();
-    return results[0]?.defaulterCount || 0;
-  } catch (e) {
-    return 0;
-  }
 }

@@ -1,8 +1,7 @@
-/*! Giterp Fee Master — Fee Configuration Engine v1.0.0 */
+/*! Giterp Fee Master — Fee Configuration Engine v2.0.0 */
 /**
  * fee-config.ts — Single source of truth for all fee rate definitions.
- * Replaces hardcoded DEFAULT_* constants in monthly-fee-helper.ts and
- * localStorage-based rates in fee-calculator.ts.
+ * Replaces hardcoded rate constants across the entire platform.
  *
  * Every rate lookup in the system MUST go through this module.
  */
@@ -13,18 +12,26 @@ import {
   FeeHead,
   AcademicMonth,
   ConcessionType,
+  FeeDepositSlot,
+  SiblingConcessionTier,
 } from './types';
 
 const COLLECTION = 'fee_config';
 
 export {
   DEFAULT_FEE_CONFIG,
+  DEFAULT_DEPOSIT_SCHEDULE,
+  DEFAULT_SIBLING_RULES,
   paiseToRupees,
   rupeesToPaise,
   formatPaise,
   formatRupees,
 } from './fee-constants';
-import { DEFAULT_FEE_CONFIG } from './fee-constants';
+import {
+  DEFAULT_FEE_CONFIG,
+  DEFAULT_DEPOSIT_SCHEDULE,
+  DEFAULT_SIBLING_RULES,
+} from './fee-constants';
 
 // ─── In-memory cache ───
 
@@ -54,7 +61,10 @@ export async function getFeeConfig(schoolId: string, session: string = '2026-27'
         academic_session: session,
       });
       if (doc) {
-        const config = doc as unknown as FeeConfig;
+        const config = {
+          ...DEFAULT_FEE_CONFIG,
+          ...doc,
+        } as unknown as FeeConfig;
         configCache.set(key, { config, expiresAt: Date.now() + CACHE_TTL_MS });
         return config;
       }
@@ -122,7 +132,7 @@ export async function upsertFeeConfig(
  */
 export function normalizeClassToGrade(className: string): number {
   const norm = (className || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (/PG|PLAY|NURSERY|LKG|UKG|KG/.test(norm)) return 0;
+  if (/PG|PLAY|NURSERY|LKG|UKG|KG|PREPRIMARY/.test(norm)) return 0;
 
   // Try numeric extraction first
   const numMatch = norm.match(/(\d+)/);
@@ -152,54 +162,91 @@ export function getTuitionRateForClass(config: FeeConfig, className: string): nu
   const gradeStr = String(grade);
   const norm = (className || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 
-  for (const slab of config.tuition_structure) {
-    // Check if any of the slab's class identifiers match
-    for (const cls of slab.classes) {
-      const clsUpper = cls.toUpperCase();
-      if (clsUpper === gradeStr) return slab.monthly_fee_paise;
-      if (norm.includes(clsUpper) && clsUpper.length >= 2) return slab.monthly_fee_paise;
+  if (config.tuition_structure && Array.isArray(config.tuition_structure)) {
+    for (const slab of config.tuition_structure) {
+      for (const cls of slab.classes) {
+        const clsUpper = cls.toUpperCase();
+        if (clsUpper === gradeStr) return slab.monthly_fee_paise;
+        if (norm.includes(clsUpper) && clsUpper.length >= 2) return slab.monthly_fee_paise;
+      }
     }
   }
 
-  // Fallback: try grade-based range matching
-  if (grade === 0) return config.tuition_structure[0]?.monthly_fee_paise || 120000;
-  if (grade <= 2) return config.tuition_structure[1]?.monthly_fee_paise || 140000;
-  if (grade <= 5) return config.tuition_structure[2]?.monthly_fee_paise || 160000;
-  if (grade <= 8) return config.tuition_structure[3]?.monthly_fee_paise || 180000;
-  if (grade <= 10) return config.tuition_structure[4]?.monthly_fee_paise || 200000;
-  return config.tuition_structure[5]?.monthly_fee_paise || 240000;
+  // Fallback rates per Part A
+  if (grade === 0) return 100000;      // ₹1,000
+  if (grade <= 2) return 140000;      // ₹1,400
+  if (grade <= 5) return 160000;      // ₹1,600
+  if (grade <= 8) return 180000;      // ₹1,800
+  if (grade <= 10) return 200000;     // ₹2,000
+  return 240000;                      // ₹2,400
+}
+
+/**
+ * Get quarterly tuition fee in paise for a given class.
+ */
+export function getQuarterlyTuitionRateForClass(config: FeeConfig, className: string): number {
+  const monthly = getTuitionRateForClass(config, className);
+  return monthly * 3;
 }
 
 /**
  * Get annual fee in paise for a given class.
+ * PG to Class VIII: ₹5,000
+ * Class IX to XII: ₹6,000
  */
-export function getAnnualFeeForClass(config: FeeConfig, className: string, feeHead: string = 'ACTIVITY'): number {
+export function getAnnualFeeForClass(config: FeeConfig, className: string): number {
   const grade = normalizeClassToGrade(className);
-  for (const af of config.annual_fees) {
-    if (af.fee_head !== feeHead) continue;
-    const groupNorm = af.class_group.toUpperCase();
-    if (groupNorm === 'ALL') return af.amount_paise;
-    if (grade <= 8 && groupNorm.includes('VIII')) return af.amount_paise;
-    if (grade >= 9 && groupNorm.includes('XII')) return af.amount_paise;
-    if (grade >= 9 && groupNorm.includes('IX')) return af.amount_paise;
+  if (config.one_time_annual_charges) {
+    return grade >= 9
+      ? config.one_time_annual_charges.annual_fee_ix_to_xii_paise || 600000
+      : config.one_time_annual_charges.annual_fee_pg_to_viii_paise || 500000;
   }
-  // Default by grade
   return grade >= 9 ? 600000 : 500000;
+}
+
+/**
+ * Get prospectus + registration fee (one-time).
+ */
+export function getProspectusFee(config: FeeConfig): number {
+  return config.one_time_annual_charges?.prospectus_registration_paise || 100000;
+}
+
+/**
+ * Get admission fee (one-time).
+ */
+export function getAdmissionFee(config: FeeConfig): number {
+  return config.one_time_annual_charges?.admission_fee_paise || 500000;
+}
+
+/**
+ * Get TC fee.
+ */
+export function getTCFee(config: FeeConfig): number {
+  return config.one_time_annual_charges?.tc_fee_paise || 100000;
+}
+
+/**
+ * Get hostel security deposit (refundable).
+ */
+export function getHostelSecurityDeposit(config: FeeConfig): number {
+  return config.one_time_annual_charges?.hostel_security_deposit_paise || 1000000;
 }
 
 /**
  * Get transport slab rate in paise.
  */
 export function getTransportSlabRate(config: FeeConfig, slabId: string): number {
-  const slab = config.transport_slabs.find(s => s.id === slabId);
-  return slab?.monthly_fee_paise || config.transport_slabs[0]?.monthly_fee_paise || 80000;
+  const slabs = config.transport_slabs || DEFAULT_FEE_CONFIG.transport_slabs;
+  const slab = slabs.find(s => s.id === slabId || s.slab_name === slabId || s.distance_label === slabId);
+  return slab?.monthly_fee_paise || slabs[0]?.monthly_fee_paise || 80000;
 }
 
 /**
  * Get hostel monthly rate and security deposit in paise.
  */
 export function getHostelRate(config: FeeConfig, roomType: 'WITHOUT_AC' | 'WITH_AC'): { monthly: number; security: number } {
-  const rate = config.hostel_rates.find(r => r.room_type === roomType);
+  const rates = config.hostel_rates || DEFAULT_FEE_CONFIG.hostel_rates;
+  const rate = rates.find(r => r.room_type === roomType);
   return {
     monthly: rate?.monthly_fee_paise || (roomType === 'WITH_AC' ? 783300 : 600000),
     security: rate?.security_deposit_paise || 1000000,
@@ -207,11 +254,65 @@ export function getHostelRate(config: FeeConfig, roomType: 'WITHOUT_AC' | 'WITH_
 }
 
 /**
- * Get exam fee in paise for a given month.
+ * Get exam fee for a given exam type / month / class.
  */
-export function getExamFeeForMonth(config: FeeConfig, month: AcademicMonth): number {
-  for (const ef of config.exam_fees) {
-    if (ef.months.includes(month)) return ef.amount_paise;
+export function getExamFee(config: FeeConfig, examType: string, className?: string): number {
+  const examFees = config.exam_fees || DEFAULT_FEE_CONFIG.exam_fees;
+  const exam = examFees.find(e => e.exam_type.toUpperCase() === examType.toUpperCase());
+  if (!exam) return 0;
+
+  if (className && exam.applicable_classes && !exam.applicable_classes.includes('ALL')) {
+    const grade = normalizeClassToGrade(className);
+    const gradeStr = String(grade);
+    const matched = exam.applicable_classes.some(c => c.toUpperCase() === gradeStr || className.toUpperCase().includes(c.toUpperCase()));
+    if (!matched) return 0;
+  }
+
+  return exam.amount_paise || 0;
+}
+
+/**
+ * Get lab fee for a given class.
+ */
+export function getLabFeeForClass(config: FeeConfig, className: string): number {
+  const grade = normalizeClassToGrade(className);
+  if (grade >= 9) {
+    const labFees = config.lab_fees || DEFAULT_FEE_CONFIG.lab_fees;
+    return labFees[0]?.amount_paise || 150000;
   }
   return 0;
+}
+
+/**
+ * Compute sibling concession discount amount on tuition & transport.
+ * Rule:
+ * 1st child: 0%
+ * 2nd child: 20% on tuition
+ * 3rd child: 30% on tuition
+ * 4th child: 30% on tuition + 100% transport concession
+ */
+export function calculateSiblingDiscount(
+  config: FeeConfig,
+  childOrder: number,
+  tuitionPaise: number,
+  transportPaise: number = 0
+): { tuitionDiscount: number; transportDiscount: number } {
+  const rules = config.sibling_concession_rules || DEFAULT_SIBLING_RULES;
+  const tier = rules.find(r => r.child_order === childOrder) || (childOrder >= 4 ? rules[rules.length - 1] : null);
+
+  if (!tier) {
+    return { tuitionDiscount: 0, transportDiscount: 0 };
+  }
+
+  const tuitionDiscount = Math.round((tuitionPaise * tier.tuition_discount_percent) / 100);
+  const transportDiscount = tier.free_transport ? transportPaise : 0;
+
+  return { tuitionDiscount, transportDiscount };
+}
+
+/**
+ * Get deposit schedule slots.
+ */
+export function getDepositSchedule(config: FeeConfig): FeeDepositSlot[] {
+  return config.deposit_schedule || DEFAULT_DEPOSIT_SCHEDULE;
 }

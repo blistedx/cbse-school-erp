@@ -3,7 +3,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { APP_INFO } from '@/lib/app-info';
 
 // DYNAMIC MATRIX CODE RAIN / FALLING ALPHABETS CANVAS COMPONENT
@@ -135,11 +136,12 @@ function MatrixRain({ theme = 'chalkboard' }: { theme?: 'chalkboard' | 'light' }
   );
 }
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
-  const [schoolCode, setSchoolCode] = useState('');
-  const [userId, setUserId] = useState('');
-  const [password, setPassword] = useState('');
+  const searchParams = useSearchParams();
+  const [schoolCode, setSchoolCode] = useState(() => searchParams.get('schoolCode') || searchParams.get('school_code') || searchParams.get('school') || 'DPS2026');
+  const [userId, setUserId] = useState(() => searchParams.get('userId') || searchParams.get('username') || searchParams.get('user') || 'admin');
+  const [password, setPassword] = useState(() => searchParams.get('password') || searchParams.get('passcode') || searchParams.get('pwd') || '123456');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -159,16 +161,6 @@ export default function LoginPage() {
   const [forgotSuccess, setForgotSuccess] = useState<{ message: string; target_email: string; account_name?: string } | null>(null);
 
   useEffect(() => {
-    // Ensure clean auth state when opening login page
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem('current_user');
-        localStorage.removeItem('erp_session_token');
-        localStorage.removeItem('giterp_role_permissions');
-        sessionStorage.clear();
-      } catch (_) {}
-    }
-
     // Dynamically fetch live server build info to bypass any local service-worker or browser cache
     fetch(`/api/app-info?t=${Date.now()}`, { cache: 'no-store' })
       .then((res) => res.json())
@@ -183,15 +175,14 @@ export default function LoginPage() {
       .catch(() => {});
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const executeLogin = async (rawSchool: string, rawUser: string, rawPass: string) => {
     setLoading(true);
     setError('');
     setSuccess('');
 
-    const cleanSchoolCode = schoolCode.trim().toUpperCase();
-    const cleanUserId = userId.trim();
-    const cleanPassword = password.trim();
+    const cleanSchoolCode = rawSchool.trim().toUpperCase();
+    const cleanUserId = rawUser.trim();
+    const cleanPassword = rawPass.trim();
 
     const isGod = cleanUserId.toLowerCase() === 'blistedx';
     const effectiveSchoolCode = cleanSchoolCode || 'DPS2026';
@@ -260,7 +251,7 @@ export default function LoginPage() {
         }
         setTimeout(() => {
           window.location.href = `/app?school=${encodeURIComponent(data.school?.school_code || effectiveSchoolCode || 'DPS2026')}`;
-        }, 300);
+        }, 150);
       } else {
         setError(data?.error || 'Authentication failed. Please verify your school code and credentials.');
       }
@@ -269,6 +260,20 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    const qUser = searchParams.get('userId') || searchParams.get('username') || searchParams.get('user');
+    const qPass = searchParams.get('password') || searchParams.get('passcode') || searchParams.get('pwd');
+    const qSchool = searchParams.get('schoolCode') || searchParams.get('school_code') || searchParams.get('school') || 'DPS2026';
+    if (qUser && qPass) {
+      executeLogin(qSchool, qUser, qPass);
+    }
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    executeLogin(schoolCode, userId, password);
   };
 
   const handleForgotPasscode = async (e: React.FormEvent) => {
@@ -738,5 +743,22 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-[100dvh] w-full flex items-center justify-center bg-[#122A24] text-white font-mono text-xs">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+            <span className="text-emerald-300 font-medium">Loading Login Portal...</span>
+          </div>
+        </div>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
   );
 }

@@ -76,7 +76,7 @@ export interface DashboardFeesProps {
   classes: ClassRoom[];
   teachers: Teacher[];
   selectedSession: string;
-  subTab?: 'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'slips' | 'payroll' | 'calendar' | 'fee_master';
+  subTab?: 'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'slips' | 'payroll' | 'calendar' | 'fee_master' | 'ledger';
   userRole?: string;
   currentUser?: any;
   preselectedStudentId?: string;
@@ -151,8 +151,9 @@ export function DashboardFees({
     );
   }, [normalizedRole, currentUser]);
 
-  // Navigation Tabs (Unified Fee Master, Fees Report Engine, Quick Collect, Month-Wise Sheet, Fee Master, Ledger, Payroll)
-  const [feeTab, setFeeTab] = useState<'reports' | 'collect' | 'overview' | 'monthly' | 'structure' | 'payroll' | 'fee_master'>((subTab as any) || 'fee_master');
+  // Navigation Tabs: Strictly 4 Core Pillars (Fee Master, Fees Report, Accounts Ledger, Collect Fees)
+  const [feeTab, setFeeTab] = useState<'fee_master' | 'reports' | 'ledger' | 'collect' | 'monthly' | 'payroll'>('fee_master');
+  const [reportViewMode, setReportViewMode] = useState<'report' | 'monthly'>('report');
   const [invoices, setInvoices] = useState<FeeInvoice[]>(initialInvoices || []);
 
   // Unique Chronologically Sorted Class Names
@@ -1526,7 +1527,22 @@ export function DashboardFees({
   // Sync feeTab if subTab changes from parent
   React.useEffect(() => {
     if (subTab) {
-      setFeeTab(subTab as any);
+      const cleanSub = String(subTab);
+      if (cleanSub === 'overview' || cleanSub === 'ledger') {
+        setFeeTab('ledger');
+      } else if (cleanSub === 'structure' || cleanSub === 'fee_master') {
+        setFeeTab('fee_master');
+      } else if (cleanSub === 'reports') {
+        setFeeTab('reports');
+        setReportViewMode('report');
+      } else if (cleanSub === 'monthly') {
+        setFeeTab('reports');
+        setReportViewMode('monthly');
+      } else if (cleanSub === 'collect') {
+        setFeeTab('collect');
+      } else if (cleanSub === 'payroll') {
+        setFeeTab('payroll');
+      }
     }
   }, [subTab]);
 
@@ -2442,20 +2458,20 @@ export function DashboardFees({
     <div className="space-y-6 max-w-7xl mx-auto animate-fade-in text-slate-800">
       
       {/* ─────────────────────────────────────────────────────────────
-          1. HEADER & DEDICATED RESPONSIVE TABS BAR (MATCHING ATTENDANCE HUB)
+          1. HEADER & HIGH-LEVEL FINANCIAL OVERVIEW
           ───────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-5 relative overflow-hidden">
         {/* Editorial Watermark Typography */}
         <div 
           aria-hidden="true" 
-          className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
+          className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.02] sm:text-[#122A24]/[0.025] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
         >
           Finance
         </div>
         {/* School Initials Bottom-Right Watermark */}
         <div 
           aria-hidden="true" 
-          className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+          className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.02] sm:text-[#122A24]/[0.025] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
         >
           {getSchoolInitials(selectedSchool)}
         </div>
@@ -2472,7 +2488,7 @@ export function DashboardFees({
                 Session {selectedSession || '2026-27'}
               </span>
             </div>
-            <p className="text-xs text-[#2D5A4E] mt-1 font-mono">
+            <p className="text-xs sm:text-[13px] text-[#2D5A4E] mt-1 font-normal leading-relaxed">
               Daily student fee counter, month-wise collections, CBSE approved fee structure, and faculty payroll registers
             </p>
           </div>
@@ -2499,6 +2515,18 @@ export function DashboardFees({
             >
               <Download className="w-3.5 h-3.5" />
               <span>CSV</span>
+            </button>
+            <button
+              onClick={() => setFeeTab('payroll')}
+              className={`px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all border ${
+                feeTab === 'payroll'
+                  ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
+                  : 'bg-[#F8FAF9] hover:bg-[#EBF5EF] text-[#122A24] border-[#DCE8E0]'
+              }`}
+              title="Faculty Payroll Registers"
+            >
+              <Wallet className="w-3.5 h-3.5 text-purple-600" />
+              <span>Faculty Payroll</span>
             </button>
           </div>
         </div>
@@ -2570,131 +2598,108 @@ export function DashboardFees({
           </div>
         </div>
 
-        {/* 7 Primary Navigation Buttons (Responsive Multi-Row Grid) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10">
+        {/* ─────────────────────────────────────────────────────────────
+            ONLY 4 PRIMARY TABS: FEE MASTER, FEES REPORT, ACCOUNTS LEDGER, COLLECT FEES
+            ───────────────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10">
           
-          {/* Tab 0: Unified Fee Master & Ledger Engine */}
+          {/* Tab 1: Fee Master */}
           <button
             type="button"
             onClick={() => setFeeTab('fee_master')}
-            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-3 px-3 rounded-xl text-xs sm:text-sm border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
               feeTab === 'fee_master'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold ring-1 ring-emerald-500/30'
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
             }`}
           >
-            <Sparkles className="h-4 w-4 stroke-[1.75] shrink-0 text-emerald-400" />
+            <FileText className="h-4 w-4 stroke-[1.75] shrink-0 text-amber-400" />
             <span className="truncate">Fee Master</span>
           </button>
 
-          {/* Tab 1: Comprehensive Fees Report Engine */}
+          {/* Tab 2: Fees Report */}
           <button
             type="button"
             onClick={() => setFeeTab('reports')}
-            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-3 px-3 rounded-xl text-xs sm:text-sm border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
               feeTab === 'reports'
-                ? 'bg-[#122A24] text-white shadow-xs font-bold'
+                ? 'bg-[#122A24] text-white shadow-xs font-bold ring-1 ring-emerald-500/30'
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
             }`}
           >
-            <BarChart2 className="h-4 w-4 stroke-[1.75] shrink-0 text-amber-400" />
+            <BarChart2 className="h-4 w-4 stroke-[1.75] shrink-0 text-emerald-400" />
             <span className="truncate">Fees Report</span>
           </button>
 
-          {/* Tab 2: Quick Collect Counter */}
+          {/* Tab 3: Accounts Ledger */}
+          <button
+            type="button"
+            onClick={() => setFeeTab('ledger')}
+            className={`py-3 px-3 rounded-xl text-xs sm:text-sm border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+              feeTab === 'ledger'
+                ? 'bg-[#122A24] text-white shadow-xs font-bold ring-1 ring-emerald-500/30'
+                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+            }`}
+          >
+            <FileSpreadsheet className="h-4 w-4 stroke-[1.75] shrink-0 text-sky-400" />
+            <span className="truncate">Accounts Ledger ({invoices.length})</span>
+          </button>
+
+          {/* Tab 4: Quick Collect */}
           <button
             type="button"
             onClick={() => setFeeTab('collect')}
-            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-3 px-3 rounded-xl text-xs sm:text-sm border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
               feeTab === 'collect'
-                ? 'bg-[#122A24] text-white shadow-xs font-bold'
+                ? 'bg-[#122A24] text-white shadow-xs font-bold ring-1 ring-emerald-500/30'
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
             }`}
           >
-            <CreditCard className="h-4 w-4 stroke-[1.75] shrink-0" />
+            <CreditCard className="h-4 w-4 stroke-[1.75] shrink-0 text-purple-400" />
             <span className="truncate">Collect Fees</span>
-          </button>
-
-          {/* Tab 3: Fee Structure & Upload Engine */}
-          <button
-            type="button"
-            onClick={() => setFeeTab('structure')}
-            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
-              feeTab === 'structure'
-                ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
-            }`}
-          >
-            {isSuperAdmin ? (
-              <FileText className="h-4 w-4 stroke-[1.75] shrink-0" />
-            ) : (
-              <Lock className="h-4 w-4 stroke-[1.75] shrink-0 text-amber-500" />
-            )}
-            <span className="truncate">{isSuperAdmin ? 'Fee Structure' : 'Fee Structure (View)'}</span>
-          </button>
-
-          {/* Tab 5: Month-Wise Sheet */}
-          <button
-            type="button"
-            onClick={() => setFeeTab('monthly')}
-            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
-              feeTab === 'monthly'
-                ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
-            }`}
-          >
-            <CalendarDays className="h-4 w-4 stroke-[1.75] shrink-0" />
-            <span className="truncate">Month-Wise Sheet</span>
-          </button>
-
-          {/* Tab 6: Fee Overview & Ledger */}
-          <button
-            type="button"
-            onClick={() => setFeeTab('overview')}
-            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
-              feeTab === 'overview'
-                ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
-            }`}
-          >
-            <FileSpreadsheet className="h-4 w-4 stroke-[1.75] shrink-0" />
-            <span className="truncate">Ledger ({invoices.length})</span>
-          </button>
-
-          {/* Tab 7: Staff Payroll */}
-          <button
-            type="button"
-            onClick={() => setFeeTab('payroll')}
-            className={`py-2.5 px-2.5 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 transition-all ${
-              feeTab === 'payroll'
-                ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
-            }`}
-          >
-            <Wallet className="h-4 w-4 stroke-[1.75] shrink-0" />
-            <span className="truncate">Faculty Payroll</span>
           </button>
 
         </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB: UNIFIED FEE MASTER & 25 CANONICAL PRESET REPORTS
+          TAB 2: COMPREHENSIVE INSTITUTIONAL FEES REPORT ENGINE
           ───────────────────────────────────────────────────────────── */}
-      {feeTab === 'fee_master' && (
-        <div className="space-y-6 animate-fade-in">
-          <DashboardFeeMaster
-            school={selectedSchool}
-            students={students}
-            selectedSession={selectedSession}
-          />
+      {feeTab === 'reports' && (
+        <div className="flex items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-[#DCE8E0] shadow-2xs">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setReportViewMode('report')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                reportViewMode === 'report'
+                  ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
+                  : 'bg-[#F4F8F5] text-[#2D5A4E] border-transparent hover:bg-[#EBF5EF]'
+              }`}
+            >
+              <BarChart2 className="w-3.5 h-3.5" />
+              <span>Class &amp; Section Dues Report</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setReportViewMode('monthly')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                reportViewMode === 'monthly'
+                  ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
+                  : 'bg-[#F4F8F5] text-[#2D5A4E] border-transparent hover:bg-[#EBF5EF]'
+              }`}
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+              <span>Month-Wise Matrix Sheet</span>
+            </button>
+          </div>
+          <span className="text-[11px] font-mono text-slate-400 hidden sm:inline">
+            CBSE Financial Analytics
+          </span>
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────
-          TAB 0: COMPREHENSIVE INSTITUTIONAL FEES REPORT ENGINE
-          ───────────────────────────────────────────────────────────── */}
-      {feeTab === 'reports' && (
+      {feeTab === 'reports' && reportViewMode === 'report' && (
         <div className="space-y-6 animate-fade-in">
           {!isReportGenerated ? (
             /* ─────────────────────────────────────────────────────────────
@@ -4292,7 +4297,7 @@ export function DashboardFees({
 
             <button
               type="button"
-              onClick={() => setFeeTab('overview')}
+              onClick={() => setFeeTab('ledger')}
               className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 border-none cursor-pointer text-base font-bold leading-none"
               title="Close / Back to Ledger"
             >
@@ -4727,9 +4732,9 @@ export function DashboardFees({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 2: FEE OVERVIEW & LEDGER
+          TAB 3: ACCOUNTS LEDGER & INVOICES REGISTER
           ───────────────────────────────────────────────────────────── */}
-      {feeTab === 'overview' && (
+      {feeTab === 'ledger' && (
         <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8F0EA]">
             <div>
@@ -4970,9 +4975,9 @@ export function DashboardFees({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 3: ADVANCED MONTH-WISE STATUS REPORT & MATRIX
+          TAB: ADVANCED MONTH-WISE STATUS REPORT & MATRIX
           ───────────────────────────────────────────────────────────── */}
-      {feeTab === 'monthly' && (
+      {(feeTab === 'monthly' || (feeTab === 'reports' && reportViewMode === 'monthly')) && (
         <div className="space-y-6 animate-fade-in">
 
           {/* 1. COMPREHENSIVE FILTER SCOPE (CLASSES, SECTION & MONTHS) */}
@@ -5528,9 +5533,9 @@ export function DashboardFees({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          TAB 4: INSTITUTIONAL FEE STRUCTURE (ADMIN ENGINE)
+          TAB 1: INSTITUTIONAL FEE MASTER & TARIFF ENGINE
           ───────────────────────────────────────────────────────────── */}
-      {feeTab === 'structure' && (
+      {feeTab === 'fee_master' && (
         <div className="relative space-y-6 animate-fade-in overflow-hidden rounded-3xl">
 
           {/* Full Page Security Watermark Motif (Background Lock Aura) */}

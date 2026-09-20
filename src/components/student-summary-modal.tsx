@@ -48,19 +48,42 @@ export function StudentSummaryModal({
   onCollectFee,
   onUpdateStudent
 }: StudentSummaryModalProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'academics' | 'siblings' | 'fees' | 'attendance'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'fees' | 'academics' | 'siblings' | 'attendance'>('overview');
   const [imgError, setImgError] = useState(false);
   const [localStudent, setLocalStudent] = useState<Student | null>(student);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [showFullPhoto, setShowFullPhoto] = useState(false);
 
+  const activeStudent = localStudent || student;
+
+  // Fees ledger integration
+  const [dossierLedger, setDossierLedger] = useState<any[]>([]);
+  const [dossierSummary, setDossierSummary] = useState<any>(null);
+  const [dossierReceipts, setDossierReceipts] = useState<any[]>([]);
+  const [dossierFeesLoading, setDossierFeesLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeStudent && (activeTab === 'fees' || activeTab === 'overview')) {
+      setDossierFeesLoading(true);
+      fetch(`/api/fee-master?action=student_ledger_view&student_id=${activeStudent.id}&session=${activeStudent.academic_session || '2026-27'}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setDossierLedger(data.ledgerView || []);
+            setDossierSummary(data.summary || null);
+            setDossierReceipts(data.receipts || []);
+          }
+        })
+        .catch(err => console.error('[dossier fees load error]', err))
+        .finally(() => setDossierFeesLoading(false));
+    }
+  }, [activeStudent?.id, activeTab]);
+
   useEffect(() => {
     setLocalStudent(student);
     setImgError(false);
   }, [student]);
-
-  const activeStudent = localStudent || student;
 
   // Resolve candidate student profile image / avatar
   const studentPhotoUrl = useMemo(() => {
@@ -157,7 +180,7 @@ export function StudentSummaryModal({
 
   const studentInvoices = useMemo(() => {
     if (!activeStudent) return [];
-    return matchInvoicesForStudent(activeStudent, invoices);
+    return matchInvoicesForStudent(invoices, activeStudent);
   }, [activeStudent, invoices]);
 
   const totalPending = feeSummary ? feeSummary.currentBalanceDue : (monthlySchedule ? monthlySchedule.currentBalanceDue : 0);
@@ -178,10 +201,10 @@ export function StudentSummaryModal({
 
   const tabs = [
     { id: 'overview', label: 'Profile' },
+    { id: 'fees', label: 'Fees' },
     { id: 'siblings', label: `Siblings (${siblings.length})` },
     { id: 'academics', label: 'Academics' },
     { id: 'attendance', label: 'Attendance' },
-    { id: 'fees', label: 'Fees' },
   ] as const;
 
   return (
@@ -594,6 +617,144 @@ export function StudentSummaryModal({
             </div>
           )}
 
+          {/* TAB: FEES LEDGER & DOSSIER STATEMENT */}
+          {activeTab === 'fees' && (
+            <div className="space-y-5">
+              {/* 4 Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="p-3.5 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs">
+                  <span className="text-[10px] font-mono uppercase text-slate-500 font-bold tracking-wider block">
+                    Total Billed
+                  </span>
+                  <div className="text-lg font-bold font-mono text-[#122A24] mt-0.5">
+                    {dossierSummary ? `₹${(dossierSummary.totalDemand / 100).toLocaleString('en-IN')}` : '₹0'}
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-emerald-50/60 rounded-2xl border border-emerald-200 shadow-2xs">
+                  <span className="text-[10px] font-mono uppercase text-emerald-800 font-bold tracking-wider block">
+                    Total Paid
+                  </span>
+                  <div className="text-lg font-bold font-mono text-emerald-950 mt-0.5">
+                    {dossierSummary ? `₹${(dossierSummary.totalPaid / 100).toLocaleString('en-IN')}` : '₹0'}
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-rose-50/60 rounded-2xl border border-rose-200 shadow-2xs">
+                  <span className="text-[10px] font-mono uppercase text-rose-800 font-bold tracking-wider block">
+                    Outstanding Due
+                  </span>
+                  <div className="text-lg font-bold font-mono text-rose-950 mt-0.5">
+                    {dossierSummary ? `₹${(dossierSummary.balance / 100).toLocaleString('en-IN')}` : '₹0'}
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs">
+                  <span className="text-[10px] font-mono uppercase text-slate-500 font-bold tracking-wider block">
+                    Fee Status
+                  </span>
+                  <div className="mt-1">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-mono font-bold ${
+                      dossierSummary?.status === 'PAID'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : dossierSummary?.status === 'PARTIAL'
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-rose-100 text-rose-800'
+                    }`}>
+                      {dossierSummary?.status || 'PENDING'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fee Ledger Table */}
+              <div className="bg-white rounded-2xl border border-[#DCE8E0] p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-xs text-[#122A24] uppercase font-mono">
+                    Fee Ledger &amp; Scheduled Heads (Session {activeStudent.academic_session || '2026-27'})
+                  </h4>
+                  <button
+                    onClick={() => window.print()}
+                    className="px-3 py-1 bg-slate-100 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-200 cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Print Statement
+                  </button>
+                </div>
+
+                {dossierFeesLoading ? (
+                  <div className="p-8 text-center text-xs text-slate-400">Loading ledger data...</div>
+                ) : dossierLedger.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-400 italic">No ledger entries mapped yet.</div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-100">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-[#EBF5EF] text-[#122A24] font-bold border-b border-[#DCE8E0]">
+                          <th className="p-2.5">Head</th>
+                          <th className="p-2.5">Period</th>
+                          <th className="p-2.5 text-right">Gross</th>
+                          <th className="p-2.5 text-right text-indigo-700">Disc</th>
+                          <th className="p-2.5 text-right">Net</th>
+                          <th className="p-2.5 text-right text-emerald-700">Paid</th>
+                          <th className="p-2.5 text-right text-rose-700">Due</th>
+                          <th className="p-2.5 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                        {dossierLedger.map((row) => (
+                          <tr key={row.id} className="hover:bg-[#F9FCFA]">
+                            <td className="p-2.5 font-bold text-[#122A24]">{row.fee_head}</td>
+                            <td className="p-2.5 text-slate-600">{row.period}</td>
+                            <td className="p-2.5 text-right">₹{(row.gross_paise / 100).toLocaleString('en-IN')}</td>
+                            <td className="p-2.5 text-right text-indigo-700 font-bold">
+                              {row.discount_paise > 0 ? `₹${(row.discount_paise / 100).toLocaleString('en-IN')}` : '-'}
+                            </td>
+                            <td className="p-2.5 text-right font-bold">₹{(row.net_paise / 100).toLocaleString('en-IN')}</td>
+                            <td className="p-2.5 text-right font-bold text-emerald-700">
+                              {row.paid_paise > 0 ? `₹${(row.paid_paise / 100).toLocaleString('en-IN')}` : '-'}
+                            </td>
+                            <td className="p-2.5 text-right font-black text-rose-700">
+                              {row.due_paise > 0 ? `₹${(row.due_paise / 100).toLocaleString('en-IN')}` : '₹0'}
+                            </td>
+                            <td className="p-2.5 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                row.status === 'PAID'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : row.status === 'PARTIAL'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}>
+                                {row.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Receipts List */}
+              {dossierReceipts.length > 0 && (
+                <div className="bg-white rounded-2xl border border-[#DCE8E0] p-4 space-y-2">
+                  <h4 className="font-bold text-xs text-[#122A24] uppercase font-mono">Issued Payment Receipts</h4>
+                  <div className="space-y-1.5">
+                    {dossierReceipts.map((rec) => (
+                      <div key={rec.receipt_no} className="p-2.5 bg-slate-50 rounded-xl flex items-center justify-between text-xs">
+                        <div>
+                          <span className="font-bold text-[#122A24]">{rec.receipt_no}</span>
+                          <span className="text-slate-500 ml-2">({rec.payment_date}) • {rec.payment_mode}</span>
+                        </div>
+                        <span className="font-bold text-emerald-800">₹{(rec.amount_paise / 100).toLocaleString('en-IN')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* TAB 2: SIBLINGS */}
           {activeTab === 'siblings' && (
             <div className="space-y-4">
@@ -918,163 +1079,6 @@ export function StudentSummaryModal({
               />
             </div>
           )}
-
-          {/* TAB 5: FEES & MONTH-WISE BREAKDOWN */}
-          {activeTab === 'fees' && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-display font-bold text-base text-[#122A24]">
-                    Month-Wise Fee Ledger
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Itemized monthly record of Tuition, Annual, Transport &amp; Examination fees deposited for this scholar.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`px-3 py-1 rounded-full text-xs font-mono font-semibold border ${
-                    feeSummary?.feeStatus === 'PAID' || feeSummary?.feeStatus === 'WAIVED' || totalPending === 0 ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
-                  }`}>
-                    Status: {feeSummary?.feeStatus || (totalPending === 0 ? 'PAID' : (student.fee_status || 'PENDING'))}
-                  </span>
-                  {onCollectFee && totalPending > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => onCollectFee(student)}
-                      className="px-3.5 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold cursor-pointer transition-colors shadow-2xs border-none"
-                    >
-                      Collect Dues →
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* 3 Metrics Pill Strip */}
-              {monthlySchedule && (
-                <div className="grid grid-cols-3 gap-3 text-xs">
-                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
-                    <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block font-semibold">Annual Demand</span>
-                    <strong className="text-base text-slate-900 font-bold font-mono tabular-nums">₹{monthlySchedule.totalAnnualBilled.toLocaleString('en-IN')}</strong>
-                  </div>
-                  <div className="p-3 bg-emerald-50/60 rounded-2xl border border-emerald-200">
-                    <span className="text-[10px] font-mono text-emerald-800 uppercase tracking-wider block font-semibold">Total Paid</span>
-                    <strong className="text-base text-emerald-900 font-bold font-mono tabular-nums">₹{monthlySchedule.totalPaidToDate.toLocaleString('en-IN')}</strong>
-                  </div>
-                  <div className="p-3 bg-amber-50/60 rounded-2xl border border-amber-200">
-                    <span className="text-[10px] font-mono text-amber-800 uppercase tracking-wider block font-semibold">Balance Due</span>
-                    <strong className={`text-base font-bold font-mono tabular-nums ${monthlySchedule.currentBalanceDue > 0 ? 'text-amber-900' : 'text-emerald-700'}`}>
-                      ₹{monthlySchedule.currentBalanceDue.toLocaleString('en-IN')}
-                    </strong>
-                  </div>
-                </div>
-              )}
-
-              {/* 12-Month Table */}
-              {monthlySchedule && (
-                <div className="rounded-2xl border border-[#DCE8E0] overflow-hidden bg-white shadow-xs">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs border-collapse">
-                      <thead className="bg-[#EBF5EF] text-[#122A24] font-mono font-semibold text-[11px] uppercase tracking-wider border-b-2 border-[#DCE8E0] sticky top-0 z-10">
-                        <tr>
-                          <th className="py-3 px-3 text-left font-bold w-[18%]">Month &amp; Cycle</th>
-                          <th className="py-3 px-2.5 text-right font-bold w-[10%]">Tuition</th>
-                          <th className="py-3 px-2.5 text-right font-bold w-[9%]">Annual</th>
-                          <th className="py-3 px-2.5 text-right font-bold w-[10%]">Transport</th>
-                          <th className="py-3 px-2.5 text-right font-bold w-[9%]">Exam &amp; Lab</th>
-                          <th className="py-3 px-2.5 text-right font-bold w-[11%]">Total Billed</th>
-                          <th className="py-3 px-2.5 text-right font-bold w-[11%] text-emerald-800">Total Paid</th>
-                          <th className="py-3 px-2.5 text-right font-bold w-[11%] text-amber-800">Balance Due</th>
-                          <th className="py-3 px-2 text-center font-bold w-[11%]">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#EBF2EE] text-xs font-mono text-slate-700">
-                        {monthlySchedule.months.map(m => (
-                          <tr key={m.id} className="hover:bg-[#F9FCFA] transition-colors">
-                            <td className="py-2.5 px-3 text-left">
-                              <span className="font-bold text-[#122A24] text-xs font-sans block leading-tight">{m.month}</span>
-                              <span className="text-[10.5px] text-slate-400 font-mono block mt-0.5 truncate max-w-[140px]" title={`Inv: #${m.invoiceNo}`}>
-                                Inv: #{m.invoiceNo}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-2.5 text-right font-semibold text-slate-800 tabular-nums">
-                              ₹{m.tuitionFee.toLocaleString('en-IN')}
-                            </td>
-                            <td className="py-2.5 px-2.5 text-right tabular-nums">
-                              {m.annualFee > 0 ? (
-                                <span className="text-indigo-800 font-semibold">₹{m.annualFee.toLocaleString('en-IN')}</span>
-                              ) : (
-                                <span className="text-slate-300 font-mono">—</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-2.5 text-right tabular-nums">
-                              {m.transportFee > 0 ? (
-                                <span className="text-slate-800 font-semibold">₹{m.transportFee.toLocaleString('en-IN')}</span>
-                              ) : (
-                                <span className="text-slate-300 font-mono">₹0</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-2.5 text-right tabular-nums">
-                              {m.examFee > 0 ? (
-                                <span className="text-purple-800 font-semibold">₹{m.examFee.toLocaleString('en-IN')}</span>
-                              ) : (
-                                <span className="text-slate-300 font-mono">—</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-2.5 text-right font-bold text-slate-900 tabular-nums">
-                              ₹{m.totalBilled.toLocaleString('en-IN')}
-                            </td>
-                            <td className="py-2.5 px-2.5 text-right font-bold text-emerald-800 bg-emerald-50/50 tabular-nums">
-                              ₹{m.paidAmount.toLocaleString('en-IN')}
-                            </td>
-                            <td className="py-2.5 px-2.5 text-right font-bold tabular-nums">
-                              {m.balanceDue > 0 ? (
-                                <span className="text-amber-800">₹{m.balanceDue.toLocaleString('en-IN')}</span>
-                              ) : (
-                                <span className="text-emerald-700">₹0</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 px-2 text-center">
-                              <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase font-mono tracking-wider inline-block border ${
-                                m.status === 'PAID'
-                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                  : m.status === 'PARTIAL'
-                                  ? 'bg-amber-50 text-amber-800 border-amber-300'
-                                  : m.status === 'PENDING'
-                                  ? 'bg-rose-50 text-rose-800 border-rose-300'
-                                  : 'bg-slate-50 text-slate-500 border-slate-200'
-                              }`}>
-                                {m.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-[#F8FAF9] border-t-2 border-[#DCE8E0] font-bold text-xs text-slate-800 font-mono">
-                        <tr>
-                          <td className="py-3 px-3 uppercase tracking-wider text-[11px] text-[#122A24] font-sans">Session Total</td>
-                          <td className="py-3 px-2.5 text-right tabular-nums">₹{monthlySchedule.months.reduce((s, m) => s + m.tuitionFee, 0).toLocaleString('en-IN')}</td>
-                          <td className="py-3 px-2.5 text-right tabular-nums text-indigo-800">₹{monthlySchedule.months.reduce((s, m) => s + m.annualFee, 0).toLocaleString('en-IN')}</td>
-                          <td className="py-3 px-2.5 text-right tabular-nums">₹{monthlySchedule.months.reduce((s, m) => s + m.transportFee, 0).toLocaleString('en-IN')}</td>
-                          <td className="py-3 px-2.5 text-right tabular-nums text-purple-800">₹{monthlySchedule.months.reduce((s, m) => s + m.examFee, 0).toLocaleString('en-IN')}</td>
-                          <td className="py-3 px-2.5 text-right tabular-nums text-[#122A24] font-black">₹{monthlySchedule.totalAnnualBilled.toLocaleString('en-IN')}</td>
-                          <td className="py-3 px-2.5 text-right tabular-nums text-emerald-800 bg-emerald-100/60 font-black">₹{monthlySchedule.totalPaidToDate.toLocaleString('en-IN')}</td>
-                          <td className="py-3 px-2.5 text-right tabular-nums text-amber-900 font-black">₹{monthlySchedule.currentBalanceDue.toLocaleString('en-IN')}</td>
-                          <td className="py-3 px-2 text-center font-bold text-[11px]">
-                            {monthlySchedule.currentBalanceDue === 0 ? (
-                              <span className="text-emerald-700">✓ Settled</span>
-                            ) : (
-                              <span className="text-amber-700">Dues Pending</span>
-                            )}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* ─────────────────────────────────────────────────────────────
@@ -1094,16 +1098,6 @@ export function StudentSummaryModal({
                 className="px-4 py-2 bg-white hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] hover:border-[#10B981] rounded-full text-xs font-bold shadow-2xs transition-all cursor-pointer"
               >
                 Edit Profile
-              </button>
-            )}
-            {onCollectFee && (
-              <button
-                type="button"
-                onClick={() => { onCollectFee(activeStudent); onClose(); }}
-                className="px-4 py-2 bg-[#EBF5EF] hover:bg-[#D5EBDC] text-[#1C443A] border border-[#C5E2CF] rounded-full text-xs font-bold shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>Collect Fee</span>
               </button>
             )}
             <button
