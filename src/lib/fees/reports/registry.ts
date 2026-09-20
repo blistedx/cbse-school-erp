@@ -448,18 +448,10 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
     let totalDue = 0;
 
     for (const s of ctx.students) {
-      const sDemands = ctx.demands.filter(d => d.studentId === s.id && d.feeHead === 'ANNUAL');
-      const sPayments = ctx.payments.filter(p => !p.cancelled && p.studentId === s.id);
+      const state = computeStudentFeeState(s.id, ctx.demands, ctx.payments, ctx.asOfDate);
+      const annualDemand = state.demands.find(d => d.feeHead === 'ANNUAL');
+      const bal = annualDemand ? annualDemand.balance : 0;
 
-      const billed = sDemands.reduce((acc, d) => acc + d.netAmount, 0);
-      let paid = 0;
-      for (const p of sPayments) {
-        for (const a of p.allocatedHeads || []) {
-          if (a.feeHead === 'ANNUAL') paid += a.amountPaise;
-        }
-      }
-
-      const bal = Math.max(0, billed - paid);
       if (bal > 0) {
         totalDue += bal;
         rows.push({
@@ -500,23 +492,12 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
     let grandOneTimeDue = 0;
 
     for (const s of ctx.students) {
-      const sDemands = ctx.demands.filter(d => d.studentId === s.id);
-      const sPayments = ctx.payments.filter(p => !p.cancelled && p.studentId === s.id);
+      const state = computeStudentFeeState(s.id, ctx.demands, ctx.payments, ctx.asOfDate);
+      const admDemand = state.demands.find(d => d.feeHead === 'ADMISSION');
+      const regDemand = state.demands.find(d => d.feeHead === 'REGISTRATION');
 
-      const admBilled = sDemands.filter(d => d.feeHead === 'ADMISSION').reduce((a, b) => a + b.netAmount, 0);
-      const regBilled = sDemands.filter(d => d.feeHead === 'REGISTRATION').reduce((a, b) => a + b.netAmount, 0);
-
-      let admPaid = 0;
-      let regPaid = 0;
-      for (const p of sPayments) {
-        for (const a of p.allocatedHeads || []) {
-          if (a.feeHead === 'ADMISSION') admPaid += a.amountPaise;
-          if (a.feeHead === 'REGISTRATION') regPaid += a.amountPaise;
-        }
-      }
-
-      const admDue = Math.max(0, admBilled - admPaid);
-      const regDue = Math.max(0, regBilled - regPaid);
+      const admDue = admDemand ? admDemand.balance : 0;
+      const regDue = regDemand ? regDemand.balance : 0;
       const totalDue = admDue + regDue;
 
       if (totalDue > 0) {
@@ -612,6 +593,130 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
       summaryKpis: [
         { label: 'Advance Payer Scholars', value: rows.length.toString(), color: 'text-blue-700' },
         { label: 'Total Advance Inflow', value: formatCurrency(grandAdvance), color: 'text-blue-900' },
+      ],
+    };
+  },
+
+  // ─── 9. Fee Head Summary ───
+  fee_head_summary: (ctx) => {
+    const HEAD_CATALOG: { code: string; name: string; type: string; confirmed: boolean }[] = [
+      { code: 'TUITION', name: 'Academic Tuition Fee', type: 'RECURRING', confirmed: true },
+      { code: 'ANNUAL', name: 'Annual Composite Fee', type: 'RECURRING', confirmed: true },
+      { code: 'TRANSPORT', name: 'Transport Service Fee', type: 'RECURRING', confirmed: true },
+      { code: 'EXAM', name: 'Examination Fee (Placeholder)', type: 'RECURRING', confirmed: false },
+      { code: 'LAB', name: 'Science & Computer Lab Fee (Placeholder)', type: 'RECURRING', confirmed: false },
+      { code: 'HOSTEL', name: 'Hostel & Mess Boarding (Placeholder)', type: 'RECURRING', confirmed: false },
+      { code: 'REGISTRATION', name: 'Prospectus + Registration Fee', type: 'ONE_TIME', confirmed: true },
+      { code: 'ADMISSION', name: 'Admission Fee', type: 'ONE_TIME', confirmed: true },
+    ];
+
+    const demandsByStudent = new Map<string, FeeDemandRecord[]>();
+    for (const d of ctx.demands) {
+      if (!demandsByStudent.has(d.studentId)) demandsByStudent.set(d.studentId, []);
+      demandsByStudent.get(d.studentId)!.push(d);
+    }
+
+    const paymentsByStudent = new Map<string, FeePaymentRecord[]>();
+    for (const p of ctx.payments) {
+      if (p.cancelled) continue;
+      if (!paymentsByStudent.has(p.studentId)) paymentsByStudent.set(p.studentId, []);
+      paymentsByStudent.get(p.studentId)!.push(p);
+    }
+
+    const headStats: Record<string, {
+      billedFull: number;
+      billedDue: number;
+      collected: number;
+      pending: number;
+      upcoming: number;
+    }> = {};
+
+    for (const h of HEAD_CATALOG) {
+      headStats[h.code] = { billedFull: 0, billedDue: 0, collected: 0, pending: 0, upcoming: 0 };
+    }
+
+    for (const s of ctx.students) {
+      const sDemands = demandsByStudent.get(s.id) || [];
+      const sPayments = paymentsByStudent.get(s.id) || [];
+      const state = computeStudentFeeState(s.id, sDemands, sPayments, ctx.asOfDate);
+
+      for (const d of state.demands) {
+        if (!headStats[d.feeHead]) continue;
+        const entry = headStats[d.feeHead];
+        entry.billedFull += (d.netAmount || 0);
+
+        if (d.dueDate <= ctx.asOfDate) {
+          entry.billedDue += (d.netAmount || 0);
+          entry.collected += (d.paid || 0);
+          entry.pending += (d.balance || 0);
+        } else {
+          entry.upcoming += (d.balance || 0);
+        }
+      }
+    }
+
+    let grandBilledFull = 0;
+    let grandBilledDue = 0;
+    let grandCollected = 0;
+    let grandPending = 0;
+    let grandUpcoming = 0;
+
+    const rows = HEAD_CATALOG.map((h) => {
+      const stat = headStats[h.code] || { billedFull: 0, billedDue: 0, collected: 0, pending: 0, upcoming: 0 };
+      grandBilledFull += stat.billedFull;
+      grandBilledDue += stat.billedDue;
+      grandCollected += stat.collected;
+      grandPending += stat.pending;
+      grandUpcoming += stat.upcoming;
+
+      const rate = stat.billedDue > 0 ? `${Math.round((stat.collected / stat.billedDue) * 100)}%` : '0%';
+
+      return {
+        feeHead: h.name,
+        headCode: h.code,
+        headType: h.type,
+        status: h.confirmed ? 'Confirmed' : 'Placeholder',
+        billedFullSessionPaise: stat.billedFull,
+        billedDuePaise: stat.billedDue,
+        collectedPaise: stat.collected,
+        pendingPaise: stat.pending,
+        upcomingPaise: stat.upcoming,
+        realizationRate: rate,
+      };
+    });
+
+    const grandRealization = grandBilledDue > 0 ? `${Math.round((grandCollected / grandBilledDue) * 100)}%` : '0%';
+
+    // Refundable deposits check
+    let refundableHeldPaise = 0;
+    for (const p of ctx.payments) {
+      if (p.cancelled) continue;
+      for (const alloc of p.allocatedHeads || []) {
+        if (alloc.feeHead === 'SECURITY_DEPOSIT') {
+          refundableHeldPaise += (alloc.amountPaise || 0);
+        }
+      }
+    }
+
+    return {
+      rows,
+      grandTotalRow: {
+        feeHead: 'Grand Total',
+        headCode: '',
+        headType: '',
+        status: '',
+        billedFullSessionPaise: grandBilledFull,
+        billedDuePaise: grandBilledDue,
+        collectedPaise: grandCollected,
+        pendingPaise: grandPending,
+        upcomingPaise: grandUpcoming,
+        realizationRate: grandRealization,
+      },
+      summaryKpis: [
+        { label: 'Total Billed Due', value: formatCurrency(grandBilledDue) },
+        { label: 'Total Collected (Revenue)', value: formatCurrency(grandCollected), color: 'text-emerald-700' },
+        { label: 'Total Pending Dues', value: formatCurrency(grandPending), color: 'text-rose-700' },
+        { label: 'Refundable Deposits Held', value: formatCurrency(refundableHeldPaise), badge: 'Liability', color: 'text-blue-700' },
       ],
     };
   },

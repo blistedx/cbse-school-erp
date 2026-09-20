@@ -28,18 +28,17 @@ function createPrng(seed = 0xCB5E2026) {
 }
 
 const MONTH_SCHEDULE = [
-  { key: 'APR', label: 'April 2026', due: '2026-04-15' },
-  { key: 'MAY', label: 'May 2026', due: '2026-05-15' },
-  { key: 'JUN', label: 'June 2026', due: '2026-05-15' },
-  { key: 'JUL', label: 'July 2026', due: '2026-07-15' },
-  { key: 'AUG', label: 'August 2026', due: '2026-08-15' },
-  { key: 'SEP', label: 'September 2026', due: '2026-09-15' },
-  { key: 'OCT', label: 'October 2026', due: '2026-10-15' },
-  { key: 'NOV', label: 'November 2026', due: '2026-11-15' },
-  { key: 'DEC', label: 'December 2026', due: '2026-12-15' },
-  { key: 'JAN', label: 'January 2027', due: '2027-01-15' },
-  { key: 'FEB', label: 'February 2027', due: '2027-02-15' },
-  { key: 'MAR', label: 'March 2027', due: '2027-03-15' },
+  { key: 'APR', label: 'April 2026', due: '2026-04-15', slotId: 'SLOT_1_APR' },
+  { key: 'MAY', label: 'May 2026', due: '2026-05-15', slotId: 'SLOT_2_MAY_JUN' },
+  { key: 'JUN', label: 'June 2026', due: '2026-05-15', slotId: 'SLOT_2_MAY_JUN' },
+  { key: 'JUL', label: 'July 2026', due: '2026-07-15', slotId: 'SLOT_3_JUL' },
+  { key: 'AUG', label: 'August 2026', due: '2026-08-15', slotId: 'SLOT_4_AUG' },
+  { key: 'SEP', label: 'September 2026', due: '2026-09-15', slotId: 'SLOT_5_SEP_FEB' },
+  { key: 'FEB', label: 'February 2027', due: '2026-09-15', slotId: 'SLOT_5_SEP_FEB' }, // Due with September in Slot 5
+  { key: 'OCT', label: 'October 2026', due: '2026-10-15', slotId: 'SLOT_6_OCT' },
+  { key: 'NOV', label: 'November 2026', due: '2026-11-15', slotId: 'SLOT_7_NOV' },
+  { key: 'DEC', label: 'December 2026', due: '2026-12-15', slotId: 'SLOT_8_DEC_MAR' },
+  { key: 'MAR', label: 'March 2027', due: '2026-12-15', slotId: 'SLOT_8_DEC_MAR' }, // Due with December in Slot 8
 ];
 
 function getTuitionRatePaise(className) {
@@ -86,8 +85,9 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
   const transportSlab = student.transport_slab_id || '1';
   
   // STRICT NEW ADMISSION RULE:
-  // Only students explicitly marked with admission_type === 'NEW' or admission_no === 'ADM-0556' receive one-time admission/registration charges.
+  // Anand Shukla (adm 2026-09-03) and Aarav Gupta (adm 2026-09-05) are newly admitted in September.
   const isNewAdmission = student.admission_type === 'NEW' || student.admission_no === 'ADM-0556' || student.admission_no === 'DPS-2026-0263';
+  const admissionDate = student.admission_date || (student.admission_no === 'ADM-0556' ? '2026-09-03' : (student.admission_no === 'DPS-2026-0263' ? '2026-09-05' : '2026-04-01'));
 
   const tuitionMonthly = getTuitionRatePaise(student.class_name);
   const annualFee = getAnnualFeePaise(student.class_name);
@@ -101,8 +101,8 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
   const sec = student.section || 'A';
   const now = '2026-04-01T09:00:00.000Z';
 
-  // 1. Annual Fee (Charged in April)
-  if (!isRte) {
+  // 1. Annual Fee (Charged in April ONLY for existing students)
+  if (!isRte && !isNewAdmission) {
     demands.push({
       id: `DEM-${student.id}-ANNUAL-APR`,
       schoolId,
@@ -124,7 +124,7 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
     });
   }
 
-  // 2. One-Time Charges (Admission & Registration) — ONLY FOR NEW ADMISSIONS
+  // 2. One-Time Charges (Admission & Registration) — ONLY FOR NEW ADMISSIONS, DUE AT ADMISSION DATE
   if (isNewAdmission && !isRte) {
     demands.push({
       id: `DEM-${student.id}-REGISTRATION-ONETIME`,
@@ -142,8 +142,8 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
       discountAmount: 0,
       discountReason: null,
       netAmount: 100000,
-      dueDate: '2026-04-01',
-      createdAt: now,
+      dueDate: admissionDate,
+      createdAt: `${admissionDate}T09:00:00.000Z`,
     });
     demands.push({
       id: `DEM-${student.id}-ADMISSION-ONETIME`,
@@ -161,8 +161,8 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
       discountAmount: 0,
       discountReason: null,
       netAmount: 500000,
-      dueDate: '2026-04-01',
-      createdAt: now,
+      dueDate: admissionDate,
+      createdAt: `${admissionDate}T09:00:00.000Z`,
     });
   }
 
@@ -189,8 +189,15 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
     });
   }
 
-  // 4. 12 Academic Months (Tuition, Transport, Hostel, Exams)
+  // 4. Academic Months (Tuition, Transport, Hostel, Exams)
+  // For new admissions admitted in September: skip April through August!
+  const priorMonths = ['APR', 'MAY', 'JUN', 'JUL', 'AUG'];
+
   for (const m of MONTH_SCHEDULE) {
+    if (isNewAdmission && priorMonths.includes(m.key)) {
+      continue; // No prior months demands for scholars admitted in September
+    }
+
     if (!isRte) {
       let tuitionDisc = 0;
       let tuitionDiscReason = null;
@@ -224,7 +231,7 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
         discountReason: tuitionDiscReason,
         netAmount: Math.max(0, tuitionMonthly - tuitionDisc),
         dueDate: m.due,
-        createdAt: now,
+        createdAt: isNewAdmission ? `${admissionDate}T09:00:00.000Z` : now,
       });
     }
 
@@ -254,7 +261,7 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
         discountReason: transDiscReason,
         netAmount: Math.max(0, transportMonthly - transDisc),
         dueDate: m.due,
-        createdAt: now,
+        createdAt: isNewAdmission ? `${admissionDate}T09:00:00.000Z` : now,
       });
     }
 
@@ -282,7 +289,7 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
     }
 
     // Exam & Lab Assessments
-    if (m.key === 'JUL' && !isRte) {
+    if (m.key === 'JUL' && !isRte && !isNewAdmission) {
       demands.push({
         id: `DEM-${student.id}-EXAM-JUL`,
         schoolId,
@@ -320,7 +327,7 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
         discountReason: null,
         netAmount: 100000,
         dueDate: m.due,
-        createdAt: now,
+        createdAt: isNewAdmission ? `${admissionDate}T09:00:00.000Z` : now,
       });
       if (['9', '10', '11', '12', 'IX', 'X', 'XI', 'XII', 'CLASS 9', 'CLASS 10', 'CLASS 11', 'CLASS 12'].some(k => cls.toUpperCase().includes(k))) {
         demands.push({
@@ -340,7 +347,7 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
           discountReason: null,
           netAmount: 150000,
           dueDate: m.due,
-          createdAt: now,
+          createdAt: isNewAdmission ? `${admissionDate}T09:00:00.000Z` : now,
         });
       }
     } else if (m.key === 'FEB' && !isRte) {
@@ -360,8 +367,8 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
         discountAmount: 0,
         discountReason: null,
         netAmount: 100000,
-        dueDate: m.due,
-        createdAt: now,
+        dueDate: '2027-02-15', // Exam assessment date in February
+        createdAt: isNewAdmission ? `${admissionDate}T09:00:00.000Z` : now,
       });
     }
   }
@@ -553,6 +560,10 @@ async function seedUnifiedFeeEngine() {
 
     if (isRte) continue;
 
+    // Skip automated payments loop for newly admitted scholars; their payments are generated explicitly below on/after admission date
+    const isNew = s.admission_type === 'NEW' || s.admission_no === 'ADM-0556' || s.admission_no === 'DPS-2026-0263';
+    if (isNew) continue;
+
     // 2. Realistic Cohort Distribution via deterministic PRNG:
     // • 0.00 to 0.25 (~25%): Fully Cleared to Date (Paid Apr through Sep!)
     // • 0.25 to 0.73 (~48%): Paid Through August (September Dues Pending)
@@ -569,7 +580,7 @@ async function seedUnifiedFeeEngine() {
     // Explicit 3 advance payers
     const isAdvance = idx === 3 || idx === 7 || idx === 12;
 
-    // Payment 1: April Slot (+ Admission/Registration if new admission + Caution deposit if hosteller)
+    // Payment 1: April Slot (+ Caution deposit if hosteller)
     if (!isNeverPaid) {
       receiptCounter++;
       const aprRecNo = `DPS2-REC-2604-${String(receiptCounter).padStart(4, '0')}`;
@@ -577,7 +588,7 @@ async function seedUnifiedFeeEngine() {
       const mode = PAYMENT_MODES[idx % PAYMENT_MODES.length];
 
       let aprDemands = studentDemands.filter(d => 
-        d.period === 'APR' || (d.period === 'ONE_TIME' && (s.admission_type === 'NEW' || s.admission_no === 'DPS-2026-0263' || d.feeHead === 'SECURITY_DEPOSIT'))
+        d.period === 'APR' || (d.period === 'ONE_TIME' && d.feeHead === 'SECURITY_DEPOSIT')
       );
 
       // If Annual Fee Defaulter: Exclude the ANNUAL fee demand so it remains unpaid!
@@ -820,7 +831,7 @@ async function seedUnifiedFeeEngine() {
     }
   }
 
-  // Preserve Anand Shukla's explicit payments (ADM-0556)
+  // Preserve Anand Shukla's explicit payments (ADM-0556, Admitted 2026-09-03)
   const anand = students.find(s => s.admission_no === 'ADM-0556');
   if (anand) {
     allPayments.push({
@@ -847,30 +858,69 @@ async function seedUnifiedFeeEngine() {
       cancelled: false,
       createdAt: '2026-09-20T09:18:44.561Z',
     });
+  }
 
+  // Preserve Aarav Gupta's explicit payments (DPS-2026-0263, Admitted 2026-09-05)
+  const aarav = students.find(s => s.admission_no === 'DPS-2026-0263');
+  if (aarav) {
     allPayments.push({
-      id: `PAY-${anand.id}-TRANSPORT-JUL-REC483760`,
-      receiptNo: 'DPS2-REC-483760-813',
+      id: `PAY-${aarav.id}-ONETIME-REC492810`,
+      receiptNo: 'DPS2-REC-492810-104',
       schoolId,
       sessionId: session,
-      studentId: anand.id,
-      studentName: 'Anand Shukla',
-      admissionNo: 'ADM-0556',
-      className: 'Playgroup',
+      studentId: aarav.id,
+      studentName: 'Aarav Gupta',
+      admissionNo: 'DPS-2026-0263',
+      className: 'Class 6',
       section: 'A',
-      fatherName: 'Abhishek Shukla',
-      mobile: '9984418529',
+      fatherName: 'Vikram Gupta',
+      mobile: '9876543210',
       allocatedHeads: [
-        { feeHead: 'TRANSPORT', period: 'JUL', amountPaise: 80000 },
+        { feeHead: 'REGISTRATION', period: 'ONE_TIME', amountPaise: 100000 },
+        { feeHead: 'ADMISSION', period: 'ONE_TIME', amountPaise: 500000 },
       ],
-      amountPaid: 80000,
-      mode: 'UPI',
-      paidOn: '2026-09-20',
+      amountPaid: 600000,
+      mode: 'ONLINE',
+      paidOn: '2026-09-08',
       collectedBy: 'admin',
-      remarks: 'Fee payment for July 2026 (TRANSPORT)',
+      remarks: 'Fee payment for New Admission (Registration & Admission charges)',
       cancelled: false,
-      createdAt: '2026-09-20T10:51:24.136Z',
+      createdAt: '2026-09-08T10:00:00.000Z',
     });
+
+    allPayments.push({
+      id: `PAY-${aarav.id}-SEP-REC582910`,
+      receiptNo: 'DPS2-REC-582910-205',
+      schoolId,
+      sessionId: session,
+      studentId: aarav.id,
+      studentName: 'Aarav Gupta',
+      admissionNo: 'DPS-2026-0263',
+      className: 'Class 6',
+      section: 'A',
+      fatherName: 'Vikram Gupta',
+      mobile: '9876543210',
+      allocatedHeads: [
+        { feeHead: 'TUITION', period: 'SEP', amountPaise: 180000 },
+        { feeHead: 'EXAM', period: 'SEP', amountPaise: 100000 },
+      ],
+      amountPaid: 280000,
+      mode: 'UPI',
+      paidOn: '2026-09-15',
+      collectedBy: 'ACCOUNTS_OFFICE',
+      remarks: 'September Tuition & Half-Yearly Exam Fee',
+      cancelled: false,
+      createdAt: '2026-09-15T11:00:00.000Z',
+    });
+  }
+
+  // STRICT VALIDATION RULE: paidOn >= admission_date for all active payments
+  for (const p of allPayments) {
+    const s = students.find(x => x.id === p.studentId);
+    const admDate = s?.admission_date || (s?.admission_no === 'ADM-0556' ? '2026-09-03' : (s?.admission_no === 'DPS-2026-0263' ? '2026-09-05' : '2026-04-01'));
+    if (admDate && p.paidOn < admDate) {
+      throw new Error(`[VALIDATION_RULE_VIOLATION] Payment ${p.receiptNo} dated ${p.paidOn} predates scholar admission date ${admDate} for ${p.studentName}`);
+    }
   }
 
   // 5 Explicit CANCELLED Receipts (Total ₹9,200)

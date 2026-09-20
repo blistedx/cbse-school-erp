@@ -31,13 +31,30 @@ export const MONTH_NUMBER_MAP: Record<AcademicMonth, number> = {
 };
 
 export function getDefaultDueDate(month: AcademicMonth, sessionStartYear: number = 2026): string {
-  const calendarMonths: Record<AcademicMonth, { m: number; yearOffset: number }> = {
-    APR: { m: 4, yearOffset: 0 }, MAY: { m: 5, yearOffset: 0 }, JUN: { m: 6, yearOffset: 0 },
-    JUL: { m: 7, yearOffset: 0 }, AUG: { m: 8, yearOffset: 0 }, SEP: { m: 9, yearOffset: 0 },
-    OCT: { m: 10, yearOffset: 0 }, NOV: { m: 11, yearOffset: 0 }, DEC: { m: 12, yearOffset: 0 },
-    JAN: { m: 1, yearOffset: 1 }, FEB: { m: 2, yearOffset: 1 }, MAR: { m: 3, yearOffset: 1 },
+  // Due date aligns with deposit-scheme slot:
+  // Slot 1 (APR): Apr 15
+  // Slot 2 (MAY+JUN): May 15
+  // Slot 3 (JUL): Jul 15
+  // Slot 4 (AUG): Aug 15
+  // Slot 5 (SEP+FEB): Sep 15 (Feb is grouped with Sep)
+  // Slot 6 (OCT): Oct 15
+  // Slot 7 (NOV): Nov 15
+  // Slot 8 (DEC+MAR): Dec 15 (Mar is grouped with Dec)
+  const slotDueMonth: Record<AcademicMonth, { m: number; yearOffset: number }> = {
+    APR: { m: 4, yearOffset: 0 },
+    MAY: { m: 5, yearOffset: 0 },
+    JUN: { m: 5, yearOffset: 0 }, // Due with May in Slot 2
+    JUL: { m: 7, yearOffset: 0 },
+    AUG: { m: 8, yearOffset: 0 },
+    SEP: { m: 9, yearOffset: 0 },
+    FEB: { m: 9, yearOffset: 0 }, // Due with Sep in Slot 5
+    OCT: { m: 10, yearOffset: 0 },
+    NOV: { m: 11, yearOffset: 0 },
+    DEC: { m: 12, yearOffset: 0 },
+    MAR: { m: 12, yearOffset: 0 }, // Due with Dec in Slot 8
+    JAN: { m: 1, yearOffset: 1 },
   };
-  const cm = calendarMonths[month] || { m: 4, yearOffset: 0 };
+  const cm = slotDueMonth[month] || { m: 4, yearOffset: 0 };
   const year = sessionStartYear + cm.yearOffset;
   return `${year}-${String(cm.m).padStart(2, '0')}-15`;
 }
@@ -413,4 +430,5 @@ export const DEFAULT_FEE_CONFIG: Omit<FeeConfig, 'id' | 'school_id' | 'academic_
       percentage_rate: 5,
     },
   ],
+  bill_tuition_in_january: false,
 };

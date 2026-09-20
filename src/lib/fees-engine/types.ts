@@ -159,6 +159,7 @@ export interface FeeConfig {
   sibling_rules: SiblingConcessionTier[];
   concession_rules: ConcessionRule[];
   late_fee_rules: LateFeeRule[];
+  bill_tuition_in_january?: boolean;
   one_time_charges: {
     prospectus_registration_paise: number;
     admission_fee_paise: number;

@@ -218,6 +218,27 @@ export const REPORT_CONFIGS: ReportConfig[] = [
 
   // ─── HEAD-WISE REPORTS ───
   {
+    id: 'fee_head_summary',
+    name: 'Fee Head Summary',
+    group: 'HEAD_WISE',
+    groupLabel: 'Head-wise Registers',
+    description: 'Comprehensive billing, realization, and pending balances across all official fee heads',
+    supportedFilters: ['session', 'month', 'search'],
+    exportFilenamePrefix: 'Fee_Head_Summary',
+    columns: [
+      { key: 'feeHead', header: 'Fee Head', align: 'left', pinned: true },
+      { key: 'headCode', header: 'Head Code', align: 'center', format: 'chip' },
+      { key: 'headType', header: 'Type', align: 'center', format: 'chip' },
+      { key: 'status', header: 'Status', align: 'center', format: 'chip' },
+      { key: 'billedFullSessionPaise', header: 'Billed Full Session', align: 'right', format: 'currency' },
+      { key: 'billedDuePaise', header: 'Billed Due (Today)', align: 'right', format: 'currency' },
+      { key: 'collectedPaise', header: 'Collected (Today)', align: 'right', format: 'currency' },
+      { key: 'pendingPaise', header: 'Pending (Today)', align: 'right', format: 'currency' },
+      { key: 'upcomingPaise', header: 'Upcoming Dues', align: 'right', format: 'currency' },
+      { key: 'realizationRate', header: 'Realization %', align: 'center', format: 'chip' },
+    ],
+  },
+  {
     id: 'exam_fee_report',
     name: 'Exam Fee Collection & Dues',
     group: 'HEAD_WISE',
