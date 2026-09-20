@@ -568,6 +568,7 @@ export async function queryReport(
     session?: string;
     className?: string;
     section?: string;
+    groupBy?: 'class' | 'section';
     month?: string;
     paymentMode?: string;
     search?: string;

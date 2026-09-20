@@ -76,7 +76,7 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
   
   // STRICT NEW ADMISSION RULE:
   // Only students explicitly marked with admission_type === 'NEW' or admission_no === 'ADM-0556' receive one-time admission/registration charges.
-  const isNewAdmission = student.admission_type === 'NEW' || student.admission_no === 'ADM-0556';
+  const isNewAdmission = student.admission_type === 'NEW' || student.admission_no === 'ADM-0556' || student.admission_no === 'DPS-2026-0263';
 
   const tuitionMonthly = getTuitionRatePaise(student.class_name);
   const annualFee = getAnnualFeePaise(student.class_name);
@@ -521,10 +521,10 @@ async function seedUnifiedFeeEngine() {
     const isNeverPaid = cohortVal >= 90;
     const isAnnualDefaulter = cohortVal >= 83 && cohortVal < 90;
     const isPartial = cohortVal >= 68 && cohortVal < 83;
-    const isAdvance = idx === 3 || idx === 7 || idx === 12; // 3 explicit advance payers
+    const isAdvance = idx === 3 || idx === 7 || idx === 12; // 3 explicit realistic advance payers (2-3 months advance)
     const isRegularPaid = !isNeverPaid && !isAnnualDefaulter && !isPartial;
 
-    // Payment 1: April Slot
+    // Payment 1: April Slot (+ Admission/Registration if new admission)
     if (!isNeverPaid && !isAnnualDefaulter) {
       receiptCounter++;
       const aprRecNo = `DPS2-REC-2604-${String(receiptCounter).padStart(4, '0')}`;
@@ -532,7 +532,7 @@ async function seedUnifiedFeeEngine() {
       const mode = PAYMENT_MODES[idx % PAYMENT_MODES.length];
 
       const aprDemands = studentDemands.filter(d => 
-        d.period === 'APR' || (d.period === 'ONE_TIME' && s.admission_type === 'NEW')
+        d.period === 'APR' || (d.period === 'ONE_TIME' && (s.admission_type === 'NEW' || s.admission_no === 'DPS-2026-0263'))
       );
 
       const allocatedHeads = aprDemands.map(d => ({
@@ -688,14 +688,15 @@ async function seedUnifiedFeeEngine() {
       }
     }
 
-    // Advance Payments: Future Slots (OCT, NOV, DEC) for Advance Cohort
+    // Advance Payments: Future Slots (OCT, NOV for 2-3 months advance)
     if (isAdvance) {
       receiptCounter++;
       const advRecNo = `DPS2-REC-2609-ADV-${String(receiptCounter).padStart(4, '0')}`;
       const advDate = `2026-09-${String(2 + (idx % 5)).padStart(2, '0')}`;
       const mode = 'ONLINE';
 
-      const futureDemands = studentDemands.filter(d => d.period === 'OCT' || d.period === 'NOV');
+      // 2 months in advance (OCT + NOV)
+      const futureDemands = studentDemands.filter(d => d.period === 'OCT' || (idx === 12 ? d.period === 'NOV' || d.period === 'DEC' : d.period === 'NOV'));
       const allocatedHeads = futureDemands.map(d => ({
         feeHead: d.feeHead,
         period: d.period,
@@ -729,7 +730,7 @@ async function seedUnifiedFeeEngine() {
     }
   }
 
-  // Preserve Anand Shukla's explicit payments
+  // Preserve Anand Shukla's explicit payments (ADM-0556)
   const anand = students.find(s => s.admission_no === 'ADM-0556');
   if (anand) {
     allPayments.push({
@@ -782,7 +783,7 @@ async function seedUnifiedFeeEngine() {
     });
   }
 
-  // 5 Explicit CANCELLED Receipts for Testing Cancellation Workflows
+  // 5 Explicit CANCELLED Receipts
   const cancelledReceiptConfigs = [
     { studentIndex: 15, recNo: 'DPS2-REC-VOID-0001', amountPaise: 140000, reason: 'Cheque Bounced / Insufficient Funds', mode: 'CHEQUE', date: '2026-05-10' },
     { studentIndex: 25, recNo: 'DPS2-REC-VOID-0002', amountPaise: 160000, reason: 'Duplicate Online Transaction Entry', mode: 'ONLINE', date: '2026-06-12' },

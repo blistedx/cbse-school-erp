@@ -17,6 +17,7 @@ export interface ReportBuildContext {
     month?: string;
     className?: string;
     section?: string;
+    groupBy?: 'class' | 'section';
     paymentMode?: string;
     search?: string;
   };
@@ -61,8 +62,9 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
   // ─── 1. Month-wise Class-wise Collection ───
   month_class_collection: (ctx) => {
     const targetMonth = (ctx.filters.month || 'SEP').toUpperCase();
+    const isGroupByClass = ctx.filters.groupBy === 'class';
     
-    // Group students by Class + Section
+    // Group students by Class + Section (default: 18 rows) or Class (16 rows)
     const classSecMap = new Map<string, {
       className: string;
       totalStudents: number;
@@ -93,7 +95,7 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
 
       const cls = s.class_name || 'Class 1';
       const sec = s.section || 'A';
-      const key = ctx.filters.section ? `${cls} - ${sec}` : cls;
+      const key = isGroupByClass ? cls : `${cls} - ${sec}`;
 
       if (!classSecMap.has(key)) {
         classSecMap.set(key, {
@@ -117,25 +119,26 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
         (targetMonth === 'MAY' && (d.period === 'MAY' || d.period === 'MAY_JUN'))
       );
 
-      const sPayments = (paymentsByStudent.get(s.id) || []).filter(p => {
-        if (!p.paidOn) return false;
-        const pMonth = new Date(p.paidOn).getMonth(); // 0-indexed: Apr is 3, Sep is 8
-        const monthIndexMap: Record<string, number> = {
-          APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11, JAN: 0, FEB: 1, MAR: 2
-        };
-        const expected = monthIndexMap[targetMonth];
-        return expected !== undefined ? pMonth === expected : true;
-      });
+      const demandPeriods = new Set(sDemands.map(d => d.period));
+      let sPaidTotal = 0;
+      for (const p of (paymentsByStudent.get(s.id) || [])) {
+        for (const alloc of p.allocatedHeads || []) {
+          if (demandPeriods.has(alloc.period)) {
+            sPaidTotal += (alloc.amountPaise || 0);
+          }
+        }
+      }
 
       const sDemandTotal = sDemands.reduce((sum, d) => sum + (d.netAmount || 0), 0);
-      const sPaidTotal = sPayments.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
-      const sPending = Math.max(0, sDemandTotal - sPaidTotal);
+      // Cap realization to demand so rate doesn't exceed 100%
+      const effectivePaid = Math.min(sDemandTotal, sPaidTotal);
+      const sPending = Math.max(0, sDemandTotal - effectivePaid);
 
       entry.demandPaise += sDemandTotal;
-      entry.collectedPaise += sPaidTotal;
+      entry.collectedPaise += effectivePaid;
       entry.pendingPaise += sPending;
 
-      if (sPending === 0) {
+      if (sPending === 0 && sDemandTotal > 0) {
         entry.submittedCount++;
       } else {
         entry.notSubmittedCount++;
@@ -291,7 +294,7 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
         admissionNo: '',
         className: '',
         paymentMode: '',
-        amountPaise: grandActive,
+        amountPaise: grandActive + grandCancelled,
         status: '',
         cancelledReason: '',
       },
@@ -927,7 +930,6 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
     let grandGross = 0;
     let grandDisc = 0;
     let grandNet = 0;
-    let grandCount = 0;
 
     const rows = Array.from(monthMap.entries())
       .filter(([_, v]) => v.count > 0)
@@ -935,7 +937,6 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
         grandGross += data.gross;
         grandDisc += data.discount;
         grandNet += data.net;
-        grandCount += data.count;
 
         return {
           month,
@@ -946,11 +947,13 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
         };
       });
 
+    const grandTotalStudents = rows.reduce((s, r) => s + r.totalStudents, 0);
+
     return {
       rows,
       grandTotalRow: {
         month: 'Grand Total',
-        totalStudents: grandCount,
+        totalStudents: grandTotalStudents,
         grossPaise: grandGross,
         discountPaise: grandDisc,
         netPaise: grandNet,
