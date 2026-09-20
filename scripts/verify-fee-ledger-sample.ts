@@ -1,4 +1,5 @@
-import { getStudentFeeSummaryFromLedger, getFeeAggregate, paiseToRupees } from '../src/lib/fees-engine';
+import { getFeeAggregate, paiseToRupees } from '../src/lib/fees-engine';
+import { getDatabase } from '../src/lib/mongodb';
 
 async function verify() {
   const db = await getDatabase();
@@ -18,10 +19,9 @@ async function verify() {
       TotalDemand: `₹${paiseToRupees(k.demand).toLocaleString('en-IN')}`,
       Collected: `₹${paiseToRupees(k.collected).toLocaleString('en-IN')}`,
       Discount: `₹${paiseToRupees(k.discount).toLocaleString('en-IN')}`,
-      Waiver: `₹${paiseToRupees(k.waiver).toLocaleString('en-IN')}`,
       Outstanding: `₹${paiseToRupees(k.balance).toLocaleString('en-IN')}`,
       StudentsCount: k.studentCount,
-      CollectionEfficiency: `${Math.round(((k.collected + k.discount + k.waiver) / k.demand) * 100)}%`
+      CollectionEfficiency: `${Math.round(((k.collected + k.discount) / k.demand) * 100)}%`
     });
   }
 
@@ -39,37 +39,15 @@ async function verify() {
   console.log('\n=== 3. PAYMENT MODE RECONCILIATION ===');
   const modeRows = await getFeeAggregate(schoolId, { session, lineTypes: ['PAYMENT'] }, ['payment_mode']);
   console.table(modeRows.map(r => ({
-    PaymentMode: r.dimensions.payment_mode,
+    Mode: r.dimensions.payment_mode || 'Cash',
     Collected: `₹${paiseToRupees(r.collected).toLocaleString('en-IN')}`,
-    Students: r.studentCount
+    Count: r.studentCount
   })));
-
-  console.log('\n=== 4. SAMPLE STUDENT DETAIL ===');
-  // Get 1 standard student, 1 sibling student, 1 RTE student
-  const sampleStudent = await db.collection('students').findOne({ school_id: schoolId });
-  if (sampleStudent) {
-    const summary = await getStudentFeeSummaryFromLedger(schoolId, sampleStudent.id, session);
-    console.log(`Scholar: ${sampleStudent.full_name} (${sampleStudent.admission_no}) - Class: ${sampleStudent.class_name} ${sampleStudent.section}`);
-    console.log({
-      totalDemand: `₹${paiseToRupees(summary.totalDemand).toLocaleString('en-IN')}`,
-      totalPaid: `₹${paiseToRupees(summary.totalPaid).toLocaleString('en-IN')}`,
-      totalDiscount: `₹${paiseToRupees(summary.totalDiscount).toLocaleString('en-IN')}`,
-      balance: `₹${paiseToRupees(summary.balance).toLocaleString('en-IN')}`,
-      status: summary.status
-    });
-
-    console.log('\nMonth-by-month status:');
-    console.table(summary.monthWise.map(m => ({
-      Month: m.month,
-      Demand: `₹${paiseToRupees(m.demand).toLocaleString('en-IN')}`,
-      Paid: `₹${paiseToRupees(m.paid).toLocaleString('en-IN')}`,
-      Discount: `₹${paiseToRupees(m.discount).toLocaleString('en-IN')}`,
-      Balance: `₹${paiseToRupees(m.balance).toLocaleString('en-IN')}`,
-      Status: m.status
-    })));
-  }
 
   process.exit(0);
 }
 
-verify().catch(console.error);
+verify().catch(err => {
+  console.error(err);
+  process.exit(1);
+});

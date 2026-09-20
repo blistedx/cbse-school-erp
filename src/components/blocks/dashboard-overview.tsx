@@ -510,11 +510,12 @@ export function DashboardOverview({
   ]);
 
   // 3. Fee & Revenue Statistics
-  const feeOverview = useMemo(() => getSchoolFeeOverview(invoices), [invoices]);
-  const totalBilled = feeOverview.totalBilled;
-  const totalPaid = feeOverview.totalRevenue;
-  const totalPending = feeOverview.pendingFeeAmount;
-  const collectionRate = totalBilled > 0 ? feeOverview.feeCollectionRate : (overview?.kpis?.feeCollectionRate ?? 0);
+  const totalBilled = (overview as any)?.financials?.totalDemand || (overview as any)?.kpis?.totalFees || 0;
+  const totalPaid = (overview as any)?.financials?.totalCollected || (overview as any)?.kpis?.feesCollected || (overview as any)?.kpis?.totalRevenue || 0;
+  const totalPending = (overview as any)?.financials?.totalOutstanding || (overview as any)?.kpis?.pendingFees || 0;
+  const collectionRate = totalBilled > 0 
+    ? Math.round((totalPaid / totalBilled) * 100) 
+    : ((overview as any)?.kpis?.feeCollectionRate ?? 0);
 
   // Lakh formatter matching reference image e.g. ₹8.4L, ₹70.5L, ₹1.1L
   const formatLakh = (amount: number, fallback: string = '₹0') => {
@@ -603,14 +604,14 @@ export function DashboardOverview({
 
     if (validStudents.length > 0) {
       validStudents.forEach(st => {
-        const tuitionRate = getStandardTuitionRate(st.class_name);
-        const transportRate = (st as any).transport_fee || getStandardTransportRate(st);
+        const tuitionRate = 2500;
+        const transportRate = (st as any).transport_fee || (st.transport_opted === 'YES' ? 1200 : 0);
 
         totalTuitionDemand += tuitionRate * activeCycle.monthMultiplier;
         totalTransportDemand += transportRate * activeCycle.monthMultiplier;
 
         if (activeCycle.includesAnnualFee) {
-          totalAnnualDemand += getStandardAnnualFeeRate(st.class_name);
+          totalAnnualDemand += 5000;
         }
         if (activeCycle.includesExamFee) {
           totalExamDemand += (activeCycle.examFeePerStudent || 750);

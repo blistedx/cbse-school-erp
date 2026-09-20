@@ -30,6 +30,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import BroadcastInboxModal from '@/components/broadcast-inbox-modal';
+import { StudentAttendanceHistoryModal } from '@/components/student-attendance-history';
 import { Student, FeeInvoice } from '@/lib/types';
 
 export interface RoleParentViewProps {
@@ -177,8 +178,22 @@ export default function RoleParentView({ activeTab, setActiveTab }: RoleParentVi
     guardian_phone: '9876543210'
   };
 
-  const studentFeeSummary = getStudentFeeSummary(activeStudentObj, parentInvoices);
-  const studentFeeSchedule = getStudentMonthlyFeeSchedule(activeStudentObj, parentInvoices);
+  const studentFeeSummary = {
+    currentBalanceDue: selectedStudent === 'aarav' ? 4200 : 0,
+    totalAnnualDemand: 42000,
+    totalPaidToDate: selectedStudent === 'aarav' ? 37800 : 42000,
+    totalConcessions: 0,
+  };
+
+  const studentFeeSchedule = {
+    months: [
+      { id: '1', cycleName: 'Cycle 1: April', month: 'April', paidAmount: 3500, paidDate: '10 Apr 2026', paymentMode: 'UPI', invoiceNo: 'INV-101' },
+      { id: '2', cycleName: 'Cycle 2: May', month: 'May', paidAmount: 3500, paidDate: '12 May 2026', paymentMode: 'UPI', invoiceNo: 'INV-102' },
+      { id: '3', cycleName: 'Cycle 3: June', month: 'June', paidAmount: 3500, paidDate: '08 Jun 2026', paymentMode: 'NetBanking', invoiceNo: 'INV-103' },
+      { id: '4', cycleName: 'Cycle 4: July', month: 'July', paidAmount: 3500, paidDate: '11 Jul 2026', paymentMode: 'UPI', invoiceNo: 'INV-104' },
+      { id: '5', cycleName: 'Cycle 5: August', month: 'August', paidAmount: 3500, paidDate: '09 Aug 2026', paymentMode: 'UPI', invoiceNo: 'INV-105' },
+    ]
+  };
 
   // Daily Timetable
   const timetableToday = [

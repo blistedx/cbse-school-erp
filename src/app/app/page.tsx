@@ -1435,6 +1435,71 @@ function ERPWorkspaceContent() {
   const [collectFeeNow, setCollectFeeNow] = useState(false);
   const [initialFeePaymentMode, setInitialFeePaymentMode] = useState<'CASH' | 'UPI' | 'ONLINE' | 'CHEQUE'>('CASH');
 
+  const DEFAULT_TRANSPORT_FEES = [
+    { id: '1', slab: '0 - 3 KM', monthlyFee: 800 },
+    { id: '2', slab: '3 - 6 KM', monthlyFee: 1200 },
+    { id: '3', slab: '6 - 10 KM', monthlyFee: 1600 },
+    { id: '4', slab: '10+ KM', monthlyFee: 2200 },
+  ];
+
+  function calculateRegistrationFees(params: {
+    className: string;
+    admissionType: string;
+    admissionDate: string;
+    academicSession: string;
+    transportOpted: string;
+    transportSlabId: string;
+    isRte: string;
+    hostelOpted: string;
+  }) {
+    const isNew = params.admissionType === 'NEW';
+    const isRte = params.isRte === 'YES';
+    const isTransportOpted = params.transportOpted === 'YES';
+    const isHostelOpted = params.hostelOpted === 'YES';
+    const admissionFee = isNew && !isRte ? 5000 : 0;
+    const annualFee = isRte ? 0 : 5000;
+    const monthlyTuitionRate = 2500;
+    const monthCount = 1;
+    const tuitionFeeTotal = isRte ? 0 : monthlyTuitionRate * monthCount;
+    const selectedTransportSlab = DEFAULT_TRANSPORT_FEES.find(s => s.id === params.transportSlabId) || DEFAULT_TRANSPORT_FEES[0];
+    const monthlyTransportRate = selectedTransportSlab.monthlyFee;
+    const transportFeeTotal = isTransportOpted ? monthlyTransportRate * monthCount : 0;
+    const hostelSecurityMoney = isHostelOpted ? 5000 : 0;
+    const monthlyHostelRate = 4500;
+    const hostelFeeTotal = isHostelOpted ? monthlyHostelRate * monthCount : 0;
+    const totalPayable = admissionFee + annualFee + tuitionFeeTotal + transportFeeTotal + hostelSecurityMoney + hostelFeeTotal;
+
+    return {
+      className: params.className,
+      admissionType: params.admissionType,
+      isNewAdmission: isNew,
+      isRte,
+      isTransportOpted,
+      isHostelOpted,
+      admissionFee,
+      annualFee,
+      monthlyTuitionRate,
+      monthCount,
+      periodLabel: 'Apr - Apr',
+      tuitionFeeTotal,
+      selectedTransportSlab,
+      monthlyTransportRate,
+      transportFeeTotal,
+      hostelSecurityMoney,
+      hostelRoomType: 'STANDARD',
+      monthlyHostelRate,
+      hostelFeeTotal,
+      totalPayable,
+      total: totalPayable,
+      admissionFeeTotal: admissionFee,
+      breakdown: [
+        { head: 'Tuition Fee', amount: tuitionFeeTotal },
+        ...(isNew ? [{ head: 'Admission Fee', amount: admissionFee }] : []),
+        ...(isTransportOpted ? [{ head: 'Transport Fee', amount: transportFeeTotal }] : []),
+      ]
+    };
+  }
+
   // Real-time automatic fee computation for registration form
   const registrationFeeBreakdown = useMemo(() => {
     return calculateRegistrationFees({

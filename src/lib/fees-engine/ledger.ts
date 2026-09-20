@@ -236,6 +236,7 @@ export interface SchoolFeeOverviewAggregate {
   totalCollectedPaise: number;
   totalPendingPaise: number;
   totalDiscountPaise: number;
+  totalAdvancePaise: number;
   collectionPercentage: number;
   studentsWithNothingPaid: number;
   topPending: Array<{
@@ -262,6 +263,7 @@ export async function getSchoolFeeOverviewAggregation(
       totalCollectedPaise: 0,
       totalPendingPaise: 0,
       totalDiscountPaise: 0,
+      totalAdvancePaise: 0,
       collectionPercentage: 0,
       studentsWithNothingPaid: 0,
       topPending: [],
@@ -327,6 +329,8 @@ export async function getSchoolFeeOverviewAggregation(
   let totalBilled = 0;
   let totalCollected = 0;
   let totalDiscount = 0;
+  let totalPending = 0;
+  let totalAdvance = 0;
   let zeroPaidStudents = 0;
   const pendingList: Array<any> = [];
 
@@ -335,10 +339,13 @@ export async function getSchoolFeeOverviewAggregation(
     const paid = Number(row.paid) || 0;
     const discount = Number(row.discount) || 0;
     const bal = Math.max(0, demand - discount - paid);
+    const adv = Math.max(0, paid + discount - demand);
 
     totalBilled += demand;
     totalCollected += paid;
     totalDiscount += discount;
+    totalPending += bal;
+    totalAdvance += adv;
 
     if (demand > 0 && paid === 0) {
       zeroPaidStudents++;
@@ -367,13 +374,13 @@ export async function getSchoolFeeOverviewAggregation(
 
   const netDemand = Math.max(0, totalBilled - totalDiscount);
   const collectionPercentage = netDemand > 0 ? Math.round((totalCollected / netDemand) * 100) : 0;
-  const totalPending = Math.max(0, totalBilled - totalDiscount - totalCollected);
 
   return {
     totalBilledPaise: totalBilled,
     totalCollectedPaise: totalCollected,
     totalPendingPaise: totalPending,
     totalDiscountPaise: totalDiscount,
+    totalAdvancePaise: totalAdvance,
     collectionPercentage,
     studentsWithNothingPaid: zeroPaidStudents,
     topPending: pendingList.slice(0, 10),

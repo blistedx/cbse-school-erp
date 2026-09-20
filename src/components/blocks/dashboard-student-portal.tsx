@@ -34,6 +34,82 @@ import { getStudentAssessmentReport, getStudentSiblings, AVAILABLE_EXAMS } from 
 import { getSchoolInitials } from '@/lib/utils';
 import { StudentAttendanceHistory } from '@/components/student-attendance-history';
 
+export interface MonthlyFeeItem {
+  id: string;
+  monthIndex: number;
+  month: string;
+  monthShort: string;
+  cycleName: string;
+  quarter: string;
+  tuitionFee: number;
+  transportFee: number;
+  annualFee: number;
+  examFee: number;
+  totalBilled: number;
+  paidAmount: number;
+  balanceDue: number;
+  status: 'PAID' | 'PENDING' | 'OVERDUE' | 'PARTIAL';
+  invoiceNo?: string;
+  receiptNo?: string;
+  paymentDate?: string;
+}
+
+function getStudentMonthlyFeeSchedule(student: Student, invoices: FeeInvoice[]) {
+  const monthsData: { name: string; short: string; quarter: string }[] = [
+    { name: 'April', short: 'Apr', quarter: 'Q1' },
+    { name: 'May', short: 'May', quarter: 'Q1' },
+    { name: 'June', short: 'Jun', quarter: 'Q1' },
+    { name: 'July', short: 'Jul', quarter: 'Q2' },
+    { name: 'August', short: 'Aug', quarter: 'Q2' },
+    { name: 'September', short: 'Sep', quarter: 'Q2' },
+    { name: 'October', short: 'Oct', quarter: 'Q3' },
+    { name: 'November', short: 'Nov', quarter: 'Q3' },
+    { name: 'December', short: 'Dec', quarter: 'Q3' },
+    { name: 'January', short: 'Jan', quarter: 'Q4' },
+    { name: 'February', short: 'Feb', quarter: 'Q4' },
+    { name: 'March', short: 'Mar', quarter: 'Q4' },
+  ];
+
+  const isPaid = student.fee_status === 'PAID' || student.fee_status === 'WAIVED';
+  const tuition = 2500;
+  const transport = student.transport_opted === 'YES' ? 1200 : 0;
+  const annual = 5000;
+  const exam = (student.class_name?.includes('10') || student.class_name?.includes('12')) ? 500 : 0;
+  const monthlyAnnual = Math.round(annual / 12);
+  const monthlyTotal = tuition + transport + monthlyAnnual + exam;
+
+  const months: MonthlyFeeItem[] = monthsData.map((m, idx) => ({
+    id: `cycle-${idx + 1}`,
+    monthIndex: idx + 1,
+    month: m.name,
+    monthShort: m.short,
+    cycleName: `Cycle ${idx + 1}: ${m.name}`,
+    quarter: m.quarter,
+    tuitionFee: tuition,
+    transportFee: transport,
+    annualFee: monthlyAnnual,
+    examFee: exam,
+    totalBilled: monthlyTotal,
+    paidAmount: isPaid ? monthlyTotal : 0,
+    balanceDue: isPaid ? 0 : monthlyTotal,
+    status: isPaid ? 'PAID' : 'PENDING',
+    invoiceNo: `INV-2026-${1000 + idx}`,
+    receiptNo: isPaid ? `REC-2026-${1000 + idx}` : undefined,
+    paymentDate: isPaid ? `2026-0${idx + 4 <= 12 ? idx + 4 : idx - 8}-10` : undefined,
+  }));
+
+  const totalAnnualBilled = months.reduce((s, m) => s + m.totalBilled, 0);
+  const totalPaidToDate = months.reduce((s, m) => s + m.paidAmount, 0);
+  const currentBalanceDue = months.reduce((s, m) => s + m.balanceDue, 0);
+
+  return {
+    months,
+    totalAnnualBilled,
+    totalPaidToDate,
+    currentBalanceDue,
+  };
+}
+
 export interface StudentPortalProps {
   currentUser: UserType | null;
   selectedSchool: School | null;

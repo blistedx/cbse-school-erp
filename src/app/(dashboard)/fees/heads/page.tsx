@@ -98,7 +98,7 @@ export default function FeeHeadsPage() {
       code: head.code,
       type: (head as any).type || 'recurring',
       frequency: (head.frequency || 'monthly').toLowerCase() as any,
-      isRefundable: Boolean((head as any).isRefundable || head.is_refundable)
+      isRefundable: Boolean(head.isRefundable || (head as any).is_refundable)
     });
     setShowModal(true);
   };

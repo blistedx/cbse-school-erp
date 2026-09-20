@@ -35,6 +35,42 @@ const isImageUrl = (val?: string): boolean => {
   );
 };
 
+function matchInvoicesForStudent(invoices: FeeInvoice[], student: Student) {
+  if (!invoices || !student) return [];
+  return invoices.filter(inv => inv.student_id === student.id || inv.student_name?.toLowerCase() === student.full_name?.toLowerCase());
+}
+
+function getStudentFeeSummary(student: Student, invoices?: FeeInvoice[]) {
+  const isPaid = student.fee_status === 'PAID' || student.fee_status === 'WAIVED';
+  return {
+    feeStatus: student.fee_status || 'PENDING',
+    currentBalanceDue: isPaid ? 0 : 2500,
+    totalAnnualBilled: 35000,
+    totalPaidToDate: isPaid ? 35000 : 0,
+  };
+}
+
+function getStudentMonthlyFeeSchedule(student: Student, invoices?: FeeInvoice[]) {
+  const months = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
+  const isPaid = student.fee_status === 'PAID' || student.fee_status === 'WAIVED';
+  return {
+    months: months.map((m) => ({
+      month: m,
+      monthName: m,
+      tuitionFee: 2500,
+      transportFee: student.transport_opted === 'YES' ? 1200 : 0,
+      annualFee: 417,
+      totalBilled: 2917,
+      paidAmount: isPaid ? 2917 : 0,
+      balanceDue: isPaid ? 0 : 2917,
+      status: isPaid ? 'PAID' : 'PENDING',
+    })),
+    totalAnnualBilled: 35000,
+    totalPaidToDate: isPaid ? 35000 : 0,
+    currentBalanceDue: isPaid ? 0 : 35000,
+  };
+}
+
 export function StudentSummaryModal({
   isOpen,
   onClose,

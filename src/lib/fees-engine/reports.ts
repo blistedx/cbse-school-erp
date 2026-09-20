@@ -63,7 +63,7 @@ export async function executeReport(
   }
 
   // Filter students based on UI filter selections
-  let filteredStudents = students.filter(s => s.status === 'ACTIVE');
+  let filteredStudents = Array.isArray(students) ? [...students] : [];
   if (filters.classes && filters.classes.length > 0) {
     filteredStudents = filteredStudents.filter(s => filters.classes!.includes(s.class_name));
   }

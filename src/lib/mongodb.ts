@@ -22,12 +22,13 @@ declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
-export function isMongoConfigured(): boolean {
-  return Boolean(uri && (uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://')));
+export function getMongoUri(): string {
+  return process.env.MONGODB_URI || '';
 }
 
-export function getMongoUri(): string {
-  return uri;
+export function isMongoConfigured(): boolean {
+  const uri = getMongoUri();
+  return Boolean(uri && (uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://')));
 }
 
 export async function getMongoClient(): Promise<MongoClient | null> {
@@ -41,7 +42,7 @@ export async function getMongoClient(): Promise<MongoClient | null> {
     // Cache the promise globally in both development and serverless/production
     // to ensure connection reuse across Next.js API routes and warm lambdas
     if (!global._mongoClientPromise) {
-      const client = new MongoClient(uri, options);
+      const client = new MongoClient(getMongoUri(), options);
       global._mongoClientPromise = client.connect().then(c => {
         lastConnectionFailedAt = 0;
         console.log('[MongoDB Atlas Cloud] Connected successfully to Database (edugit)');

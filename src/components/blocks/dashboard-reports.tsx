@@ -33,6 +33,50 @@ export interface DashboardReportsProps {
   selectedSession: string;
 }
 
+const CBSE_ACADEMIC_MONTHS = [
+  { index: 1, name: 'April', short: 'Apr', cycleName: 'Cycle 1: April', quarter: 'Q1' },
+  { index: 2, name: 'May', short: 'May', cycleName: 'Cycle 2: May', quarter: 'Q1' },
+  { index: 3, name: 'June', short: 'Jun', cycleName: 'Cycle 3: June', quarter: 'Q1' },
+  { index: 4, name: 'July', short: 'Jul', cycleName: 'Cycle 4: July', quarter: 'Q2' },
+  { index: 5, name: 'August', short: 'Aug', cycleName: 'Cycle 5: August', quarter: 'Q2' },
+  { index: 6, name: 'September', short: 'Sep', cycleName: 'Cycle 6: September', quarter: 'Q2' },
+  { index: 7, name: 'October', short: 'Oct', cycleName: 'Cycle 7: October', quarter: 'Q3' },
+  { index: 8, name: 'November', short: 'Nov', cycleName: 'Cycle 8: November', quarter: 'Q3' },
+  { index: 9, name: 'December', short: 'Dec', cycleName: 'Cycle 9: December', quarter: 'Q3' },
+  { index: 10, name: 'January', short: 'Jan', cycleName: 'Cycle 10: January', quarter: 'Q4' },
+  { index: 11, name: 'February', short: 'Feb', cycleName: 'Cycle 11: February', quarter: 'Q4' },
+  { index: 12, name: 'March', short: 'Mar', cycleName: 'Cycle 12: March', quarter: 'Q4' },
+];
+
+function getStudentMonthlyFeeSchedule(student: Student, invoices: FeeInvoice[]) {
+  const isPaid = student.fee_status === 'PAID' || student.fee_status === 'WAIVED';
+  const tuition = 2500;
+  const transport = student.transport_opted === 'YES' ? 1200 : 0;
+  const annual = 5000;
+  const total = tuition + transport + Math.round(annual / 12);
+  return {
+    months: CBSE_ACADEMIC_MONTHS.map(m => ({
+      monthIndex: m.index,
+      monthName: m.name,
+      quarter: m.quarter,
+      tuitionFee: tuition,
+      transportFee: transport,
+      annualFee: Math.round(annual / 12),
+      totalBilled: total,
+      paidAmount: isPaid ? total : 0,
+      balanceDue: isPaid ? 0 : total,
+      status: isPaid ? 'PAID' : 'PENDING'
+    }))
+  };
+}
+
+function getStudentFeeSummary(student: Student, invoices: FeeInvoice[]) {
+  return {
+    feeStatus: student.fee_status || 'PENDING',
+    currentBalanceDue: student.fee_status === 'PAID' || student.fee_status === 'WAIVED' ? 0 : 2500,
+  };
+}
+
 export function DashboardReports({
   selectedSchool,
   students,

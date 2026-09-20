@@ -1,29 +1,26 @@
-import { REPORT_CONFIGS, getFeeAggregate } from '../src/lib/fees-engine';
+import { REPORT_CONFIGS, executeReport } from '../src/lib/fees-engine';
+import { getDatabase } from '../src/lib/mongodb';
 
 async function main() {
   console.log('=== VERIFYING ALL REPORT PRESETS FOR DPS2026 ===\n');
+
+  const db = await getDatabase();
+  const students = await db.collection('students').find({ school_id: 'DPS2026' }).toArray();
 
   let passed = 0;
   let failed = 0;
 
   for (const preset of REPORT_CONFIGS) {
     try {
-      const rows = await getFeeAggregate(
+      const result = await executeReport(
         'DPS2026',
-        {
-          session: '2026-27',
-          ...preset.filterOverrides,
-        },
-        preset.groupBy
+        preset.id,
+        { session: '2026-27' },
+        students as any
       );
 
-      const totalDemand = rows.reduce((s, r) => s + (r.demand || 0), 0);
-      const totalCollected = rows.reduce((s, r) => s + (r.collected || 0), 0);
-      const totalDiscount = rows.reduce((s, r) => s + (r.discount || 0), 0);
-      const totalBalance = rows.reduce((s, r) => s + (r.balance || 0), 0);
-
-      console.log(`✓ [${preset.category.toUpperCase()}] ${preset.name} (${preset.id}):`);
-      console.log(`   Rows: ${rows.length} | Demand: ₹${(totalDemand/100).toLocaleString('en-IN')} | Collected: ₹${(totalCollected/100).toLocaleString('en-IN')} | Dues: ₹${(totalBalance/100).toLocaleString('en-IN')}`);
+      console.log(`✓ [${preset.group}] ${preset.name} (${preset.id}):`);
+      console.log(`   Rows: ${result.rows.length} | KPIs: ${result.summaryKpis.map(k => `${k.label}: ${k.value}`).join(' | ')}`);
       passed++;
     } catch (err: any) {
       console.error(`✗ FAILED [${preset.id}]:`, err.message);
@@ -38,7 +35,7 @@ async function main() {
   process.exit(failed > 0 ? 1 : 0);
 }
 
-main().catch((e) => {
-  console.error(e);
+main().catch(err => {
+  console.error(err);
   process.exit(1);
 });

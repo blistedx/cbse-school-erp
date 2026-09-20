@@ -223,11 +223,11 @@ const FormalCertificateDocument: React.FC<FormalCertificateProps> = ({
   const relation = s?.gender === 'Female' ? 'Daughter' : 'Son';
   const studentAddress = s?.residential_address || (s?.city ? `${s.city}, ${s.state || 'Delhi'}` : 'Dwarka, New Delhi, India');
 
-  const feeSummary = s ? getStudentFeeSummary(s, invoices) : null;
-  const feeClearanceText = feeSummary
-    ? (feeSummary.feeStatus === 'PAID' || feeSummary.feeStatus === 'WAIVED' || feeSummary.currentBalanceDue === 0
-        ? `March ${selectedSession.split('-')[0] ? parseInt(selectedSession.split('-')[0]) + 1 : '2027'} (No Dues Outstanding - Cleared in Full)`
-        : `Pending Dues: ₹${feeSummary.currentBalanceDue.toLocaleString('en-IN')} (Under Settlement)`)
+  const isFeeCleared = s?.fee_status === 'PAID' || s?.fee_status === 'WAIVED';
+  const feeClearanceText = s
+    ? (isFeeCleared
+        ? `March ${selectedSession?.split('-')[0] ? parseInt(selectedSession.split('-')[0]) + 1 : '2027'} (No Dues Outstanding - Cleared in Full)`
+        : `Pending Dues (Under Settlement)`)
     : 'March 2027 (No Dues Outstanding)';
 
   return (

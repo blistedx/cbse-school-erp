@@ -2416,7 +2416,11 @@ export const Database = {
 
     if (lines.length > 0) {
       const sum = computeSummaryFromLines(lines);
-      newStatus = sum.status;
+      if (sum.status === 'ADVANCE' || sum.status === 'WAIVED') {
+        newStatus = 'PAID';
+      } else {
+        newStatus = sum.status;
+      }
     } else {
       // Fallback to legacy invoices
       const studentInvoices = (memoryStore.fee_invoices || []).filter(inv => {
@@ -2427,7 +2431,7 @@ export const Database = {
         }
         return false;
       });
-      const totalGross = studentInvoices.reduce((acc, inv) => acc + (Number(inv.total_amount) || 0), 0);
+      const totalGross = studentInvoices.reduce((acc, inv) => acc + (Number((inv as any).total_amount) || Number(inv.amount) || 0), 0);
       const totalPaid = studentInvoices.reduce((acc, inv) => acc + (Number(inv.paid_amount) || 0), 0);
       const totalConcession = studentInvoices.reduce((acc, inv) => acc + (Number((inv as any).concession_amount) || 0), 0);
       const bal = totalGross - totalConcession - totalPaid;
