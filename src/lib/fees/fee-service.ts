@@ -7,6 +7,8 @@ import {
   type ReportQueryResult,
   type ReportSummaryKpi,
 } from '../fees-engine/report-configs';
+import { buildReportFromRegistry } from './reports/registry';
+import { AS_OF_TODAY_DATE, getSchoolFeeMetrics } from './metrics';
 
 export type FeeHeadType =
   | 'TUITION'
@@ -545,72 +547,17 @@ export async function getSchoolFeeOverview(
   schoolId: string,
   session: string = '2026-27'
 ): Promise<SchoolFeeOverview> {
-  const db = await getDatabase();
-  if (!db) {
-    return {
-      totalStudents: 0,
-      grossBilledPaise: 0,
-      discountsPaise: 0,
-      netBilledPaise: 0,
-      totalCollectedPaise: 0,
-      outstandingDuesPaise: 0,
-      advanceCollectedPaise: 0,
-      collectionRate: 0,
-      headBreakdown: {},
-    };
-  }
-
-  const [demands, payments, studentCount] = await Promise.all([
-    db.collection('fee_demands').find({ schoolId, sessionId: session }).toArray() as unknown as Promise<FeeDemandRecord[]>,
-    db.collection('fee_payments').find({ schoolId, sessionId: session, cancelled: { $ne: true } }).toArray() as unknown as Promise<FeePaymentRecord[]>,
-    db.collection('students').countDocuments({ school_id: schoolId }),
-  ]);
-
-  let grossBilledPaise = 0;
-  let discountsPaise = 0;
-  let netBilledPaise = 0;
-  const headBreakdown: Record<string, { billed: number; collected: number; due: number }> = {};
-
-  for (const d of demands) {
-    grossBilledPaise += (d.grossAmount || 0);
-    discountsPaise += (d.discountAmount || 0);
-    netBilledPaise += (d.netAmount || 0);
-
-    if (!headBreakdown[d.feeHead]) {
-      headBreakdown[d.feeHead] = { billed: 0, collected: 0, due: 0 };
-    }
-    headBreakdown[d.feeHead].billed += (d.netAmount || 0);
-  }
-
-  let totalCollectedPaise = 0;
-  for (const p of payments) {
-    totalCollectedPaise += (p.amountPaid || 0);
-    for (const alloc of p.allocatedHeads || []) {
-      if (!headBreakdown[alloc.feeHead]) {
-        headBreakdown[alloc.feeHead] = { billed: 0, collected: 0, due: 0 };
-      }
-      headBreakdown[alloc.feeHead].collected += (alloc.amountPaise || 0);
-    }
-  }
-
-  for (const k of Object.keys(headBreakdown)) {
-    headBreakdown[k].due = Math.max(0, headBreakdown[k].billed - headBreakdown[k].collected);
-  }
-
-  const outstandingDuesPaise = Math.max(0, netBilledPaise - totalCollectedPaise);
-  const advanceCollectedPaise = Math.max(0, totalCollectedPaise - netBilledPaise);
-  const collectionRate = netBilledPaise > 0 ? Math.round((totalCollectedPaise / netBilledPaise) * 1000) / 10 : 0;
-
+  const metrics = await getSchoolFeeMetrics(schoolId, session);
   return {
-    totalStudents: studentCount || 505,
-    grossBilledPaise,
-    discountsPaise,
-    netBilledPaise,
-    totalCollectedPaise,
-    outstandingDuesPaise,
-    advanceCollectedPaise,
-    collectionRate,
-    headBreakdown,
+    totalStudents: metrics.totalStudents,
+    grossBilledPaise: metrics.grossBilledFullSessionPaise,
+    discountsPaise: metrics.discountFullSessionPaise,
+    netBilledPaise: metrics.billedFullSessionPaise,
+    totalCollectedPaise: metrics.totalCollectedPaise,
+    outstandingDuesPaise: metrics.pendingDuesPaise,
+    advanceCollectedPaise: metrics.advanceCollectedPaise,
+    collectionRate: metrics.collectionRate,
+    headBreakdown: metrics.headBreakdown,
   };
 }
 
@@ -628,46 +575,31 @@ export async function queryReport(
 ): Promise<ReportQueryResult> {
   const schoolId = filters.schoolId || 'DPS2026';
   const session = filters.session || '2026-27';
-  const config = REPORT_CONFIGS.find(r => r.id === reportKey) || REPORT_CONFIGS[0];
-  const generatedAt = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
   const db = await getDatabase();
   if (!db) {
+    const config = REPORT_CONFIGS.find(r => r.id === reportKey);
     return {
-      reportId: config.id,
-      reportName: config.name,
-      generatedAt,
+      reportId: config?.id || reportKey,
+      reportName: config?.name || reportKey,
+      generatedAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
       session,
       filtersUsed: filters,
       summaryKpis: [],
-      columns: config.columns,
+      columns: config?.columns || [],
       rows: [],
       totalRowCount: 0,
     };
   }
 
-  // Load all students and demands
+  // Load all students, demands, and payments from Single Source of Truth
   const [students, demands, payments] = await Promise.all([
     db.collection('students').find({ school_id: schoolId }).toArray() as unknown as Promise<Student[]>,
     db.collection('fee_demands').find({ schoolId, sessionId: session }).toArray() as unknown as Promise<FeeDemandRecord[]>,
     db.collection('fee_payments').find({ schoolId, sessionId: session }).sort({ paidOn: -1 }).toArray() as unknown as Promise<FeePaymentRecord[]>,
   ]);
 
-  // Build student ledger maps
-  const studentDemandMap = new Map<string, FeeDemandRecord[]>();
-  for (const d of demands) {
-    if (!studentDemandMap.has(d.studentId)) studentDemandMap.set(d.studentId, []);
-    studentDemandMap.get(d.studentId)!.push(d);
-  }
-
-  const studentPaymentMap = new Map<string, FeePaymentRecord[]>();
-  for (const p of payments) {
-    if (p.cancelled) continue;
-    if (!studentPaymentMap.has(p.studentId)) studentPaymentMap.set(p.studentId, []);
-    studentPaymentMap.get(p.studentId)!.push(p);
-  }
-
-  // Apply basic filters
+  // Apply filters
   let filteredStudents = students;
   if (filters.className && filters.className !== 'ALL') {
     filteredStudents = filteredStudents.filter(s => (s.class_name || '').toLowerCase() === filters.className!.toLowerCase());
@@ -684,516 +616,13 @@ export async function queryReport(
     );
   }
 
-  const formatCurrency = (paise: number) => `₹${(Math.round(paise) / 100).toLocaleString('en-IN')}`;
-
-  switch (reportKey) {
-    // ─── 1. Annual Fee Pending Report ───
-    case 'annual_fee_pending': {
-      const rows: Record<string, any>[] = [];
-      let totalDue = 0;
-
-      for (const s of filteredStudents) {
-        const sDemands = (studentDemandMap.get(s.id) || []).filter(d => d.feeHead === 'ANNUAL');
-        const sPayments = studentPaymentMap.get(s.id) || [];
-        
-        const billed = sDemands.reduce((acc, d) => acc + d.netAmount, 0);
-        let paid = 0;
-        for (const p of sPayments) {
-          for (const a of p.allocatedHeads || []) {
-            if (a.feeHead === 'ANNUAL') paid += a.amountPaise;
-          }
-        }
-
-        const bal = Math.max(0, billed - paid);
-        if (bal > 0) {
-          totalDue += bal;
-          rows.push({
-            studentName: s.full_name || 'Scholar',
-            admissionNo: s.admission_no || s.id,
-            classSection: `${s.class_name} - ${s.section || 'A'}`,
-            fatherName: s.father_name || 'Parent',
-            mobile: s.father_phone || s.guardian_phone || s.phone || 'N/A',
-            annualDuePaise: bal,
-            status: 'ANNUAL_DUE',
-          });
-        }
-      }
-
-      const summaryKpis: ReportSummaryKpi[] = [
-        { label: 'Annual Fee Pending Count', value: rows.length.toString(), color: 'text-amber-700' },
-        { label: 'Annual Fee Outstanding', value: formatCurrency(totalDue), color: 'text-rose-800' },
-      ];
-
-      return {
-        reportId: config.id,
-        reportName: config.name,
-        generatedAt,
-        session,
-        filtersUsed: filters,
-        summaryKpis,
-        columns: config.columns,
-        rows,
-        grandTotalRow: {
-          studentName: 'Grand Total',
-          admissionNo: `${rows.length} Students`,
-          classSection: '',
-          fatherName: '',
-          mobile: '',
-          annualDuePaise: totalDue,
-          status: '',
-        },
-        totalRowCount: rows.length,
-      };
-    }
-
-    // ─── 2. Admission & Registration Pending Report ───
-    case 'admission_fee_pending': {
-      const rows: Record<string, any>[] = [];
-      let totalAdmDue = 0;
-      let totalRegDue = 0;
-      let grandOneTimeDue = 0;
-
-      for (const s of filteredStudents) {
-        const sDemands = studentDemandMap.get(s.id) || [];
-        const sPayments = studentPaymentMap.get(s.id) || [];
-
-        const admBilled = sDemands.filter(d => d.feeHead === 'ADMISSION').reduce((a, b) => a + b.netAmount, 0);
-        const regBilled = sDemands.filter(d => d.feeHead === 'REGISTRATION').reduce((a, b) => a + b.netAmount, 0);
-
-        let admPaid = 0;
-        let regPaid = 0;
-        for (const p of sPayments) {
-          for (const a of p.allocatedHeads || []) {
-            if (a.feeHead === 'ADMISSION') admPaid += a.amountPaise;
-            if (a.feeHead === 'REGISTRATION') regPaid += a.amountPaise;
-          }
-        }
-
-        const admDue = Math.max(0, admBilled - admPaid);
-        const regDue = Math.max(0, regBilled - regPaid);
-        const totalDue = admDue + regDue;
-
-        if (totalDue > 0) {
-          totalAdmDue += admDue;
-          totalRegDue += regDue;
-          grandOneTimeDue += totalDue;
-          rows.push({
-            studentName: s.full_name || 'Scholar',
-            admissionNo: s.admission_no || s.id,
-            classSection: `${s.class_name} - ${s.section || 'A'}`,
-            fatherName: s.father_name || 'Parent',
-            mobile: s.father_phone || s.guardian_phone || s.phone || 'N/A',
-            admissionDuePaise: admDue,
-            registrationDuePaise: regDue,
-            totalOneTimeDuePaise: totalDue,
-            status: 'ADMISSION_DUE',
-          });
-        }
-      }
-
-      const summaryKpis: ReportSummaryKpi[] = [
-        { label: 'Scholars with Admission Dues', value: rows.length.toString(), color: 'text-amber-700' },
-        { label: 'Admission Fee Outstanding', value: formatCurrency(totalAdmDue), color: 'text-rose-800' },
-        { label: 'Registration Fee Outstanding', value: formatCurrency(totalRegDue), color: 'text-indigo-800' },
-        { label: 'Total One-Time Dues', value: formatCurrency(grandOneTimeDue), color: 'text-rose-950' },
-      ];
-
-      return {
-        reportId: config.id,
-        reportName: config.name,
-        generatedAt,
-        session,
-        filtersUsed: filters,
-        summaryKpis,
-        columns: config.columns,
-        rows,
-        grandTotalRow: {
-          studentName: 'Grand Total',
-          admissionNo: `${rows.length} Students`,
-          classSection: '',
-          fatherName: '',
-          mobile: '',
-          admissionDuePaise: totalAdmDue,
-          registrationDuePaise: totalRegDue,
-          totalOneTimeDuePaise: grandOneTimeDue,
-          status: '',
-        },
-        totalRowCount: rows.length,
-      };
-    }
-
-    // ─── 3. Pending Fees List (Comprehensive Defaulters with WhatsApp reminder) ───
-    case 'pending_fees_list': {
-      const rows: Record<string, any>[] = [];
-      let grandPending = 0;
-      let sr = 1;
-
-      for (const s of filteredStudents) {
-        const sDemands = studentDemandMap.get(s.id) || [];
-        const sPayments = studentPaymentMap.get(s.id) || [];
-
-        const netBilled = sDemands.reduce((a, b) => a + b.netAmount, 0);
-        const totalPaid = sPayments.reduce((a, b) => a + b.amountPaid, 0);
-        const bal = Math.max(0, netBilled - totalPaid);
-
-        if (bal > 0) {
-          grandPending += bal;
-          // Count pending months
-          const pendingMonths = sDemands
-            .filter(d => d.feeHead === 'TUITION' && d.dueDate < '2026-09-20')
-            .length;
-
-          const lastPayment = sPayments[0];
-
-          rows.push({
-            srNo: sr++,
-            studentName: s.full_name || 'Scholar',
-            admissionNo: s.admission_no || s.id,
-            classSection: `${s.class_name} - ${s.section || 'A'}`,
-            fatherName: s.father_name || 'Parent',
-            mobile: s.father_phone || s.guardian_phone || s.phone || '9811000000',
-            monthsPending: pendingMonths > 0 ? `${pendingMonths} Months` : 'One-Time / Current',
-            pendingPaise: bal,
-            lastPaidDate: lastPayment ? lastPayment.paidOn : 'Never Paid',
-          });
-        }
-      }
-
-      const summaryKpis: ReportSummaryKpi[] = [
-        { label: 'Total Pending Scholars', value: rows.length.toString(), color: 'text-amber-700' },
-        { label: 'Total Outstanding Dues', value: formatCurrency(grandPending), color: 'text-rose-800' },
-      ];
-
-      return {
-        reportId: config.id,
-        reportName: config.name,
-        generatedAt,
-        session,
-        filtersUsed: filters,
-        summaryKpis,
-        columns: config.columns,
-        rows,
-        grandTotalRow: {
-          srNo: '',
-          studentName: 'Grand Total',
-          admissionNo: `${rows.length} Scholars`,
-          classSection: '',
-          fatherName: '',
-          mobile: '',
-          monthsPending: '',
-          pendingPaise: grandPending,
-          lastPaidDate: '',
-        },
-        totalRowCount: rows.length,
-      };
-    }
-
-    // ─── 4. Never Paid Students ───
-    case 'never_paid_defaulters': {
-      const rows: Record<string, any>[] = [];
-      let grandPending = 0;
-
-      for (const s of filteredStudents) {
-        const sDemands = studentDemandMap.get(s.id) || [];
-        const sPayments = studentPaymentMap.get(s.id) || [];
-
-        const netBilled = sDemands.reduce((a, b) => a + b.netAmount, 0);
-        const totalPaid = sPayments.reduce((a, b) => a + b.amountPaid, 0);
-
-        if (totalPaid === 0 && netBilled > 0) {
-          grandPending += netBilled;
-          rows.push({
-            studentName: s.full_name || 'Scholar',
-            admissionNo: s.admission_no || s.id,
-            classSection: `${s.class_name} - ${s.section || 'A'}`,
-            fatherName: s.father_name || 'Parent',
-            mobile: s.father_phone || s.guardian_phone || s.phone || 'N/A',
-            totalDemandPaise: netBilled,
-            pendingPaise: netBilled,
-            status: 'NEVER_PAID',
-          });
-        }
-      }
-
-      const summaryKpis: ReportSummaryKpi[] = [
-        { label: 'Never Paid Scholars', value: rows.length.toString(), color: 'text-rose-700' },
-        { label: 'Uncollected Dues', value: formatCurrency(grandPending), color: 'text-rose-900' },
-      ];
-
-      return {
-        reportId: config.id,
-        reportName: config.name,
-        generatedAt,
-        session,
-        filtersUsed: filters,
-        summaryKpis,
-        columns: config.columns,
-        rows,
-        grandTotalRow: {
-          studentName: 'Grand Total',
-          admissionNo: `${rows.length} Scholars`,
-          classSection: '',
-          fatherName: '',
-          mobile: '',
-          totalDemandPaise: grandPending,
-          pendingPaise: grandPending,
-          status: '',
-        },
-        totalRowCount: rows.length,
-      };
-    }
-
-    // ─── 5. Class-wise Fee Summary (DCB Master Summary) ───
-    case 'class_wise_summary': {
-      const classMap = new Map<string, { totalStudents: number; demand: number; discount: number; collected: number; balance: number }>();
-
-      for (const s of filteredStudents) {
-        const cls = s.class_name || 'Class 1';
-        if (!classMap.has(cls)) {
-          classMap.set(cls, { totalStudents: 0, demand: 0, discount: 0, collected: 0, balance: 0 });
-        }
-        const cEntry = classMap.get(cls)!;
-        cEntry.totalStudents++;
-
-        const sDemands = studentDemandMap.get(s.id) || [];
-        const sPayments = studentPaymentMap.get(s.id) || [];
-
-        const gross = sDemands.reduce((a, b) => a + b.grossAmount, 0);
-        const disc = sDemands.reduce((a, b) => a + b.discountAmount, 0);
-        const paid = sPayments.reduce((a, b) => a + b.amountPaid, 0);
-        const net = gross - disc;
-
-        cEntry.demand += gross;
-        cEntry.discount += disc;
-        cEntry.collected += paid;
-        cEntry.balance += Math.max(0, net - paid);
-      }
-
-      let grandDemand = 0;
-      let grandDisc = 0;
-      let grandColl = 0;
-      let grandBal = 0;
-      let grandStudents = 0;
-
-      const rows = Array.from(classMap.entries()).map(([className, stat]) => {
-        grandDemand += stat.demand;
-        grandDisc += stat.discount;
-        grandColl += stat.collected;
-        grandBal += stat.balance;
-        grandStudents += stat.totalStudents;
-
-        const net = stat.demand - stat.discount;
-        const rate = net > 0 ? `${Math.round((stat.collected / net) * 100)}%` : '0%';
-
-        return {
-          className,
-          totalStudents: stat.totalStudents,
-          demandPaise: stat.demand,
-          discountPaise: stat.discount,
-          collectedPaise: stat.collected,
-          pendingPaise: stat.balance,
-          realizationRate: rate,
-        };
-      });
-
-      const grandNet = grandDemand - grandDisc;
-      const grandRate = grandNet > 0 ? `${Math.round((grandColl / grandNet) * 100)}%` : '0%';
-
-      const summaryKpis: ReportSummaryKpi[] = [
-        { label: 'Total Billed', value: formatCurrency(grandDemand) },
-        { label: 'Concessions Given', value: formatCurrency(grandDisc), color: 'text-indigo-700' },
-        { label: 'Total Collected', value: formatCurrency(grandColl), color: 'text-emerald-700' },
-        { label: 'Pending Dues', value: formatCurrency(grandBal), color: 'text-rose-700' },
-        { label: 'Collection %', value: grandRate, color: 'text-blue-700' },
-      ];
-
-      return {
-        reportId: config.id,
-        reportName: config.name,
-        generatedAt,
-        session,
-        filtersUsed: filters,
-        summaryKpis,
-        columns: config.columns,
-        rows,
-        grandTotalRow: {
-          className: 'Grand Total',
-          totalStudents: grandStudents,
-          demandPaise: grandDemand,
-          discountPaise: grandDisc,
-          collectedPaise: grandColl,
-          pendingPaise: grandBal,
-          realizationRate: grandRate,
-        },
-        totalRowCount: rows.length,
-      };
-    }
-
-    // ─── 6. Daily Collection (Day Book) ───
-    case 'daily_collection': {
-      let activePayments = payments.filter(p => !p.cancelled);
-      if (filters.paymentMode && filters.paymentMode !== 'ALL') {
-        activePayments = activePayments.filter(p => p.mode === filters.paymentMode);
-      }
-
-      let grandTotal = 0;
-      const rows = activePayments.map(p => {
-        grandTotal += p.amountPaid;
-        return {
-          txnDate: p.paidOn,
-          receiptNo: p.receiptNo,
-          studentName: p.studentName,
-          className: `${p.className} - ${p.section || 'A'}`,
-          paymentMode: p.mode,
-          collectedBy: p.collectedBy || 'ACCOUNTS_OFFICE',
-          amountPaise: p.amountPaid,
-        };
-      });
-
-      const summaryKpis: ReportSummaryKpi[] = [
-        { label: 'Total Receipts Issued', value: rows.length.toString(), color: 'text-emerald-700' },
-        { label: 'Total Cash & Bank Inflow', value: formatCurrency(grandTotal), color: 'text-emerald-800' },
-      ];
-
-      return {
-        reportId: config.id,
-        reportName: config.name,
-        generatedAt,
-        session,
-        filtersUsed: filters,
-        summaryKpis,
-        columns: config.columns,
-        rows,
-        grandTotalRow: {
-          txnDate: 'Total',
-          receiptNo: `${rows.length} Vouchers`,
-          studentName: '',
-          className: '',
-          paymentMode: '',
-          collectedBy: '',
-          amountPaise: grandTotal,
-        },
-        totalRowCount: rows.length,
-      };
-    }
-
-    // ─── 7. Receipt Register (with Cancelled) ───
-    case 'receipt_register': {
-      let grandActive = 0;
-      let grandCancelled = 0;
-
-      const rows = payments.map(p => {
-        if (p.cancelled) grandCancelled += p.amountPaid;
-        else grandActive += p.amountPaid;
-
-        return {
-          receiptNo: p.receiptNo,
-          paymentDate: p.paidOn,
-          studentName: p.studentName,
-          admissionNo: p.admissionNo,
-          className: `${p.className} - ${p.section || 'A'}`,
-          paymentMode: p.mode,
-          amountPaise: p.amountPaid,
-          status: p.cancelled ? 'CANCELLED' : 'PAID',
-          cancelledReason: p.cancelled ? p.cancelledReason || 'Cancelled Voucher' : p.remarks || 'Active Receipt',
-        };
-      });
-
-      const summaryKpis: ReportSummaryKpi[] = [
-        { label: 'Active Receipts', value: rows.filter(r => r.status === 'PAID').length.toString(), color: 'text-emerald-700' },
-        { label: 'Active Inflow', value: formatCurrency(grandActive), color: 'text-emerald-800' },
-        { label: 'Cancelled Receipts', value: rows.filter(r => r.status === 'CANCELLED').length.toString(), color: 'text-rose-700' },
-        { label: 'Cancelled Value', value: formatCurrency(grandCancelled), color: 'text-rose-800' },
-      ];
-
-      return {
-        reportId: config.id,
-        reportName: config.name,
-        generatedAt,
-        session,
-        filtersUsed: filters,
-        summaryKpis,
-        columns: config.columns,
-        rows,
-        grandTotalRow: {
-          receiptNo: 'Total',
-          paymentDate: `${rows.length} Receipts`,
-          studentName: '',
-          admissionNo: '',
-          className: '',
-          paymentMode: '',
-          amountPaise: grandActive,
-          status: '',
-          cancelledReason: '',
-        },
-        totalRowCount: rows.length,
-      };
-    }
-
-    // ─── Fallback / Other Reports: Student Ledger Statement, Exam, Transport, Sibling ───
-    default: {
-      // Delegate to standard report runner or generic builder
-      const rows: Record<string, any>[] = [];
-      let grandBilled = 0;
-      let grandPaid = 0;
-      let grandPending = 0;
-
-      for (const s of filteredStudents) {
-        const sDemands = studentDemandMap.get(s.id) || [];
-        const sPayments = studentPaymentMap.get(s.id) || [];
-
-        const billed = sDemands.reduce((a, b) => a + b.grossAmount, 0);
-        const disc = sDemands.reduce((a, b) => a + b.discountAmount, 0);
-        const net = billed - disc;
-        const paid = sPayments.reduce((a, b) => a + b.amountPaid, 0);
-        const bal = Math.max(0, net - paid);
-
-        grandBilled += net;
-        grandPaid += paid;
-        grandPending += bal;
-
-        rows.push({
-          studentName: s.full_name || 'Scholar',
-          admissionNo: s.admission_no || s.id,
-          classSection: `${s.class_name} - ${s.section || 'A'}`,
-          fatherName: s.father_name || 'Parent',
-          demandPaise: net,
-          discountPaise: disc,
-          paidPaise: paid,
-          pendingPaise: bal,
-          status: bal === 0 ? 'PAID' : paid > 0 ? 'PARTIAL' : 'DUE',
-        });
-      }
-
-      const summaryKpis: ReportSummaryKpi[] = [
-        { label: 'Total Scholars', value: rows.length.toString() },
-        { label: 'Net Billed', value: formatCurrency(grandBilled) },
-        { label: 'Total Collected', value: formatCurrency(grandPaid), color: 'text-emerald-700' },
-        { label: 'Outstanding Dues', value: formatCurrency(grandPending), color: 'text-rose-700' },
-      ];
-
-      return {
-        reportId: config.id,
-        reportName: config.name,
-        generatedAt,
-        session,
-        filtersUsed: filters,
-        summaryKpis,
-        columns: config.columns,
-        rows,
-        grandTotalRow: {
-          studentName: 'Grand Total',
-          admissionNo: `${rows.length} Scholars`,
-          classSection: '',
-          fatherName: '',
-          demandPaise: grandBilled,
-          discountPaise: 0,
-          paidPaise: grandPaid,
-          pendingPaise: grandPending,
-          status: '',
-        },
-        totalRowCount: rows.length,
-      };
-    }
-  }
+  return buildReportFromRegistry(reportKey, {
+    schoolId,
+    session,
+    asOfDate: AS_OF_TODAY_DATE,
+    students: filteredStudents,
+    demands,
+    payments,
+    filters,
+  });
 }

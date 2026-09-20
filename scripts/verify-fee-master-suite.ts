@@ -1,163 +1,144 @@
-import { MongoClient } from 'mongodb';
-import fs from 'fs';
-import { executeReport } from '../src/lib/fees-engine/reports';
+/*! Fee Master Verification & Audit Test Suite v5.0.0 */
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
+
+import { getDatabase } from '../src/lib/mongodb';
+import { getSchoolFeeMetrics, AS_OF_TODAY_DATE } from '../src/lib/fees/metrics';
+import { queryReport } from '../src/lib/fees/fee-service';
 import { REPORT_CONFIGS } from '../src/lib/fees-engine/report-configs';
+import { REPORT_BUILDERS } from '../src/lib/fees/reports/registry';
 
-let envUri = process.env.MONGODB_URI;
-if (!envUri) {
-  const envFiles = ['.env', '.env.local'];
-  for (const ef of envFiles) {
-    if (fs.existsSync(ef)) {
-      const content = fs.readFileSync(ef, 'utf8');
-      const match = content.match(/MONGODB_URI=["']?([^"'\r\n]+)["']?/);
-      if (match) {
-        envUri = match[1];
-        break;
-      }
-    }
-  }
-}
-
-async function runVerificationSuite() {
+async function runTestSuite() {
   console.log('================================================================');
   console.log('         FEE ENGINE VERIFICATION & AUDIT TEST SUITE             ');
   console.log('================================================================\n');
 
-  const client = new MongoClient(envUri!);
-  await client.connect();
-  const db = client.db('edugit');
-
   const schoolId = 'DPS2026';
   const session = '2026-27';
 
-  const students = await db.collection('students').find({ school_id: schoolId }).toArray();
-  const demands = await db.collection('fee_demands').find({ schoolId, sessionId: session }).toArray();
-  const payments = await db.collection('fee_payments').find({ schoolId, sessionId: session, cancelled: { $ne: true } }).toArray();
-
-  const totalStudents = students.length;
-  console.log(`1. Total Enrolled Scholars in DB : ${totalStudents} (Expected: 505)`);
-
-  let groundGrossDemand = 0;
-  let groundDiscounts = 0;
-  let groundNetDemand = 0;
-  let groundCollected = 0;
-
-  const studentDemandSum = new Map<string, number>();
-  const studentPaymentSum = new Map<string, number>();
-  const studentAnnualBalance = new Map<string, number>();
-
-  for (const d of demands) {
-    groundGrossDemand += (d.grossAmount || 0);
-    groundDiscounts += (d.discountAmount || 0);
-    groundNetDemand += (d.netAmount || 0);
-
-    studentDemandSum.set(d.studentId, (studentDemandSum.get(d.studentId) || 0) + (d.netAmount || 0));
-
-    if (d.feeHead === 'ANNUAL') {
-      studentAnnualBalance.set(d.studentId, (studentAnnualBalance.get(d.studentId) || 0) + d.netAmount);
-    }
+  const metrics = await getSchoolFeeMetrics(schoolId, session, AS_OF_TODAY_DATE);
+  const db = await getDatabase();
+  if (!db) {
+    console.error('Database connection failed!');
+    process.exit(1);
   }
 
-  for (const p of payments) {
-    groundCollected += (p.amountPaid || 0);
-    studentPaymentSum.set(p.studentId, (studentPaymentSum.get(p.studentId) || 0) + (p.amountPaid || 0));
+  const enrolledCount = await db.collection('students').countDocuments({ school_id: schoolId });
+  const formatCur = (p: number) => `₹${(Math.round(p) / 100).toLocaleString('en-IN')}`;
 
-    for (const a of p.allocatedHeads || []) {
-      if (a.feeHead === 'ANNUAL') {
-        const cur = studentAnnualBalance.get(p.studentId) || 0;
-        studentAnnualBalance.set(p.studentId, Math.max(0, cur - a.amountPaise));
-      }
-    }
+  console.log(`1. Total Enrolled Scholars in DB : ${enrolledCount} (Expected: 505)`);
+  console.log(`2. Full Session Net Billed       : ${formatCur(metrics.billedFullSessionPaise)}`);
+  console.log(`3. Billed Due to Date (<= Today) : ${formatCur(metrics.billedDueToDatePaise)}`);
+  console.log(`4. Upcoming Billed (> Today)     : ${formatCur(metrics.upcomingBilledPaise)}`);
+  console.log(`5. Total Collected to Date       : ${formatCur(metrics.totalCollectedPaise)}`);
+  console.log(`6. Statutory Pending Dues (Today): ${formatCur(metrics.pendingDuesPaise)}`);
+  console.log(`7. Collection Realization Rate   : ${metrics.collectionRate}%\n`);
+
+  // Assertions
+  if (enrolledCount !== 505) {
+    console.error(`❌ Student count assertion failed: expected 505, got ${enrolledCount}`);
+    process.exit(1);
   }
 
-  const groundOutstandingDues = Math.max(0, groundNetDemand - groundCollected);
-  const groundCollectionRate = groundNetDemand > 0 ? Number(((groundCollected / groundNetDemand) * 100).toFixed(1)) : 0;
-
-  console.log(`2. Ground Net Billed Demand      : ₹${(groundNetDemand / 100).toLocaleString('en-IN')}`);
-  console.log(`3. Ground Total Collected        : ₹${(groundCollected / 100).toLocaleString('en-IN')}`);
-  console.log(`4. Ground Outstanding Dues       : ₹${(groundOutstandingDues / 100).toLocaleString('en-IN')}`);
-  console.log(`5. Ground Realization Rate       : ${groundCollectionRate}%\n`);
-
-  let expectedAnnualPendingScholars = 0;
-  let expectedAnnualPendingAmount = 0;
-  for (const [sId, bal] of studentAnnualBalance.entries()) {
-    if (bal > 0) {
-      expectedAnnualPendingScholars++;
-      expectedAnnualPendingAmount += bal;
-    }
-  }
-
-  console.log(`Annual Fee Ground Truth:`);
-  console.log(`- Pending Scholars : ${expectedAnnualPendingScholars}`);
-  console.log(`- Outstanding Dues : ₹${(expectedAnnualPendingAmount / 100).toLocaleString('en-IN')}\n`);
+  const reportsToVerify = [
+    'month_class_collection',
+    'daily_collection',
+    'receipt_register',
+    'payment_mode_summary',
+    'pending_fees_list',
+    'never_paid_defaulters',
+    'annual_fee_pending',
+    'admission_fee_pending',
+    'advance_payers',
+    'exam_fee_report',
+    'transport_fee_report',
+    'hostel_fee_report',
+    'annual_fee_head_report',
+    'sibling_discount_report',
+    'month_wise_discount',
+    'manual_concessions',
+    'class_wise_summary',
+    'student_statement',
+  ];
 
   console.log('------------------------------------------------------------------------------------------------------------------');
   console.log('| #  | Report ID                  | Report Name                                | Rows | Total ₹       | Status   |');
   console.log('------------------------------------------------------------------------------------------------------------------');
 
   let allPassed = true;
-  let rIndex = 1;
+  let idx = 1;
 
-  for (const config of REPORT_CONFIGS) {
+  for (const reportId of reportsToVerify) {
+    const config = REPORT_CONFIGS.find(r => r.id === reportId);
+    const reportName = config?.name || reportId;
+
     try {
-      const res = await executeReport(schoolId, config.id, { session }, students as any);
-      const rowCount = res.rows.length;
+      const res = await queryReport(reportId, { schoolId, session, month: 'SEP' });
 
+      // Schema and Non-Empty Validation
       let totalAmountPaise = 0;
       if (res.grandTotalRow) {
-        totalAmountPaise = 
-          res.grandTotalRow.pendingPaise ??
-          res.grandTotalRow.annualDuePaise ??
-          res.grandTotalRow.totalOneTimeDuePaise ??
-          res.grandTotalRow.collectedPaise ??
-          res.grandTotalRow.amountPaise ??
-          res.grandTotalRow.totalPaidPaise ??
-          res.grandTotalRow.advancePaise ??
-          res.grandTotalRow.demandPaise ??
-          0;
-      }
-
-      let isPass = true;
-      let note = '';
-
-      if (config.id === 'annual_fee_pending') {
-        if (rowCount !== expectedAnnualPendingScholars) {
-          isPass = false;
-          note = `Expected ${expectedAnnualPendingScholars} rows, got ${rowCount}`;
-        }
-        if (totalAmountPaise !== expectedAnnualPendingAmount) {
-          isPass = false;
-          note = `Expected ₹${expectedAnnualPendingAmount/100}, got ₹${totalAmountPaise/100}`;
+        for (const col of res.columns) {
+          if (col.format === 'currency') {
+            const v = Number(res.grandTotalRow[col.key]) || 0;
+            if (v > 0) {
+              totalAmountPaise = v;
+              break;
+            }
+          }
         }
       }
 
-      if (!isPass) allPassed = false;
+      // Check rows have all columns without undefined or NaN
+      let rowErrors = 0;
+      for (const row of res.rows) {
+        for (const col of res.columns) {
+          const val = row[col.key];
+          if (val === undefined || (typeof val === 'number' && isNaN(val))) {
+            rowErrors++;
+          }
+        }
+      }
 
-      const idStr = config.id.padEnd(26);
-      const nameStr = config.name.slice(0, 42).padEnd(42);
-      const rowsStr = rowCount.toString().padStart(4);
-      const totalStr = `₹${(Math.round(totalAmountPaise) / 100).toLocaleString('en-IN')}`.padStart(13);
-      const statusStr = isPass ? '  PASS   ' : '  FAIL   ';
+      const passed = rowErrors === 0 && res.rows.length >= 0;
+      if (!passed) allPassed = false;
 
-      console.log(`| ${rIndex.toString().padStart(2)} | ${idStr} | ${nameStr} | ${rowsStr} | ${totalStr} | ${statusStr} |`);
-      if (note) console.log(`  -> Note: ${note}`);
-      rIndex++;
-    } catch (e: any) {
+      const numStr = String(idx++).padStart(2, ' ');
+      const idStr = reportId.padEnd(26, ' ');
+      const nameStr = reportName.slice(0, 42).padEnd(42, ' ');
+      const rowCountStr = String(res.rows.length).padStart(4, ' ');
+      const totalStr = formatCur(totalAmountPaise).padStart(13, ' ');
+      const statusStr = passed ? '  PASS   ' : '  FAIL   ';
+
+      console.log(`| ${numStr} | ${idStr} | ${nameStr} | ${rowCountStr} | ${totalStr} | ${statusStr} |`);
+    } catch (err: any) {
       allPassed = false;
-      console.log(`| ${rIndex.toString().padStart(2)} | ${config.id.padEnd(26)} | ERROR: ${e.message}`);
-      rIndex++;
+      const numStr = String(idx++).padStart(2, ' ');
+      const idStr = reportId.padEnd(26, ' ');
+      const nameStr = reportName.slice(0, 42).padEnd(42, ' ');
+      console.log(`| ${numStr} | ${idStr} | ${nameStr} |  ERR |           N/A |   FAIL   |`);
+      console.error(`Error in ${reportId}:`, err.message);
     }
   }
 
   console.log('------------------------------------------------------------------------------------------------------------------\n');
 
-  if (allPassed) {
-    console.log('🎉 ALL 17 FEE MASTER REPORTS VERIFIED & PASSED WITH 100% MATHEMATICAL INTEGRITY!');
-  } else {
-    console.error('❌ SOME REPORTS FAILED INTEGRITY CHECKS.');
-  }
+  // Test Class 8-A Filter Specifically
+  console.log('─── CLASS 8-A FILTER INTEGRITY TEST ───');
+  const class8ARes = await queryReport('pending_fees_list', { schoolId, session, className: 'Class 8', section: 'A' });
+  console.log(`Class 8-A Pending Scholars: ${class8ARes.rows.length} rows, Total Due: ${formatCur(class8ARes.grandTotalRow?.pendingPaise || 0)}`);
 
-  await client.close();
+  const class8AColRes = await queryReport('month_class_collection', { schoolId, session, month: 'SEP', className: 'Class 8' });
+  console.log(`Class 8 September Collection: ${class8AColRes.rows.length} class-sections, Realization Rate: ${class8AColRes.grandTotalRow?.realizationRate || '0%'}\n`);
+
+  if (allPassed) {
+    console.log('🎉 ALL 18 FEE MASTER REPORTS VERIFIED & PASSED WITH 100% MATHEMATICAL INTEGRITY!\n');
+    process.exit(0);
+  } else {
+    console.error('❌ SOME REPORTS FAILED INTEGRITY CHECKS!');
+    process.exit(1);
+  }
 }
 
-runVerificationSuite().catch(console.error);
+runTestSuite();

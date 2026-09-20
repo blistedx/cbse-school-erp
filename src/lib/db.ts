@@ -23,7 +23,8 @@ import {
 } from './types';
 import { getDefaultCbseSubjectsForClass, sortClassesChronologically } from './cbse-subjects';
 import { getTodayDateStr } from './utils';
-import { getSchoolFeeOverviewAggregation, getStudentLedger, computeSummaryFromLines } from './fees-engine/ledger';
+import { getSchoolFeeMetrics } from './fees/metrics';
+import { getStudentLedger, computeSummaryFromLines } from './fees-engine/ledger';
 import bcrypt from 'bcryptjs';
 
 export async function hashPassword(plainText: string): Promise<string> {
@@ -2897,11 +2898,11 @@ export const Database = {
     const todayDateStr = getTodayDateStr();
     const cacheKey = `overview:${schoolId}:${targetSession}:${todayDateStr}`;
     return singleFlight(cacheKey, async () => {
-      const [students, teachers, attendance, feeAgg] = await Promise.all([
+      const [students, teachers, attendance, feeMetrics] = await Promise.all([
         this.getStudents(schoolId, targetSession),
         this.getTeachers(schoolId, targetSession),
         this.getAttendance(schoolId, targetSession),
-        getSchoolFeeOverviewAggregation(schoolId, targetSession)
+        getSchoolFeeMetrics(schoolId, targetSession)
       ]);
 
       const totalStudents = students.length;
@@ -2957,10 +2958,10 @@ export const Database = {
       let pendingFeeAmount = 0;
       let feeCollectionRate = 0;
 
-      if (feeAgg) {
-        totalRevenue = Math.round(feeAgg.totalCollectedPaise / 100);
-        pendingFeeAmount = Math.round(feeAgg.totalPendingPaise / 100);
-        feeCollectionRate = feeAgg.collectionPercentage;
+      if (feeMetrics) {
+        totalRevenue = Math.round(feeMetrics.totalCollectedPaise / 100);
+        pendingFeeAmount = Math.round(feeMetrics.pendingDuesPaise / 100);
+        feeCollectionRate = feeMetrics.collectionRate;
       }
 
       const overviewResult: SchoolOverview = {
@@ -2981,18 +2982,18 @@ export const Database = {
           pendingFeeAmount,
           totalRevenue
         },
-        financials: feeAgg ? {
-          totalDemand: Math.round(feeAgg.totalBilledPaise / 100),
-          totalCollected: Math.round(feeAgg.totalCollectedPaise / 100),
-          totalOutstanding: Math.round(feeAgg.totalPendingPaise / 100),
-          totalDiscount: Math.round(feeAgg.totalDiscountPaise / 100),
-          collectionRate: feeAgg.collectionPercentage,
-          zeroPaidStudents: feeAgg.studentsWithNothingPaid,
-          topPending: feeAgg.topPending,
-          monthWiseTrend: feeAgg.monthWiseTrend || [],
-          cycleMetrics: feeAgg.cycleMetrics || {},
+        financials: feeMetrics ? {
+          totalDemand: Math.round(feeMetrics.billedDueToDatePaise / 100),
+          totalCollected: Math.round(feeMetrics.totalCollectedPaise / 100),
+          totalOutstanding: Math.round(feeMetrics.pendingDuesPaise / 100),
+          totalDiscount: Math.round(feeMetrics.discountFullSessionPaise / 100),
+          collectionRate: feeMetrics.collectionRate,
+          zeroPaidStudents: feeMetrics.neverPaidCount,
+          topPending: [],
+          monthWiseTrend: [],
+          cycleMetrics: {},
         } : null,
-        feeOverview: feeAgg || null,
+        feeOverview: feeMetrics as any,
         recentStudents: students.slice(-5).reverse(),
         recentInvoices: []
       };

@@ -58,9 +58,10 @@ export const REPORT_CONFIGS: ReportConfig[] = [
       { key: 'totalStudents', header: 'Total Students', align: 'right', format: 'number' },
       { key: 'submittedCount', header: 'Submitted', align: 'right', format: 'number' },
       { key: 'notSubmittedCount', header: 'Not Submitted', align: 'right', format: 'number' },
+      { key: 'demandPaise', header: 'Billed Amount', align: 'right', format: 'currency' },
       { key: 'collectedPaise', header: 'Collected Amount', align: 'right', format: 'currency' },
       { key: 'pendingPaise', header: 'Pending Amount', align: 'right', format: 'currency' },
-      { key: 'collectionRate', header: 'Realization %', align: 'center', format: 'chip' },
+      { key: 'realizationRate', header: 'Realization %', align: 'center', format: 'chip' },
     ],
   },
   {

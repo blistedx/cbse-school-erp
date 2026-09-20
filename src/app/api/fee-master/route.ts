@@ -21,9 +21,9 @@ import {
   bulkMapFees,
   seedRealisticFeeData,
   executeReport,
-  getSchoolFeeOverviewAggregation,
   REPORT_CONFIGS,
 } from '@/lib/fees-engine';
+import { getSchoolFeeMetrics } from '@/lib/fees/metrics';
 import { Database } from '@/lib/db';
 import type { FeeAggregateFilters, GroupByDimension } from '@/lib/fees-engine';
 
@@ -126,27 +126,24 @@ export async function GET(req: Request) {
 
     // 8. Overview KPIs and Mini-Tables
     if (action === 'overview') {
-      const students = await Database.getStudents(tenant, session);
-      const activeStudents = students.filter(s => s.status === 'ACTIVE');
-      const studentsMap = new Map();
-      for (const s of activeStudents) {
-        const name = s.full_name || `${(s as any).first_name || ''} ${(s as any).last_name || ''}`.trim() || (s as any).name || s.admission_no;
-        const sObj = { ...s, full_name: name, studentName: name };
-        if (s.id) studentsMap.set(String(s.id), sObj);
-        if ((s as any)._id) studentsMap.set(String((s as any)._id), sObj);
-        if (s.admission_no) studentsMap.set(String(s.admission_no), sObj);
-      }
-
-      const [overviewAgg, thisMonthReport] = await Promise.all([
-        getSchoolFeeOverviewAggregation(tenant, session, studentsMap),
-        executeReport(tenant, 'month_class_collection', { session, months: ['SEP'] }, activeStudents),
+      const [feeMetrics, thisMonthReport] = await Promise.all([
+        getSchoolFeeMetrics(tenant, session),
+        executeReport(tenant, 'month_class_collection', { session, months: ['SEP'] }),
       ]);
 
       return NextResponse.json({
         success: true,
         overview: {
-          ...overviewAgg,
+          totalBilledPaise: feeMetrics.billedDueToDatePaise,
+          totalCollectedPaise: feeMetrics.totalCollectedPaise,
+          totalPendingPaise: feeMetrics.pendingDuesPaise,
+          totalDiscountPaise: feeMetrics.discountFullSessionPaise,
+          totalAdvancePaise: feeMetrics.advanceCollectedPaise,
+          collectionPercentage: feeMetrics.collectionRate,
+          studentsWithNothingPaid: feeMetrics.neverPaidCount,
           thisMonthBreakdown: thisMonthReport.rows,
+          topPending: [],
+          headBreakdown: feeMetrics.headBreakdown,
         },
       });
     }
