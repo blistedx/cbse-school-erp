@@ -12804,25 +12804,70 @@ function ERPWorkspaceContent() {
             {/* Printable Dual Receipt Paper Container (Fits 1 Single A4 Page) */}
             <div id="printable-receipt" className="print-dual-receipt space-y-3 bg-white text-slate-800 font-sans">
               {(() => {
-                const inv = viewInvoice;
-                const paid = inv.paid_amount ?? (inv.status === 'PAID' ? inv.amount : 0);
-                const conc = inv.concession_amount || 0;
-                const bal = Math.max(0, (inv.amount || 0) - (paid + conc));
+                const inv = viewInvoice as any;
+                const totalAmt = typeof inv.amount === 'number' && inv.amount > 0 
+                  ? inv.amount 
+                  : (typeof inv.amount_paise === 'number' ? Math.round(inv.amount_paise / 100) : (typeof inv.total_amount === 'number' ? inv.total_amount : 0));
+                
+                const isPaid = inv.status === 'PAID' || inv.is_cancelled === false || (!inv.status && totalAmt > 0);
+                const paid = typeof inv.paid_amount === 'number' && inv.paid_amount > 0 
+                  ? inv.paid_amount 
+                  : (isPaid ? totalAmt : 0);
+                const conc = Number(inv.concession_amount) || 0;
+                const bal = Math.max(0, totalAmt - (paid + conc));
                 const studentObj = students.find(s => s.id === inv.student_id || s.admission_no === inv.admission_no || (s.full_name && inv.student_name && s.full_name.toLowerCase() === inv.student_name.toLowerCase()));
 
-                const totalAmt = inv.amount || 0;
-                const dueTuition = inv.tuition_fee ?? Math.round(totalAmt * 0.70);
-                const dueTransport = inv.transport_fee ?? Math.round(totalAmt * 0.15);
-                const dueExam = inv.exam_fee ?? Math.max(0, totalAmt - dueTuition - dueTransport);
+                const receiptNo = inv.invoice_no || inv.receipt_no || inv.id || 'DPS2-REC-2026-0001';
+                const issueDate = inv.paid_date || inv.payment_date || inv.receipt_date || inv.due_date || (inv.created_at ? inv.created_at.split('T')[0] : '') || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                const scholarName = inv.student_name || studentObj?.full_name || 'Scholar Student';
+                const admNo = studentObj?.admission_no || inv.admission_no || inv.student_id || 'SR-2026';
+                const clsSection = inv.class_name ? (inv.class_name.startsWith('Class') ? inv.class_name : `Class ${inv.class_name}`) : (studentObj?.class_name ? `${studentObj.class_name} - ${studentObj.section || 'A'}` : 'Class Playgroup');
+                const fatherName = studentObj?.father_name || studentObj?.guardian_name || inv.father_name || 'Guardian';
+                const feePeriod = inv.period || inv.month || (inv as any).fee_type || (inv.allocated_heads && inv.allocated_heads.length > 0 ? `${inv.allocated_heads.length} Fee Heads` : 'Tuition Fee Installment');
+                const paymentMode = (inv.payment_mode || inv.mode || 'CASH').toUpperCase();
 
-                const paidRatio = totalAmt > 0 ? Math.min(1, Math.max(0, paid / totalAmt)) : 0;
-                const paidTuition = paid >= totalAmt ? dueTuition : Math.round(dueTuition * paidRatio);
-                const paidTransport = paid >= totalAmt ? dueTransport : Math.round(dueTransport * paidRatio);
-                const paidExam = paid >= totalAmt ? dueExam : Math.max(0, paid - paidTuition - paidTransport);
+                // Dynamic fee heads breakdown
+                let feeHeadsList: Array<{ sn: number; name: string; due: number; paid: number; bal: number }> = [];
+                if (Array.isArray(inv.allocated_heads) && inv.allocated_heads.length > 0) {
+                  feeHeadsList = inv.allocated_heads.map((h: any, idx: number) => {
+                    const hAmt = typeof h.amount_paise === 'number' ? Math.round(h.amount_paise / 100) : Number(h.amount || 0);
+                    const hPaid = isPaid ? hAmt : 0;
+                    return {
+                      sn: idx + 1,
+                      name: h.fee_head || h.head_name || `Academic Fee Component ${idx + 1}`,
+                      due: hAmt,
+                      paid: hPaid,
+                      bal: Math.max(0, hAmt - hPaid)
+                    };
+                  });
+                } else if (Array.isArray(inv.items) && inv.items.length > 0) {
+                  feeHeadsList = inv.items.map((it: any, idx: number) => {
+                    const itAmt = Number(it.amount || 0);
+                    const itPaid = isPaid ? itAmt : 0;
+                    return {
+                      sn: idx + 1,
+                      name: it.head_name || it.fee_head || `Fee Item ${idx + 1}`,
+                      due: itAmt,
+                      paid: itPaid,
+                      bal: Math.max(0, itAmt - itPaid)
+                    };
+                  });
+                } else {
+                  const dueTuition = inv.tuition_fee ?? Math.round(totalAmt * 0.70);
+                  const dueTransport = inv.transport_fee ?? Math.round(totalAmt * 0.15);
+                  const dueExam = inv.exam_fee ?? Math.max(0, totalAmt - dueTuition - dueTransport);
 
-                const balTuition = Math.max(0, dueTuition - paidTuition);
-                const balTransport = Math.max(0, dueTransport - paidTransport);
-                const balExam = Math.max(0, dueExam - paidExam);
+                  const paidRatio = totalAmt > 0 ? Math.min(1, Math.max(0, paid / totalAmt)) : (isPaid ? 1 : 0);
+                  const paidTuition = paid >= totalAmt ? dueTuition : Math.round(dueTuition * paidRatio);
+                  const paidTransport = paid >= totalAmt ? dueTransport : Math.round(dueTransport * paidRatio);
+                  const paidExam = paid >= totalAmt ? dueExam : Math.max(0, paid - paidTuition - paidTransport);
+
+                  feeHeadsList = [
+                    { sn: 1, name: 'Tuition & Composite Academic Fee', due: dueTuition, paid: paidTuition, bal: Math.max(0, dueTuition - paidTuition) },
+                    { sn: 2, name: 'Transport / School Bus Facility Charges', due: dueTransport, paid: paidTransport, bal: Math.max(0, dueTransport - paidTransport) },
+                    { sn: 3, name: 'Institutional Examination, Assessment & Printing', due: dueExam, paid: paidExam, bal: Math.max(0, dueExam - paidExam) }
+                  ];
+                }
 
                 const renderCopy = (copyTitle: string, badgeBg: string) => (
                   <div className="print-receipt-half p-3.5 sm:p-4 border border-[#122A24] rounded-2xl bg-white space-y-2.5">
@@ -12853,37 +12898,37 @@ function ERPWorkspaceContent() {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-[#F8FAF9] p-2.5 rounded-xl border border-[#E8F0EA]">
                       <div>
                         <span className="text-slate-500 block text-[9.5px]">Receipt No:</span>
-                        <strong className="text-[#122A24] font-bold font-mono">{inv.invoice_no}</strong>
+                        <strong className="text-[#122A24] font-bold font-mono">{receiptNo}</strong>
                       </div>
                       <div>
                         <span className="text-slate-500 block text-[9.5px]">Date of Issue:</span>
                         <strong className="text-[#122A24] font-bold font-mono">
-                          {inv.paid_date || inv.due_date || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          {issueDate}
                         </strong>
                       </div>
                       <div>
                         <span className="text-slate-500 block text-[9.5px]">Scholar Name:</span>
-                        <strong className="text-[#122A24] font-bold truncate block">{inv.student_name}</strong>
+                        <strong className="text-[#122A24] font-bold truncate block">{scholarName}</strong>
                       </div>
                       <div>
                         <span className="text-slate-500 block text-[9.5px]">Admission / SR No:</span>
-                        <strong className="text-[#122A24] font-bold font-mono">{studentObj?.admission_no || inv.admission_no || inv.student_id || 'SR-2026'}</strong>
+                        <strong className="text-[#122A24] font-bold font-mono">{admNo}</strong>
                       </div>
                       <div>
                         <span className="text-slate-500 block text-[9.5px]">Class &amp; Section:</span>
-                        <strong className="text-[#122A24] font-bold">{inv.class_name || `${studentObj?.class_name || 'Class 8'} - ${studentObj?.section || 'A'}`}</strong>
+                        <strong className="text-[#122A24] font-bold">{clsSection}</strong>
                       </div>
                       <div>
                         <span className="text-slate-500 block text-[9.5px]">Father / Guardian:</span>
-                        <strong className="text-[#122A24] truncate block">{studentObj?.father_name || studentObj?.guardian_name || 'Guardian'}</strong>
+                        <strong className="text-[#122A24] truncate block">{fatherName}</strong>
                       </div>
                       <div>
                         <span className="text-slate-500 block text-[9.5px]">Fee Period / Scheme:</span>
-                        <strong className="text-emerald-900">{inv.month || (inv as any).fee_type || 'Tuition Fee Installment'}</strong>
+                        <strong className="text-emerald-900">{feePeriod}</strong>
                       </div>
                       <div>
                         <span className="text-slate-500 block text-[9.5px]">Payment Mode:</span>
-                        <strong className="text-[#122A24] font-mono">{inv.payment_mode || 'CASH'}</strong>
+                        <strong className="text-[#122A24] font-mono">{paymentMode}</strong>
                       </div>
                     </div>
 
@@ -12899,27 +12944,15 @@ function ERPWorkspaceContent() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
-                        <tr>
-                          <td className="py-1 px-2">1</td>
-                          <td className="py-1 px-2">Tuition &amp; Composite Academic Fee</td>
-                          <td className="py-1 px-2 text-right font-semibold">₹{dueTuition.toLocaleString()}</td>
-                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{paidTuition.toLocaleString()}</td>
-                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{balTuition.toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                          <td className="py-1 px-2">2</td>
-                          <td className="py-1 px-2">Transport / School Bus Facility Charges</td>
-                          <td className="py-1 px-2 text-right font-semibold">₹{dueTransport.toLocaleString()}</td>
-                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{paidTransport.toLocaleString()}</td>
-                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{balTransport.toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                          <td className="py-1 px-2">3</td>
-                          <td className="py-1 px-2">Institutional Examination, Assessment &amp; Printing</td>
-                          <td className="py-1 px-2 text-right font-semibold">₹{dueExam.toLocaleString()}</td>
-                          <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{paidExam.toLocaleString()}</td>
-                          <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{balExam.toLocaleString()}</td>
-                        </tr>
+                        {feeHeadsList.map((item) => (
+                          <tr key={item.sn}>
+                            <td className="py-1 px-2">{item.sn}</td>
+                            <td className="py-1 px-2">{item.name}</td>
+                            <td className="py-1 px-2 text-right font-semibold">₹{item.due.toLocaleString('en-IN')}</td>
+                            <td className="py-1 px-2 text-right font-bold text-emerald-800">₹{item.paid.toLocaleString('en-IN')}</td>
+                            <td className="py-1 px-2 text-right font-semibold text-rose-700">₹{item.bal.toLocaleString('en-IN')}</td>
+                          </tr>
+                        ))}
 
                         {conc > 0 && (
                           <tr className="bg-purple-50 text-purple-950 font-semibold">
@@ -12927,17 +12960,17 @@ function ERPWorkspaceContent() {
                             <td className="py-1 px-2">
                               <span>Fee Waiver / Concession Applied ({inv.concession_reason || 'Management Waiver'})</span>
                             </td>
-                            <td className="py-1 px-2 text-right text-purple-800">-₹{conc.toLocaleString()}</td>
-                            <td className="py-1 px-2 text-right text-purple-800">-₹{conc.toLocaleString()}</td>
+                            <td className="py-1 px-2 text-right text-purple-800">-₹{conc.toLocaleString('en-IN')}</td>
+                            <td className="py-1 px-2 text-right text-purple-800">-₹{conc.toLocaleString('en-IN')}</td>
                             <td className="py-1 px-2 text-right text-purple-800">₹0</td>
                           </tr>
                         )}
 
                         <tr className="border-t border-[#122A24] bg-emerald-50/60 font-bold">
                           <td className="py-1.5 px-2" colSpan={2}>CONSOLIDATED RECEIPT TOTAL</td>
-                          <td className="py-1.5 px-2 text-right">₹{totalAmt.toLocaleString()}</td>
-                          <td className="py-1.5 px-2 text-right text-emerald-900 text-xs">₹{paid.toLocaleString()}</td>
-                          <td className="py-1.5 px-2 text-right text-rose-700 text-xs">₹{bal.toLocaleString()}</td>
+                          <td className="py-1.5 px-2 text-right">₹{totalAmt.toLocaleString('en-IN')}</td>
+                          <td className="py-1.5 px-2 text-right text-emerald-900 text-xs">₹{paid.toLocaleString('en-IN')}</td>
+                          <td className="py-1.5 px-2 text-right text-rose-700 text-xs">₹{bal.toLocaleString('en-IN')}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -12949,7 +12982,7 @@ function ERPWorkspaceContent() {
                         <strong className="text-[#122A24] italic uppercase">{numberToWordsINR(paid)}</strong>
                       </div>
                       <div className="text-[10px] text-slate-500">
-                        Status: <strong className={inv.status === 'PAID' ? 'text-emerald-700' : 'text-amber-700'}>{inv.status} ({bal === 0 ? 'Fully Cleared' : `₹${bal.toLocaleString()} Due`})</strong>
+                        Status: <strong className={isPaid ? 'text-emerald-700' : 'text-amber-700'}>{isPaid ? 'PAID' : (inv.status || 'PENDING')} ({bal === 0 ? 'Fully Cleared' : `₹${bal.toLocaleString('en-IN')} Due`})</strong>
                       </div>
                     </div>
 

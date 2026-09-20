@@ -91,35 +91,43 @@ export function DualCopyFeeReceiptModal({
   const collectedBy = receipt.collected_by || 'Accounts Desk';
   const remarks = receipt.remarks || 'Payment received with thanks against academic fee schedule.';
 
-  // Parse Particulars
-  let particulars: Array<{ head: string; period: string; amountRupees: number }> = [];
+  // Parse Particulars & Total Amount
   let totalAmountRupees = 0;
+  if (typeof receipt.amount_paise === 'number' && receipt.amount_paise > 0) {
+    totalAmountRupees = Math.round(receipt.amount_paise / 100);
+  } else if (typeof receipt.paid_amount === 'number' && receipt.paid_amount > 0) {
+    totalAmountRupees = receipt.paid_amount;
+  } else if (typeof receipt.amount === 'number' && receipt.amount > 0) {
+    totalAmountRupees = receipt.amount;
+  } else if (typeof receipt.total_amount === 'number' && receipt.total_amount > 0) {
+    totalAmountRupees = receipt.total_amount;
+  }
 
-  if (isReceiptRecord && Array.isArray(receipt.allocated_heads) && receipt.allocated_heads.length > 0) {
+  let particulars: Array<{ head: string; period: string; amountRupees: number }> = [];
+
+  if (Array.isArray(receipt.allocated_heads) && receipt.allocated_heads.length > 0) {
     particulars = receipt.allocated_heads.map((h: any) => ({
-      head: h.fee_head || 'Academic Fee',
-      period: h.period || h.month || 'Current Period',
-      amountRupees: (h.amount_paise || 0) / 100,
+      head: h.fee_head || h.head_name || 'Academic Fee',
+      period: h.period || h.month || receipt.month || 'Session 2026-27',
+      amountRupees: typeof h.amount_paise === 'number' ? Math.round(h.amount_paise / 100) : Number(h.amount || 0),
     }));
-    totalAmountRupees = (receipt.amount_paise || 0) / 100;
   } else if (Array.isArray(receipt.items) && receipt.items.length > 0) {
     particulars = receipt.items.map((it: any) => ({
       head: it.head_name || it.fee_head || 'Fee Head',
-      period: it.description || it.month || 'Term Fee',
+      period: it.description || it.month || receipt.month || 'Term Fee',
       amountRupees: Number(it.amount || 0),
     }));
-    totalAmountRupees = Number(receipt.amount || receipt.total_amount || 0);
   } else {
-    // Single line fallback
-    const amt = isReceiptRecord ? (receipt.amount_paise || 0) / 100 : Number(receipt.amount || 0);
+    // 3 Head Breakdown fallback
+    const dueTuition = receipt.tuition_fee ?? Math.round(totalAmountRupees * 0.70);
+    const dueTransport = receipt.transport_fee ?? Math.round(totalAmountRupees * 0.15);
+    const dueExam = receipt.exam_fee ?? Math.max(0, totalAmountRupees - dueTuition - dueTransport);
+
     particulars = [
-      {
-        head: 'Consolidated Academic Fee',
-        period: receipt.month || 'Session 2026-27',
-        amountRupees: amt,
-      },
+      { head: 'Tuition & Composite Academic Fee', period: receipt.month || 'Session 2026-27', amountRupees: dueTuition },
+      { head: 'Transport / School Bus Facility Charges', period: receipt.month || 'Session 2026-27', amountRupees: dueTransport },
+      { head: 'Institutional Examination, Assessment & Printing', period: receipt.month || 'Session 2026-27', amountRupees: dueExam },
     ];
-    totalAmountRupees = amt;
   }
 
   const schoolName = selectedSchool?.school_name || 'Delhi Public School, R.K. Puram';

@@ -238,6 +238,10 @@ export function DashboardOverview({
   const [timeDropdownOpen, setTimeDropdownOpen] = useState<boolean>(false);
   const [timeFilter, setTimeFilter] = useState<'Daily' | 'Weekly' | 'Monthly'>('Daily');
 
+  // Transactions pagination state
+  const [txPageSize, setTxPageSize] = useState<number>(10);
+  const [txCurrentPage, setTxCurrentPage] = useState<number>(1);
+
   // Dynamic Fee Cycle & Month Filter State (Defaults to Cycle 5: Sep + Feb)
   const [selectedFeeCycleId, setSelectedFeeCycleId] = useState<string>('cycle-5');
   const [feeCycleDropdownOpen, setFeeCycleDropdownOpen] = useState<boolean>(false);
@@ -1179,8 +1183,25 @@ export function DashboardOverview({
     const clsName = inv.class_name ? (inv.class_name.startsWith('Class') ? inv.class_name : `Class ${inv.class_name}`) : 'Class Playgroup';
     const secStr = anyInv.section ? ` - ${anyInv.section}` : '';
     const classInfo = `${clsName}${secStr} • Fee`;
-    const term = anyInv.period || anyInv.month || anyInv.fee_type || (anyInv.allocated_heads && anyInv.allocated_heads.length > 0 ? `${anyInv.allocated_heads.length} Fee Heads` : 'Term Fee');
-    const paymentMode = inv.payment_mode || 'Cash';
+    const term = anyInv.period || anyInv.month || anyInv.fee_type || (anyInv.allocated_heads && anyInv.allocated_heads.length > 0 ? `${anyInv.allocated_heads.length} Fee Heads` : 'Tuition Fee Installment');
+    const paymentMode = inv.payment_mode || anyInv.mode || 'Cash';
+
+    // Normalized raw invoice for viewInvoice modal
+    const normalizedRaw = {
+      ...inv,
+      invoice_no: receiptId,
+      receipt_no: receiptId,
+      amount: amountRupees,
+      paid_amount: amountRupees,
+      status: status === 'Paid' ? 'PAID' : (status === 'Pending' ? 'PENDING' : 'OVERDUE'),
+      student_name: studentName,
+      class_name: clsName,
+      month: term,
+      payment_mode: paymentMode,
+      paid_date: invDate,
+      payment_date: invDate,
+      allocated_heads: anyInv.allocated_heads,
+    };
 
     return {
       id: receiptId,
@@ -1193,7 +1214,7 @@ export function DashboardOverview({
       rawAmount: amountRupees,
       date: invDate || formattedToday,
       time: anyInv.created_at ? new Date(anyInv.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '10:30 AM',
-      raw: inv
+      raw: normalizedRaw
     };
   }, [formattedToday]);
 
@@ -1205,7 +1226,7 @@ export function DashboardOverview({
     }
     // Fallback to real recent invoices from DB (NEVER hardcoded fake names)
     if (invoices && invoices.length > 0) {
-      return invoices.slice(-10).reverse().map(mapInvoiceToTx);
+      return invoices.slice(-100).reverse().map(mapInvoiceToTx);
     }
     return [];
   }, [timeFilteredInvoices, invoices, mapInvoiceToTx]);
@@ -1256,6 +1277,18 @@ export function DashboardOverview({
 
     return baseList.filter(t => feeStatusFilter === 'ALL' || t.status === feeStatusFilter);
   }, [transactions, transactionSearch, feeStatusFilter, invoices, mapInvoiceToTx]);
+
+  // Reset pagination on filter or search changes
+  useEffect(() => {
+    setTxCurrentPage(1);
+  }, [transactionSearch, feeStatusFilter, timeFilter, txPageSize]);
+
+  // Pagination calculation
+  const totalTxPages = Math.max(1, Math.ceil(filteredTransactions.length / txPageSize));
+  const paginatedTransactions = useMemo(() => {
+    const startIdx = (txCurrentPage - 1) * txPageSize;
+    return filteredTransactions.slice(startIdx, startIdx + txPageSize);
+  }, [filteredTransactions, txCurrentPage, txPageSize]);
 
   const toggleSelectAll = () => {
     if (selectedTxIds.length === filteredTransactions.length) {
@@ -2227,6 +2260,24 @@ export function DashboardOverview({
               ))}
             </div>
 
+            {/* Limit / Page Size Selector */}
+            <div className="flex items-center gap-1.5 text-xs text-emerald-950 font-medium bg-emerald-50/60 border border-[#DCE8E0] px-2.5 py-1 rounded-xl">
+              <span className="text-[10.5px] text-gray-500 font-semibold uppercase">Show:</span>
+              <select
+                value={txPageSize}
+                onChange={(e) => {
+                  setTxPageSize(Number(e.target.value));
+                  setTxCurrentPage(1);
+                }}
+                className="bg-transparent text-xs font-bold text-[#122A24] focus:outline-none cursor-pointer border-none"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
             {/* Search transactions input */}
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-emerald-700 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -2235,7 +2286,7 @@ export function DashboardOverview({
                 placeholder="Search daily receipt, scholar..."
                 value={transactionSearch}
                 onChange={(e) => setTransactionSearch(e.target.value)}
-                className="pl-8.5 pr-3 py-1.5 rounded-xl bg-emerald-50/30 border border-[#DCE8E0] text-xs text-[#122A24] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#122A24] focus:bg-white transition-all w-48 sm:w-56"
+                className="pl-8.5 pr-3 py-1.5 rounded-xl bg-emerald-50/30 border border-[#DCE8E0] text-xs text-[#122A24] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#122A24] focus:bg-white transition-all w-44 sm:w-52"
               />
             </div>
 
@@ -2258,7 +2309,7 @@ export function DashboardOverview({
                 <th className="py-3 px-3 w-8">
                   <input
                     type="checkbox"
-                    checked={selectedTxIds.length === filteredTransactions.length && filteredTransactions.length > 0}
+                    checked={selectedTxIds.length === paginatedTransactions.length && paginatedTransactions.length > 0}
                     onChange={toggleSelectAll}
                     className="rounded border-[#DCE8E0] text-[#122A24] focus:ring-[#122A24] cursor-pointer"
                   />
@@ -2274,7 +2325,7 @@ export function DashboardOverview({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F0F5F2] text-[#122A24]">
-              {filteredTransactions.map((tx) => {
+              {paginatedTransactions.map((tx) => {
                 const isSelected = selectedTxIds.includes(tx.id);
                 return (
                   <tr 
@@ -2354,6 +2405,67 @@ export function DashboardOverview({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls Bar */}
+        {filteredTransactions.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3.5 mt-2 border-t border-[#E2EAE5] text-xs">
+            <div className="text-gray-500 font-medium text-[11px]">
+              Showing <span className="font-bold text-[#122A24]">{(txCurrentPage - 1) * txPageSize + 1}</span> to{' '}
+              <span className="font-bold text-[#122A24]">
+                {Math.min(txCurrentPage * txPageSize, filteredTransactions.length)}
+              </span>{' '}
+              of <span className="font-bold text-[#122A24]">{filteredTransactions.length}</span> records
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setTxCurrentPage(p => Math.max(1, p - 1))}
+                disabled={txCurrentPage === 1}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#DCE8E0] bg-white text-[#122A24] font-semibold text-xs disabled:opacity-40 disabled:cursor-not-allowed hover:bg-emerald-50/60 transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Previous</span>
+              </button>
+
+              <div className="flex items-center gap-1 px-1">
+                {Array.from({ length: Math.min(5, totalTxPages) }, (_, i) => {
+                  let pageNum = i + 1;
+                  if (totalTxPages > 5 && txCurrentPage > 3) {
+                    pageNum = Math.min(totalTxPages - 4 + i, Math.max(1, txCurrentPage - 2 + i));
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => setTxCurrentPage(pageNum)}
+                      className={`w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                        txCurrentPage === pageNum
+                          ? 'bg-[#122A24] text-white border-[#122A24] shadow-2xs'
+                          : 'bg-white text-gray-700 border-[#DCE8E0] hover:bg-emerald-50/50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                {totalTxPages > 5 && txCurrentPage < totalTxPages - 2 && (
+                  <span className="text-gray-400 px-1 font-bold">...</span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setTxCurrentPage(p => Math.min(totalTxPages, p + 1))}
+                disabled={txCurrentPage >= totalTxPages}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#DCE8E0] bg-white text-[#122A24] font-semibold text-xs disabled:opacity-40 disabled:cursor-not-allowed hover:bg-emerald-50/60 transition-colors cursor-pointer"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
