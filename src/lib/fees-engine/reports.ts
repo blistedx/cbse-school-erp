@@ -695,6 +695,72 @@ export async function executeReport(
       };
     }
 
+    // Admission & Registration Fee Pending Report
+    case 'admission_fee_pending': {
+      const rows: Record<string, any>[] = [];
+      let totalAdmPending = 0;
+      let totalRegPending = 0;
+      let grandOneTimePending = 0;
+
+      for (const st of filteredStudents) {
+        const sum = summaryByStudent.get(st.id) || summaryByStudent.get(st.admission_no);
+        const admHead = sum?.headWise.find(h => h.fee_head === 'ADMISSION');
+        const regHead = sum?.headWise.find(h => h.fee_head === 'REGISTRATION' || h.fee_head === 'PROSPECTUS');
+
+        const admBal = admHead ? Math.max(0, admHead.balance) : 0;
+        const regBal = regHead ? Math.max(0, regHead.balance) : 0;
+        const totalBal = admBal + regBal;
+
+        if (totalBal <= 0) continue;
+
+        totalAdmPending += admBal;
+        totalRegPending += regBal;
+        grandOneTimePending += totalBal;
+
+        rows.push({
+          studentName: getStudentName(st),
+          admissionNo: st.admission_no,
+          classSection: `${st.class_name} - ${st.section || 'A'}`,
+          fatherName: st.father_name || st.guardian_name || 'N/A',
+          mobile: getStudentMobile(st),
+          admissionDuePaise: admBal,
+          registrationDuePaise: regBal,
+          totalOneTimeDuePaise: totalBal,
+          status: 'ADMISSION_DUE',
+        });
+      }
+
+      const summaryKpis: ReportSummaryKpi[] = [
+        { label: 'Scholars with Admission Dues', value: rows.length.toString(), color: 'text-amber-700' },
+        { label: 'Admission Fee Outstanding', value: formatPaise(totalAdmPending), color: 'text-rose-800' },
+        { label: 'Registration Fee Outstanding', value: formatPaise(totalRegPending), color: 'text-indigo-800' },
+        { label: 'Total One-Time Dues', value: formatPaise(grandOneTimePending), color: 'text-rose-950' },
+      ];
+
+      return {
+        reportId: config.id,
+        reportName: config.name,
+        generatedAt,
+        session,
+        filtersUsed: filters,
+        summaryKpis,
+        columns: config.columns,
+        rows,
+        grandTotalRow: {
+          studentName: 'Total',
+          admissionNo: `${rows.length} Students`,
+          classSection: '',
+          fatherName: '',
+          mobile: '',
+          admissionDuePaise: totalAdmPending,
+          registrationDuePaise: totalRegPending,
+          totalOneTimeDuePaise: grandOneTimePending,
+          status: '',
+        },
+        totalRowCount: rows.length,
+      };
+    }
+
     // 8. Advance Payment Students
     case 'advance_payers': {
       const rows: Record<string, any>[] = [];

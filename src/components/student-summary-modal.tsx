@@ -220,7 +220,9 @@ export function StudentSummaryModal({
     return matchInvoicesForStudent(invoices, activeStudent);
   }, [activeStudent, invoices]);
 
-  const totalPending = feeSummary ? feeSummary.currentBalanceDue : (monthlySchedule ? monthlySchedule.currentBalanceDue : 0);
+  const totalPending = dossierSummary
+    ? Math.round(dossierSummary.balance / 100)
+    : (feeSummary ? feeSummary.currentBalanceDue : (monthlySchedule ? monthlySchedule.currentBalanceDue : 0));
 
   if (!isOpen || !activeStudent) return null;
 
