@@ -1124,11 +1124,11 @@ export function DashboardOverview({
     raw?: any;
   }
 
-  // Filter invoices according to the active timeFilter (Daily, Weekly, Monthly)
+  // Filter invoices/receipts according to the active timeFilter (Daily, Weekly, Monthly)
   const timeFilteredInvoices = useMemo(() => {
     return (invoices || []).filter(inv => {
       const anyInv = inv as any;
-      const invDate = inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
+      const invDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
       if (timeFilter === 'Daily') {
         return invDate === todayDateStr;
       }
@@ -1143,23 +1143,54 @@ export function DashboardOverview({
   const todayInvoices = useMemo(() => {
     return (invoices || []).filter(inv => {
       const anyInv = inv as any;
-      const invDate = inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
+      const invDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
       return invDate === todayDateStr;
     });
   }, [invoices, todayDateStr]);
 
   const mapInvoiceToTx = useCallback((inv: FeeInvoice, idx: number): DashboardTransaction => {
     const anyInv = inv as any;
-    const invDate = inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
+    const invDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
+    
+    // Resolve amount: if amount_paise is present, convert from paise to rupees
+    let amountRupees = 0;
+    if (typeof anyInv.amount_paise === 'number') {
+      amountRupees = Math.round(anyInv.amount_paise / 100);
+    } else if (typeof inv.paid_amount === 'number' && inv.paid_amount > 0) {
+      amountRupees = inv.paid_amount;
+    } else if (typeof inv.amount === 'number') {
+      amountRupees = inv.amount;
+    }
+
+    // Resolve status: receipts in fee_receipts that are not cancelled are PAID
+    let status: 'Paid' | 'Pending' | 'Overdue' = 'Paid';
+    if (anyInv.is_cancelled === true) {
+      status = 'Overdue';
+    } else if (inv.status === 'PENDING') {
+      status = 'Pending';
+    } else if (inv.status === 'OVERDUE') {
+      status = 'Overdue';
+    } else {
+      status = 'Paid';
+    }
+
+    const receiptId = inv.invoice_no || anyInv.receipt_no || anyInv.id || `#REC-${String(idx + 1).padStart(4, '0')}`;
+    const studentName = inv.student_name || 'Scholar Student';
+    const clsName = inv.class_name ? (inv.class_name.startsWith('Class') ? inv.class_name : `Class ${inv.class_name}`) : 'Class Playgroup';
+    const secStr = anyInv.section ? ` - ${anyInv.section}` : '';
+    const classInfo = `${clsName}${secStr} • Fee`;
+    const term = anyInv.period || anyInv.month || anyInv.fee_type || (anyInv.allocated_heads && anyInv.allocated_heads.length > 0 ? `${anyInv.allocated_heads.length} Fee Heads` : 'Term Fee');
+    const paymentMode = inv.payment_mode || 'Cash';
+
     return {
-      id: inv.invoice_no || anyInv.receipt_no || `#REC-${String(idx + 1).padStart(4, '0')}`,
-      studentName: inv.student_name || 'Scholar Student',
-      classInfo: inv.class_name ? `Class ${inv.class_name} • Fee` : 'Tuition & Academic Term',
-      status: (inv.status === 'PAID' ? 'Paid' : inv.status === 'PENDING' ? 'Pending' : 'Overdue') as 'Paid' | 'Pending' | 'Overdue',
-      term: anyInv.fee_type || inv.month || 'Term Fee',
-      paymentMode: inv.payment_mode || 'Cash / Counter',
-      amount: `₹${Number(inv.amount || 0).toLocaleString('en-IN')}`,
-      rawAmount: Number(inv.amount || 0),
+      id: receiptId,
+      studentName,
+      classInfo,
+      status,
+      term,
+      paymentMode,
+      amount: `₹${amountRupees.toLocaleString('en-IN')}`,
+      rawAmount: amountRupees,
       date: invDate || formattedToday,
       time: anyInv.created_at ? new Date(anyInv.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '10:30 AM',
       raw: inv
@@ -1180,10 +1211,19 @@ export function DashboardOverview({
   }, [timeFilteredInvoices, invoices, mapInvoiceToTx]);
 
   const todayCollectedTotal = useMemo(() => {
-    return transactions
-      .filter(t => t.status === 'Paid')
-      .reduce((acc, curr) => acc + (curr.rawAmount || 0), 0);
-  }, [transactions]);
+    // Sum all paid transactions for today's date
+    return (invoices || [])
+      .filter(inv => {
+        const anyInv = inv as any;
+        const invDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
+        return invDate === todayDateStr && anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
+      })
+      .reduce((acc, inv) => {
+        const anyInv = inv as any;
+        const amt = typeof anyInv.amount_paise === 'number' ? Math.round(anyInv.amount_paise / 100) : Number(inv.paid_amount || inv.amount || 0);
+        return acc + amt;
+      }, 0);
+  }, [invoices, todayDateStr]);
 
   // Comprehensive search across transactions or the full invoice database
   const filteredTransactions = useMemo(() => {
