@@ -1,8 +1,6 @@
 import { MongoClient } from 'mongodb';
 import fs from 'fs';
-import path from 'path';
 
-// Parse .env.local manually if needed
 let envUri = process.env.MONGODB_URI;
 if (!envUri) {
   const envFiles = ['.env', '.env.local'];
@@ -18,48 +16,68 @@ if (!envUri) {
   }
 }
 
-async function inspect() {
+async function testAllReports() {
   const client = new MongoClient(envUri);
   await client.connect();
   const db = client.db('edugit');
-  
-  const totalStudents = await db.collection('students').countDocuments();
-  const ledgerLinesCount = await db.collection('fee_ledger').countDocuments();
-  const receiptsCount = await db.collection('fee_receipts').countDocuments();
-  
-  const paidLines = await db.collection('fee_ledger').find({ line_type: 'PAYMENT', is_cancelled: { $ne: true } }).toArray();
-  const paidStudentIds = new Set(paidLines.map(l => l.student_id));
-  const distinctReceiptNosInLedger = new Set(paidLines.map(l => l.receipt_no).filter(Boolean));
-  
-  console.log(JSON.stringify({
-    totalStudents,
-    ledgerLinesCount,
-    receiptsCount,
-    paidLinesCount: paidLines.length,
-    paidStudentsCount: paidStudentIds.size,
-    distinctReceiptNosInLedger: distinctReceiptNosInLedger.size,
-  }, null, 2));
 
-  if (paidLines.length > 0) {
-    const sampleStudentId = paidLines[0].student_id;
-    const studentPaidLines = paidLines.filter(l => l.student_id === sampleStudentId);
-    console.log('Sample student ID:', sampleStudentId);
-    console.log('Sample student paid lines count:', studentPaidLines.length);
-    console.log('Sample student receipt numbers in ledger:', [...new Set(studentPaidLines.map(l => l.receipt_no))]);
-    
-    // Check if receipt exists in fee_receipts
-    const sampleRec = await db.collection('fee_receipts').find({ student_id: sampleStudentId }).toArray();
-    console.log('Sample student records in fee_receipts count:', sampleRec.length);
-    if (sampleRec.length > 0) {
-      console.log('Sample fee_receipts sample:', {
-        receipt_no: sampleRec[0].receipt_no,
-        amount_paise: sampleRec[0].amount_paise,
-        allocated_heads: sampleRec[0].allocated_heads,
-        payment_mode: sampleRec[0].payment_mode
-      });
+  const students = await db.collection('students').find({}).toArray();
+  const lines = await db.collection('fee_ledger').find({ academic_session: '2026-27', is_cancelled: { $ne: true } }).toArray();
+  const receipts = await db.collection('fee_receipts').find({ academic_session: '2026-27' }).toArray();
+
+  console.log(`\n================ REPORT ENGINE AUDIT ================`);
+  console.log(`Total Students: ${students.length}`);
+  console.log(`Total Fee Ledger Lines: ${lines.length}`);
+  console.log(`Total Fee Receipts: ${receipts.length}`);
+
+  // 1. Annual Fee Pending
+  const linesByStudent = new Map();
+  lines.forEach(l => {
+    if (!linesByStudent.has(l.student_id)) linesByStudent.set(l.student_id, []);
+    linesByStudent.get(l.student_id).push(l);
+  });
+
+  let annualPendingCount = 0;
+  let annualPendingTotal = 0;
+  for (const st of students) {
+    const sLines = linesByStudent.get(st.id) || [];
+    const dem = sLines.filter(l => l.fee_head === 'ANNUAL' && l.line_type === 'DEMAND').reduce((s, l) => s + (l.amount || 0), 0);
+    const paid = sLines.filter(l => l.fee_head === 'ANNUAL' && l.line_type === 'PAYMENT').reduce((s, l) => s + (l.amount || 0), 0);
+    const bal = dem - paid;
+    if (bal > 0) {
+      annualPendingCount++;
+      annualPendingTotal += bal;
     }
+  }
+  console.log(`\n1. Annual Fee Pending: ${annualPendingCount} scholars pending, Total Due: ₹${(annualPendingTotal / 100).toLocaleString('en-IN')}`);
+
+  // 2. Pending Fees List (All Dues)
+  let totalPendingScholars = 0;
+  let totalDues = 0;
+  for (const st of students) {
+    const sLines = linesByStudent.get(st.id) || [];
+    const dem = sLines.filter(l => l.line_type === 'DEMAND').reduce((s, l) => s + (l.amount || 0), 0);
+    const disc = sLines.filter(l => l.line_type === 'DISCOUNT' || l.line_type === 'WAIVER').reduce((s, l) => s + (l.amount || 0), 0);
+    const paid = sLines.filter(l => l.line_type === 'PAYMENT').reduce((s, l) => s + (l.amount || 0), 0);
+    const bal = dem - disc - paid;
+    if (bal > 0) {
+      totalPendingScholars++;
+      totalDues += bal;
+    }
+  }
+  console.log(`2. Pending Fees List: ${totalPendingScholars} scholars with dues, Total Outstanding: ₹${(totalDues / 100).toLocaleString('en-IN')}`);
+
+  // 3. Aarav Hegde status
+  const aarav = students.find(s => /aarav hegde/i.test(s.full_name));
+  if (aarav) {
+    const sLines = linesByStudent.get(aarav.id) || [];
+    const annualD = sLines.filter(l => l.fee_head === 'ANNUAL' && l.line_type === 'DEMAND').reduce((s, l) => s + (l.amount || 0), 0);
+    const annualP = sLines.filter(l => l.fee_head === 'ANNUAL' && l.line_type === 'PAYMENT').reduce((s, l) => s + (l.amount || 0), 0);
+    console.log(`\n🎯 Aarav Hegde (${aarav.class_name} - ${aarav.section}, Adm: ${aarav.admission_no}):`);
+    console.log(`   Annual Fee Billed: ₹${annualD / 100}, Paid: ₹${annualP / 100}, Due: ₹${(annualD - annualP) / 100}`);
   }
 
   await client.close();
 }
-inspect().catch(console.error);
+
+testAllReports().catch(console.error);
