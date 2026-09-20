@@ -294,6 +294,7 @@ export interface ReceiptRecord {
   cancelled_reason?: string | null;
   cancelled_by?: string | null;
   cancelled_at?: string | null;
+  created_at?: string;
   allocated_heads: {
     fee_head: FeeHead;
     month: AcademicMonth | null;

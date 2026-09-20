@@ -3330,34 +3330,61 @@ function ERPWorkspaceContent() {
     }
   };
 
-  // Invoice Handlers
+  // Invoice & Fee Payment Handlers
   const handleAddInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSchool) return;
     const totalCalc = Number(invoiceForm.tuition_fee || 0) + Number(invoiceForm.transport_fee || 0) + Number(invoiceForm.exam_fee || 0);
     const amountVal = totalCalc > 0 ? totalCalc : Number(invoiceForm.amount);
+    if (!amountVal || amountVal <= 0) {
+      showAdminToast('Please specify a valid payment amount', 'error');
+      return;
+    }
+
     try {
+      const studentObj = students.find(s => 
+        s.id === invoiceForm.student_id || 
+        s.admission_no === invoiceForm.admission_no || 
+        (s.full_name && invoiceForm.student_name && s.full_name.toLowerCase() === invoiceForm.student_name.toLowerCase())
+      );
+
+      const targetStudentId = studentObj?.id || invoiceForm.student_id || invoiceForm.admission_no || `STU-${Date.now()}`;
+      const amountPaise = Math.round(amountVal * 100);
+      const schoolCode = selectedSchool.school_code || selectedSchool.id || 'DPS2026';
+      const session = selectedSession || '2026-27';
+
       const res = await apiFetch('/api/fee-master', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          school_id: selectedSchool.id,
-          academic_session: selectedSession,
-          lines: [{
-            student_id: invoiceForm.student_id || invoiceForm.admission_no || 'STU-NEW',
-            academic_session: selectedSession,
-            line_type: 'DEBIT',
-            fee_head: 'TUITION',
-            period_type: 'MONTHLY',
-            month: 'APR',
-            amount: Math.round(amountVal * 100),
-            description: `Tuition & Term Fee - ${invoiceForm.class_name}`
-          }]
+          action: 'collect_payment',
+          school_id: schoolCode,
+          session,
+          student_id: targetStudentId,
+          amount_paise: amountPaise,
+          payment_mode: invoiceForm.payment_mode || 'CASH',
+          remarks: `Fee Payment - ${invoiceForm.class_name || 'Academic Fee'} (${invoiceForm.student_name})`
         })
       });
+
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.receipt) {
         setShowAddInvoice(false);
+        const newReceipt = data.receipt;
+
+        // Immediate reactive update to live invoices/receipts state
+        setInvoices(prev => [newReceipt, ...prev.filter(i => (i as any).receipt_no !== newReceipt.receipt_no)]);
+
+        // Automatically open the official dual-copy printable fee receipt slip
+        setViewInvoice(newReceipt);
+
+        showAdminToast(`Fee payment of ₹${amountVal.toLocaleString('en-IN')} recorded successfully! Receipt #${newReceipt.receipt_no}`, 'success');
+        triggerTaskCelebration('FEES', `Receipt Generated: ${newReceipt.receipt_no}`, `₹${amountVal.toLocaleString('en-IN')} collected via ${invoiceForm.payment_mode || 'CASH'}`);
+
+        // Sync fresh data from MongoDB in background
+        loadSchoolData(schoolCode, session, true);
+
+        // Reset form
         setInvoiceForm({
           student_id: '',
           student_name: '',
@@ -3369,12 +3396,14 @@ function ERPWorkspaceContent() {
           amount: 3000,
           payment_mode: 'UPI / Online',
           due_date: new Date().toISOString().split('T')[0],
-          status: 'PENDING'
+          status: 'PAID'
         });
-        loadSchoolData(selectedSchool.id);
+      } else {
+        showAdminToast(data.error || 'Failed to record fee payment', 'error');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      showAdminToast(e.message || 'Error recording fee payment', 'error');
     }
   };
 

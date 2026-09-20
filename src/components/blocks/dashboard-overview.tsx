@@ -1128,10 +1128,12 @@ export function DashboardOverview({
     raw?: any;
   }
 
-  // Filter invoices/receipts according to the active timeFilter (Daily, Weekly, Monthly)
+  // Filter invoices/receipts according to the active timeFilter (Daily, Weekly, Monthly) - Strictly PAID Receipts
   const timeFilteredInvoices = useMemo(() => {
     return (invoices || []).filter(inv => {
       const anyInv = inv as any;
+      const isPaid = anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
+      if (!isPaid) return false;
       const invDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
       if (timeFilter === 'Daily') {
         return invDate === todayDateStr;
@@ -1147,6 +1149,8 @@ export function DashboardOverview({
   const todayInvoices = useMemo(() => {
     return (invoices || []).filter(inv => {
       const anyInv = inv as any;
+      const isPaid = anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
+      if (!isPaid) return false;
       const invDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
       return invDate === todayDateStr;
     });
@@ -1166,18 +1170,6 @@ export function DashboardOverview({
       amountRupees = inv.amount;
     }
 
-    // Resolve status: receipts in fee_receipts that are not cancelled are PAID
-    let status: 'Paid' | 'Pending' | 'Overdue' = 'Paid';
-    if (anyInv.is_cancelled === true) {
-      status = 'Overdue';
-    } else if (inv.status === 'PENDING') {
-      status = 'Pending';
-    } else if (inv.status === 'OVERDUE') {
-      status = 'Overdue';
-    } else {
-      status = 'Paid';
-    }
-
     const receiptId = inv.invoice_no || anyInv.receipt_no || anyInv.id || `#REC-${String(idx + 1).padStart(4, '0')}`;
     const studentName = inv.student_name || 'Scholar Student';
     const clsName = inv.class_name ? (inv.class_name.startsWith('Class') ? inv.class_name : `Class ${inv.class_name}`) : 'Class Playgroup';
@@ -1193,7 +1185,7 @@ export function DashboardOverview({
       receipt_no: receiptId,
       amount: amountRupees,
       paid_amount: amountRupees,
-      status: status === 'Paid' ? 'PAID' : (status === 'Pending' ? 'PENDING' : 'OVERDUE'),
+      status: 'PAID',
       student_name: studentName,
       class_name: clsName,
       month: term,
@@ -1207,7 +1199,7 @@ export function DashboardOverview({
       id: receiptId,
       studentName,
       classInfo,
-      status,
+      status: 'Paid',
       term,
       paymentMode,
       amount: `₹${amountRupees.toLocaleString('en-IN')}`,
@@ -1219,14 +1211,18 @@ export function DashboardOverview({
   }, [formattedToday]);
 
   // Dynamic transactions list based on active timeFilter (Daily, Weekly, Monthly)
-  // When no transactions occurred in the specific date window, display the latest real saved invoices from the database!
+  // When no transactions occurred in the specific date window, display the latest real paid receipts from the database!
   const transactions: DashboardTransaction[] = useMemo(() => {
     if (timeFilteredInvoices.length > 0) {
       return timeFilteredInvoices.map(mapInvoiceToTx);
     }
-    // Fallback to real recent invoices from DB (NEVER hardcoded fake names)
+    // Fallback to real recent paid invoices/receipts from DB
     if (invoices && invoices.length > 0) {
-      return invoices.slice(-100).reverse().map(mapInvoiceToTx);
+      const paidOnly = invoices.filter(inv => {
+        const anyInv = inv as any;
+        return anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
+      });
+      return paidOnly.slice(-100).reverse().map(mapInvoiceToTx);
     }
     return [];
   }, [timeFilteredInvoices, invoices, mapInvoiceToTx]);
@@ -1246,7 +1242,7 @@ export function DashboardOverview({
       }, 0);
   }, [invoices, todayDateStr]);
 
-  // Comprehensive search across transactions or the full invoice database
+  // Comprehensive search across transactions or the full paid receipt database
   const filteredTransactions = useMemo(() => {
     const q = transactionSearch.toLowerCase().trim();
     let baseList = transactions;
@@ -1262,9 +1258,12 @@ export function DashboardOverview({
       if (directMatches.length > 0) {
         baseList = directMatches;
       } else {
-        // Search across the entire live invoice database!
+        // Search across the entire live paid invoice database!
         baseList = (invoices || []).filter(inv => {
-          const invNo = (inv.invoice_no || inv.id || '').toLowerCase();
+          const anyInv = inv as any;
+          const isPaid = anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
+          if (!isPaid) return false;
+          const invNo = (inv.invoice_no || anyInv.receipt_no || inv.id || '').toLowerCase();
           const sname = (inv.student_name || '').toLowerCase();
           const adm = (inv.admission_no || '').toLowerCase();
           const cls = (inv.class_name || '').toLowerCase();
@@ -1275,13 +1274,13 @@ export function DashboardOverview({
       }
     }
 
-    return baseList.filter(t => feeStatusFilter === 'ALL' || t.status === feeStatusFilter);
-  }, [transactions, transactionSearch, feeStatusFilter, invoices, mapInvoiceToTx]);
+    return baseList;
+  }, [transactions, transactionSearch, invoices, mapInvoiceToTx]);
 
   // Reset pagination on filter or search changes
   useEffect(() => {
     setTxCurrentPage(1);
-  }, [transactionSearch, feeStatusFilter, timeFilter, txPageSize]);
+  }, [transactionSearch, timeFilter, txPageSize]);
 
   // Pagination calculation
   const totalTxPages = Math.max(1, Math.ceil(filteredTransactions.length / txPageSize));
@@ -2243,22 +2242,6 @@ export function DashboardOverview({
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
-            {/* Status Filter Pills (ALL, Paid, Pending, Overdue) */}
-            <div className="flex items-center p-0.5 bg-emerald-50/60 border border-[#DCE8E0] rounded-xl text-xs font-semibold">
-              {(['ALL', 'Paid', 'Pending', 'Overdue'] as const).map(st => (
-                <button
-                  key={st}
-                  onClick={() => setFeeStatusFilter(st)}
-                  className={`px-2.5 py-1.5 rounded-lg transition-all border-none cursor-pointer ${
-                    feeStatusFilter === st
-                      ? 'bg-[#122A24] text-white shadow-xs font-bold'
-                      : 'bg-transparent text-emerald-950/70 hover:text-[#122A24]'
-                  }`}
-                >
-                  {st}
-                </button>
-              ))}
-            </div>
 
             {/* Limit / Page Size Selector */}
             <div className="flex items-center gap-1.5 text-xs text-emerald-950 font-medium bg-emerald-50/60 border border-[#DCE8E0] px-2.5 py-1 rounded-xl">
