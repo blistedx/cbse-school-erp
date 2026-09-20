@@ -351,12 +351,13 @@ export function DashboardFeeMaster({
     }
     if (studentSearch && studentSearch.trim().length > 0) {
       const q = studentSearch.toLowerCase().trim();
-      list = list.filter(s =>
-        `${s.first_name || ''} ${s.last_name || ''}`.toLowerCase().includes(q) ||
-        (s.admission_no || '').toLowerCase().includes(q) ||
-        (s.father_name || '').toLowerCase().includes(q) ||
-        (s.mobile || s.emergency_contact || '').includes(q)
-      );
+      list = list.filter(s => {
+        const name = (s.full_name || `${(s as any).first_name || ''} ${(s as any).last_name || ''}`).toLowerCase();
+        const adm = (s.admission_no || '').toLowerCase();
+        const guardian = ((s as any).father_name || s.guardian_name || '').toLowerCase();
+        const phone = (s.guardian_phone || (s as any).mobile || (s as any).emergency_contact || '');
+        return name.includes(q) || adm.includes(q) || guardian.includes(q) || phone.includes(q);
+      });
     }
     return list;
   }, [students, collectClass, collectSection, studentSearch]);
@@ -1119,7 +1120,7 @@ export function DashboardFeeMaster({
                   </span>
                   {selectedStudent && (
                     <span className="text-[11px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                      Active: {selectedStudent.first_name} {selectedStudent.last_name} (#{selectedStudent.admission_no})
+                      Active: {selectedStudent.full_name || `${(selectedStudent as any).first_name || ''} ${(selectedStudent as any).last_name || ''}`.trim() || selectedStudent.admission_no} (#{selectedStudent.admission_no})
                     </span>
                   )}
                 </div>
@@ -1132,6 +1133,7 @@ export function DashboardFeeMaster({
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto pr-1">
                     {filteredStudents.slice(0, 30).map((st) => {
                       const isCurrentlySelected = selectedStudent?.id === st.id;
+                      const stName = st.full_name || `${(st as any).first_name || ''} ${(st as any).last_name || ''}`.trim() || `Scholar #${st.admission_no}`;
                       return (
                         <div
                           key={st.id}
@@ -1143,14 +1145,22 @@ export function DashboardFeeMaster({
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
-                              isCurrentlySelected ? 'bg-emerald-700 text-white' : 'bg-[#122A24] text-white'
-                            }`}>
-                              {st.first_name?.[0] || 'S'}
-                            </div>
+                            {st.photo || st.avatar ? (
+                              <img
+                                src={st.photo || st.avatar}
+                                alt={stName}
+                                className="w-8 h-8 rounded-xl object-cover border border-[#DCE8E0] shrink-0"
+                              />
+                            ) : (
+                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                                isCurrentlySelected ? 'bg-emerald-700 text-white' : 'bg-[#122A24] text-white'
+                              }`}>
+                                {stName[0]?.toUpperCase() || 'S'}
+                              </div>
+                            )}
                             <div className="min-w-0">
                               <p className="font-bold text-xs text-[#122A24] truncate">
-                                {st.first_name} {st.last_name}
+                                {stName}
                               </p>
                               <p className="text-[10px] text-[#2D5A4E] truncate">
                                 Adm #{st.admission_no} • {st.class_name}-{st.section || 'A'}
@@ -1192,13 +1202,23 @@ export function DashboardFeeMaster({
                   {/* Student Card */}
                   <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-2xl bg-[#122A24] text-white flex items-center justify-center text-xl font-bold shadow-xs">
-                        {selectedStudent.first_name?.[0] || 'S'}
-                      </div>
+                      {selectedStudent.photo || selectedStudent.avatar ? (
+                        <img
+                          src={selectedStudent.photo || selectedStudent.avatar}
+                          alt={selectedStudent.full_name || 'Student'}
+                          className="w-14 h-14 rounded-2xl object-cover border border-[#DCE8E0] shadow-xs shrink-0"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-2xl bg-[#122A24] text-white flex items-center justify-center text-xl font-bold shadow-xs shrink-0">
+                          {(selectedStudent.full_name || 'S')[0]?.toUpperCase()}
+                        </div>
+                      )}
                       <div>
-                        <h2 className="text-base font-black text-[#122A24] font-display">{selectedStudent.first_name} {selectedStudent.last_name}</h2>
+                        <h2 className="text-base font-black text-[#122A24] font-display">
+                          {selectedStudent.full_name || `${(selectedStudent as any).first_name || ''} ${(selectedStudent as any).last_name || ''}`.trim() || `Scholar #${selectedStudent.admission_no}`}
+                        </h2>
                         <p className="text-xs text-[#2D5A4E] font-medium">
-                          Adm #{selectedStudent.admission_no} • {selectedStudent.class_name} - {selectedStudent.section || 'A'} • Father: {selectedStudent.father_name || 'N/A'}
+                          Adm #{selectedStudent.admission_no} • {selectedStudent.class_name} - {selectedStudent.section || 'A'} • Guardian: {selectedStudent.guardian_name || (selectedStudent as any).father_name || 'N/A'}
                         </p>
                         <div className="flex flex-wrap items-center gap-1.5 mt-2">
                           {selectedStudent.transport_opted === 'YES' && (
@@ -2664,13 +2684,14 @@ export function DashboardFeeMaster({
                   ? drawerDefaulters
                   : classActiveStudents.map(st => {
                       const def = defaulterMap.get(st.id) || defaulterMap.get(st.admission_no);
+                      const stName = st.full_name || `${(st as any).first_name || ''} ${(st as any).last_name || ''}`.trim() || st.admission_no;
                       return {
                         studentId: st.id,
-                        studentName: `${st.first_name || ''} ${st.last_name || ''}`.trim(),
+                        studentName: stName,
                         admissionNo: st.admission_no,
                         classSection: `${st.class_name} - ${st.section || 'A'}`,
-                        fatherName: st.father_name || 'N/A',
-                        mobile: st.mobile || st.emergency_contact || 'N/A',
+                        fatherName: st.guardian_name || (st as any).father_name || 'N/A',
+                        mobile: st.guardian_phone || (st as any).mobile || (st as any).emergency_contact || 'N/A',
                         monthsPending: def ? def.monthsPending : 'All Clear',
                         pendingPaise: def ? def.pendingPaise : 0,
                         lastPaidOn: def ? def.lastPaidOn : 'Cleared',
