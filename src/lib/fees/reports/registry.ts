@@ -561,25 +561,38 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
   advance_payers: (ctx) => {
     const rows: Record<string, any>[] = [];
     let grandAdvance = 0;
-    let grandBilledToDate = 0;
-    let grandPaid = 0;
+    let grandPaidDue = 0;
+    let grandTotalPaid = 0;
 
     for (const s of ctx.students) {
       const state = computeStudentFeeState(s.id, ctx.demands, ctx.payments, ctx.asOfDate);
-      const adv = Math.max(state.advanceAmount, Math.max(0, state.totalCollected - state.billedDueToDate));
-      if (adv > 0) {
-        grandAdvance += adv;
-        grandBilledToDate += state.billedDueToDate;
-        grandPaid += state.totalCollected;
+      
+      let studentPaidDue = 0;
+      let studentPaidFuture = 0;
+
+      for (const d of state.demands) {
+        if (d.dueDate <= ctx.asOfDate) {
+          studentPaidDue += d.paid;
+        } else {
+          studentPaidFuture += d.paid;
+        }
+      }
+
+      const advanceInflow = studentPaidFuture;
+      if (advanceInflow > 0) {
+        grandAdvance += advanceInflow;
+        grandPaidDue += studentPaidDue;
+        grandTotalPaid += (studentPaidDue + advanceInflow);
+
         rows.push({
           studentName: s.full_name || 'Scholar',
           admissionNo: s.admission_no || s.id,
           classSection: `${s.class_name} - ${s.section || 'A'}`,
           fatherName: s.father_name || s.guardian_name || 'Parent',
-          mobile: s.father_phone || s.guardian_phone || s.phone || 'N/A',
-          billedToDatePaise: state.billedDueToDate,
-          paidPaise: state.totalCollected,
-          advancePaise: adv,
+          paidPaise: studentPaidDue + advanceInflow,
+          billedToDatePaise: studentPaidDue,
+          advancePaise: advanceInflow,
+          status: 'ADVANCE',
         });
       }
     }
@@ -591,10 +604,10 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
         admissionNo: `${rows.length} Scholars`,
         classSection: '',
         fatherName: '',
-        mobile: '',
-        billedToDatePaise: grandBilledToDate,
-        paidPaise: grandPaid,
+        paidPaise: grandTotalPaid,
+        billedToDatePaise: grandPaidDue,
         advancePaise: grandAdvance,
+        status: '',
       },
       summaryKpis: [
         { label: 'Advance Payer Scholars', value: rows.length.toString(), color: 'text-blue-700' },
@@ -862,32 +875,36 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
   // ─── 14. Sibling Discount Report ───
   sibling_discount_report: (ctx) => {
     const rows: Record<string, any>[] = [];
-    let grandGross = 0;
-    let grandDisc = 0;
-    let grandNet = 0;
+    let grandTuitionDisc = 0;
+    let grandTransportDisc = 0;
+    let grandTotalDisc = 0;
 
     for (const s of ctx.students) {
-      const sDemands = ctx.demands.filter(d => d.studentId === s.id && d.feeHead === 'TUITION');
-      const discDemands = sDemands.filter(d => d.discountAmount > 0);
+      const sDemands = ctx.demands.filter(d => d.studentId === s.id);
+      const tuitionDiscDemands = sDemands.filter(d => d.feeHead === 'TUITION' && d.discountAmount > 0 && d.discountReason?.includes('Sibling'));
+      const transDiscDemands = sDemands.filter(d => d.feeHead === 'TRANSPORT' && d.discountAmount > 0 && d.discountReason?.includes('Free Transport'));
 
-      if (discDemands.length > 0) {
-        const gross = sDemands.reduce((a, b) => a + b.grossAmount, 0);
-        const disc = sDemands.reduce((a, b) => a + b.discountAmount, 0);
-        const net = gross - disc;
+      const tDisc = tuitionDiscDemands.reduce((a, b) => a + b.discountAmount, 0);
+      const trDisc = transDiscDemands.reduce((a, b) => a + b.discountAmount, 0);
+      const totDisc = tDisc + trDisc;
 
-        grandGross += gross;
-        grandDisc += disc;
-        grandNet += net;
+      if (totDisc > 0) {
+        grandTuitionDisc += tDisc;
+        grandTransportDisc += trDisc;
+        grandTotalDisc += totDisc;
+
+        const sampleReason = tuitionDiscDemands[0]?.discountReason || transDiscDemands[0]?.discountReason || 'Sibling Concession';
 
         rows.push({
           studentName: s.full_name || 'Scholar',
           admissionNo: s.admission_no || s.id,
           classSection: `${s.class_name} - ${s.section || 'A'}`,
-          siblingOrder: '2nd/3rd Sibling',
           fatherName: s.father_name || s.guardian_name || 'Parent',
-          grossTuitionPaise: gross,
-          discountPaise: disc,
-          netTuitionPaise: net,
+          childOrder: sampleReason.includes('20%') ? '2nd Child' : sampleReason.includes('30%') ? '3rd Child' : '4th Child',
+          concessionRule: sampleReason,
+          tuitionDiscountPaise: tDisc,
+          transportDiscountPaise: trDisc,
+          totalDiscountPaise: totDisc,
         });
       }
     }
@@ -896,17 +913,20 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
       rows,
       grandTotalRow: {
         studentName: 'Grand Total',
-        admissionNo: `${rows.length} Concession Recipients`,
+        admissionNo: `${rows.length} Beneficiaries`,
         classSection: '',
-        siblingOrder: '',
         fatherName: '',
-        grossTuitionPaise: grandGross,
-        discountPaise: grandDisc,
-        netTuitionPaise: grandNet,
+        childOrder: '',
+        concessionRule: '',
+        tuitionDiscountPaise: grandTuitionDisc,
+        transportDiscountPaise: grandTransportDisc,
+        totalDiscountPaise: grandTotalDisc,
       },
       summaryKpis: [
-        { label: 'Sibling Concession Beneficiaries', value: rows.length.toString() },
-        { label: 'Total Sibling Concession Given', value: formatCurrency(grandDisc), color: 'text-indigo-700' },
+        { label: 'Sibling Beneficiaries', value: rows.length.toString() },
+        { label: 'Tuition Concessions', value: formatCurrency(grandTuitionDisc) },
+        { label: 'Transport Concessions', value: formatCurrency(grandTransportDisc) },
+        { label: 'Total Sibling Concessions', value: formatCurrency(grandTotalDisc), color: 'text-indigo-700' },
       ],
     };
   },
@@ -914,53 +934,61 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
   // ─── 15. Month-wise Discount & Waiver Summary ───
   month_wise_discount: (ctx) => {
     const monthOrder = ['APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC', 'JAN', 'FEB', 'MAR'];
-    const monthMap = new Map<string, { count: number; gross: number; discount: number; net: number }>();
-    monthOrder.forEach(m => monthMap.set(m, { count: 0, gross: 0, discount: 0, net: 0 }));
+    const monthMap = new Map<string, { siblingDisc: number; otherDisc: number; students: Set<string> }>();
+    monthOrder.forEach(m => monthMap.set(m, { siblingDisc: 0, otherDisc: 0, students: new Set() }));
 
     for (const d of ctx.demands) {
       const p = d.period;
-      if (!monthMap.has(p)) monthMap.set(p, { count: 0, gross: 0, discount: 0, net: 0 });
-      const entry = monthMap.get(p)!;
-      entry.count++;
-      entry.gross += d.grossAmount;
-      entry.discount += d.discountAmount;
-      entry.net += d.netAmount;
+      if (!monthMap.has(p)) continue;
+      if (d.discountAmount > 0) {
+        const entry = monthMap.get(p)!;
+        if (d.discountReason?.includes('Sibling') || d.discountReason?.includes('Free Transport')) {
+          entry.siblingDisc += d.discountAmount;
+        } else {
+          entry.otherDisc += d.discountAmount;
+        }
+        entry.students.add(d.studentId);
+      }
     }
 
-    let grandGross = 0;
-    let grandDisc = 0;
-    let grandNet = 0;
+    let grandSibling = 0;
+    let grandOther = 0;
+    let grandTotal = 0;
+    const allUniqueBeneficiaries = new Set<string>();
 
-    const rows = Array.from(monthMap.entries())
-      .filter(([_, v]) => v.count > 0)
-      .map(([month, data]) => {
-        grandGross += data.gross;
-        grandDisc += data.discount;
-        grandNet += data.net;
+    const rows = monthOrder.map(m => {
+      const data = monthMap.get(m)!;
+      const totalMonthDisc = data.siblingDisc + data.otherDisc;
+      grandSibling += data.siblingDisc;
+      grandOther += data.otherDisc;
+      grandTotal += totalMonthDisc;
+      data.students.forEach(id => allUniqueBeneficiaries.add(id));
 
-        return {
-          month,
-          totalStudents: Math.round(data.count / 2),
-          grossPaise: data.gross,
-          discountPaise: data.discount,
-          netPaise: data.net,
-        };
-      });
+      return {
+        monthName: m,
+        siblingDiscountPaise: data.siblingDisc,
+        otherDiscountsPaise: data.otherDisc,
+        totalConcessionPaise: totalMonthDisc,
+        beneficiaryCount: data.students.size,
+      };
+    });
 
-    const grandTotalStudents = rows.reduce((s, r) => s + r.totalStudents, 0);
+    const totalBeneficiaryAppearances = rows.reduce((s, r) => s + r.beneficiaryCount, 0);
 
     return {
       rows,
       grandTotalRow: {
-        month: 'Grand Total',
-        totalStudents: grandTotalStudents,
-        grossPaise: grandGross,
-        discountPaise: grandDisc,
-        netPaise: grandNet,
+        monthName: 'Grand Total',
+        siblingDiscountPaise: grandSibling,
+        otherDiscountsPaise: grandOther,
+        totalConcessionPaise: grandTotal,
+        beneficiaryCount: totalBeneficiaryAppearances,
       },
       summaryKpis: [
-        { label: 'Total Concessions Billed', value: formatCurrency(grandDisc), color: 'text-indigo-700' },
-        { label: 'Net Billed Realization', value: formatCurrency(grandNet) },
+        { label: 'Unique Beneficiaries', value: allUniqueBeneficiaries.size.toString() },
+        { label: 'Sibling Concessions', value: formatCurrency(grandSibling) },
+        { label: 'Manual & Discretionary', value: formatCurrency(grandOther) },
+        { label: 'Total Concessions Billed', value: formatCurrency(grandTotal), color: 'text-indigo-700' },
       ],
     };
   },
@@ -974,7 +1002,8 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
       const sDemands = ctx.demands.filter(d => 
         d.studentId === s.id && 
         d.discountAmount > 0 && 
-        !d.discountReason?.includes('Sibling')
+        !d.discountReason?.includes('Sibling') &&
+        !d.discountReason?.includes('Free Transport')
       );
       for (const d of sDemands) {
         grandAmount += d.discountAmount;
@@ -983,9 +1012,9 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
           admissionNo: s.admission_no || s.id,
           classSection: `${s.class_name} - ${s.section || 'A'}`,
           concessionType: d.feeHead,
-          reason: d.discountReason || 'Manual Fee Concession',
           amountPaise: d.discountAmount,
-          approvedBy: 'PRINCIPAL / ACCOUNTS',
+          approvedBy: d.discountReason?.includes('Principal') ? 'PRINCIPAL' : 'MANAGEMENT / ACCOUNTS',
+          remarks: d.discountReason || 'Manual Fee Concession',
         });
       }
     }
@@ -994,15 +1023,15 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
       rows,
       grandTotalRow: {
         studentName: 'Grand Total',
-        admissionNo: `${rows.length} Concession Items`,
+        admissionNo: `${rows.length} Concession Vouchers`,
         classSection: '',
         concessionType: '',
-        reason: '',
         amountPaise: grandAmount,
         approvedBy: '',
+        remarks: '',
       },
       summaryKpis: [
-        { label: 'Total Concessions Approved', value: rows.length.toString() },
+        { label: 'Total Vouchers Approved', value: rows.length.toString() },
         { label: 'Total Value Waived', value: formatCurrency(grandAmount), color: 'text-indigo-700' },
       ],
     };

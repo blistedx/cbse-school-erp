@@ -10,7 +10,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:db": "node test/test_db.js",
-    "verify:fees": "npx tsx scripts/verify-fee-master-suite.ts"
+    "verify:fees": "npx tsx scripts/verify-fee-master-suite.ts",
+    "seed:demo": "node scripts/seed-unified-fee-engine.mjs"
   },
   "dependencies": {
     "@netlify/plugin-nextjs": "^5.15.13",

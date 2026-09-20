@@ -2297,9 +2297,10 @@ export function DashboardFeeMaster({
                         <th className="p-2.5">Code</th>
                         <th className="p-2.5">Type</th>
                         <th className="p-2.5">Frequency</th>
+                        <th className="p-2.5 text-center">Structure Status</th>
                         <th className="p-2.5 text-center">Refundable</th>
                         <th className="p-2.5 text-right">Default Amount (₹)</th>
-                        <th className="p-2.5 text-center">Active</th>
+                        <th className="p-2.5 text-center">Demand Gen</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
@@ -2309,6 +2310,17 @@ export function DashboardFeeMaster({
                           <td className="p-2.5 font-mono text-slate-500 text-[11px]">{head.code}</td>
                           <td className="p-2.5">{head.type}</td>
                           <td className="p-2.5">{head.frequency}</td>
+                          <td className="p-2.5 text-center">
+                            {head.confirmed !== false ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">
+                                Confirmed Official
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
+                                Unconfirmed (Placeholder)
+                              </span>
+                            )}
+                          </td>
                           <td className="p-2.5 text-center">
                             {head.is_refundable ? (
                               <span className="text-emerald-700 font-bold text-[10px]">YES</span>
@@ -2320,7 +2332,26 @@ export function DashboardFeeMaster({
                             {formatPaise(head.default_amount_paise)}
                           </td>
                           <td className="p-2.5 text-center">
-                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFeeConfig(prev => {
+                                  if (!prev) return prev;
+                                  const updatedHeads = prev.fee_heads.map((h, i) =>
+                                    (h.id === head.id || i === idx) ? { ...h, is_active: !h.is_active } : h
+                                  );
+                                  return { ...prev, fee_heads: updatedHeads };
+                                });
+                              }}
+                              className={`w-8 h-4.5 rounded-full transition-colors relative inline-flex items-center px-0.5 cursor-pointer ${
+                                head.is_active ? 'bg-emerald-600' : 'bg-slate-300'
+                              }`}
+                              title={head.is_active ? 'Active for Demand Generation' : 'Disabled for Demand Generation'}
+                            >
+                              <span className={`w-3.5 h-3.5 rounded-full bg-white transition-transform ${
+                                head.is_active ? 'translate-x-3.5' : 'translate-x-0'
+                              }`} />
+                            </button>
                           </td>
                         </tr>
                       ))}

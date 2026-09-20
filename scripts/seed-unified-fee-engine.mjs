@@ -16,6 +16,17 @@ if (!envUri) {
   }
 }
 
+// Deterministic PRNG (Mulberry32) for perfectly reproducible seed data
+function createPrng(seed = 0xCB5E2026) {
+  let s = seed >>> 0;
+  return function () {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 const MONTH_SCHEDULE = [
   { key: 'APR', label: 'April 2026', due: '2026-04-15' },
   { key: 'MAY', label: 'May 2026', due: '2026-05-15' },
@@ -155,7 +166,30 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
     });
   }
 
-  // 3. 12 Academic Months (Tuition, Transport, Hostel, Exams)
+  // 3. Refundable Hostel Security Deposit (₹10,000) — ONLY FOR HOSTELLERS
+  if (isHostel) {
+    demands.push({
+      id: `DEM-${student.id}-HOSTEL-CAUTION`,
+      schoolId,
+      sessionId: session,
+      studentId: student.id,
+      studentName,
+      admissionNo: admNo,
+      className: cls,
+      section: sec,
+      feeHead: 'SECURITY_DEPOSIT',
+      period: 'ONE_TIME',
+      periodLabel: 'Hostel Security Deposit (Refundable)',
+      grossAmount: 1000000, // ₹10,000
+      discountAmount: 0,
+      discountReason: null,
+      netAmount: 1000000,
+      dueDate: '2026-04-01',
+      createdAt: now,
+    });
+  }
+
+  // 4. 12 Academic Months (Tuition, Transport, Hostel, Exams)
   for (const m of MONTH_SCHEDULE) {
     if (!isRte) {
       let tuitionDisc = 0;
@@ -224,7 +258,7 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
       });
     }
 
-    // Hostel Demand
+    // Hostel Demand (Monthly Boarding & Mess)
     if (isHostel) {
       demands.push({
         id: `DEM-${student.id}-HOSTEL-${m.key}`,
@@ -301,7 +335,7 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
           feeHead: 'LAB',
           period: 'SEP',
           periodLabel: 'Science & Computer Lab Fee',
-          grossAmount: 150000,
+          grossAmount: 150000, // ₹1,500
           discountAmount: 0,
           discountReason: null,
           netAmount: 150000,
@@ -338,13 +372,20 @@ function generateDemandsForStudent(student, session, siblingTier, manualConcessi
 const PAYMENT_MODES = ['UPI', 'CASH', 'UPI', 'ONLINE', 'CHEQUE', 'UPI', 'CASH'];
 
 async function seedUnifiedFeeEngine() {
-  console.log('⚡ Starting Enhanced Fee Seed (Realistic Allocations, Cancelled Receipts, Manual Concessions)...');
+  console.log('⚡ Starting Unified Fee Engine Seeder (Deterministic PRNG & Realistic Cohorts)...');
+  const prng = createPrng(0xCB5E2026);
+
+  const schoolId = 'DPS2026';
+  const session = '2026-27';
+
+  // SAFETY GUARD: Protect production schools from demo overwrite
+  if (process.env.NODE_ENV === 'production' && schoolId !== 'DPS2026') {
+    throw new Error(`[SAFETY_GUARD_ALERT] Demo seeder can only run on demo school DPS2026. Refusing to seed ${schoolId}`);
+  }
+
   const client = new MongoClient(envUri);
   await client.connect();
   const db = client.db('edugit');
-
-  const session = '2026-27';
-  const schoolId = 'DPS2026';
 
   const students = await db.collection('students').find({ school_id: schoolId }).toArray();
   console.log(`📋 Found ${students.length} students enrolled in ${schoolId}`);
@@ -413,7 +454,7 @@ async function seedUnifiedFeeEngine() {
 
   console.log(`👨‍👩‍👧 Mapped ${siblingTierMap.size} sibling discount beneficiaries`);
 
-  // 5 Explicit Manual Concessions
+  // 5 Explicit Manual Concessions (Total ₹3,300: ₹2,900 Due to Date + ₹400 Upcoming)
   const manualConcessionConfigs = [
     { studentIndex: 10, month: 'MAY', amountPaise: 80000, reason: 'Merit Scholarship (CBSE State Top 1%)', approvedBy: 'PRINCIPAL / GOVERNING BODY' },
     { studentIndex: 45, month: 'JUL', amountPaise: 50000, reason: 'Staff Ward Special Fee Waiver', approvedBy: 'SECRETARY / ACCOUNTS' },
@@ -512,28 +553,37 @@ async function seedUnifiedFeeEngine() {
 
     if (isRte) continue;
 
-    // 2. Realistic Cohort Distribution
-    // 0 to 67   (~68%): Fully Paid Apr–Aug
-    // 68 to 82  (~15%): Partially Paid
-    // 83 to 89  (~7%) : Annual Fee Defaulters
-    // 90 to 99  (~10%): Never Paid / Complete Defaulters (86 students)
-    const cohortVal = (idx * 43 + 17) % 100;
-    const isNeverPaid = cohortVal >= 90;
-    const isAnnualDefaulter = cohortVal >= 83 && cohortVal < 90;
-    const isPartial = cohortVal >= 68 && cohortVal < 83;
-    const isAdvance = idx === 3 || idx === 7 || idx === 12; // 3 explicit realistic advance payers (2-3 months advance)
-    const isRegularPaid = !isNeverPaid && !isAnnualDefaulter && !isPartial;
+    // 2. Realistic Cohort Distribution via deterministic PRNG:
+    // • 0.00 to 0.25 (~25%): Fully Cleared to Date (Paid Apr through Sep!)
+    // • 0.25 to 0.73 (~48%): Paid Through August (September Dues Pending)
+    // • 0.73 to 0.83 (~10%): Partial Payers (Paid Apr, May-Jun only)
+    // • 0.83 to 0.90 (~7%) : Annual Fee Defaulters (Paid Tuition Apr-Aug, but NEVER paid Annual Fee)
+    // • 0.90 to 1.00 (~10%): Never Paid / Complete Defaulters (No receipts)
+    const randVal = prng();
+    const isNeverPaid = randVal >= 0.90;
+    const isAnnualDefaulter = randVal >= 0.83 && randVal < 0.90;
+    const isPartial = randVal >= 0.73 && randVal < 0.83;
+    const isFullyCleared = randVal < 0.25;
+    const isPaidThroughAug = randVal >= 0.25 && randVal < 0.73;
+    
+    // Explicit 3 advance payers
+    const isAdvance = idx === 3 || idx === 7 || idx === 12;
 
-    // Payment 1: April Slot (+ Admission/Registration if new admission)
-    if (!isNeverPaid && !isAnnualDefaulter) {
+    // Payment 1: April Slot (+ Admission/Registration if new admission + Caution deposit if hosteller)
+    if (!isNeverPaid) {
       receiptCounter++;
       const aprRecNo = `DPS2-REC-2604-${String(receiptCounter).padStart(4, '0')}`;
       const aprDate = `2026-04-${String(5 + (idx % 8)).padStart(2, '0')}`;
       const mode = PAYMENT_MODES[idx % PAYMENT_MODES.length];
 
-      const aprDemands = studentDemands.filter(d => 
-        d.period === 'APR' || (d.period === 'ONE_TIME' && (s.admission_type === 'NEW' || s.admission_no === 'DPS-2026-0263'))
+      let aprDemands = studentDemands.filter(d => 
+        d.period === 'APR' || (d.period === 'ONE_TIME' && (s.admission_type === 'NEW' || s.admission_no === 'DPS-2026-0263' || d.feeHead === 'SECURITY_DEPOSIT'))
       );
+
+      // If Annual Fee Defaulter: Exclude the ANNUAL fee demand so it remains unpaid!
+      if (isAnnualDefaulter) {
+        aprDemands = aprDemands.filter(d => d.feeHead !== 'ANNUAL');
+      }
 
       const allocatedHeads = aprDemands.map(d => ({
         feeHead: d.feeHead,
@@ -561,7 +611,7 @@ async function seedUnifiedFeeEngine() {
           mode,
           paidOn: aprDate,
           collectedBy: 'ACCOUNTS_OFFICE',
-          remarks: 'April Academic Fee & Annual Charges',
+          remarks: isAnnualDefaulter ? 'April Academic Tuition Only' : 'April Academic Fee & Annual Charges',
           cancelled: false,
           createdAt: `${aprDate}T10:00:00.000Z`,
         });
@@ -569,7 +619,7 @@ async function seedUnifiedFeeEngine() {
     }
 
     // Payment 2: May - June Slot
-    if (isRegularPaid || isAdvance || (isPartial && idx % 2 === 0)) {
+    if (!isNeverPaid) {
       receiptCounter++;
       const mjRecNo = `DPS2-REC-2605-${String(receiptCounter).padStart(4, '0')}`;
       const mjDate = `2026-05-${String(6 + (idx % 8)).padStart(2, '0')}`;
@@ -609,7 +659,7 @@ async function seedUnifiedFeeEngine() {
     }
 
     // Payment 3: July Slot (+ Unit Test Exam)
-    if (isRegularPaid || isAdvance) {
+    if (isFullyCleared || isPaidThroughAug || isAnnualDefaulter || isAdvance) {
       receiptCounter++;
       const julRecNo = `DPS2-REC-2607-${String(receiptCounter).padStart(4, '0')}`;
       const julDate = `2026-07-${String(7 + (idx % 7)).padStart(2, '0')}`;
@@ -649,7 +699,7 @@ async function seedUnifiedFeeEngine() {
     }
 
     // Payment 4: August Slot
-    if (isRegularPaid || isAdvance) {
+    if (isFullyCleared || isPaidThroughAug || isAnnualDefaulter || isAdvance) {
       receiptCounter++;
       const augRecNo = `DPS2-REC-2608-${String(receiptCounter).padStart(4, '0')}`;
       const augDate = `2026-08-${String(5 + (idx % 7)).padStart(2, '0')}`;
@@ -688,14 +738,54 @@ async function seedUnifiedFeeEngine() {
       }
     }
 
-    // Advance Payments: Future Slots (OCT, NOV for 2-3 months advance)
+    // Payment 5: September Slot (~25% scholars who are fully cleared to date)
+    if (isFullyCleared) {
+      receiptCounter++;
+      const sepRecNo = `DPS2-REC-2609-${String(receiptCounter).padStart(4, '0')}`;
+      const sepDate = `2026-09-${String(4 + (idx % 6)).padStart(2, '0')}`;
+      const mode = PAYMENT_MODES[(idx + 4) % PAYMENT_MODES.length];
+
+      const sepDemands = studentDemands.filter(d => d.period === 'SEP');
+      const allocatedHeads = sepDemands.map(d => ({
+        feeHead: d.feeHead,
+        period: d.period,
+        amountPaise: d.netAmount,
+      }));
+      const totalPaid = allocatedHeads.reduce((a, b) => a + b.amountPaise, 0);
+
+      if (totalPaid > 0) {
+        allPayments.push({
+          id: `PAY-${s.id}-SEP`,
+          receiptNo: sepRecNo,
+          schoolId,
+          sessionId: session,
+          studentId: s.id,
+          studentName: s.full_name || 'Scholar',
+          admissionNo: s.admission_no || s.id,
+          className: s.class_name,
+          section: s.section || 'A',
+          fatherName: s.father_name || 'Parent',
+          mobile: s.father_phone || s.guardian_phone || s.phone || '9811000000',
+          allocatedHeads,
+          amountPaid: totalPaid,
+          mode,
+          paidOn: sepDate,
+          collectedBy: 'ACCOUNTS_OFFICE',
+          remarks: 'September Tuition & Examination Fee',
+          cancelled: false,
+          createdAt: `${sepDate}T11:30:00.000Z`,
+        });
+      }
+    }
+
+    // Payment 6: Advance Payments (OCT, NOV for explicit advance scholars)
     if (isAdvance) {
       receiptCounter++;
       const advRecNo = `DPS2-REC-2609-ADV-${String(receiptCounter).padStart(4, '0')}`;
       const advDate = `2026-09-${String(2 + (idx % 5)).padStart(2, '0')}`;
       const mode = 'ONLINE';
 
-      // 2 months in advance (OCT + NOV)
+      // 2-3 months advance
       const futureDemands = studentDemands.filter(d => d.period === 'OCT' || (idx === 12 ? d.period === 'NOV' || d.period === 'DEC' : d.period === 'NOV'));
       const allocatedHeads = futureDemands.map(d => ({
         feeHead: d.feeHead,
@@ -783,7 +873,7 @@ async function seedUnifiedFeeEngine() {
     });
   }
 
-  // 5 Explicit CANCELLED Receipts
+  // 5 Explicit CANCELLED Receipts (Total ₹9,200)
   const cancelledReceiptConfigs = [
     { studentIndex: 15, recNo: 'DPS2-REC-VOID-0001', amountPaise: 140000, reason: 'Cheque Bounced / Insufficient Funds', mode: 'CHEQUE', date: '2026-05-10' },
     { studentIndex: 25, recNo: 'DPS2-REC-VOID-0002', amountPaise: 160000, reason: 'Duplicate Online Transaction Entry', mode: 'ONLINE', date: '2026-06-12' },
@@ -871,7 +961,7 @@ async function seedUnifiedFeeEngine() {
   }));
   await db.collection('fee_receipts').insertMany(feeReceiptDocs);
 
-  console.log('\n--- SEED COMPLETED SUCCESSFULLY ---');
+  console.log('\n--- SEED COMPLETED DETERMINISTICALLY ---');
   console.log(`Total Demands Seeded   : ${allDemands.length}`);
   console.log(`Total Receipts Issued  : ${allPayments.length} (including 5 cancelled)`);
   console.log(`Legacy Ledger Lines    : ${legacyLedgerLines.length}`);

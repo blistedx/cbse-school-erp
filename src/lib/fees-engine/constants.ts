@@ -154,6 +154,7 @@ export const DEFAULT_FEE_CONFIG: Omit<FeeConfig, 'id' | 'school_id' | 'academic_
       applicable_to: 'ALL',
       default_amount_paise: 100000, // ₹1,000
       is_active: true,
+      confirmed: true,
       description: 'Non-refundable registration and prospectus kit charge',
     },
     {
@@ -166,6 +167,7 @@ export const DEFAULT_FEE_CONFIG: Omit<FeeConfig, 'id' | 'school_id' | 'academic_
       applicable_to: 'ALL',
       default_amount_paise: 500000, // ₹5,000
       is_active: true,
+      confirmed: true,
       description: 'One-time admission charge for new scholars',
     },
     {
@@ -178,6 +180,7 @@ export const DEFAULT_FEE_CONFIG: Omit<FeeConfig, 'id' | 'school_id' | 'academic_
       applicable_to: 'ALL',
       default_amount_paise: 500000, // ₹5,000 (PG-VIII) / ₹6,000 (IX-XII)
       is_active: true,
+      confirmed: true,
       description: 'Annual development, library, examination, and campus charges',
     },
     {
@@ -190,6 +193,7 @@ export const DEFAULT_FEE_CONFIG: Omit<FeeConfig, 'id' | 'school_id' | 'academic_
       applicable_to: 'ALL',
       default_amount_paise: 140000,
       is_active: true,
+      confirmed: true,
       description: 'Academic tuition fee per installment/month schedule',
     },
     {
@@ -202,19 +206,8 @@ export const DEFAULT_FEE_CONFIG: Omit<FeeConfig, 'id' | 'school_id' | 'academic_
       applicable_to: 'TRANSPORT',
       default_amount_paise: 80000,
       is_active: true,
+      confirmed: true,
       description: 'Distance slab based monthly school bus fleet fee',
-    },
-    {
-      id: 'HEAD_HOS',
-      name: 'Hostel & Mess Boarding Fee',
-      code: 'HOSTEL',
-      type: 'RECURRING',
-      frequency: 'MONTHLY',
-      is_refundable: false,
-      applicable_to: 'HOSTEL',
-      default_amount_paise: 600000,
-      is_active: true,
-      description: 'Monthly boarding, lodging and mess charge',
     },
     {
       id: 'HEAD_HSD',
@@ -226,11 +219,25 @@ export const DEFAULT_FEE_CONFIG: Omit<FeeConfig, 'id' | 'school_id' | 'academic_
       applicable_to: 'HOSTEL',
       default_amount_paise: 1000000, // ₹10,000
       is_active: true,
+      confirmed: true,
       description: 'Refundable security caution money for hostel inmates',
     },
     {
+      id: 'HEAD_HOS',
+      name: 'Hostel & Mess Boarding Fee (Placeholder)',
+      code: 'HOSTEL',
+      type: 'RECURRING',
+      frequency: 'MONTHLY',
+      is_refundable: false,
+      applicable_to: 'HOSTEL',
+      default_amount_paise: 650000, // ₹6,500
+      is_active: true,
+      confirmed: false, // Unconfirmed placeholder
+      description: 'Monthly boarding, lodging and mess charge (Requires school confirmation)',
+    },
+    {
       id: 'HEAD_EXM',
-      name: 'Examination Fee',
+      name: 'Examination Fee (Placeholder)',
       code: 'EXAM',
       type: 'RECURRING',
       frequency: 'HALF_YEARLY',
@@ -238,7 +245,22 @@ export const DEFAULT_FEE_CONFIG: Omit<FeeConfig, 'id' | 'school_id' | 'academic_
       applicable_to: 'ALL',
       default_amount_paise: 100000, // ₹1,000
       is_active: true,
-      description: 'Periodic tests and half-yearly/annual exam charges',
+      confirmed: false, // Unconfirmed placeholder
+      description: 'Periodic tests and half-yearly/annual exam charges (Requires school confirmation)',
+    },
+    {
+      id: 'HEAD_LAB',
+      name: 'Science & Computer Lab Fee (Placeholder)',
+      code: 'LAB',
+      type: 'RECURRING',
+      frequency: 'ANNUAL',
+      is_refundable: false,
+      applicable_to: 'CLASS_GROUP',
+      applicable_classes: ['Class 9', 'Class 10', 'Class 11', 'Class 12', '9', '10', '11', '12', 'IX', 'X', 'XI', 'XII'],
+      default_amount_paise: 150000, // ₹1,500
+      is_active: true,
+      confirmed: false, // Unconfirmed placeholder
+      description: 'Annual senior secondary practical lab assessment fee (Requires school confirmation)',
     },
     {
       id: 'HEAD_TC',
@@ -250,6 +272,7 @@ export const DEFAULT_FEE_CONFIG: Omit<FeeConfig, 'id' | 'school_id' | 'academic_
       applicable_to: 'ON_REQUEST',
       default_amount_paise: 100000, // ₹1,000
       is_active: true,
+      confirmed: true,
       description: 'Official TC and clearance verification fee',
     },
   ],

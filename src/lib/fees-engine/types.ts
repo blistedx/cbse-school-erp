@@ -77,6 +77,7 @@ export interface FeeHeadConfig {
   applicable_classes?: string[];
   default_amount_paise: number;
   is_active: boolean;
+  confirmed?: boolean;
   description?: string;
 }
 
