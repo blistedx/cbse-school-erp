@@ -128,7 +128,14 @@ export async function GET(req: Request) {
     if (action === 'overview') {
       const students = await Database.getStudents(tenant, session);
       const activeStudents = students.filter(s => s.status === 'ACTIVE');
-      const studentsMap = new Map(activeStudents.map(s => [s.id, s]));
+      const studentsMap = new Map();
+      for (const s of activeStudents) {
+        const name = s.full_name || `${(s as any).first_name || ''} ${(s as any).last_name || ''}`.trim() || (s as any).name || s.admission_no;
+        const sObj = { ...s, full_name: name, studentName: name };
+        if (s.id) studentsMap.set(String(s.id), sObj);
+        if ((s as any)._id) studentsMap.set(String((s as any)._id), sObj);
+        if (s.admission_no) studentsMap.set(String(s.admission_no), sObj);
+      }
 
       const [overviewAgg, thisMonthReport] = await Promise.all([
         getSchoolFeeOverviewAggregation(tenant, session, studentsMap),

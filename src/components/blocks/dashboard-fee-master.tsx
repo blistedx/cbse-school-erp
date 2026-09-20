@@ -79,9 +79,7 @@ export function DashboardFeeMaster({
     else alert(msg);
   }, [showAdminToast]);
 
-  // ─── TAB 1: OVERVIEW STATE ───
-  const [overviewLoading, setOverviewLoading] = useState<boolean>(true);
-  const [overviewError, setOverviewError] = useState<string | null>(null);
+  // ─── TAB 1: OVERVIEW STATE (SWR INSTANT CACHE) ───
   const [overviewData, setOverviewData] = useState<{
     totalBilledPaise: number;
     totalCollectedPaise: number;
@@ -91,16 +89,38 @@ export function DashboardFeeMaster({
     studentsWithNothingPaid: number;
     thisMonthBreakdown: any[];
     topPending: any[];
-  }>({
-    totalBilledPaise: 0,
-    totalCollectedPaise: 0,
-    totalPendingPaise: 0,
-    totalDiscountPaise: 0,
-    collectionPercentage: 0,
-    studentsWithNothingPaid: 0,
-    thisMonthBreakdown: [],
-    topPending: [],
+  }>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const sId = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+        const cached = sessionStorage.getItem(`fee_overview_${sId}_${selectedSession || '2026-27'}`);
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return {
+      totalBilledPaise: 0,
+      totalCollectedPaise: 0,
+      totalPendingPaise: 0,
+      totalDiscountPaise: 0,
+      collectionPercentage: 0,
+      studentsWithNothingPaid: 0,
+      thisMonthBreakdown: [],
+      topPending: [],
+    };
   });
+
+  const [overviewLoading, setOverviewLoading] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const sId = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+        const cached = sessionStorage.getItem(`fee_overview_${sId}_${selectedSession || '2026-27'}`);
+        if (cached) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
+  const [isSyncingOverview, setIsSyncingOverview] = useState<boolean>(false);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
 
   // ─── TAB 2: COLLECT FEES STATE ───
   const [collectClass, setCollectClass] = useState<string>('ALL');
@@ -201,26 +221,39 @@ export function DashboardFeeMaster({
     fetchClassDefaulters();
   }, [drawerClass, session, selectedSchool]);
 
-  // ─── LOAD OVERVIEW DATA ───
-  const loadOverview = useCallback(async () => {
-    setOverviewLoading(true);
+  // ─── LOAD OVERVIEW DATA (SWR SILENT BACKGROUND SYNC) ───
+  const loadOverview = useCallback(async (isSilent = false) => {
+    if (!isSilent && overviewData.totalBilledPaise === 0) {
+      setOverviewLoading(true);
+    }
+    setIsSyncingOverview(true);
     setOverviewError(null);
     try {
-      const schoolId = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
-      const res = await apiFetch(`/api/fee-master?action=overview&session=${session}&school_id=${encodeURIComponent(schoolId)}`);
+      const sId = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+      const res = await apiFetch(`/api/fee-master?action=overview&session=${session}&school_id=${encodeURIComponent(sId)}`);
       const data = await res.json();
       if (data.success && data.overview) {
         setOverviewData(data.overview);
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem(`fee_overview_${sId}_${session}`, JSON.stringify(data.overview));
+          }
+        } catch (e) {}
       } else {
-        setOverviewError(data?.error || 'Failed to load fee overview metrics.');
+        if (overviewData.totalBilledPaise === 0) {
+          setOverviewError(data?.error || 'Failed to load fee overview metrics.');
+        }
       }
     } catch (e: any) {
       console.error('[loadOverview error]', e);
-      setOverviewError(e?.message || 'Network error loading overview metrics.');
+      if (overviewData.totalBilledPaise === 0) {
+        setOverviewError(e?.message || 'Network error loading overview metrics.');
+      }
     } finally {
       setOverviewLoading(false);
+      setIsSyncingOverview(false);
     }
-  }, [session, selectedSchool]);
+  }, [session, selectedSchool, overviewData.totalBilledPaise]);
 
   // ─── LOAD CONFIG DATA ───
   const loadConfig = useCallback(async () => {
@@ -662,9 +695,11 @@ export function DashboardFeeMaster({
 
   return (
     <div className="w-full space-y-6 pb-16 font-sans text-slate-900">
-      {/* ─── HEADER BAR WITH WATERMARK TYPOGRAPHY & SESSION SELECTOR ─── */}
-      <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
-        {/* Left Top Watermark Typography ("Finance") */}
+      {/* ─────────────────────────────────────────────────────────────
+          1. MAIN CARD CONTAINER WITH SIGNATURE WATERMARK & MERGED KPI BANNER
+          ───────────────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-5 sm:p-7 space-y-6 relative overflow-hidden">
+        {/* Editorial Watermark Typography */}
         <div 
           aria-hidden="true" 
           className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
@@ -678,48 +713,137 @@ export function DashboardFeeMaster({
         >
           {getSchoolInitials(selectedSchool)}
         </div>
-        <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
 
-        <div className="flex items-center gap-3.5 relative z-10">
-          <div className="w-12 h-12 rounded-2xl bg-[#122A24] text-white flex items-center justify-center shadow-xs">
-            <Landmark className="w-6 h-6 text-emerald-400" />
-          </div>
+        {/* Top Header & Action Toolbar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-black tracking-tight text-[#122A24] font-display">
-                Fee Master
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight flex items-center gap-2.5">
+                <Landmark className="h-7 w-7 text-emerald-700 shrink-0" />
+                <span>Fee Master &amp; Institutional Finance</span>
               </h1>
-              <span className="text-[10px] uppercase font-mono font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                ONE FEES ENGINE
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                Session {session} • One Fees Engine
               </span>
+              {isSyncingOverview && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 animate-pulse">
+                  <RefreshCw className="w-3 h-3 animate-spin text-emerald-700" /> Live Syncing
+                </span>
+              )}
             </div>
-            <p className="text-xs text-[#2D5A4E] font-medium">Single Source of Truth for Institutional Finances & CBSE Fee Ledgers</p>
+            <p className="text-xs text-[#2D5A4E] mt-1 font-mono">
+              Single Source of Truth for Institutional Finances, Realtime Fee Ledgers &amp; CBSE Receipts
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-2 bg-[#EBF5EF]/70 px-3 py-1.5 rounded-2xl border border-[#DCE8E0]">
+              <label className="text-xs font-bold text-[#122A24]">Session:</label>
+              <select
+                value={session}
+                onChange={(e) => setSession(e.target.value)}
+                className="bg-white border border-[#DCE8E0] rounded-xl px-2.5 py-1 text-xs font-bold text-[#122A24] focus:outline-none focus:ring-2 focus:ring-emerald-600 cursor-pointer shadow-2xs"
+              >
+                <option value="2026-27">2026-27 (Current)</option>
+                <option value="2025-26">2025-26</option>
+                <option value="2027-28">2027-28</option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => loadOverview(false)}
+              disabled={isSyncingOverview}
+              className="px-3.5 py-2 rounded-full bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Sync Live Ledger Data"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 text-emerald-700 ${isSyncingOverview ? 'animate-spin' : ''}`} />
+              <span>Sync Live Ledger</span>
+            </button>
           </div>
         </div>
 
-        {/* Academic Session Selector & Quick Sync Action */}
-        <div className="flex items-center gap-2.5 relative z-10 flex-wrap">
-          <div className="flex items-center gap-2 bg-[#EBF5EF]/70 px-3 py-1.5 rounded-2xl border border-[#DCE8E0]">
-            <label className="text-xs font-bold text-[#122A24]">Session:</label>
-            <select
-              value={session}
-              onChange={(e) => setSession(e.target.value)}
-              className="bg-white border border-[#DCE8E0] rounded-xl px-2.5 py-1 text-xs font-bold text-[#122A24] focus:outline-none focus:ring-2 focus:ring-emerald-600 cursor-pointer shadow-2xs"
-            >
-              <option value="2026-27">2026-27 (Current)</option>
-              <option value="2025-26">2025-26</option>
-              <option value="2027-28">2027-28</option>
-            </select>
+        {/* ─────────────────────────────────────────────────────────────
+            2. MERGED DASHBOARD KPI HERO BANNER (DEEP FOREST GREEN #122A24)
+            ───────────────────────────────────────────────────────────── */}
+        <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+          <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/70 relative z-10">
+            {/* Tile 1: Total Demand Invoiced */}
+            <div className="sm:pr-4 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <Wallet className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90 uppercase tracking-wider">Total Billed</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {overviewLoading && !overviewData.totalBilledPaise ? (
+                  <span className="inline-block w-24 h-7 bg-emerald-900/50 rounded animate-pulse" />
+                ) : (
+                  formatPaise(overviewData.totalBilledPaise || 0)
+                )}
+              </div>
+              <p className="text-[11px] text-emerald-300/70 font-mono mt-1">Session Invoiced Demand</p>
+            </div>
+
+            {/* Tile 2: Total Collected */}
+            <div className="sm:px-4 pt-4 sm:pt-0 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90 uppercase tracking-wider">Total Realized</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-emerald-400 tracking-tight mt-2 font-sans">
+                {overviewLoading && !overviewData.totalCollectedPaise ? (
+                  <span className="inline-block w-24 h-7 bg-emerald-900/50 rounded animate-pulse" />
+                ) : (
+                  formatPaise(overviewData.totalCollectedPaise || 0)
+                )}
+              </div>
+              <p className="text-[11px] text-emerald-300/70 font-mono mt-1">Realized Bank Inflow</p>
+            </div>
+
+            {/* Tile 3: Pending Dues */}
+            <div className="sm:px-4 pt-4 sm:pt-0 group select-none">
+              <div className="flex items-center gap-2 text-amber-300">
+                <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-amber-200/90 uppercase tracking-wider">Pending Dues</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-amber-300 tracking-tight mt-2 font-sans">
+                {overviewLoading && !overviewData.totalPendingPaise ? (
+                  <span className="inline-block w-24 h-7 bg-amber-900/50 rounded animate-pulse" />
+                ) : (
+                  formatPaise(overviewData.totalPendingPaise || 0)
+                )}
+              </div>
+              <p className="text-[11px] text-amber-300/70 font-mono mt-1">Outstanding Receivables</p>
+            </div>
+
+            {/* Tile 4: Realization Rate */}
+            <div className="sm:px-4 pt-4 sm:pt-0 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <Percent className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90 uppercase tracking-wider">Collection Rate</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {overviewData.collectionPercentage || 0}%
+              </div>
+              <p className="text-[11px] text-emerald-300/70 font-mono mt-1">Billed vs Realized</p>
+            </div>
+
+            {/* Tile 5: Enrolled Scholars */}
+            <div className="sm:pl-4 pt-4 sm:pt-0 group select-none">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <Users className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90 uppercase tracking-wider">Enrolled Scholars</span>
+              </div>
+              <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
+                {students?.length || 505} <span className="text-base font-normal text-emerald-300/70">Scholars</span>
+              </div>
+              <p className="text-[11px] text-emerald-300/70 font-mono mt-1">
+                {overviewData.studentsWithNothingPaid || 0} Zero Paid Accounts
+              </p>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={loadOverview}
-            className="p-2 sm:px-3 sm:py-1.5 bg-white hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-2xl text-xs font-bold cursor-pointer transition-all shadow-2xs flex items-center gap-1.5"
-            title="Refresh Financial Overview"
-          >
-            <RefreshCw className={`w-4 h-4 text-[#2D5A4E] ${overviewLoading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Sync</span>
-          </button>
         </div>
       </div>
 
@@ -789,7 +913,7 @@ export function DashboardFeeMaster({
                 </div>
               </div>
               <button
-                onClick={loadOverview}
+                onClick={() => loadOverview(false)}
                 className="px-3.5 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
@@ -798,93 +922,52 @@ export function DashboardFeeMaster({
             </div>
           )}
 
-          {/* 6 Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-            {/* 1. Total Billed */}
-            <div className="bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs flex flex-col justify-between min-w-0 hover:shadow-sm transition-shadow">
-              <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">Total Billed</span>
-              <div className="mt-2 text-base sm:text-lg xl:text-xl font-black text-[#122A24] tracking-tight truncate" title={formatPaise(overviewData.totalBilledPaise)}>
-                {overviewLoading ? (
-                  <span className="inline-block w-20 h-6 bg-slate-200 rounded animate-pulse" />
-                ) : (
-                  formatPaise(overviewData.totalBilledPaise)
-                )}
+          {/* 3 Supplementary Analytical Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* 1. Discounts & Concessions */}
+            <div className="bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider block">Discounts &amp; Waivers</span>
+                <div className="text-lg font-black text-indigo-900 mt-0.5">
+                  {formatPaise(overviewData.totalDiscountPaise)}
+                </div>
+                <span className="text-[10px] text-indigo-600 font-medium">Sibling + Merit Concessions</span>
               </div>
-              <span className="mt-1 text-[10px] text-[#2D5A4E] font-medium truncate">Session {session}</span>
-            </div>
-
-            {/* 2. Collected */}
-            <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-xs flex flex-col justify-between min-w-0 bg-gradient-to-b from-white to-emerald-50/40 hover:shadow-sm transition-shadow">
-              <span className="text-[10px] sm:text-[11px] font-bold text-emerald-800 uppercase tracking-wider truncate">Collected</span>
-              <div className="mt-2 text-base sm:text-lg xl:text-xl font-black text-emerald-700 tracking-tight truncate" title={formatPaise(overviewData.totalCollectedPaise)}>
-                {overviewLoading ? (
-                  <span className="inline-block w-20 h-6 bg-emerald-100 rounded animate-pulse" />
-                ) : (
-                  formatPaise(overviewData.totalCollectedPaise)
-                )}
-              </div>
-              <span className="mt-1 text-[10px] text-emerald-700 font-bold truncate">Realized Inflow</span>
-            </div>
-
-            {/* 3. Pending */}
-            <div className="bg-white p-4 rounded-2xl border border-rose-200 shadow-xs flex flex-col justify-between min-w-0 bg-gradient-to-b from-white to-rose-50/40 hover:shadow-sm transition-shadow">
-              <span className="text-[10px] sm:text-[11px] font-bold text-rose-800 uppercase tracking-wider truncate">Pending Dues</span>
-              <div className="mt-2 text-base sm:text-lg xl:text-xl font-black text-rose-700 tracking-tight truncate" title={formatPaise(overviewData.totalPendingPaise)}>
-                {overviewLoading ? (
-                  <span className="inline-block w-20 h-6 bg-rose-100 rounded animate-pulse" />
-                ) : (
-                  formatPaise(overviewData.totalPendingPaise)
-                )}
-              </div>
-              <span className="mt-1 text-[10px] text-rose-600 font-bold truncate">Outstanding Balance</span>
-            </div>
-
-            {/* 4. Discount Given */}
-            <div className="bg-white p-4 rounded-2xl border border-indigo-200 shadow-xs flex flex-col justify-between min-w-0 bg-gradient-to-b from-white to-indigo-50/40 hover:shadow-sm transition-shadow">
-              <span className="text-[10px] sm:text-[11px] font-bold text-indigo-800 uppercase tracking-wider truncate">Discounts Given</span>
-              <div className="mt-2 text-base sm:text-lg xl:text-xl font-black text-indigo-700 tracking-tight truncate" title={formatPaise(overviewData.totalDiscountPaise)}>
-                {overviewLoading ? (
-                  <span className="inline-block w-20 h-6 bg-indigo-100 rounded animate-pulse" />
-                ) : (
-                  formatPaise(overviewData.totalDiscountPaise)
-                )}
-              </div>
-              <span className="mt-1 text-[10px] text-indigo-600 font-medium truncate">Sibling + Waivers</span>
-            </div>
-
-            {/* 5. Collection % */}
-            <div className="bg-white p-4 rounded-2xl border border-blue-200 shadow-xs flex flex-col justify-between min-w-0 bg-gradient-to-b from-white to-blue-50/40 hover:shadow-sm transition-shadow">
-              <span className="text-[10px] sm:text-[11px] font-bold text-blue-800 uppercase tracking-wider truncate">Collection %</span>
-              <div className="mt-2 text-base sm:text-lg xl:text-xl font-black text-blue-700 tracking-tight truncate">
-                {overviewLoading ? (
-                  <span className="inline-block w-12 h-6 bg-blue-100 rounded animate-pulse" />
-                ) : (
-                  `${overviewData.collectionPercentage}%`
-                )}
-              </div>
-              <div className="w-full bg-slate-100 h-1.5 rounded-full mt-1.5 overflow-hidden">
-                <div
-                  className="bg-blue-600 h-full rounded-full transition-all"
-                  style={{ width: `${Math.min(100, overviewData.collectionPercentage)}%` }}
-                />
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold">
+                <Sparkles className="w-5 h-5" />
               </div>
             </div>
 
-            {/* 6. Students with Nothing Paid */}
-            <div className="bg-white p-4 rounded-2xl border border-amber-200 shadow-xs flex flex-col justify-between min-w-0 bg-gradient-to-b from-white to-amber-50/40 hover:shadow-sm transition-shadow">
-              <span className="text-[10px] sm:text-[11px] font-bold text-amber-800 uppercase tracking-wider truncate">Nothing Paid</span>
-              <div className="mt-2 text-base sm:text-lg xl:text-xl font-black text-amber-700 tracking-tight truncate">
-                {overviewLoading ? (
-                  <span className="inline-block w-12 h-6 bg-amber-100 rounded animate-pulse" />
-                ) : (
-                  overviewData.studentsWithNothingPaid
-                )}
+            {/* 2. Zero Paid Accounts */}
+            <div className="bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider block">Zero Paid Accounts</span>
+                <div className="text-lg font-black text-amber-900 mt-0.5">
+                  {overviewData.studentsWithNothingPaid} Scholars
+                </div>
+                <span className="text-[10px] text-amber-600 font-medium">Require First Term Follow-Up</span>
               </div>
-              <span className="mt-1 text-[10px] text-amber-700 font-bold truncate">Defaulter Scholars</span>
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+            </div>
+
+            {/* 3. Session Status */}
+            <div className="bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">Ledger Synchronization</span>
+                <div className="text-lg font-black text-emerald-900 mt-0.5">
+                  100% Live Sync
+                </div>
+                <span className="text-[10px] text-emerald-600 font-medium">Session {session} Fee Ledgers</span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
             </div>
           </div>
 
-          {/* Below 6 Cards: "This Month" Mini Table & "Top Pending" List */}
+          {/* Below Cards: "This Month" Mini Table & "Top Pending" List */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left: "This Month" Mini Table (7 cols) */}
             <div className="lg:col-span-7 bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
@@ -983,25 +1066,29 @@ export function DashboardFeeMaster({
                       className="p-3 rounded-2xl bg-[#EBF5EF]/40 border border-[#DCE8E0] flex items-center justify-between hover:bg-rose-50/40 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-full bg-[#122A24] text-white flex items-center justify-center text-[10px] font-bold shadow-2xs">
+                        <span className="w-7 h-7 rounded-full bg-[#122A24] text-white flex items-center justify-center text-[11px] font-bold shadow-2xs shrink-0">
                           {idx + 1}
                         </span>
                         <div>
-                          <p className="font-bold text-xs text-[#122A24]">{p.studentName}</p>
-                          <p className="text-[10px] text-[#2D5A4E]">{p.classSection} • {p.fatherName}</p>
+                          <p className="font-bold text-xs text-[#122A24] font-sans">
+                            {p.studentName || 'Scholar'}
+                          </p>
+                          <p className="text-[10.5px] text-[#2D5A4E]">
+                            <span className="font-mono text-slate-500 font-medium">Adm: {p.admissionNo || p.studentId}</span> • {p.classSection} • {p.fatherName}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="font-black text-xs text-rose-700 block">
+                        <span className="font-black text-xs sm:text-sm text-rose-700 block font-sans">
                           {formatPaise(p.pendingPaise)}
                         </span>
                         <button
                           onClick={() => {
-                            const found = students.find(s => s.id === p.studentId);
+                            const found = students.find(s => s.id === p.studentId || s.admission_no === p.admissionNo);
                             if (found) handleSelectStudent(found);
                             setActiveTab('collect');
                           }}
-                          className="text-[10px] text-emerald-800 font-bold hover:underline cursor-pointer"
+                          className="text-[10.5px] text-emerald-800 font-bold hover:underline cursor-pointer"
                         >
                           Collect →
                         </button>

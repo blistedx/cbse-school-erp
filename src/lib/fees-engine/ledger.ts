@@ -370,6 +370,24 @@ export async function getSchoolFeeOverviewAggregation(
   let zeroPaidStudents = 0;
   const pendingList: Array<any> = [];
 
+  // Resolve students map if not passed
+  let resolvedStudentsMap = studentsMap;
+  if (!resolvedStudentsMap || resolvedStudentsMap.size === 0) {
+    resolvedStudentsMap = new Map();
+    try {
+      const studentsList = await db.collection('students').find({ school_id: schoolId }).toArray();
+      for (const s of studentsList) {
+        const name = s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.name || s.admission_no;
+        const sObj = { ...s, full_name: name, studentName: name };
+        if (s.id) resolvedStudentsMap.set(String(s.id), sObj);
+        if (s._id) resolvedStudentsMap.set(String(s._id), sObj);
+        if (s.admission_no) resolvedStudentsMap.set(String(s.admission_no), sObj);
+      }
+    } catch (e) {
+      console.error('[getSchoolFeeOverviewAggregation] Error loading students:', e);
+    }
+  }
+
   for (const row of studentAggregates) {
     const demand = Number(row.demand) || 0;
     const paid = Number(row.paid) || 0;
@@ -388,10 +406,10 @@ export async function getSchoolFeeOverviewAggregation(
     }
 
     if (bal > 0) {
-      const st = studentsMap?.get(row.studentId);
-      const studentName = st ? (`${st.first_name || ''} ${st.last_name || ''}`.trim() || st.admission_no) : (row.studentId);
-      const fatherName = st?.father_name || 'N/A';
-      const mobile = st?.emergency_contact || st?.mobile || 'N/A';
+      const st = resolvedStudentsMap?.get(row.studentId) || resolvedStudentsMap?.get(row.admissionNo);
+      const studentName = st ? (st.full_name || `${st.first_name || ''} ${st.last_name || ''}`.trim() || st.name || st.admission_no) : (row.studentId);
+      const fatherName = st?.father_name || st?.guardian_name || 'N/A';
+      const mobile = st?.emergency_contact_phone || st?.phone || st?.guardian_phone || st?.mobile || st?.emergency_contact || 'N/A';
       const classSection = st ? `${st.class_name} - ${st.section || 'A'}` : `${row.className || ''} - ${row.section || 'A'}`;
 
       pendingList.push({
