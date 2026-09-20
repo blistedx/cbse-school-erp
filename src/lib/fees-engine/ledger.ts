@@ -207,7 +207,8 @@ export async function getStudentLedger(
 export async function getSchoolLedgerLines(
   schoolId: string,
   session: string = '2026-27',
-  additionalFilter: Record<string, any> = {}
+  additionalFilter: Record<string, any> = {},
+  projection?: Record<string, any>
 ): Promise<FeeLedgerLine[]> {
   await ensureLedgerIndexes();
   try {
@@ -219,10 +220,11 @@ export async function getSchoolLedgerLines(
         is_cancelled: { $ne: true },
         ...additionalFilter,
       };
-      const docs = await db.collection(COLLECTION)
-        .find(filter)
-        .sort({ txn_date: -1, created_at: -1 })
-        .toArray();
+      let cursor = db.collection(COLLECTION).find(filter);
+      if (projection) {
+        cursor = cursor.project(projection);
+      }
+      const docs = await cursor.toArray();
       return docs as unknown as FeeLedgerLine[];
     }
   } catch (e) {

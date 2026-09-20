@@ -43,9 +43,93 @@ export async function executeReport(
 ): Promise<ReportQueryResult> {
   const config = REPORT_CONFIGS.find(r => r.id === reportId) || REPORT_CONFIGS[0];
   const session = filters.session || '2026-27';
+  const generatedAt = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
-  // 1. Fetch raw ledger lines for the session
-  const lines = await getSchoolLedgerLines(schoolId, session, {});
+  // Fast-path: DB-side aggregation for Class-wise DCB Master Summary (<150ms)
+  if (config.id === 'class_wise_summary' && !filters.search && filters.transportOpted === undefined && filters.siblingOpted === undefined) {
+    const aggRows = await getFeeAggregate(schoolId, { session, ...filters }, ['class']);
+    let totalDemandPaise = 0;
+    let totalDiscountPaise = 0;
+    let totalCollectedPaise = 0;
+    let totalPendingPaise = 0;
+    let totalStudentCount = 0;
+
+    const rows = aggRows.map(r => {
+      const cls = r.dimensions.class_name || 'Unassigned';
+      const netBilled = r.demand - r.discount;
+      const rate = netBilled > 0 ? Math.round((r.collected / netBilled) * 100) : 0;
+      totalDemandPaise += r.demand;
+      totalDiscountPaise += r.discount;
+      totalCollectedPaise += r.collected;
+      totalPendingPaise += r.balance;
+      totalStudentCount += r.studentCount;
+
+      return {
+        className: cls,
+        totalStudents: r.studentCount,
+        demandPaise: r.demand,
+        discountPaise: r.discount,
+        collectedPaise: r.collected,
+        pendingPaise: r.balance,
+        realizationRate: `${rate}%`,
+      };
+    });
+
+    const grandNetBilled = totalDemandPaise - totalDiscountPaise;
+    const grandRealizationRate = grandNetBilled > 0
+      ? `${Math.round((totalCollectedPaise / grandNetBilled) * 100)}%`
+      : '0%';
+
+    const grandTotalRow = {
+      className: 'Grand Total',
+      totalStudents: totalStudentCount,
+      demandPaise: totalDemandPaise,
+      discountPaise: totalDiscountPaise,
+      collectedPaise: totalCollectedPaise,
+      pendingPaise: totalPendingPaise,
+      realizationRate: grandRealizationRate,
+    };
+
+    const summaryKpis: ReportSummaryKpi[] = [
+      { label: 'Total Billed', value: formatPaise(totalDemandPaise) },
+      { label: 'Discounts / Waivers', value: formatPaise(totalDiscountPaise), color: 'text-indigo-700' },
+      { label: 'Total Collected', value: formatPaise(totalCollectedPaise), color: 'text-emerald-700' },
+      { label: 'Pending Dues', value: formatPaise(totalPendingPaise), color: 'text-rose-700' },
+      { label: 'Realization %', value: grandRealizationRate, color: 'text-blue-700' },
+    ];
+
+    return {
+      reportId: config.id,
+      reportName: config.name,
+      generatedAt,
+      session,
+      filtersUsed: filters,
+      summaryKpis,
+      columns: config.columns,
+      rows,
+      grandTotalRow,
+      totalRowCount: rows.length,
+    };
+  }
+
+  // 1. Fetch raw ledger lines for the session with optimized projection
+  const lines = await getSchoolLedgerLines(schoolId, session, {}, {
+    student_id: 1,
+    admission_no: 1,
+    class_name: 1,
+    section: 1,
+    line_type: 1,
+    fee_head: 1,
+    month: 1,
+    slot_id: 1,
+    amount: 1,
+    due_date: 1,
+    txn_date: 1,
+    payment_mode: 1,
+    concession_type: 1,
+    adjustment_direction: 1,
+    is_cancelled: 1,
+  });
   const siblingMap = detectFamilyGrouping(students);
 
   // Group lines by student
@@ -91,8 +175,6 @@ export async function executeReport(
 
   const getStudentName = (st: Student) => st.full_name || `${st.first_name || ''} ${st.last_name || ''}`.trim() || st.admission_no || 'Student';
   const getStudentMobile = (st: Student) => st.emergency_contact_phone || st.phone || st.guardian_phone || st.mobile || st.emergency_contact || 'N/A';
-
-  const generatedAt = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
   // ─── EXECUTE REPORT CONFIG ───
   switch (config.id) {

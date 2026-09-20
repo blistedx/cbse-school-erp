@@ -2866,11 +2866,10 @@ export const Database = {
     const todayDateStr = getTodayDateStr();
     const cacheKey = `overview:${schoolId}:${targetSession}:${todayDateStr}`;
     return singleFlight(cacheKey, async () => {
-      const [students, teachers, attendance, invoices, feeAgg] = await Promise.all([
+      const [students, teachers, attendance, feeAgg] = await Promise.all([
         this.getStudents(schoolId, targetSession),
         this.getTeachers(schoolId, targetSession),
         this.getAttendance(schoolId, targetSession),
-        this.getFeeInvoices(schoolId, targetSession),
         getSchoolFeeOverviewAggregation(schoolId, targetSession)
       ]);
 
@@ -2927,17 +2926,10 @@ export const Database = {
       let pendingFeeAmount = 0;
       let feeCollectionRate = 0;
 
-      if (feeAgg && (feeAgg.totalBilledPaise > 0 || feeAgg.totalCollectedPaise > 0)) {
+      if (feeAgg) {
         totalRevenue = Math.round(feeAgg.totalCollectedPaise / 100);
         pendingFeeAmount = Math.round(feeAgg.totalPendingPaise / 100);
         feeCollectionRate = feeAgg.collectionPercentage;
-      } else {
-        const totalGross = invoices.reduce((acc, inv) => acc + (Number(inv.total_amount) || 0), 0);
-        const totalPaid = invoices.reduce((acc, inv) => acc + (Number(inv.paid_amount) || 0), 0);
-        const totalConcession = invoices.reduce((acc, inv) => acc + (Number((inv as any).concession_amount) || 0), 0);
-        totalRevenue = totalPaid;
-        pendingFeeAmount = Math.max(0, totalGross - totalConcession - totalPaid);
-        feeCollectionRate = (totalGross - totalConcession) > 0 ? Math.round((totalPaid / (totalGross - totalConcession)) * 100) : 0;
       }
 
       const overviewResult: SchoolOverview = {
@@ -2959,7 +2951,7 @@ export const Database = {
           totalRevenue
         },
         recentStudents: students.slice(-5).reverse(),
-        recentInvoices: invoices.slice(-5).reverse()
+        recentInvoices: []
       };
       return overviewResult;
     }, 180000);
