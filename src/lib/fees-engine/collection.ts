@@ -269,6 +269,175 @@ export async function getSchoolReceipts(
   return [];
 }
 
+export async function getReceiptByNo(
+  schoolId: string,
+  receiptNo: string
+): Promise<ReceiptRecord | null> {
+  try {
+    const db = await getDatabase();
+    if (db) {
+      const cleanReceiptNo = (receiptNo || '').trim();
+      if (!cleanReceiptNo) return null;
+
+      // 1. Direct match in RECEIPTS_COLLECTION
+      const doc = await db.collection(RECEIPTS_COLLECTION).findOne({
+        school_id: schoolId,
+        receipt_no: { $regex: new RegExp(`^${cleanReceiptNo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      });
+      if (doc) return doc as unknown as ReceiptRecord;
+
+      // 2. Fallback: Search in fee_ledger lines and reconstruct receipt record
+      const lines = await db.collection('fee_ledger').find({
+        school_id: schoolId,
+        receipt_no: { $regex: new RegExp(`^${cleanReceiptNo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      }).toArray();
+
+      if (lines && lines.length > 0) {
+        const first = lines[0];
+        const student = await db.collection('students').findOne({ id: first.student_id, school_id: schoolId });
+        const allocated_heads = lines.map((l: any) => ({
+          fee_head: l.fee_head,
+          month: l.month,
+          period: l.month || 'Academic Fee',
+          amount_paise: l.amount || 0,
+        }));
+        const totalAmount = lines.reduce((s: number, l: any) => s + (l.amount || 0), 0);
+
+        return {
+          receipt_no: first.receipt_no || cleanReceiptNo,
+          school_id: schoolId,
+          academic_session: first.academic_session || '2026-27',
+          student_id: first.student_id,
+          student_name: student?.full_name || 'Scholar',
+          admission_no: first.admission_no || student?.admission_no || '',
+          class_name: first.class_name || student?.class_name || '',
+          section: first.section || student?.section || 'A',
+          father_name: student?.father_name || student?.guardian_name || '',
+          mobile: student?.guardian_phone || student?.father_phone || '',
+          payment_date: first.txn_date || new Date().toISOString().split('T')[0],
+          payment_mode: first.payment_mode || 'CASH',
+          txn_ref: first.txn_ref || null,
+          cheque_no: first.cheque_no || null,
+          amount_paise: totalAmount,
+          collected_by: first.collected_by || 'ADMIN',
+          remarks: first.remarks || null,
+          is_cancelled: Boolean(first.is_cancelled),
+          cancelled_reason: first.cancelled_reason,
+          cancelled_by: first.cancelled_by,
+          cancelled_at: first.cancelled_at,
+          allocated_heads,
+        } as ReceiptRecord;
+      }
+    }
+  } catch (e) {
+    console.error('[fees-engine/collection] Error fetching receipt by no:', e);
+  }
+  return null;
+}
+
+export async function searchReceipts(
+  schoolId: string,
+  query: string,
+  session: string = '2026-27',
+  limit = 50
+): Promise<ReceiptRecord[]> {
+  try {
+    const db = await getDatabase();
+    if (db) {
+      const q = (query || '').trim();
+      if (!q) {
+        return await getSchoolReceipts(schoolId, session, limit);
+      }
+
+      const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedQ, 'i');
+
+      const docs = await db.collection(RECEIPTS_COLLECTION)
+        .find({
+          school_id: schoolId,
+          $or: [
+            { receipt_no: { $regex: regex } },
+            { student_name: { $regex: regex } },
+            { admission_no: { $regex: regex } },
+            { father_name: { $regex: regex } },
+            { txn_ref: { $regex: regex } },
+            { cheque_no: { $regex: regex } },
+          ],
+        })
+        .sort({ payment_date: -1 })
+        .limit(limit)
+        .toArray();
+
+      if (docs && docs.length > 0) {
+        return docs as unknown as ReceiptRecord[];
+      }
+
+      // Check fee_ledger lines if receipts collection didn't have match
+      const lines = await db.collection('fee_ledger').find({
+        school_id: schoolId,
+        $or: [
+          { receipt_no: { $regex: regex } },
+          { admission_no: { $regex: regex } },
+          { txn_ref: { $regex: regex } },
+          { cheque_no: { $regex: regex } },
+        ],
+      }).limit(50).toArray();
+
+      if (lines && lines.length > 0) {
+        // Group by receipt_no
+        const receiptGroups = new Map<string, any[]>();
+        for (const l of lines) {
+          if (l.receipt_no) {
+            const arr = receiptGroups.get(l.receipt_no) || [];
+            arr.push(l);
+            receiptGroups.set(l.receipt_no, arr);
+          }
+        }
+
+        const reconstructed: ReceiptRecord[] = [];
+        for (const [rNo, rLines] of receiptGroups.entries()) {
+          const first = rLines[0];
+          const student = await db.collection('students').findOne({ id: first.student_id, school_id: schoolId });
+          const totalAmount = rLines.reduce((s: number, l: any) => s + (l.amount || 0), 0);
+          reconstructed.push({
+            receipt_no: rNo,
+            school_id: schoolId,
+            academic_session: first.academic_session || session,
+            student_id: first.student_id,
+            student_name: student?.full_name || 'Scholar',
+            admission_no: first.admission_no || student?.admission_no || '',
+            class_name: first.class_name || student?.class_name || '',
+            section: first.section || student?.section || 'A',
+            father_name: student?.father_name || student?.guardian_name || '',
+            mobile: student?.guardian_phone || student?.father_phone || '',
+            payment_date: first.txn_date || new Date().toISOString().split('T')[0],
+            payment_mode: first.payment_mode || 'CASH',
+            txn_ref: first.txn_ref || null,
+            cheque_no: first.cheque_no || null,
+            amount_paise: totalAmount,
+            collected_by: first.collected_by || 'ADMIN',
+            remarks: first.remarks || null,
+            is_cancelled: Boolean(first.is_cancelled),
+            cancelled_reason: first.cancelled_reason,
+            cancelled_by: first.cancelled_by,
+            cancelled_at: first.cancelled_at,
+            allocated_heads: rLines.map((l: any) => ({
+              fee_head: l.fee_head,
+              month: l.month,
+              period: l.month || 'Academic Fee',
+              amount_paise: l.amount || 0,
+            })),
+          });
+        }
+        return reconstructed;
+      }
+    }
+  } catch (e) {
+    console.error('[fees-engine/collection] Error searching receipts:', e);
+  }
+  return [];
+}
+
 export async function cancelReceipt(
   schoolId: string,
   receiptNo: string,

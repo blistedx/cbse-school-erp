@@ -15,28 +15,34 @@ import {
   Award,
   Settings,
   FileText,
-  ChevronRight
+  ChevronRight,
+  Receipt,
+  RotateCw
 } from 'lucide-react';
 import { Student, Teacher, ClassRoom, Notice, FeeInvoice } from '@/lib/types';
+import { ReceiptRecord } from '@/lib/fees-engine/types';
 
 interface OmniSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   students: Student[];
   teachers: Teacher[];
-  invoices: FeeInvoice[];
+  invoices?: FeeInvoice[];
+  receipts?: ReceiptRecord[];
   classes: ClassRoom[];
   notices: Notice[];
+  schoolId?: string;
   onNavigateTab: (tab: string) => void;
   onSelectStudent?: (s: Student) => void;
   onSelectTeacher?: (t: Teacher) => void;
+  onSelectReceipt?: (r: ReceiptRecord | FeeInvoice | any) => void;
 }
 
-type SearchCategory = 'ALL' | 'STUDENTS' | 'TEACHERS' | 'CLASSES' | 'NOTICES' | 'MODULES';
+type SearchCategory = 'ALL' | 'STUDENTS' | 'RECEIPTS' | 'TEACHERS' | 'CLASSES' | 'NOTICES' | 'MODULES';
 
 interface SearchResultItem {
   id: string;
-  category: 'STUDENT' | 'TEACHER' | 'CLASS' | 'NOTICE' | 'MODULE';
+  category: 'STUDENT' | 'TEACHER' | 'RECEIPT' | 'CLASS' | 'NOTICE' | 'MODULE';
   title: string;
   subtitle: string;
   tag?: string;
@@ -49,6 +55,7 @@ interface SearchResultItem {
 
 const ERP_MODULES = [
   { id: 'overview', title: 'Dashboard Overview', desc: 'School KPI, Turnout & Live Analytics', icon: Building2, tab: 'overview' },
+  { id: 'fees', title: 'Fee Master & Billing Desk', desc: 'Collect Fees, Print A4 Dual Receipts, Structure & Dues', icon: Receipt, tab: 'fees' },
   { id: 'students', title: 'Scholars Directory', desc: 'Manage Student Profiles, Admissions & Roll Numbers', icon: GraduationCap, tab: 'students' },
   { id: 'teachers', title: 'Faculty & Staff Directory', desc: 'Teachers, Biometrics, Designations & Qualifications', icon: Users, tab: 'teachers' },
   { id: 'attendance', title: 'Attendance Register', desc: 'Daily Classroom Attendance & Staff Biometric Logs', icon: CalendarCheck, tab: 'attendance' },
@@ -71,15 +78,20 @@ export function OmniSearchModal({
   students = [],
   teachers = [],
   invoices = [],
+  receipts = [],
   classes = [],
   notices = [],
+  schoolId,
   onNavigateTab,
   onSelectStudent,
-  onSelectTeacher
+  onSelectTeacher,
+  onSelectReceipt
 }: OmniSearchModalProps) {
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<SearchCategory>('ALL');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [liveReceipts, setLiveReceipts] = useState<ReceiptRecord[]>([]);
+  const [isSearchingApi, setIsSearchingApi] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -88,6 +100,7 @@ export function OmniSearchModal({
       setTimeout(() => inputRef.current?.focus(), 50);
       setQuery('');
       setSelectedIndex(0);
+      setLiveReceipts([]);
     }
   }, [isOpen]);
 
@@ -102,9 +115,121 @@ export function OmniSearchModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Live query fee-master API for receipts when query is typed
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed || trimmed.length < 2) {
+      setLiveReceipts([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setIsSearchingApi(true);
+        const res = await fetch(`/api/fee-master?action=search_receipt&q=${encodeURIComponent(trimmed)}${schoolId ? `&school_id=${schoolId}` : ''}`);
+        const data = await res.json();
+        if (data && data.success && Array.isArray(data.receipts)) {
+          setLiveReceipts(data.receipts);
+        }
+      } catch (err) {
+        // silent fallback
+      } finally {
+        setIsSearchingApi(false);
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [query, schoolId]);
+
+  // Merged unique receipts from props and live query
+  const allReceipts = useMemo(() => {
+    const map = new Map<string, any>();
+    (receipts || []).forEach(r => {
+      if (r && r.receipt_no) map.set(r.receipt_no.toLowerCase(), r);
+    });
+    (liveReceipts || []).forEach(r => {
+      if (r && r.receipt_no) map.set(r.receipt_no.toLowerCase(), r);
+    });
+    return Array.from(map.values());
+  }, [receipts, liveReceipts]);
+
   const searchResults = useMemo(() => {
     const q = query.trim().toLowerCase();
     const results: SearchResultItem[] = [];
+
+    // Helper: Push Receipts & Invoices
+    const pushReceipts = (limit = 20) => {
+      // 1. Receipts from fee engine
+      const matchedReceipts = allReceipts.filter(r => {
+        if (!r) return false;
+        if (!q) return true;
+        const rNo = (r.receipt_no || '').toLowerCase();
+        const sName = (r.student_name || '').toLowerCase();
+        const adm = (r.admission_no || r.student_id || '').toLowerCase();
+        const mode = (r.payment_mode || '').toLowerCase();
+        const ref = (r.txn_ref || r.cheque_no || '').toLowerCase();
+        const cls = (r.class_name || '').toLowerCase();
+        return rNo.includes(q) || sName.includes(q) || adm.includes(q) || mode.includes(q) || ref.includes(q) || cls.includes(q);
+      }).slice(0, limit);
+
+      matchedReceipts.forEach(r => {
+        const amtRupees = (r.amount_paise ? r.amount_paise / 100 : Number(r.amount || 0)).toLocaleString('en-IN');
+        results.push({
+          id: `rec-${r.receipt_no}`,
+          category: 'RECEIPT',
+          title: `Fee Receipt #${r.receipt_no}`,
+          subtitle: `Scholar: ${r.student_name} (${r.class_name || 'Class'} - ${r.section || 'A'}, Adm: ${r.admission_no || '—'}) • Paid: ₹${amtRupees} via ${r.payment_mode || 'CASH'} on ${r.payment_date || '—'}`,
+          tag: `₹${amtRupees} Paid`,
+          tagColor: r.is_cancelled ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200',
+          icon: Receipt,
+          iconColor: 'text-emerald-700',
+          iconBg: 'bg-emerald-50',
+          action: () => {
+            if (onSelectReceipt) {
+              onSelectReceipt(r);
+            } else {
+              onNavigateTab('fees');
+            }
+            onClose();
+          }
+        });
+      });
+
+      // 2. Static Invoices (if any)
+      const matchedInvoices = (invoices || []).filter(inv => {
+        if (!inv) return false;
+        if (!q) return false;
+        const invNo = (inv.invoice_no || inv.id || '').toLowerCase();
+        const sName = (inv.student_name || '').toLowerCase();
+        const status = (inv.status || '').toLowerCase();
+        return invNo.includes(q) || sName.includes(q) || status.includes(q);
+      }).slice(0, 10);
+
+      matchedInvoices.forEach(inv => {
+        // Skip duplicate if receipt already showed
+        if (results.some(r => r.id === `rec-${inv.invoice_no}`)) return;
+        const amt = Number(inv.amount || (inv as any).total_amount || 0).toLocaleString('en-IN');
+        results.push({
+          id: `inv-${inv.id}`,
+          category: 'RECEIPT',
+          title: `Fee Invoice #${inv.invoice_no || inv.id}`,
+          subtitle: `Scholar: ${inv.student_name || 'Scholar'} • Amount: ₹${amt} • Status: ${inv.status || 'DUE'} • Due: ${inv.due_date || '—'}`,
+          tag: `₹${amt} ${inv.status || 'Invoice'}`,
+          tagColor: inv.status === 'PAID' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200',
+          icon: Receipt,
+          iconColor: 'text-emerald-700',
+          iconBg: 'bg-emerald-50',
+          action: () => {
+            if (onSelectReceipt) {
+              onSelectReceipt(inv);
+            } else {
+              onNavigateTab('fees');
+            }
+            onClose();
+          }
+        });
+      });
+    };
 
     // Helper: Push Students
     const pushStudents = (limit = 20) => {
@@ -270,7 +395,9 @@ export function OmniSearchModal({
     };
 
     // CATEGORY ROUTING
-    if (activeCategory === 'STUDENTS') {
+    if (activeCategory === 'RECEIPTS') {
+      pushReceipts(50);
+    } else if (activeCategory === 'STUDENTS') {
       pushStudents(50);
     } else if (activeCategory === 'TEACHERS') {
       pushTeachers(50);
@@ -283,22 +410,29 @@ export function OmniSearchModal({
     } else {
       // ALL CATEGORIES:
       if (q) {
-        // When typing a query: prioritize concrete records over modules!
-        pushStudents(12);
+        // If user is searching a receipt code (contains rec-, dps, invoice, numbers): prioritize receipts!
+        if (q.includes('rec') || q.includes('inv') || /\d{3,}/.test(q)) {
+          pushReceipts(15);
+          pushStudents(10);
+        } else {
+          pushStudents(12);
+          pushReceipts(8);
+        }
         pushTeachers(8);
         pushClasses(6);
         pushNotices(6);
         pushModules(6);
       } else {
-        // When query is empty: show key modules first, then recent scholars
+        // When query is empty: show key modules first, then recent scholars and receipts
         pushModules(6);
         pushStudents(6);
+        pushReceipts(4);
         pushTeachers(4);
       }
     }
 
     return results;
-  }, [query, activeCategory, students, teachers, classes, notices, onNavigateTab, onClose, onSelectStudent, onSelectTeacher]);
+  }, [query, activeCategory, students, teachers, allReceipts, invoices, classes, notices, onNavigateTab, onClose, onSelectStudent, onSelectTeacher, onSelectReceipt]);
 
   // Handle Keyboard Navigation (Arrow Up, Arrow Down, Enter)
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -340,9 +474,12 @@ export function OmniSearchModal({
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search scholars, staff, classes, notices, modules..."
+            placeholder="Search receipts (e.g. DPS2-REC...), scholars, faculty, classes, modules..."
             className="flex-1 bg-transparent border-none text-sm sm:text-base font-semibold text-[#122A24] focus:outline-none placeholder:text-slate-400"
           />
+          {isSearchingApi && (
+            <RotateCw className="w-4 h-4 text-emerald-600 animate-spin shrink-0" />
+          )}
           {query && (
             <button
               onClick={() => setQuery('')}
@@ -363,6 +500,7 @@ export function OmniSearchModal({
         <div className="px-3.5 sm:px-4 py-2 border-b border-[#E8F0EA] bg-[#F4F8F5] flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           {[
             { id: 'ALL', label: 'All Results' },
+            { id: 'RECEIPTS', label: `Receipts & Invoices (${allReceipts.length || invoices.length})` },
             { id: 'STUDENTS', label: `Scholars (${students.length})` },
             { id: 'TEACHERS', label: `Faculty (${teachers.length})` },
             { id: 'CLASSES', label: `Classes (${classes.length})` },
@@ -420,7 +558,9 @@ export function OmniSearchModal({
                   </div>
 
                   <div className="flex items-center gap-1.5 text-slate-400 shrink-0">
-                    <span className="text-[11px] font-mono font-semibold hidden sm:inline text-emerald-800">Jump →</span>
+                    <span className="text-[11px] font-mono font-semibold hidden sm:inline text-emerald-800">
+                      {item.category === 'RECEIPT' ? 'Open Receipt →' : 'Jump →'}
+                    </span>
                     <ChevronRight className="w-4 h-4 text-slate-400" />
                   </div>
                 </div>
@@ -430,7 +570,7 @@ export function OmniSearchModal({
             <div className="py-12 text-center text-slate-400 font-mono text-xs">
               <Search className="w-8 h-8 mx-auto text-slate-300 mb-2" />
               <p className="font-bold text-slate-600 text-sm">No records found matching "{query}"</p>
-              <p className="mt-1">Try searching by student name, admission number, teacher staff code, or invoice ID.</p>
+              <p className="mt-1">Try searching by receipt number (e.g. DPS2-REC-508646-640), scholar name, admission ID, or faculty staff code.</p>
             </div>
           )}
         </div>

@@ -15,6 +15,7 @@ import {
   CheckCircle, Clock, XCircle, RotateCcw, Bus
 } from 'lucide-react';
 import { School, Student } from '@/lib/types';
+import { DualCopyFeeReceiptModal } from '@/components/dual-copy-fee-receipt-modal';
 import type {
   FeeConfig,
   FeeDepositSlot,
@@ -2464,92 +2465,14 @@ export function DashboardFeeMaster({
         </div>
       )}
 
-      {/* ─── RECEIPT PREVIEW MODAL ─── */}
-      {showReceiptModal && activeReceipt && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
-            {/* Printable Receipt Paper Container */}
-            <div id="receipt-print-container" className="border-2 border-dashed border-slate-200 p-5 rounded-2xl space-y-4 bg-slate-50/50">
-              <div className="text-center border-b border-slate-200 pb-3 space-y-0.5">
-                <h2 className="text-base font-black text-[#122A24] tracking-tight uppercase">
-                  {selectedSchool?.school_name || 'Delhi Public School'}
-                </h2>
-                <p className="text-[10px] text-slate-500 font-medium">CBSE Affiliated Senior Secondary School</p>
-                <div className="inline-block px-2.5 py-0.5 rounded-full bg-[#122A24] text-white text-[10px] font-bold mt-1">
-                  Official Fee Receipt
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 text-xs gap-2 pt-1">
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-bold">Receipt Number:</span>
-                  <span className="font-mono font-bold text-slate-800">{activeReceipt.receipt_no}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-400 block font-bold">Payment Date:</span>
-                  <span className="font-bold text-slate-800">{activeReceipt.payment_date}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-bold">Student Name:</span>
-                  <span className="font-bold text-[#122A24]">{activeReceipt.student_name}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-400 block font-bold">Class & Section:</span>
-                  <span className="font-bold text-slate-800">{activeReceipt.class_name} - {activeReceipt.section}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-bold">Scholar Adm No:</span>
-                  <span className="font-bold text-slate-800">{activeReceipt.admission_no}</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-400 block font-bold">Payment Mode:</span>
-                  <span className="font-bold text-emerald-800">{activeReceipt.payment_mode}</span>
-                </div>
-              </div>
-
-              {/* Allocated Particulars */}
-              <div className="border-t border-b border-slate-200 py-2.5 space-y-1.5 text-xs">
-                <div className="flex justify-between font-bold text-slate-500 text-[10px] uppercase">
-                  <span>Particulars / Period</span>
-                  <span>Amount (₹)</span>
-                </div>
-                {activeReceipt.allocated_heads.map((h, i) => (
-                  <div key={i} className="flex justify-between font-medium text-slate-800">
-                    <span>{h.fee_head} ({h.period})</span>
-                    <span className="font-bold">{formatPaise(h.amount_paise)}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex justify-between items-center text-sm font-black text-[#122A24] pt-1">
-                <span>Total Amount Paid:</span>
-                <span className="text-lg text-emerald-800">{formatPaise(activeReceipt.amount_paise)}</span>
-              </div>
-
-              <div className="pt-4 flex justify-between items-end text-[10px] text-slate-400 border-t border-slate-100">
-                <span>Collected by: {activeReceipt.collected_by}</span>
-                <span className="border-t border-slate-300 pt-1 px-4 font-bold text-slate-600">Authorized Signature</span>
-              </div>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowReceiptModal(false)}
-                className="flex-1 py-2.5 rounded-xl bg-slate-100 font-bold text-xs text-slate-700 hover:bg-slate-200 cursor-pointer"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => window.print()}
-                className="flex-1 py-2.5 rounded-xl bg-[#122A24] font-bold text-xs text-white hover:bg-[#1C443A] shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Printer className="w-4 h-4" /> Print Receipt
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ─── DUAL-COPY A4 PRINTABLE RECEIPT MODAL (PARENT COPY + SCHOOL COUNTERFOIL) ─── */}
+      <DualCopyFeeReceiptModal
+        isOpen={showReceiptModal && !!activeReceipt}
+        onClose={() => setShowReceiptModal(false)}
+        receipt={activeReceipt}
+        selectedSchool={selectedSchool}
+        student={selectedStudent}
+      />
 
       {/* ─── CANCEL RECEIPT CONFIRMATION MODAL ─── */}
       {receiptToCancel && (

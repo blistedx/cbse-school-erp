@@ -202,6 +202,10 @@ const StudentSummaryModal = dynamic(
   () => import('@/components/student-summary-modal').then((m) => m.StudentSummaryModal),
   { ssr: false }
 );
+const DualCopyFeeReceiptModal = dynamic(
+  () => import('@/components/dual-copy-fee-receipt-modal').then((m) => m.DualCopyFeeReceiptModal),
+  { ssr: false }
+);
 const DashboardPermissions = dynamic(
   () => import('@/components/blocks/dashboard-permissions').then((m) => m.DashboardPermissions),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
@@ -608,6 +612,7 @@ function ERPWorkspaceContent() {
   const [showAddNotice, setShowAddNotice] = useState(false);
   const [showAddInvoice, setShowAddInvoice] = useState(false);
   const [viewInvoice, setViewInvoice] = useState<FeeInvoice | null>(null);
+  const [activeUniversalReceipt, setActiveUniversalReceipt] = useState<any | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPromotionStudio, setShowPromotionStudio] = useState(false);
   const [promotionSourceClass, setPromotionSourceClass] = useState<string>('Class 9');
@@ -14668,6 +14673,7 @@ function ERPWorkspaceContent() {
         invoices={invoices}
         classes={classes}
         notices={notices}
+        schoolId={selectedSchool?.id || selectedSchool?.school_code}
         onNavigateTab={(tab) => {
           setActiveTab(tab as any);
         }}
@@ -14681,6 +14687,17 @@ function ERPWorkspaceContent() {
           setSearchQuery(t.staff_code || t.full_name);
           openTeacherModal(t);
         }}
+        onSelectReceipt={(rec) => {
+          setActiveUniversalReceipt(rec);
+        }}
+      />
+
+      {/* DUAL-COPY A4 PRINTABLE RECEIPT MODAL */}
+      <DualCopyFeeReceiptModal
+        isOpen={!!activeUniversalReceipt}
+        onClose={() => setActiveUniversalReceipt(null)}
+        receipt={activeUniversalReceipt}
+        selectedSchool={selectedSchool}
       />
 
       {/* STUDENT 360° SUMMARY & SIBLINGS DOSSIER MODAL */}

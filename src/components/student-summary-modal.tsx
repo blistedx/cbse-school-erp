@@ -7,6 +7,7 @@ import { Student, FeeInvoice, AttendanceRecord } from '@/lib/types';
 import { getStudentSiblings, getStudentAssessmentReport, AVAILABLE_EXAMS } from '@/lib/student-helper';
 import { compressImageFile } from '@/lib/image-compress';
 import { StudentAttendanceHistory } from '@/components/student-attendance-history';
+import { DualCopyFeeReceiptModal } from '@/components/dual-copy-fee-receipt-modal';
 import { getSchoolInitials } from '@/lib/utils';
 
 interface StudentSummaryModalProps {
@@ -97,6 +98,7 @@ export function StudentSummaryModal({
   const [dossierSummary, setDossierSummary] = useState<any>(null);
   const [dossierReceipts, setDossierReceipts] = useState<any[]>([]);
   const [dossierFeesLoading, setDossierFeesLoading] = useState(false);
+  const [activeReceiptModal, setActiveReceiptModal] = useState<any | null>(null);
 
   useEffect(() => {
     if (activeStudent && (activeTab === 'fees' || activeTab === 'overview')) {
@@ -792,15 +794,25 @@ export function StudentSummaryModal({
               {/* Receipts List */}
               {dossierReceipts.length > 0 && (
                 <div className="bg-white rounded-2xl border border-[#DCE8E0] p-4 space-y-2">
-                  <h4 className="font-bold text-xs text-[#122A24] uppercase font-mono">Issued Payment Receipts</h4>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-xs text-[#122A24] uppercase font-mono">Issued Payment Receipts</h4>
+                    <span className="text-[10px] text-slate-500 font-mono">Click to print Dual A4 Copy</span>
+                  </div>
                   <div className="space-y-1.5">
                     {dossierReceipts.map((rec) => (
-                      <div key={rec.receipt_no} className="p-2.5 bg-slate-50 rounded-xl flex items-center justify-between text-xs">
-                        <div>
-                          <span className="font-bold text-[#122A24]">{rec.receipt_no}</span>
-                          <span className="text-slate-500 ml-2">({rec.payment_date}) • {rec.payment_mode}</span>
+                      <div 
+                        key={rec.receipt_no} 
+                        onClick={() => setActiveReceiptModal(rec)}
+                        className="p-2.5 bg-slate-50 hover:bg-emerald-50/70 border border-transparent hover:border-emerald-200 rounded-xl flex items-center justify-between text-xs cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-[#122A24] font-mono hover:text-emerald-800">{rec.receipt_no}</span>
+                          <span className="text-slate-500 text-[11px]">({rec.payment_date}) • {rec.payment_mode}</span>
                         </div>
-                        <span className="font-bold text-emerald-800">₹{(rec.amount_paise / 100).toLocaleString('en-IN')}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-emerald-800 font-mono">₹{(rec.amount_paise / 100).toLocaleString('en-IN')}</span>
+                          <span className="text-[10.5px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200">Print A4 →</span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1249,6 +1261,14 @@ export function StudentSummaryModal({
           </div>
         </div>
       )}
+
+      {/* DUAL-COPY A4 RECEIPT MODAL */}
+      <DualCopyFeeReceiptModal
+        isOpen={!!activeReceiptModal}
+        onClose={() => setActiveReceiptModal(null)}
+        receipt={activeReceiptModal}
+        student={activeStudent}
+      />
     </div>
   );
 }

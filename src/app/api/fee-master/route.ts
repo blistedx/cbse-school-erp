@@ -16,6 +16,8 @@ import {
   cancelReceipt,
   getStudentReceipts,
   getSchoolReceipts,
+  getReceiptByNo,
+  searchReceipts,
   bulkMapFees,
   seedRealisticFeeData,
   executeReport,
@@ -75,11 +77,29 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, count: receipts.length, receipts });
     }
 
-    // 5. School Receipts List
-    if (action === 'receipts') {
+    // 5. School Receipts Search or List
+    if (action === 'receipts' || action === 'search_receipt') {
+      const q = searchParams.get('q') || searchParams.get('search') || '';
       const limit = parseInt(searchParams.get('limit') || '500', 10);
+      if (q.trim()) {
+        const receipts = await searchReceipts(tenant, q, session, limit);
+        return NextResponse.json({ success: true, count: receipts.length, receipts });
+      }
       const receipts = await getSchoolReceipts(tenant, session, limit);
       return NextResponse.json({ success: true, count: receipts.length, receipts });
+    }
+
+    // 5.1 Single Receipt Lookup by Receipt Number
+    if (action === 'receipt_by_no' || action === 'get_receipt') {
+      const receiptNo = searchParams.get('receipt_no') || searchParams.get('no') || '';
+      if (!receiptNo) {
+        return NextResponse.json({ success: false, error: 'receipt_no is required' }, { status: 400 });
+      }
+      const receipt = await getReceiptByNo(tenant, receiptNo);
+      if (!receipt) {
+        return NextResponse.json({ success: false, error: `Receipt "${receiptNo}" not found` }, { status: 404 });
+      }
+      return NextResponse.json({ success: true, receipt });
     }
 
     // 6. Reports Engine Query
