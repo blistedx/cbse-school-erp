@@ -416,6 +416,79 @@ const TAB_POSTER_CONFIG: Record<string, { title: string; subtitle: string; code:
   },
 };
 
+interface SchoolHouseItem {
+  id?: string;
+  name: string;
+  color: string;
+  code?: string;
+  description?: string;
+}
+
+const DEFAULT_SCHOOL_HOUSES: SchoolHouseItem[] = [
+  { name: 'Red House', color: '#EF4444', code: 'RED', description: 'Courage, Energy & Leadership' },
+  { name: 'Yellow House', color: '#EAB308', code: 'YEL', description: 'Wisdom, Innovation & Intellect' },
+  { name: 'Blue House', color: '#3B82F6', code: 'BLU', description: 'Loyalty, Integrity & Truth' },
+  { name: 'Green House', color: '#10B981', code: 'GRN', description: 'Harmony, Growth & Perseverance' }
+];
+
+const normalizeSchoolHouses = (rawHouses: any): SchoolHouseItem[] => {
+  if (!Array.isArray(rawHouses) || rawHouses.length === 0) return DEFAULT_SCHOOL_HOUSES;
+  return rawHouses.map((h, i) => {
+    if (typeof h === 'string') {
+      const def = DEFAULT_SCHOOL_HOUSES.find(d => d.name.toLowerCase() === h.toLowerCase());
+      return {
+        name: h,
+        color: def?.color || '#EF4444',
+        code: def?.code || `H${i + 1}`,
+        description: def?.description || `${h}`
+      };
+    }
+    return {
+      name: h.name || `House ${i + 1}`,
+      color: h.color || '#EF4444',
+      code: h.code || `H${i + 1}`,
+      description: h.description || ''
+    };
+  });
+};
+
+const getHouseBadgeInfo = (houseName: string = '', customHouses: any[] = []) => {
+  const norm = (houseName || '').trim().toLowerCase();
+  if (!norm) return { name: 'Unassigned', color: '#94A3B8', bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-300' };
+
+  if (Array.isArray(customHouses)) {
+    const custom = customHouses.find(h => {
+      const hName = typeof h === 'string' ? h : h?.name;
+      return (hName || '').trim().toLowerCase() === norm;
+    });
+    if (custom && typeof custom === 'object' && custom.color) {
+      return {
+        name: custom.name || houseName,
+        color: custom.color,
+        bg: 'bg-white',
+        text: 'text-slate-900',
+        border: 'border-slate-300',
+        customHex: custom.color
+      };
+    }
+  }
+
+  if (norm.includes('red') || norm.includes('ruby') || norm.includes('agni') || norm.includes('tagore')) {
+    return { name: houseName, color: '#EF4444', bg: 'bg-rose-50', text: 'text-rose-800', border: 'border-rose-200' };
+  }
+  if (norm.includes('yellow') || norm.includes('gold') || norm.includes('topaz') || norm.includes('vayu') || norm.includes('shivaji')) {
+    return { name: houseName, color: '#EAB308', bg: 'bg-amber-50', text: 'text-amber-900', border: 'border-amber-200' };
+  }
+  if (norm.includes('blue') || norm.includes('sapphire') || norm.includes('jal') || norm.includes('ashoka')) {
+    return { name: houseName, color: '#3B82F6', bg: 'bg-sky-50', text: 'text-sky-900', border: 'border-sky-200' };
+  }
+  if (norm.includes('green') || norm.includes('emerald') || norm.includes('prithvi') || norm.includes('raman')) {
+    return { name: houseName, color: '#10B981', bg: 'bg-emerald-50', text: 'text-emerald-900', border: 'border-emerald-200' };
+  }
+
+  return { name: houseName, color: '#6366F1', bg: 'bg-indigo-50', text: 'text-indigo-900', border: 'border-indigo-200' };
+};
+
 function ERPWorkspaceContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -1684,7 +1757,26 @@ function ERPWorkspaceContent() {
   });
 
   // Settings Form (Institutional & CBSE Compliance Parameters)
-  const [settingsForm, setSettingsForm] = useState({
+  const [settingsForm, setSettingsForm] = useState<{
+    school_name: string;
+    principal_name: string;
+    principal_avatar: string;
+    board: string;
+    city: string;
+    state: string;
+    address: string;
+    pincode: string;
+    udise_code: string;
+    oasis_code: string;
+    affiliation_no: string;
+    phone: string;
+    email: string;
+    website: string;
+    established_year: string;
+    admin_pin: string;
+    logo: string;
+    houses: SchoolHouseItem[];
+  }>({
     school_name: '',
     principal_name: '',
     principal_avatar: '',
@@ -1701,7 +1793,8 @@ function ERPWorkspaceContent() {
     website: '',
     established_year: '',
     admin_pin: '',
-    logo: ''
+    logo: '',
+    houses: DEFAULT_SCHOOL_HOUSES
   });
 
   // School Logo Upload Handler (Max 200 KB, Recommended 100 KB - 200 KB)
@@ -1762,6 +1855,90 @@ function ERPWorkspaceContent() {
       try { localStorage.setItem('current_user', JSON.stringify(updated)); } catch (_) {}
     }
     showAdminToast('Principal photo removed.');
+  };
+
+  // School House System Configuration Handlers
+  const handleUpdateHouse = (index: number, field: keyof SchoolHouseItem, value: string) => {
+    setSettingsForm(prev => {
+      const nextHouses = [...(prev.houses || DEFAULT_SCHOOL_HOUSES)];
+      nextHouses[index] = { ...nextHouses[index], [field]: value };
+      return { ...prev, houses: nextHouses };
+    });
+  };
+
+  const handleAddHouse = () => {
+    setSettingsForm(prev => {
+      const current = prev.houses || DEFAULT_SCHOOL_HOUSES;
+      const count = current.length + 1;
+      const palette = ['#8B5CF6', '#F97316', '#14B8A6', '#EC4899', '#6366F1'];
+      const color = palette[current.length % palette.length];
+      const newHouse: SchoolHouseItem = {
+        name: `House ${count}`,
+        color: color,
+        code: `H${count}`,
+        description: 'New School House'
+      };
+      return { ...prev, houses: [...current, newHouse] };
+    });
+  };
+
+  const handleRemoveHouse = (index: number) => {
+    if ((settingsForm.houses || []).length <= 1) {
+      alert('School must have at least 1 House configured.');
+      return;
+    }
+    setSettingsForm(prev => {
+      const current = prev.houses || DEFAULT_SCHOOL_HOUSES;
+      return { ...prev, houses: current.filter((_, i) => i !== index) };
+    });
+  };
+
+  const handleApplyHousePreset = (type: 'standard' | 'luminaries' | 'elements' | 'gems') => {
+    if (type === 'standard') {
+      setSettingsForm(prev => ({
+        ...prev,
+        houses: [
+          { name: 'Red House', color: '#EF4444', code: 'RED', description: 'Courage, Energy & Leadership' },
+          { name: 'Yellow House', color: '#EAB308', code: 'YEL', description: 'Wisdom, Innovation & Intellect' },
+          { name: 'Blue House', color: '#3B82F6', code: 'BLU', description: 'Loyalty, Integrity & Truth' },
+          { name: 'Green House', color: '#10B981', code: 'GRN', description: 'Harmony, Growth & Perseverance' }
+        ]
+      }));
+      showAdminToast('Applied Standard Colors Preset (Red, Yellow, Blue, Green)!');
+    } else if (type === 'luminaries') {
+      setSettingsForm(prev => ({
+        ...prev,
+        houses: [
+          { name: 'Tagore House', color: '#EF4444', code: 'TAG', description: 'Creativity, Literature & Arts (Red)' },
+          { name: 'Shivaji House', color: '#EAB308', code: 'SHI', description: 'Courage, Strategy & Valour (Yellow)' },
+          { name: 'Ashoka House', color: '#3B82F6', code: 'ASH', description: 'Peace, Righteousness & Harmony (Blue)' },
+          { name: 'Raman House', color: '#10B981', code: 'RAM', description: 'Scientific Inquiry & Innovation (Green)' }
+        ]
+      }));
+      showAdminToast('Applied Indian Luminaries Preset (Tagore, Shivaji, Ashoka, Raman)!');
+    } else if (type === 'elements') {
+      setSettingsForm(prev => ({
+        ...prev,
+        houses: [
+          { name: 'Agni House', color: '#EF4444', code: 'AGN', description: 'Passion, Radiance & Power (Fire)' },
+          { name: 'Vayu House', color: '#EAB308', code: 'VAY', description: 'Agility, Freedom & Swiftness (Air)' },
+          { name: 'Jal House', color: '#3B82F6', code: 'JAL', description: 'Wisdom, Flow & Adaptability (Water)' },
+          { name: 'Prithvi House', color: '#10B981', code: 'PRT', description: 'Stability, Strength & Growth (Earth)' }
+        ]
+      }));
+      showAdminToast('Applied Pancha Mahabhuta Elements Preset (Agni, Vayu, Jal, Prithvi)!');
+    } else if (type === 'gems') {
+      setSettingsForm(prev => ({
+        ...prev,
+        houses: [
+          { name: 'Ruby House', color: '#EF4444', code: 'RUB', description: 'Prestige & Vitality (Red)' },
+          { name: 'Topaz House', color: '#EAB308', code: 'TOP', description: 'Clarity & Brilliance (Yellow)' },
+          { name: 'Sapphire House', color: '#3B82F6', code: 'SAP', description: 'Wisdom & Calm (Blue)' },
+          { name: 'Emerald House', color: '#10B981', code: 'EME', description: 'Elegance & Abundance (Green)' }
+        ]
+      }));
+      showAdminToast('Applied Precious Gems Preset (Ruby, Topaz, Sapphire, Emerald)!');
+    }
   };
 
   // User Profile Photo Upload Handler (Strict 200 KB limit, recommended 100-200 KB)
@@ -2212,7 +2389,8 @@ function ERPWorkspaceContent() {
           website: targetSchool.website || `https://${(targetSchool.school_code || 'dps2026').toLowerCase()}.edu`,
           established_year: targetSchool.established_year || '1998',
           admin_pin: cleanAdminPin,
-          logo: targetSchool.logo || ''
+          logo: targetSchool.logo || '',
+          houses: normalizeSchoolHouses(targetSchool.houses)
         });
         if (targetSchool.role_permissions) {
           setRolePermissions(targetSchool.role_permissions);
@@ -3654,7 +3832,8 @@ function ERPWorkspaceContent() {
   const handleQuickCollectFee = (s: Student) => {
     setSummaryStudent(null);
     setActiveStudentMenuId(null);
-    showAdminToast('Fee module has been removed and will be rebuilt from scratch.', 'info');
+    setFeeCollectTarget({ studentId: s.id, ts: Date.now() });
+    setActiveTab('fees');
   };
 
   // Helper to reliably resolve faculty gender
@@ -3692,16 +3871,42 @@ function ERPWorkspaceContent() {
     'class 11': 13, '11': 13, 'class 12': 14, '12': 14
   };
 
-  // Distinct houses present in the school (dynamically created by the school)
+  // Distinct houses configured in the school and present across students
   const availableHouses = useMemo(() => {
-    const set = new Set<string>();
+    const list: string[] = [];
+    const seen = new Set<string>();
+
+    const addHouse = (name: string) => {
+      const clean = (name || '').trim();
+      if (clean && !seen.has(clean.toLowerCase())) {
+        seen.add(clean.toLowerCase());
+        list.push(clean);
+      }
+    };
+
+    // 1. Configured School Houses
+    const schoolHouses = (settingsForm.houses && settingsForm.houses.length > 0) ? settingsForm.houses : selectedSchool?.houses;
+    if (Array.isArray(schoolHouses)) {
+      schoolHouses.forEach((h: any) => {
+        const hName = typeof h === 'string' ? h : h?.name;
+        if (hName) addHouse(hName);
+      });
+    }
+
+    // 2. Default 4 CBSE Houses Fallback
+    if (list.length === 0) {
+      DEFAULT_SCHOOL_HOUSES.forEach(h => addHouse(h.name));
+    }
+
+    // 3. Existing Students Houses
     (students || []).forEach(s => {
       if (s.house && s.house.trim()) {
-        set.add(s.house.trim());
+        addHouse(s.house.trim());
       }
     });
-    return Array.from(set).sort();
-  }, [students]);
+
+    return list;
+  }, [settingsForm.houses, selectedSchool?.houses, students]);
 
   // 1. FILTERED STUDENTS
   // Use empty string before mount to avoid SSR/CSR searchQuery mismatch (hydration)
@@ -6223,9 +6428,26 @@ function ERPWorkspaceContent() {
                                         <span>{s.full_name}</span>
                                         <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-mono font-normal">360°</span>
                                       </div>
-                                      {s.apaar_id && (
-                                        <div className="text-[10px] text-slate-400 font-mono">PEN: {s.apaar_id}</div>
-                                      )}
+                                      <div className="flex items-center gap-2 mt-0.5">
+                                        {s.apaar_id && (
+                                          <span className="text-[10px] text-slate-400 font-mono">PEN: {s.apaar_id}</span>
+                                        )}
+                                        {s.house && (
+                                          (() => {
+                                            const badge = getHouseBadgeInfo(s.house, settingsForm.houses);
+                                            return (
+                                              <span
+                                                className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold border ${badge.bg} ${badge.text} ${badge.border}`}
+                                                style={badge.customHex ? { borderColor: badge.customHex, color: badge.customHex } : undefined}
+                                                title={`House: ${s.house}`}
+                                              >
+                                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: badge.color }} />
+                                                {s.house}
+                                              </span>
+                                            );
+                                          })()
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 </td>
@@ -6557,9 +6779,21 @@ function ERPWorkspaceContent() {
                                 <span className="text-slate-400">Gender:</span>
                                 <span className="font-medium text-[#122A24]">{s.gender || 'Female'}</span>
                               </div>
-                              <div className="flex justify-between">
+                              <div className="flex justify-between items-center">
                                 <span className="text-slate-400">House:</span>
-                                <span className="font-semibold text-xs text-[#1C443A]">{s.house || '—'}</span>
+                                {(() => {
+                                  if (!s.house) return <span className="font-semibold text-xs text-slate-400">—</span>;
+                                  const badge = getHouseBadgeInfo(s.house, settingsForm.houses);
+                                  return (
+                                    <span
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-bold border ${badge.bg} ${badge.text} ${badge.border}`}
+                                      style={badge.customHex ? { borderColor: badge.customHex, color: badge.customHex } : undefined}
+                                    >
+                                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: badge.color }} />
+                                      {s.house}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-slate-400">DOB:</span>
@@ -8640,6 +8874,8 @@ function ERPWorkspaceContent() {
               selectedSession={selectedSession}
               userRole={effectiveRole}
               currentUser={currentUser}
+              preselectedStudentId={feeCollectTarget?.studentId}
+              preselectedTimestamp={feeCollectTarget?.ts}
               onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession)}
               showAdminToast={showAdminToast}
             />
@@ -9413,10 +9649,161 @@ function ERPWorkspaceContent() {
                     </div>
                   </div>
 
-                  {/* GROUP 4: SECURITY */}
+                  {/* GROUP 4: SCHOOL HOUSE SYSTEM & INTER-HOUSE MATRIX */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#F9FCFA] border border-[#DCE8E0] space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#E8F0EA]">
+                      <div>
+                        <div className="font-display font-bold text-xs sm:text-sm text-[#122A24] flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-[#122A24] text-white flex items-center justify-center text-[10px] font-mono">4</span>
+                          <span>School House System &amp; Inter-House Matrix</span>
+                        </div>
+                        <p className="text-[11px] text-[#2D5A4E] mt-0.5">
+                          Customize your school's 4 official houses (Red, Yellow, Blue, Green) or rename them to custom school houses (e.g. Tagore, Shivaji, Ashoka, Raman).
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          {(settingsForm.houses || DEFAULT_SCHOOL_HOUSES).length} Houses Active
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Quick Presets Bar */}
+                    <div className="p-3 bg-white rounded-xl border border-[#DCE8E0] flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold text-[#122A24] flex items-center gap-1.5 font-mono">
+                        ⚡ Quick Presets:
+                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleApplyHousePreset('standard')}
+                          className="px-2.5 py-1 bg-[#EBF5EF] hover:bg-emerald-100 text-[#122A24] border border-[#C5E2CF] rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
+                        >
+                          🎨 Standard (Red, Yellow, Blue, Green)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyHousePreset('luminaries')}
+                          className="px-2.5 py-1 bg-white hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
+                        >
+                          🏛️ Luminaries (Tagore, Shivaji, Ashoka, Raman)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyHousePreset('elements')}
+                          className="px-2.5 py-1 bg-white hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
+                        >
+                          🔥 Elements (Agni, Vayu, Jal, Prithvi)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyHousePreset('gems')}
+                          className="px-2.5 py-1 bg-white hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
+                        >
+                          💎 Gems (Ruby, Topaz, Sapphire, Emerald)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Houses Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                      {(settingsForm.houses || DEFAULT_SCHOOL_HOUSES).map((house, idx) => {
+                        const studentCountInHouse = (students || []).filter(s => (s.house || '').trim().toLowerCase() === (house.name || '').trim().toLowerCase()).length;
+                        return (
+                          <div key={idx} className="p-3.5 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs space-y-2.5 relative group hover:border-[#122A24]/40 transition-colors">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <label className="relative cursor-pointer flex items-center justify-center">
+                                  <input
+                                    type="color"
+                                    value={house.color || '#EF4444'}
+                                    onChange={(e) => handleUpdateHouse(idx, 'color', e.target.value)}
+                                    className="w-7 h-7 rounded-lg border border-slate-300 cursor-pointer p-0.5 bg-white"
+                                    title="Click to pick custom house color"
+                                  />
+                                </label>
+                                <span className="font-bold text-xs text-[#122A24] font-mono">
+                                  House #{idx + 1}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                                  {studentCountInHouse} Scholars
+                                </span>
+                                {(settingsForm.houses || []).length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveHouse(idx)}
+                                    className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 border-none bg-transparent cursor-pointer transition-colors"
+                                    title="Remove this house"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2">
+                              <div className="col-span-2">
+                                <label className="block text-[10.5px] font-semibold text-[#122A24] mb-0.5">House Name *</label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={house.name}
+                                  onChange={(e) => handleUpdateHouse(idx, 'name', e.target.value)}
+                                  placeholder="e.g. Red House"
+                                  className="w-full px-2.5 py-1.5 border border-[#DCE8E0] rounded-lg text-xs font-semibold text-[#122A24] bg-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10.5px] font-semibold text-[#122A24] mb-0.5">Short Code</label>
+                                <input
+                                  type="text"
+                                  value={house.code || ''}
+                                  onChange={(e) => handleUpdateHouse(idx, 'code', e.target.value.toUpperCase())}
+                                  placeholder="RED"
+                                  className="w-full px-2.5 py-1.5 border border-[#DCE8E0] rounded-lg text-xs font-mono font-bold uppercase text-[#122A24] bg-white"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Badge Preview */}
+                            <div className="pt-1.5 border-t border-[#F0F4F2] flex items-center justify-between text-[11px]">
+                              <span className="text-slate-400 text-[10px]">Badge Preview:</span>
+                              <span
+                                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10.5px] font-mono font-bold border"
+                                style={{
+                                  backgroundColor: `${house.color || '#EF4444'}15`,
+                                  borderColor: `${house.color || '#EF4444'}50`,
+                                  color: house.color || '#EF4444'
+                                }}
+                              >
+                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: house.color || '#EF4444' }} />
+                                {house.name || 'New House'} ({house.code || 'HSE'})
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="pt-2 flex justify-start">
+                      <button
+                        type="button"
+                        onClick={handleAddHouse}
+                        className="px-3.5 py-1.5 bg-white hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>+ Add Custom House</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* GROUP 5: SECURITY */}
                   <div className="p-4 sm:p-5 rounded-2xl bg-[#F9FCFA] border border-[#DCE8E0] space-y-3.5">
                     <div className="font-display font-bold text-xs sm:text-sm text-[#122A24] flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-[#122A24] text-white flex items-center justify-center text-[10px] font-mono">4</span>
+                      <span className="w-5 h-5 rounded-full bg-[#122A24] text-white flex items-center justify-center text-[10px] font-mono">5</span>
                       <span>Administrator Master Passcode</span>
                     </div>
 

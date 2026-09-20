@@ -39,6 +39,7 @@ import {
   generatePdfExport,
 } from '@/lib/fees-engine/export';
 import { apiFetch } from '@/lib/api-client';
+import { getSchoolInitials } from '@/lib/utils';
 
 export interface DashboardFeeMasterProps {
   selectedSchool?: School | null;
@@ -64,6 +65,7 @@ export function DashboardFeeMaster({
   userRole = 'ADMIN',
   currentUser,
   preselectedStudentId,
+  preselectedTimestamp,
   showAdminToast,
 }: DashboardFeeMasterProps) {
   // ─── 4 MAIN TABS ONLY ───
@@ -100,12 +102,17 @@ export function DashboardFeeMaster({
   });
 
   // ─── TAB 2: COLLECT FEES STATE ───
+  const [collectClass, setCollectClass] = useState<string>('ALL');
+  const [collectSection, setCollectSection] = useState<string>('ALL');
   const [studentSearch, setStudentSearch] = useState<string>('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [studentLedger, setStudentLedger] = useState<StudentLedgerViewItem[]>([]);
   const [studentSummary, setStudentSummary] = useState<any>(null);
   const [studentReceipts, setStudentReceipts] = useState<ReceiptRecord[]>([]);
   const [ledgerLoading, setLedgerLoading] = useState<boolean>(false);
+
+  // Fee Head Filter & Multi-Select
+  const [selectedFeeHeads, setSelectedFeeHeads] = useState<string[]>([]);
 
   // Payment form state
   const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CHEQUE' | 'ONLINE'>('UPI');
@@ -299,32 +306,189 @@ export function DashboardFeeMaster({
       if (found) {
         setSelectedStudent(found);
         setActiveTab('collect');
+        setSelectedFeeHeads([]);
+        setSelectedItemIds([]);
+        if (found.class_name) setCollectClass(found.class_name);
+        if (found.section) setCollectSection(found.section);
         loadStudentLedger(found.id);
       }
     }
-  }, [preselectedStudentId, students, loadStudentLedger]);
+  }, [preselectedStudentId, preselectedTimestamp, students, loadStudentLedger]);
 
-  // Filter students for search in Tab 2
-  const searchResults = useMemo(() => {
-    if (!studentSearch || studentSearch.trim().length < 1) return [];
-    const q = studentSearch.toLowerCase().trim();
-    return students
-      .filter(s => s.status === 'ACTIVE')
-      .filter(s =>
+  const availableClasses = useMemo(() => {
+    const set = new Set<string>();
+    classes.forEach((c: any) => {
+      const name = c.class_name || c.name;
+      if (name) set.add(name);
+    });
+    students.forEach((s: any) => {
+      if (s.class_name) set.add(s.class_name);
+    });
+    return Array.from(set).filter(Boolean).sort();
+  }, [classes, students]);
+
+  const availableSections = useMemo(() => {
+    if (collectClass === 'ALL') {
+      return Array.from(new Set(students.map(s => s.section || 'A'))).filter(Boolean).sort();
+    }
+    return Array.from(
+      new Set(
+        students
+          .filter(s => s.class_name === collectClass)
+          .map(s => s.section || 'A')
+      )
+    ).filter(Boolean).sort();
+  }, [students, collectClass]);
+
+  // Filter students for Tab 2 (Class, Section, and Search term)
+  const filteredStudents = useMemo(() => {
+    let list = students.filter(s => s.status === 'ACTIVE');
+    if (collectClass !== 'ALL') {
+      list = list.filter(s => s.class_name === collectClass);
+    }
+    if (collectSection !== 'ALL') {
+      list = list.filter(s => (s.section || 'A') === collectSection);
+    }
+    if (studentSearch && studentSearch.trim().length > 0) {
+      const q = studentSearch.toLowerCase().trim();
+      list = list.filter(s =>
         `${s.first_name || ''} ${s.last_name || ''}`.toLowerCase().includes(q) ||
         (s.admission_no || '').toLowerCase().includes(q) ||
         (s.father_name || '').toLowerCase().includes(q) ||
         (s.mobile || s.emergency_contact || '').includes(q)
-      )
-      .slice(0, 10);
-  }, [studentSearch, students]);
+      );
+    }
+    return list;
+  }, [students, collectClass, collectSection, studentSearch]);
+
+  // Unique fee heads available in current student's ledger
+  const availableLedgerFeeHeads = useMemo(() => {
+    const map = new Map<string, { count: number; totalDuePaise: number }>();
+    studentLedger.forEach((item) => {
+      const head = item.fee_head || 'OTHER';
+      const existing = map.get(head) || { count: 0, totalDuePaise: 0 };
+      map.set(head, {
+        count: existing.count + 1,
+        totalDuePaise: existing.totalDuePaise + (item.due_paise || 0),
+      });
+    });
+    return Array.from(map.entries()).map(([head, data]) => ({
+      head,
+      count: data.count,
+      totalDuePaise: data.totalDuePaise,
+    }));
+  }, [studentLedger]);
+
+  // Filtered ledger rows based on selectedFeeHeads filter
+  const displayedLedgerItems = useMemo(() => {
+    if (selectedFeeHeads.length === 0) return studentLedger;
+    return studentLedger.filter(item => selectedFeeHeads.includes(item.fee_head));
+  }, [studentLedger, selectedFeeHeads]);
+
+  // Calculate sum of selected item dues
+  const selectedDuesPaise = useMemo(() => {
+    if (selectedItemIds.length === 0) return 0;
+    return studentLedger
+      .filter(item => selectedItemIds.includes(item.id))
+      .reduce((sum, item) => sum + (item.due_paise || 0), 0);
+  }, [studentLedger, selectedItemIds]);
 
   // ─── HANDLERS ───
 
   const handleSelectStudent = (student: Student) => {
     setSelectedStudent(student);
     setStudentSearch('');
+    setSelectedFeeHeads([]);
+    setSelectedItemIds([]);
     loadStudentLedger(student.id);
+  };
+
+  // Toggle Fee Head Multi-Select
+  const handleToggleFeeHead = (head: string) => {
+    let nextHeads: string[];
+    if (selectedFeeHeads.includes(head)) {
+      nextHeads = selectedFeeHeads.filter(h => h !== head);
+    } else {
+      nextHeads = [...selectedFeeHeads, head];
+    }
+    setSelectedFeeHeads(nextHeads);
+
+    // If nextHeads has items, select all pending items in those heads
+    if (nextHeads.length > 0) {
+      const itemsToSelect = studentLedger
+        .filter(item => nextHeads.includes(item.fee_head) && item.due_paise > 0)
+        .map(item => item.id);
+      setSelectedItemIds(itemsToSelect);
+      const duesSum = studentLedger
+        .filter(item => itemsToSelect.includes(item.id))
+        .reduce((sum, item) => sum + item.due_paise, 0);
+      setPaymentAmountRupees(paiseToRupees(duesSum));
+    } else {
+      setSelectedItemIds([]);
+      if (studentSummary) {
+        setPaymentAmountRupees(paiseToRupees(studentSummary.balance));
+      }
+    }
+  };
+
+  // Toggle individual item checkbox
+  const handleToggleItemCheckbox = (itemId: string) => {
+    let nextItemIds: string[];
+    if (selectedItemIds.includes(itemId)) {
+      nextItemIds = selectedItemIds.filter(id => id !== itemId);
+    } else {
+      nextItemIds = [...selectedItemIds, itemId];
+    }
+    setSelectedItemIds(nextItemIds);
+    if (nextItemIds.length > 0) {
+      const sum = studentLedger
+        .filter(i => nextItemIds.includes(i.id))
+        .reduce((acc, i) => acc + (i.due_paise || 0), 0);
+      setPaymentAmountRupees(paiseToRupees(sum));
+    } else if (studentSummary) {
+      setPaymentAmountRupees(paiseToRupees(studentSummary.balance));
+    }
+  };
+
+  // Select all / deselect all displayed pending items
+  const handleSelectAllDisplayed = () => {
+    const pendingDisplayed = displayedLedgerItems.filter(i => i.due_paise > 0).map(i => i.id);
+    const allSelected = pendingDisplayed.length > 0 && pendingDisplayed.every(id => selectedItemIds.includes(id));
+    if (allSelected) {
+      setSelectedItemIds(prev => prev.filter(id => !pendingDisplayed.includes(id)));
+      if (studentSummary) setPaymentAmountRupees(paiseToRupees(studentSummary.balance));
+    } else {
+      const next = Array.from(new Set([...selectedItemIds, ...pendingDisplayed]));
+      setSelectedItemIds(next);
+      const sum = studentLedger.filter(i => next.includes(i.id)).reduce((acc, i) => acc + (i.due_paise || 0), 0);
+      setPaymentAmountRupees(paiseToRupees(sum));
+    }
+  };
+
+  // Quick helper: Select All Unpaid
+  const handleSelectAllUnpaid = () => {
+    const allPending = studentLedger.filter(i => i.due_paise > 0).map(i => i.id);
+    setSelectedItemIds(allPending);
+    const sum = studentLedger.filter(i => allPending.includes(i.id)).reduce((acc, i) => acc + (i.due_paise || 0), 0);
+    setPaymentAmountRupees(paiseToRupees(sum));
+  };
+
+  // Quick helper: Select Next N Months/Items
+  const handleSelectNextNUnpaid = (count: number) => {
+    const pendingItems = studentLedger.filter(i => i.due_paise > 0);
+    const targetItems = pendingItems.slice(0, count).map(i => i.id);
+    setSelectedItemIds(targetItems);
+    const sum = studentLedger.filter(i => targetItems.includes(i.id)).reduce((acc, i) => acc + (i.due_paise || 0), 0);
+    setPaymentAmountRupees(paiseToRupees(sum));
+  };
+
+  // Quick helper: Clear Selection
+  const handleClearSelection = () => {
+    setSelectedItemIds([]);
+    setSelectedFeeHeads([]);
+    if (studentSummary) {
+      setPaymentAmountRupees(paiseToRupees(studentSummary.balance));
+    }
   };
 
   const handleCollectPayment = async () => {
@@ -496,46 +660,75 @@ export function DashboardFeeMaster({
 
   return (
     <div className="w-full space-y-6 pb-16 font-sans text-slate-900">
-      {/* ─── HEADER BAR WITH SESSION SELECTOR & 4 TABS ─── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#122A24] to-[#1C443A] text-white flex items-center justify-center shadow-sm">
-            <Landmark className="w-6 h-6" />
+      {/* ─── HEADER BAR WITH WATERMARK TYPOGRAPHY & SESSION SELECTOR ─── */}
+      <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
+        {/* Left Top Watermark Typography ("Finance") */}
+        <div 
+          aria-hidden="true" 
+          className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
+        >
+          Finance
+        </div>
+        {/* School Initials Bottom-Right Watermark */}
+        <div 
+          aria-hidden="true" 
+          className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+        >
+          {getSchoolInitials(selectedSchool)}
+        </div>
+        <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+
+        <div className="flex items-center gap-3.5 relative z-10">
+          <div className="w-12 h-12 rounded-2xl bg-[#122A24] text-white flex items-center justify-center shadow-xs">
+            <Landmark className="w-6 h-6 text-emerald-400" />
           </div>
           <div>
-            <h1 className="text-xl font-black tracking-tight text-[#122A24] flex items-center gap-2">
-              Fee Master
-              <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                One Fees Engine
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-[#122A24] font-display">
+                Fee Master
+              </h1>
+              <span className="text-[10px] uppercase font-mono font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                ONE FEES ENGINE
               </span>
-            </h1>
-            <p className="text-xs text-slate-500 font-medium">Single Source of Truth for Institutional Finances & CBSE Fee Ledgers</p>
+            </div>
+            <p className="text-xs text-[#2D5A4E] font-medium">Single Source of Truth for Institutional Finances & CBSE Fee Ledgers</p>
           </div>
         </div>
 
-        {/* Academic Session Selector */}
-        <div className="flex items-center gap-3">
-          <label className="text-xs font-bold text-slate-600">Session:</label>
-          <select
-            value={session}
-            onChange={(e) => setSession(e.target.value)}
-            className="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-[#122A24] focus:outline-none focus:ring-2 focus:ring-emerald-600 cursor-pointer"
+        {/* Academic Session Selector & Quick Sync Action */}
+        <div className="flex items-center gap-2.5 relative z-10 flex-wrap">
+          <div className="flex items-center gap-2 bg-[#EBF5EF]/70 px-3 py-1.5 rounded-2xl border border-[#DCE8E0]">
+            <label className="text-xs font-bold text-[#122A24]">Session:</label>
+            <select
+              value={session}
+              onChange={(e) => setSession(e.target.value)}
+              className="bg-white border border-[#DCE8E0] rounded-xl px-2.5 py-1 text-xs font-bold text-[#122A24] focus:outline-none focus:ring-2 focus:ring-emerald-600 cursor-pointer shadow-2xs"
+            >
+              <option value="2026-27">2026-27 (Current)</option>
+              <option value="2025-26">2025-26</option>
+              <option value="2027-28">2027-28</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={loadOverview}
+            className="p-2 sm:px-3 sm:py-1.5 bg-white hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] rounded-2xl text-xs font-bold cursor-pointer transition-all shadow-2xs flex items-center gap-1.5"
+            title="Refresh Financial Overview"
           >
-            <option value="2026-27">2026-27 (Current)</option>
-            <option value="2025-26">2025-26</option>
-            <option value="2027-28">2027-28</option>
-          </select>
+            <RefreshCw className={`w-4 h-4 text-[#2D5A4E] ${overviewLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Sync</span>
+          </button>
         </div>
       </div>
 
       {/* ─── EXACTLY 4 TOP-LEVEL TABS (NO SUB-TABS) ─── */}
-      <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200/60 overflow-x-auto">
+      <div className="flex items-center gap-2 p-1.5 bg-[#EBF5EF]/60 rounded-2xl border border-[#DCE8E0] overflow-x-auto">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all cursor-pointer ${
+          className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'overview'
-              ? 'bg-[#122A24] text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'bg-[#122A24] text-white shadow-xs'
+              : 'text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/80'
           }`}
         >
           <TrendingUp className="w-4 h-4" />
@@ -544,10 +737,10 @@ export function DashboardFeeMaster({
 
         <button
           onClick={() => setActiveTab('collect')}
-          className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all cursor-pointer ${
+          className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'collect'
-              ? 'bg-[#122A24] text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'bg-[#122A24] text-white shadow-xs'
+              : 'text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/80'
           }`}
         >
           <CreditCard className="w-4 h-4" />
@@ -556,10 +749,10 @@ export function DashboardFeeMaster({
 
         <button
           onClick={() => setActiveTab('reports')}
-          className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all cursor-pointer ${
+          className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'reports'
-              ? 'bg-[#122A24] text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'bg-[#122A24] text-white shadow-xs'
+              : 'text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/80'
           }`}
         >
           <FileText className="w-4 h-4" />
@@ -568,10 +761,10 @@ export function DashboardFeeMaster({
 
         <button
           onClick={() => setActiveTab('setup')}
-          className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-black transition-all cursor-pointer ${
+          className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'setup'
-              ? 'bg-[#122A24] text-white shadow-sm'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'bg-[#122A24] text-white shadow-xs'
+              : 'text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/80'
           }`}
         >
           <Sliders className="w-4 h-4" />
@@ -585,7 +778,7 @@ export function DashboardFeeMaster({
       {activeTab === 'overview' && (
         <div className="space-y-6">
           {overviewError && (
-            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between shadow-sm">
+            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between shadow-xs">
               <div className="flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
                 <div>
@@ -595,7 +788,7 @@ export function DashboardFeeMaster({
               </div>
               <button
                 onClick={loadOverview}
-                className="px-3.5 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Retry
@@ -604,63 +797,63 @@ export function DashboardFeeMaster({
           )}
 
           {/* 6 Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
             {/* 1. Total Billed */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Billed</span>
-              <div className="mt-2 text-lg lg:text-xl font-black text-slate-900">
+            <div className="bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs flex flex-col justify-between min-w-0 hover:shadow-sm transition-shadow">
+              <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider truncate">Total Billed</span>
+              <div className="mt-2 text-base sm:text-lg xl:text-xl font-black text-[#122A24] tracking-tight truncate" title={formatPaise(overviewData.totalBilledPaise)}>
                 {overviewLoading ? (
                   <span className="inline-block w-20 h-6 bg-slate-200 rounded animate-pulse" />
                 ) : (
                   formatPaise(overviewData.totalBilledPaise)
                 )}
               </div>
-              <span className="mt-1 text-[10px] text-slate-400 font-medium">Session {session}</span>
+              <span className="mt-1 text-[10px] text-[#2D5A4E] font-medium truncate">Session {session}</span>
             </div>
 
             {/* 2. Collected */}
-            <div className="bg-white p-4 rounded-2xl border border-emerald-100 shadow-sm flex flex-col justify-between bg-gradient-to-b from-white to-emerald-50/20">
-              <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Collected</span>
-              <div className="mt-2 text-lg lg:text-xl font-black text-emerald-700">
+            <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-xs flex flex-col justify-between min-w-0 bg-gradient-to-b from-white to-emerald-50/40 hover:shadow-sm transition-shadow">
+              <span className="text-[10px] sm:text-[11px] font-bold text-emerald-800 uppercase tracking-wider truncate">Collected</span>
+              <div className="mt-2 text-base sm:text-lg xl:text-xl font-black text-emerald-700 tracking-tight truncate" title={formatPaise(overviewData.totalCollectedPaise)}>
                 {overviewLoading ? (
                   <span className="inline-block w-20 h-6 bg-emerald-100 rounded animate-pulse" />
                 ) : (
                   formatPaise(overviewData.totalCollectedPaise)
                 )}
               </div>
-              <span className="mt-1 text-[10px] text-emerald-600 font-bold">Realized Inflow</span>
+              <span className="mt-1 text-[10px] text-emerald-700 font-bold truncate">Realized Inflow</span>
             </div>
 
             {/* 3. Pending */}
-            <div className="bg-white p-4 rounded-2xl border border-rose-100 shadow-sm flex flex-col justify-between bg-gradient-to-b from-white to-rose-50/20">
-              <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wider">Pending Dues</span>
-              <div className="mt-2 text-lg lg:text-xl font-black text-rose-700">
+            <div className="bg-white p-4 rounded-2xl border border-rose-200 shadow-xs flex flex-col justify-between min-w-0 bg-gradient-to-b from-white to-rose-50/40 hover:shadow-sm transition-shadow">
+              <span className="text-[10px] sm:text-[11px] font-bold text-rose-800 uppercase tracking-wider truncate">Pending Dues</span>
+              <div className="mt-2 text-base sm:text-lg xl:text-xl font-black text-rose-700 tracking-tight truncate" title={formatPaise(overviewData.totalPendingPaise)}>
                 {overviewLoading ? (
                   <span className="inline-block w-20 h-6 bg-rose-100 rounded animate-pulse" />
                 ) : (
                   formatPaise(overviewData.totalPendingPaise)
                 )}
               </div>
-              <span className="mt-1 text-[10px] text-rose-600 font-bold">Outstanding Balance</span>
+              <span className="mt-1 text-[10px] text-rose-600 font-bold truncate">Outstanding Balance</span>
             </div>
 
             {/* 4. Discount Given */}
-            <div className="bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm flex flex-col justify-between bg-gradient-to-b from-white to-indigo-50/20">
-              <span className="text-[11px] font-bold text-indigo-800 uppercase tracking-wider">Discounts Given</span>
-              <div className="mt-2 text-lg lg:text-xl font-black text-indigo-700">
+            <div className="bg-white p-4 rounded-2xl border border-indigo-200 shadow-xs flex flex-col justify-between min-w-0 bg-gradient-to-b from-white to-indigo-50/40 hover:shadow-sm transition-shadow">
+              <span className="text-[10px] sm:text-[11px] font-bold text-indigo-800 uppercase tracking-wider truncate">Discounts Given</span>
+              <div className="mt-2 text-base sm:text-lg xl:text-xl font-black text-indigo-700 tracking-tight truncate" title={formatPaise(overviewData.totalDiscountPaise)}>
                 {overviewLoading ? (
                   <span className="inline-block w-20 h-6 bg-indigo-100 rounded animate-pulse" />
                 ) : (
                   formatPaise(overviewData.totalDiscountPaise)
                 )}
               </div>
-              <span className="mt-1 text-[10px] text-indigo-600 font-medium">Sibling + Waivers</span>
+              <span className="mt-1 text-[10px] text-indigo-600 font-medium truncate">Sibling + Waivers</span>
             </div>
 
             {/* 5. Collection % */}
-            <div className="bg-white p-4 rounded-2xl border border-blue-100 shadow-sm flex flex-col justify-between bg-gradient-to-b from-white to-blue-50/20">
-              <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">Collection %</span>
-              <div className="mt-2 text-lg lg:text-xl font-black text-blue-700">
+            <div className="bg-white p-4 rounded-2xl border border-blue-200 shadow-xs flex flex-col justify-between min-w-0 bg-gradient-to-b from-white to-blue-50/40 hover:shadow-sm transition-shadow">
+              <span className="text-[10px] sm:text-[11px] font-bold text-blue-800 uppercase tracking-wider truncate">Collection %</span>
+              <div className="mt-2 text-base sm:text-lg xl:text-xl font-black text-blue-700 tracking-tight truncate">
                 {overviewLoading ? (
                   <span className="inline-block w-12 h-6 bg-blue-100 rounded animate-pulse" />
                 ) : (
@@ -676,30 +869,30 @@ export function DashboardFeeMaster({
             </div>
 
             {/* 6. Students with Nothing Paid */}
-            <div className="bg-white p-4 rounded-2xl border border-amber-100 shadow-sm flex flex-col justify-between bg-gradient-to-b from-white to-amber-50/20">
-              <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Nothing Paid</span>
-              <div className="mt-2 text-lg lg:text-xl font-black text-amber-700">
+            <div className="bg-white p-4 rounded-2xl border border-amber-200 shadow-xs flex flex-col justify-between min-w-0 bg-gradient-to-b from-white to-amber-50/40 hover:shadow-sm transition-shadow">
+              <span className="text-[10px] sm:text-[11px] font-bold text-amber-800 uppercase tracking-wider truncate">Nothing Paid</span>
+              <div className="mt-2 text-base sm:text-lg xl:text-xl font-black text-amber-700 tracking-tight truncate">
                 {overviewLoading ? (
                   <span className="inline-block w-12 h-6 bg-amber-100 rounded animate-pulse" />
                 ) : (
                   overviewData.studentsWithNothingPaid
                 )}
               </div>
-              <span className="mt-1 text-[10px] text-amber-600 font-bold">Defaulter Scholars</span>
+              <span className="mt-1 text-[10px] text-amber-700 font-bold truncate">Defaulter Scholars</span>
             </div>
           </div>
 
           {/* Below 6 Cards: "This Month" Mini Table & "Top Pending" List */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left: "This Month" Mini Table (7 cols) */}
-            <div className="lg:col-span-7 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+            <div className="lg:col-span-7 bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-[#122A24] text-sm flex items-center gap-2">
+                  <h3 className="font-bold text-[#122A24] text-sm flex items-center gap-2 font-display">
                     <Calendar className="w-4 h-4 text-emerald-700" />
                     This Month Collection (September)
                   </h3>
-                  <p className="text-[11px] text-slate-500">Class-wise submitted vs pending breakdown</p>
+                  <p className="text-[11px] text-[#2D5A4E]">Class-wise submitted vs pending breakdown</p>
                 </div>
                 <button
                   onClick={() => {
@@ -713,10 +906,10 @@ export function DashboardFeeMaster({
                 </button>
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-slate-100">
+              <div className="overflow-x-auto rounded-2xl border border-[#DCE8E0]">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="bg-slate-50/80 text-slate-600 font-bold border-b border-slate-200">
+                    <tr className="bg-[#EBF5EF]/70 text-[#122A24] font-bold border-b border-[#DCE8E0]">
                       <th className="p-3">Class</th>
                       <th className="p-3 text-right">Scholars</th>
                       <th className="p-3 text-right text-emerald-700">Submitted</th>
@@ -724,7 +917,7 @@ export function DashboardFeeMaster({
                       <th className="p-3 text-right">Collected (₹)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                  <tbody className="divide-y divide-[#EBF5EF] font-medium text-slate-800">
                     {overviewData.thisMonthBreakdown.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="p-6 text-center text-slate-400 italic">
@@ -746,7 +939,7 @@ export function DashboardFeeMaster({
                           <td className="p-3 text-right">{row.totalStudents}</td>
                           <td className="p-3 text-right font-bold text-emerald-700">{row.submittedCount}</td>
                           <td className="p-3 text-right font-bold text-rose-700">{row.notSubmittedCount}</td>
-                          <td className="p-3 text-right font-bold">{formatPaise(row.collectedPaise)}</td>
+                          <td className="p-3 text-right font-bold text-[#122A24]">{formatPaise(row.collectedPaise)}</td>
                         </tr>
                       ))
                     )}
@@ -756,14 +949,14 @@ export function DashboardFeeMaster({
             </div>
 
             {/* Right: "Top Pending" List (5 cols) */}
-            <div className="lg:col-span-5 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+            <div className="lg:col-span-5 bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-[#122A24] text-sm flex items-center gap-2">
+                  <h3 className="font-bold text-[#122A24] text-sm flex items-center gap-2 font-display">
                     <AlertCircle className="w-4 h-4 text-rose-600" />
                     Top Pending Defaulters (10 Rows)
                   </h3>
-                  <p className="text-[11px] text-slate-500">Highest outstanding fee balances</p>
+                  <p className="text-[11px] text-[#2D5A4E]">Highest outstanding fee balances</p>
                 </div>
                 <button
                   onClick={() => {
@@ -785,15 +978,15 @@ export function DashboardFeeMaster({
                   overviewData.topPending.map((p, idx) => (
                     <div
                       key={idx}
-                      className="p-3 rounded-2xl bg-slate-50/80 border border-slate-100 flex items-center justify-between hover:bg-rose-50/30 transition-colors"
+                      className="p-3 rounded-2xl bg-[#EBF5EF]/40 border border-[#DCE8E0] flex items-center justify-between hover:bg-rose-50/40 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-bold">
+                        <span className="w-6 h-6 rounded-full bg-[#122A24] text-white flex items-center justify-center text-[10px] font-bold shadow-2xs">
                           {idx + 1}
                         </span>
                         <div>
                           <p className="font-bold text-xs text-[#122A24]">{p.studentName}</p>
-                          <p className="text-[10px] text-slate-500">{p.classSection} • {p.fatherName}</p>
+                          <p className="text-[10px] text-[#2D5A4E]">{p.classSection} • {p.fatherName}</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -825,71 +1018,186 @@ export function DashboardFeeMaster({
       ═══════════════════════════════════════════════════════ */}
       {activeTab === 'collect' && (
         <div className="space-y-6">
-          {/* Search Box */}
-          <div className="relative bg-white p-4 rounded-3xl border border-slate-200/80 shadow-sm">
-            <div className="relative">
-              <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
-                placeholder="Search student by Name, Admission No, Father Name, or Mobile number..."
-                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700"
-              />
+          {/* ─── Class, Section & Search Filter Bar ─── */}
+          <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+              {/* Class Filter */}
+              <div className="w-full md:w-48">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                  <Filter className="w-3 h-3 text-emerald-700" /> Class Filter
+                </label>
+                <select
+                  value={collectClass}
+                  onChange={(e) => {
+                    setCollectClass(e.target.value);
+                    setCollectSection('ALL');
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-[#DCE8E0] rounded-2xl text-xs font-bold text-[#122A24] focus:outline-none focus:ring-2 focus:ring-emerald-700 cursor-pointer"
+                >
+                  <option value="ALL">All Classes ({availableClasses.length})</option>
+                  {availableClasses.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Section Filter */}
+              <div className="w-full md:w-36">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Section
+                </label>
+                <select
+                  value={collectSection}
+                  onChange={(e) => setCollectSection(e.target.value)}
+                  disabled={collectClass === 'ALL' && availableSections.length === 0}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-[#DCE8E0] rounded-2xl text-xs font-bold text-[#122A24] focus:outline-none focus:ring-2 focus:ring-emerald-700 cursor-pointer disabled:opacity-50"
+                >
+                  <option value="ALL">All Sections</option>
+                  {availableSections.map((sec) => (
+                    <option key={sec} value={sec}>Section {sec}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Search Box */}
+              <div className="flex-1 relative">
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Scholar Search (Name / Adm No / Mobile)
+                </label>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    placeholder="Type student name, admission number, or father mobile..."
+                    className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-[#DCE8E0] rounded-2xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                  />
+                  {studentSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setStudentSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Reset Filters */}
+              {(collectClass !== 'ALL' || collectSection !== 'ALL' || studentSearch) && (
+                <div className="self-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCollectClass('ALL');
+                      setCollectSection('ALL');
+                      setStudentSearch('');
+                    }}
+                    className="py-2.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                    title="Reset All Filters"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Reset
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Search Dropdown */}
-            {searchResults.length > 0 && (
-              <div className="absolute left-4 right-4 top-full mt-2 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 overflow-hidden divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                {searchResults.map((st) => (
-                  <div
-                    key={st.id}
-                    onClick={() => handleSelectStudent(st)}
-                    className="p-3.5 hover:bg-emerald-50/50 cursor-pointer flex items-center justify-between transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-[#122A24] text-white flex items-center justify-center font-bold text-xs">
-                        {st.first_name?.[0] || 'S'}
-                      </div>
-                      <div>
-                        <p className="font-bold text-xs text-[#122A24]">{st.first_name} {st.last_name}</p>
-                        <p className="text-[10px] text-slate-500">Adm: {st.admission_no} • {st.class_name}-{st.section || 'A'} • Father: {st.father_name || 'N/A'}</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold text-emerald-800 flex items-center gap-1">
-                      Select <ChevronRight className="w-3.5 h-3.5" />
+            {/* Quick Students Selection Strip when searching or filtering by Class */}
+            {(!selectedStudent || studentSearch.trim().length > 0 || collectClass !== 'ALL') && (
+              <div className="pt-3 border-t border-[#DCE8E0]/70">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold text-[#2D5A4E] flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-emerald-700" />
+                    {studentSearch
+                      ? `Search Matches (${filteredStudents.length} scholars):`
+                      : collectClass !== 'ALL'
+                      ? `Scholars in ${collectClass}${collectSection !== 'ALL' ? ` - Section ${collectSection}` : ''} (${filteredStudents.length}):`
+                      : `Scholars Directory (${Math.min(12, filteredStudents.length)} shown):`}
+                  </span>
+                  {selectedStudent && (
+                    <span className="text-[11px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      Active: {selectedStudent.first_name} {selectedStudent.last_name} (#{selectedStudent.admission_no})
                     </span>
+                  )}
+                </div>
+
+                {filteredStudents.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-slate-400 italic bg-slate-50/50 rounded-2xl border border-slate-100">
+                    No active scholars found matching the selected class and search criteria.
                   </div>
-                ))}
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto pr-1">
+                    {filteredStudents.slice(0, 30).map((st) => {
+                      const isCurrentlySelected = selectedStudent?.id === st.id;
+                      return (
+                        <div
+                          key={st.id}
+                          onClick={() => handleSelectStudent(st)}
+                          className={`p-2.5 rounded-2xl border flex items-center justify-between gap-2.5 cursor-pointer transition-all ${
+                            isCurrentlySelected
+                              ? 'bg-emerald-50/90 border-emerald-400 ring-2 ring-emerald-600/20 shadow-xs'
+                              : 'bg-[#EBF5EF]/30 border-[#DCE8E0] hover:bg-emerald-50/50 hover:border-emerald-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                              isCurrentlySelected ? 'bg-emerald-700 text-white' : 'bg-[#122A24] text-white'
+                            }`}>
+                              {st.first_name?.[0] || 'S'}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-xs text-[#122A24] truncate">
+                                {st.first_name} {st.last_name}
+                              </p>
+                              <p className="text-[10px] text-[#2D5A4E] truncate">
+                                Adm #{st.admission_no} • {st.class_name}-{st.section || 'A'}
+                              </p>
+                            </div>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg shrink-0 ${
+                            isCurrentlySelected
+                              ? 'bg-emerald-700 text-white'
+                              : 'bg-white text-[#122A24] border border-[#DCE8E0] group-hover:bg-emerald-100'
+                          }`}>
+                            {isCurrentlySelected ? 'Selected' : 'Select'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           {!selectedStudent ? (
-            <div className="p-12 text-center bg-white rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
-              <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-800 flex items-center justify-center mx-auto text-2xl font-bold">
+            <div className="p-12 text-center bg-white rounded-3xl border border-[#DCE8E0] shadow-xs space-y-3">
+              <div className="w-16 h-16 rounded-2xl bg-[#EBF5EF] text-emerald-800 flex items-center justify-center mx-auto text-2xl font-bold shadow-2xs">
                 <CreditCard className="w-8 h-8" />
               </div>
-              <h3 className="font-bold text-base text-[#122A24]">Search and Select a Student</h3>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Use the search box above to lookup any student by name, scholar admission number, or father mobile number to view their official fee ledger and collect payments.
+              <h3 className="font-bold text-base text-[#122A24] font-display">Select a Student to Collect Fees</h3>
+              <p className="text-xs text-[#2D5A4E] max-w-md mx-auto">
+                Select a class and section from the filters above or use the search box to lookup any student by name, scholar admission number, or father mobile.
               </p>
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Left & Right Grid: Left = Student Card + Ledger, Right = Payment Panel */}
+              {/* Left & Right Grid: Left = Student Card + Fee Heads + Ledger, Right = Payment Panel */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* LEFT PANEL: Student Profile + Ledger (7 Cols) */}
+                {/* LEFT PANEL: Student Profile + Fee Head Filter + Ledger (7 Cols) */}
                 <div className="lg:col-span-7 space-y-5">
                   {/* Student Card */}
-                  <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#122A24] to-[#1C443A] text-white flex items-center justify-center text-xl font-bold shadow-sm">
+                      <div className="w-14 h-14 rounded-2xl bg-[#122A24] text-white flex items-center justify-center text-xl font-bold shadow-xs">
                         {selectedStudent.first_name?.[0] || 'S'}
                       </div>
                       <div>
-                        <h2 className="text-base font-black text-[#122A24]">{selectedStudent.first_name} {selectedStudent.last_name}</h2>
-                        <p className="text-xs text-slate-500 font-medium">
+                        <h2 className="text-base font-black text-[#122A24] font-display">{selectedStudent.first_name} {selectedStudent.last_name}</h2>
+                        <p className="text-xs text-[#2D5A4E] font-medium">
                           Adm #{selectedStudent.admission_no} • {selectedStudent.class_name} - {selectedStudent.section || 'A'} • Father: {selectedStudent.father_name || 'N/A'}
                         </p>
                         <div className="flex flex-wrap items-center gap-1.5 mt-2">
@@ -923,99 +1231,341 @@ export function DashboardFeeMaster({
                       <span className="text-2xl font-black text-rose-700 block">
                         {studentSummary ? formatPaise(studentSummary.balance) : '₹0'}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-medium">Session {session}</span>
+                      <span className="text-[10px] text-[#2D5A4E] font-medium">Session {session}</span>
                     </div>
                   </div>
 
-                  {/* Student Fee Ledger Table */}
-                  <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+                  {/* ─── Fee Head Multi-Select Filter Bar ─── */}
+                  <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-3">
                     <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sliders className="w-4 h-4 text-emerald-700" />
+                        <span className="text-xs font-bold text-[#122A24]">Filter &amp; Multi-Select Fee Heads:</span>
+                        <span className="text-[10px] text-slate-500 hidden sm:inline">(Click to toggle specific heads)</span>
+                      </div>
+                      {selectedFeeHeads.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFeeHeads([]);
+                            setSelectedItemIds([]);
+                            if (studentSummary) setPaymentAmountRupees(paiseToRupees(studentSummary.balance));
+                          }}
+                          className="text-[11px] text-rose-600 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                        >
+                          <X className="w-3.5 h-3.5" /> Clear Head Filters
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* All Heads Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedFeeHeads([]);
+                          setSelectedItemIds([]);
+                          if (studentSummary) setPaymentAmountRupees(paiseToRupees(studentSummary.balance));
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          selectedFeeHeads.length === 0
+                            ? 'bg-[#122A24] text-white shadow-xs'
+                            : 'bg-[#EBF5EF]/60 text-[#2D5A4E] border border-[#DCE8E0] hover:bg-white'
+                        }`}
+                      >
+                        <span>All Heads ({studentLedger.length})</span>
+                      </button>
+
+                      {/* Individual Dynamic Fee Head Chips */}
+                      {availableLedgerFeeHeads.map(({ head, count, totalDuePaise }) => {
+                        const isSelected = selectedFeeHeads.includes(head);
+                        return (
+                          <button
+                            key={head}
+                            type="button"
+                            onClick={() => handleToggleFeeHead(head)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                              isSelected
+                                ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs ring-2 ring-emerald-600/30'
+                                : totalDuePaise > 0
+                                ? 'bg-white text-[#122A24] border-[#DCE8E0] hover:border-emerald-400'
+                                : 'bg-slate-50 text-slate-400 border-slate-200'
+                            }`}
+                          >
+                            <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] font-bold ${
+                              isSelected ? 'bg-white text-emerald-800' : 'border border-slate-300'
+                            }`}>
+                              {isSelected ? '✓' : ''}
+                            </span>
+                            <span>{head}</span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                              isSelected
+                                ? 'bg-emerald-800 text-emerald-100'
+                                : totalDuePaise > 0
+                                ? 'bg-rose-100 text-rose-800 font-bold'
+                                : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              {totalDuePaise > 0 ? formatPaise(totalDuePaise) : `${count}`}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ─── Selected Fee Items Highlight Banner ─── */}
+                  {selectedItemIds.length > 0 && (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                        <div>
+                          <p className="text-xs font-bold text-emerald-950">
+                            {selectedItemIds.length} Fee Item{selectedItemIds.length > 1 ? 's' : ''} Selected
+                            {selectedFeeHeads.length > 0 && ` (${selectedFeeHeads.join(', ')})`}
+                          </p>
+                          <p className="text-[11px] text-emerald-800 font-bold">
+                            Total Due for Selected: <span className="font-black text-emerald-950">{formatPaise(selectedDuesPaise)}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentAmountRupees(paiseToRupees(selectedDuesPaise))}
+                        className="px-3.5 py-1.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer self-end sm:self-center"
+                      >
+                        Set Amount (₹{paiseToRupees(selectedDuesPaise).toLocaleString('en-IN')})
+                      </button>
+                    </div>
+                  )}
+
+                  {/* ─── Student Fee Ledger Table with Multi-Month Ticks ─── */}
+                  <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
-                        <h3 className="font-bold text-[#122A24] text-sm flex items-center gap-2">
+                        <h3 className="font-bold text-[#122A24] text-sm flex items-center gap-2 font-display">
                           <BookOpen className="w-4 h-4 text-emerald-700" />
                           Student Fee Ledger
+                          {selectedFeeHeads.length > 0 && (
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                              Filtered: {selectedFeeHeads.join(', ')}
+                            </span>
+                          )}
                         </h3>
-                        <p className="text-[11px] text-slate-500">Scheduled head-wise periods, discounts & payments</p>
+                        <p className="text-[11px] text-[#2D5A4E]">Tick multiple months or fee heads below to collect in a single payment</p>
                       </div>
                       <button
                         onClick={() => loadStudentLedger(selectedStudent.id)}
-                        className="text-xs text-slate-500 hover:text-slate-900 cursor-pointer p-1.5 rounded-lg hover:bg-slate-100"
+                        className="text-xs text-slate-500 hover:text-slate-900 cursor-pointer p-1.5 rounded-lg hover:bg-slate-100 self-end sm:self-center flex items-center gap-1"
                         title="Refresh Ledger"
                       >
                         <RefreshCw className={`w-3.5 h-3.5 ${ledgerLoading ? 'animate-spin' : ''}`} />
+                        <span className="text-[11px] font-bold">Sync Ledger</span>
                       </button>
+                    </div>
+
+                    {/* ─── Quick Multi-Month Selection Shortcuts Bar ─── */}
+                    <div className="p-3 bg-[#EBF5EF]/60 rounded-2xl border border-[#DCE8E0] flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <span className="font-bold text-[#122A24] flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                        Quick Multi-Month Ticks:
+                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleSelectAllUnpaid}
+                          className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-[#122A24] hover:text-emerald-900 border border-[#DCE8E0] rounded-xl text-[11px] font-bold shadow-2xs transition-all cursor-pointer"
+                        >
+                          ✓ Tick All Unpaid ({studentLedger.filter(i => i.due_paise > 0).length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectNextNUnpaid(3)}
+                          className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-[#122A24] hover:text-emerald-900 border border-[#DCE8E0] rounded-xl text-[11px] font-bold shadow-2xs transition-all cursor-pointer"
+                        >
+                          + Next 3 Months (Quarter)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectNextNUnpaid(6)}
+                          className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-[#122A24] hover:text-emerald-900 border border-[#DCE8E0] rounded-xl text-[11px] font-bold shadow-2xs transition-all cursor-pointer"
+                        >
+                          + Next 6 Months
+                        </button>
+                        {selectedItemIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleClearSelection}
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                          >
+                            <X className="w-3 h-3" /> Untick All
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {ledgerLoading ? (
                       <div className="p-8 text-center text-xs text-slate-400">Loading ledger data...</div>
-                    ) : studentLedger.length === 0 ? (
-                      <div className="p-8 text-center text-xs text-slate-400 italic">No fee ledger items found. Click 'Map Fees' in Setup tab.</div>
+                    ) : displayedLedgerItems.length === 0 ? (
+                      <div className="p-8 text-center text-xs text-slate-400 italic">
+                        {selectedFeeHeads.length > 0
+                          ? `No fee items matching heads (${selectedFeeHeads.join(', ')}).`
+                          : "No fee ledger items found. Click 'Map Fees' in Setup tab."}
+                      </div>
                     ) : (
-                      <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                      <div className="overflow-x-auto rounded-2xl border border-[#DCE8E0]">
                         <table className="w-full text-left text-xs border-collapse">
                           <thead>
-                            <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
-                              <th className="p-2.5">Head</th>
-                              <th className="p-2.5">Period</th>
-                              <th className="p-2.5 text-right">Gross</th>
-                              <th className="p-2.5 text-right text-indigo-700">Disc</th>
-                              <th className="p-2.5 text-right">Net</th>
-                              <th className="p-2.5 text-right text-emerald-700">Paid</th>
-                              <th className="p-2.5 text-right text-rose-700">Due</th>
-                              <th className="p-2.5 text-center">Status</th>
+                            <tr className="bg-[#EBF5EF]/80 text-[#122A24] font-bold border-b border-[#DCE8E0]">
+                              <th className="p-3 w-12 text-center border-r border-[#DCE8E0]/70">
+                                <div className="flex flex-col items-center justify-center gap-0.5">
+                                  <input
+                                    type="checkbox"
+                                    id="select-all-ledger-items"
+                                    checked={
+                                      displayedLedgerItems.filter(i => i.due_paise > 0).length > 0 &&
+                                      displayedLedgerItems.filter(i => i.due_paise > 0).every(i => selectedItemIds.includes(i.id))
+                                    }
+                                    onChange={handleSelectAllDisplayed}
+                                    className="w-4 h-4 rounded text-emerald-700 focus:ring-emerald-600 accent-emerald-700 cursor-pointer"
+                                    title="Tick all pending due rows"
+                                  />
+                                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Tick</span>
+                                </div>
+                              </th>
+                              <th className="p-3">Head</th>
+                              <th className="p-3">Period</th>
+                              <th className="p-3 text-right">Gross</th>
+                              <th className="p-3 text-right text-indigo-700">Disc</th>
+                              <th className="p-3 text-right">Net</th>
+                              <th className="p-3 text-right text-emerald-700">Paid</th>
+                              <th className="p-3 text-right text-rose-700">Due</th>
+                              <th className="p-3 text-center">Status</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                            {studentLedger.map((item) => (
-                              <tr
-                                key={item.id}
-                                className={`hover:bg-slate-50/50 ${
-                                  selectedItemIds.includes(item.id) ? 'bg-emerald-50/30' : ''
-                                }`}
-                              >
-                                <td className="p-2.5 font-bold text-[#122A24]">{item.fee_head}</td>
-                                <td className="p-2.5 text-slate-600">{item.period}</td>
-                                <td className="p-2.5 text-right">{formatPaise(item.gross_paise)}</td>
-                                <td className="p-2.5 text-right text-indigo-700 font-bold">
-                                  {item.discount_paise > 0 ? formatPaise(item.discount_paise) : '-'}
-                                </td>
-                                <td className="p-2.5 text-right font-bold">{formatPaise(item.net_paise)}</td>
-                                <td className="p-2.5 text-right font-bold text-emerald-700">
-                                  {item.paid_paise > 0 ? formatPaise(item.paid_paise) : '-'}
-                                </td>
-                                <td className="p-2.5 text-right font-black text-rose-700">
-                                  {item.due_paise > 0 ? formatPaise(item.due_paise) : '₹0'}
-                                </td>
-                                <td className="p-2.5 text-center">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    item.status === 'PAID'
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : item.status === 'PARTIAL'
-                                      ? 'bg-amber-100 text-amber-800'
-                                      : item.status === 'OVERDUE'
-                                      ? 'bg-rose-100 text-rose-800'
-                                      : 'bg-slate-100 text-slate-700'
-                                  }`}>
-                                    {item.status}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
+                          <tbody className="divide-y divide-[#EBF5EF] font-medium text-slate-800">
+                            {displayedLedgerItems.map((item) => {
+                              const isChecked = selectedItemIds.includes(item.id);
+                              const isPayable = item.due_paise > 0;
+                              return (
+                                <tr
+                                  key={item.id}
+                                  onClick={() => isPayable && handleToggleItemCheckbox(item.id)}
+                                  className={`transition-colors ${
+                                    isChecked
+                                      ? 'bg-emerald-50/90 font-semibold border-l-4 border-l-emerald-600'
+                                      : isPayable
+                                      ? 'hover:bg-emerald-50/40 cursor-pointer'
+                                      : 'bg-slate-50/40 text-slate-500'
+                                  }`}
+                                >
+                                  <td className="p-3 text-center border-r border-[#DCE8E0]/60" onClick={(e) => e.stopPropagation()}>
+                                    {isPayable ? (
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => handleToggleItemCheckbox(item.id)}
+                                        className="w-4 h-4 rounded text-emerald-700 focus:ring-emerald-600 accent-emerald-700 cursor-pointer"
+                                        title={`Tick ${item.fee_head} (${item.period}) to pay`}
+                                      />
+                                    ) : (
+                                      <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[11px] font-bold mx-auto" title="Paid">
+                                        ✓
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 font-bold text-[#122A24] flex items-center gap-1.5">
+                                    <span>{item.fee_head}</span>
+                                  </td>
+                                  <td className="p-3 text-slate-600">{item.period}</td>
+                                  <td className="p-3 text-right">{formatPaise(item.gross_paise)}</td>
+                                  <td className="p-3 text-right text-indigo-700 font-bold">
+                                    {item.discount_paise > 0 ? formatPaise(item.discount_paise) : '-'}
+                                  </td>
+                                  <td className="p-3 text-right font-bold">{formatPaise(item.net_paise)}</td>
+                                  <td className="p-3 text-right font-bold text-emerald-700">
+                                    {item.paid_paise > 0 ? formatPaise(item.paid_paise) : '-'}
+                                  </td>
+                                  <td className="p-3 text-right font-black text-rose-700">
+                                    {item.due_paise > 0 ? formatPaise(item.due_paise) : '₹0'}
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                      item.status === 'PAID'
+                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                        : item.status === 'PARTIAL'
+                                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                        : item.status === 'OVERDUE'
+                                        ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                        : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                    }`}>
+                                      {item.status}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
+                      </div>
+                    )}
+
+                    {/* ─── Bottom Action Bar When Items Are Ticked ─── */}
+                    {selectedItemIds.length > 0 && (
+                      <div className="p-4 bg-gradient-to-r from-[#122A24] to-[#1C443A] text-white rounded-2xl shadow-md border border-[#1C443A] flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold">
+                            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-emerald-200">
+                              {selectedItemIds.length} Fee Head/Month{selectedItemIds.length > 1 ? 's' : ''} Ticked for Payment
+                            </p>
+                            <p className="text-sm font-black text-white">
+                              Total Selected Amount: <span className="text-emerald-300 text-base">{formatPaise(selectedDuesPaise)}</span>
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPaymentAmountRupees(paiseToRupees(selectedDuesPaise))}
+                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-[#122A24] font-black text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                          >
+                            <CreditCard className="w-4 h-4" />
+                            Apply &amp; Collect (₹{paiseToRupees(selectedDuesPaise).toLocaleString('en-IN')})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleClearSelection}
+                            className="p-2 text-emerald-200 hover:text-white hover:bg-white/10 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                            title="Clear Selection"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
 
                 {/* RIGHT PANEL: POS Collection Form (5 Cols) */}
-                <div className="lg:col-span-5 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-4 sticky top-6">
+                <div className="lg:col-span-5 bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4 sticky top-6">
                   <div>
-                    <h3 className="font-bold text-[#122A24] text-sm flex items-center gap-2">
+                    <h3 className="font-bold text-[#122A24] text-sm flex items-center gap-2 font-display">
                       <IndianRupee className="w-4 h-4 text-emerald-700" />
                       Collect Fee Payment (POS)
                     </h3>
-                    <p className="text-[11px] text-slate-500">Process offline counter receipt & allocate dues FIFO</p>
+                    <p className="text-[11px] text-[#2D5A4E]">Process counter receipt & allocate dues to selected heads</p>
+                  </div>
+
+                  {/* Selected Heads Scope Pill */}
+                  <div className="p-2.5 rounded-xl bg-[#EBF5EF]/60 border border-[#DCE8E0] flex items-center justify-between text-xs">
+                    <span className="text-slate-600 font-semibold">Allocation Target:</span>
+                    <span className="font-bold text-[#122A24]">
+                      {selectedItemIds.length > 0
+                        ? `${selectedItemIds.length} Selected Items (${formatPaise(selectedDuesPaise)})`
+                        : 'All Pending Heads (FIFO)'}
+                    </span>
                   </div>
 
                   {/* Payment Mode Selector */}
@@ -1029,7 +1579,7 @@ export function DashboardFeeMaster({
                           onClick={() => setPaymentMode(m)}
                           className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                             paymentMode === m
-                              ? 'bg-[#122A24] text-white border-[#122A24] shadow-sm'
+                              ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
                               : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                           }`}
                         >
@@ -1049,11 +1599,20 @@ export function DashboardFeeMaster({
                         min="1"
                         value={paymentAmountRupees || ''}
                         onChange={(e) => setPaymentAmountRupees(Number(e.target.value))}
-                        className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                        className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-[#DCE8E0] rounded-xl text-sm font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700"
                       />
                     </div>
                     {studentSummary && (
-                      <div className="flex items-center gap-2 pt-1">
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        {selectedItemIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setPaymentAmountRupees(paiseToRupees(selectedDuesPaise))}
+                            className="text-[10px] font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-800 hover:bg-emerald-200 cursor-pointer border border-emerald-300"
+                          >
+                            Selected: {formatPaise(selectedDuesPaise)}
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => setPaymentAmountRupees(paiseToRupees(studentSummary.balance))}
@@ -1083,7 +1642,7 @@ export function DashboardFeeMaster({
                         value={paymentMode === 'CHEQUE' ? chequeNo : txnRef}
                         onChange={(e) => paymentMode === 'CHEQUE' ? setChequeNo(e.target.value) : setTxnRef(e.target.value)}
                         placeholder={paymentMode === 'CHEQUE' ? 'e.g. CHQ-981245' : 'e.g. UPI-1294819284'}
-                        className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                        className="w-full px-3.5 py-2 bg-slate-50 border border-[#DCE8E0] rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700"
                       />
                     </div>
                   )}
@@ -1109,7 +1668,7 @@ export function DashboardFeeMaster({
                       value={paymentRemarks}
                       onChange={(e) => setPaymentRemarks(e.target.value)}
                       placeholder="e.g. Counter deposit, fee receipt copy issued"
-                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700"
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-[#DCE8E0] rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-700"
                     />
                   </div>
 
@@ -1130,7 +1689,7 @@ export function DashboardFeeMaster({
               </div>
 
               {/* Collapsible Past Receipts & Cancellation Section */}
-              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
+              <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-[#122A24] text-sm flex items-center gap-2">

@@ -254,6 +254,7 @@ export const updateSchoolSettingsSchema = z.object({
   avatar: z.string().optional(),
   photo: z.string().optional(),
   principal_avatar: z.string().optional(),
+  houses: z.array(z.any()).optional(),
   theme: z.string().max(50).optional()
 }).strip();
 

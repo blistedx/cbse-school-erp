@@ -1,4 +1,11 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
+export interface SchoolHouseConfig {
+  id?: string;
+  name: string;
+  color: string;
+  code?: string;
+  description?: string;
+}
+
 export interface School {
   id: string;
   school_code: string;
@@ -24,6 +31,7 @@ export interface School {
   avatar?: string;
   photo?: string;
   principal_avatar?: string;
+  houses?: SchoolHouseConfig[] | string[];
   role_permissions?: RolePermissionMatrix;
   status: 'ACTIVE' | 'PENDING' | 'INACTIVE';
   created_at?: string;

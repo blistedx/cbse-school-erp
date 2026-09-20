@@ -642,9 +642,28 @@ export function StudentSummaryModal({
                   <div className="p-4 bg-white rounded-2xl border border-[#DCE8E0] shadow-2xs">
                     <span className="text-[10px] font-mono uppercase text-[#2D5A4E] font-bold tracking-wider block">House Matrix</span>
                     <div className="mt-1.5">
-                      <span className="px-2.5 py-1 rounded-lg font-bold text-xs font-mono bg-emerald-50 text-emerald-800 border border-emerald-200 inline-block">
-                        {activeStudent.house || 'Courage House'}
-                      </span>
+                      {(() => {
+                        const h = (activeStudent.house || 'Red House').trim();
+                        const hl = h.toLowerCase();
+                        let bg = 'bg-rose-50 text-rose-800 border-rose-200';
+                        let dot = 'bg-rose-500';
+                        if (hl.includes('yellow') || hl.includes('gold') || hl.includes('topaz') || hl.includes('shivaji') || hl.includes('vayu')) {
+                          bg = 'bg-amber-50 text-amber-900 border-amber-200';
+                          dot = 'bg-amber-500';
+                        } else if (hl.includes('blue') || hl.includes('sapphire') || hl.includes('ashoka') || hl.includes('jal')) {
+                          bg = 'bg-sky-50 text-sky-900 border-sky-200';
+                          dot = 'bg-sky-500';
+                        } else if (hl.includes('green') || hl.includes('emerald') || hl.includes('raman') || hl.includes('prithvi')) {
+                          bg = 'bg-emerald-50 text-emerald-900 border-emerald-200';
+                          dot = 'bg-emerald-500';
+                        }
+                        return (
+                          <span className={`px-2.5 py-1 rounded-lg font-bold text-xs font-mono border inline-flex items-center gap-1.5 ${bg}`}>
+                            <span className={`w-2 h-2 rounded-full ${dot}`} />
+                            {h}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

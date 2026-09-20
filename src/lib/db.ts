@@ -700,7 +700,7 @@ export const Database = {
 
     const cleanedUpdates: any = {};
     for (const [k, v] of Object.entries(updates)) {
-      if (v !== undefined && v !== null && String(v).trim() !== '') {
+      if (v !== undefined && v !== null && (Array.isArray(v) || typeof v === 'object' || String(v).trim() !== '')) {
         if (k === 'admin_pin') {
           const pinStr = String(v).trim();
           if (pinStr) {

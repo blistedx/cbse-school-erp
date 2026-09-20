@@ -44,7 +44,8 @@ export async function POST(req: Request) {
       logo_url,
       avatar,
       photo,
-      principal_avatar
+      principal_avatar,
+      houses
     } = body;
 
     const updated = await Database.updateSchoolSettings(school_id, {
@@ -69,7 +70,8 @@ export async function POST(req: Request) {
       logo_url,
       avatar,
       photo,
-      principal_avatar
+      principal_avatar,
+      houses
     });
 
     return NextResponse.json({ success: true, school: updated });
