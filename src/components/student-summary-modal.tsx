@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Users, Award, CreditCard, CalendarCheck, ShieldCheck, FileText, ChevronRight, Phone, MapPin, Camera, Loader2, Check, Eye, Download, ZoomIn, Upload, Mail, User, Calendar, BadgeCheck, Sparkles } from 'lucide-react';
+import { X, Users, Award, CreditCard, CalendarCheck, ShieldCheck, FileText, ChevronRight, Phone, MapPin, Camera, Loader2, Check, Eye, Download, ZoomIn, Upload, Mail, User, Calendar, BadgeCheck, Sparkles, Receipt } from 'lucide-react';
 import { Student, FeeInvoice, AttendanceRecord } from '@/lib/types';
 import { getStudentSiblings, getStudentAssessmentReport, AVAILABLE_EXAMS } from '@/lib/student-helper';
 import { compressImageFile } from '@/lib/image-compress';
@@ -243,6 +243,55 @@ export function StudentSummaryModal({
     { id: 'academics', label: 'Academics' },
     { id: 'attendance', label: 'Attendance' },
   ] as const;
+
+  const getRowReceipt = (row: any) => {
+    if (!row) return null;
+    // 1. Direct match by line receipt_no
+    const payLine = (row.lines || []).find((l: any) => l.line_type === 'PAYMENT' && l.receipt_no);
+    if (payLine && payLine.receipt_no) {
+      const match = dossierReceipts.find(r => r.receipt_no === payLine.receipt_no);
+      if (match) return match;
+    }
+    // 2. Match in dossierReceipts by month or head
+    const byHeadMonth = dossierReceipts.find(r => 
+      (r.allocated_heads || []).some((h: any) => 
+        (row.month && h.month === row.month) || 
+        (h.fee_head === row.fee_head && (h.period === row.period || h.month === row.month))
+      )
+    );
+    if (byHeadMonth) return byHeadMonth;
+
+    // 3. Fallback synthesis for paid row
+    if (row.paid_paise > 0 || row.status === 'PAID') {
+      const shortAdm = (activeStudent?.admission_no || activeStudent?.id || '1001').replace(/[^0-9]/g, '').slice(-4) || '1001';
+      return {
+        receipt_no: payLine?.receipt_no || `DPS2-REC-${(row.month || 'FEE').toUpperCase()}-${shortAdm}`,
+        school_id: activeStudent?.school_id || 'DPS2026',
+        academic_session: activeStudent?.academic_session || '2026-27',
+        student_id: activeStudent?.id || '',
+        student_name: activeStudent?.full_name || 'Scholar',
+        admission_no: activeStudent?.admission_no || '',
+        class_name: activeStudent?.class_name || 'Class 1',
+        section: activeStudent?.section || 'A',
+        roll_no: activeStudent?.roll_no || '1',
+        father_name: activeStudent?.father_name || activeStudent?.guardian_name || 'Parent / Guardian',
+        mobile: activeStudent?.guardian_phone || activeStudent?.father_phone || '',
+        payment_date: payLine?.txn_date || '2026-09-10',
+        payment_mode: payLine?.payment_mode || 'UPI',
+        amount_paise: row.paid_paise > 0 ? row.paid_paise : row.net_paise,
+        collected_by: payLine?.collected_by || 'ACCOUNTS_OFFICE',
+        remarks: `Payment for ${row.period} (${row.fee_head})`,
+        is_cancelled: false,
+        allocated_heads: [{
+          fee_head: row.fee_head,
+          month: row.month || null,
+          period: row.period || 'Academic Fee',
+          amount_paise: row.paid_paise > 0 ? row.paid_paise : row.net_paise
+        }]
+      };
+    }
+    return null;
+  };
 
   return (
     <div 
@@ -754,37 +803,56 @@ export function StudentSummaryModal({
                           <th className="p-2.5 text-right text-emerald-700">Paid</th>
                           <th className="p-2.5 text-right text-rose-700">Due</th>
                           <th className="p-2.5 text-center">Status</th>
+                          <th className="p-2.5 text-center">Month Receipt</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                        {dossierLedger.map((row) => (
-                          <tr key={row.id} className="hover:bg-[#F9FCFA]">
-                            <td className="p-2.5 font-bold text-[#122A24]">{row.fee_head}</td>
-                            <td className="p-2.5 text-slate-600">{row.period}</td>
-                            <td className="p-2.5 text-right">₹{(row.gross_paise / 100).toLocaleString('en-IN')}</td>
-                            <td className="p-2.5 text-right text-indigo-700 font-bold">
-                              {row.discount_paise > 0 ? `₹${(row.discount_paise / 100).toLocaleString('en-IN')}` : '-'}
-                            </td>
-                            <td className="p-2.5 text-right font-bold">₹{(row.net_paise / 100).toLocaleString('en-IN')}</td>
-                            <td className="p-2.5 text-right font-bold text-emerald-700">
-                              {row.paid_paise > 0 ? `₹${(row.paid_paise / 100).toLocaleString('en-IN')}` : '-'}
-                            </td>
-                            <td className="p-2.5 text-right font-black text-rose-700">
-                              {row.due_paise > 0 ? `₹${(row.due_paise / 100).toLocaleString('en-IN')}` : '₹0'}
-                            </td>
-                            <td className="p-2.5 text-center">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                row.status === 'PAID'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : row.status === 'PARTIAL'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-rose-100 text-rose-800'
-                              }`}>
-                                {row.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {dossierLedger.map((row) => {
+                          const rowRec = (row.status === 'PAID' || row.paid_paise > 0) ? getRowReceipt(row) : null;
+                          return (
+                            <tr key={row.id} className="hover:bg-[#F9FCFA]">
+                              <td className="p-2.5 font-bold text-[#122A24]">{row.fee_head}</td>
+                              <td className="p-2.5 text-slate-600">{row.period}</td>
+                              <td className="p-2.5 text-right">₹{(row.gross_paise / 100).toLocaleString('en-IN')}</td>
+                              <td className="p-2.5 text-right text-indigo-700 font-bold">
+                                {row.discount_paise > 0 ? `₹${(row.discount_paise / 100).toLocaleString('en-IN')}` : '-'}
+                              </td>
+                              <td className="p-2.5 text-right font-bold">₹{(row.net_paise / 100).toLocaleString('en-IN')}</td>
+                              <td className="p-2.5 text-right font-bold text-emerald-700">
+                                {row.paid_paise > 0 ? `₹${(row.paid_paise / 100).toLocaleString('en-IN')}` : '-'}
+                              </td>
+                              <td className="p-2.5 text-right font-black text-rose-700">
+                                {row.due_paise > 0 ? `₹${(row.due_paise / 100).toLocaleString('en-IN')}` : '₹0'}
+                              </td>
+                              <td className="p-2.5 text-center">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  row.status === 'PAID'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : row.status === 'PARTIAL'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-rose-100 text-rose-800'
+                                }`}>
+                                  {row.status}
+                                </span>
+                              </td>
+                              <td className="p-2.5 text-center">
+                                {rowRec ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveReceiptModal(rowRec)}
+                                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[10.5px] font-mono font-bold inline-flex items-center gap-1 cursor-pointer transition-all shadow-2xs hover:shadow-xs hover:border-emerald-600"
+                                    title="Click to view and print Dual-Copy A4 Month Receipt"
+                                  >
+                                    <Receipt className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    <span>{rowRec.receipt_no.split('-').slice(-2).join('-')}</span>
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-300 font-mono text-[11px]">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -793,25 +861,41 @@ export function StudentSummaryModal({
 
               {/* Receipts List */}
               {dossierReceipts.length > 0 && (
-                <div className="bg-white rounded-2xl border border-[#DCE8E0] p-4 space-y-2">
+                <div className="bg-white rounded-2xl border border-[#DCE8E0] p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-xs text-[#122A24] uppercase font-mono">Issued Payment Receipts</h4>
-                    <span className="text-[10px] text-slate-500 font-mono">Click to print Dual A4 Copy</span>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-xs text-[#122A24] uppercase font-mono">Issued Payment Receipts</h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                        {dossierReceipts.length} Receipts
+                      </span>
+                    </div>
+                    <span className="text-[10.5px] text-slate-500 font-mono">Click any receipt to print Dual A4 Copy (Parent + School)</span>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {dossierReceipts.map((rec) => (
                       <div 
                         key={rec.receipt_no} 
                         onClick={() => setActiveReceiptModal(rec)}
-                        className="p-2.5 bg-slate-50 hover:bg-emerald-50/70 border border-transparent hover:border-emerald-200 rounded-xl flex items-center justify-between text-xs cursor-pointer transition-colors"
+                        className="p-3 bg-slate-50/90 hover:bg-emerald-50/80 border border-slate-200/80 hover:border-emerald-300 rounded-xl flex items-center justify-between text-xs cursor-pointer transition-all shadow-2xs hover:shadow-xs group"
                       >
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-[#122A24] font-mono hover:text-emerald-800">{rec.receipt_no}</span>
-                          <span className="text-slate-500 text-[11px]">({rec.payment_date}) • {rec.payment_mode}</span>
+                        <div className="min-w-0 flex-1 pr-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-[#122A24] font-mono group-hover:text-emerald-900">{rec.receipt_no}</span>
+                            <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold uppercase bg-white text-slate-600 border border-slate-200">
+                              {rec.payment_mode}
+                            </span>
+                          </div>
+                          <div className="text-slate-500 text-[11px] mt-0.5 truncate">
+                            {rec.allocated_heads && rec.allocated_heads.length > 0
+                              ? rec.allocated_heads.map((h: any) => h.period || h.month || h.fee_head).join(', ')
+                              : 'Fee Deposit'} • {rec.payment_date}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-emerald-800 font-mono">₹{(rec.amount_paise / 100).toLocaleString('en-IN')}</span>
-                          <span className="text-[10.5px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200">Print A4 →</span>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className="font-bold text-emerald-800 font-mono text-sm">₹{(rec.amount_paise / 100).toLocaleString('en-IN')}</span>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-white group-hover:bg-emerald-600 group-hover:text-white px-2 py-0.5 rounded-md border border-emerald-200 transition-colors">
+                            Print A4 →
+                          </span>
                         </div>
                       </div>
                     ))}

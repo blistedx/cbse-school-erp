@@ -280,6 +280,7 @@ export interface ReceiptRecord {
   admission_no: string;
   class_name: string;
   section: string;
+  roll_no?: string | number;
   father_name: string;
   mobile: string;
   payment_date: string;

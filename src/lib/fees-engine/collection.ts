@@ -229,15 +229,70 @@ export async function getStudentReceipts(
   try {
     const db = await getDatabase();
     if (db) {
-      const docs = await db.collection(RECEIPTS_COLLECTION)
+      const stored = await db.collection(RECEIPTS_COLLECTION)
         .find({
           school_id: schoolId,
           academic_session: session,
           student_id: studentId,
         })
         .sort({ payment_date: -1 })
-        .toArray();
-      return docs as unknown as ReceiptRecord[];
+        .toArray() as unknown as ReceiptRecord[];
+
+      const existingReceiptNos = new Set(stored.map(r => r.receipt_no));
+
+      // Also check if fee_ledger has payments with receipt numbers not in fee_receipts
+      const paidLines = await db.collection('fee_ledger').find({
+        school_id: schoolId,
+        student_id: studentId,
+        academic_session: session,
+        line_type: 'PAYMENT',
+        is_cancelled: { $ne: true }
+      }).toArray();
+
+      const missingLines = paidLines.filter(l => l.receipt_no && !existingReceiptNos.has(l.receipt_no));
+      if (missingLines.length > 0) {
+        const student = await db.collection('students').findOne({ id: studentId, school_id: schoolId });
+        const groups = new Map<string, any[]>();
+        for (const line of missingLines) {
+          const rNo = line.receipt_no;
+          if (!groups.has(rNo)) groups.set(rNo, []);
+          groups.get(rNo)!.push(line);
+        }
+
+        for (const [rNo, lines] of groups.entries()) {
+          const first = lines[0];
+          const totalPaise = lines.reduce((s, l) => s + (l.amount || 0), 0);
+          stored.push({
+            receipt_no: rNo,
+            school_id: schoolId,
+            academic_session: session,
+            student_id: studentId,
+            student_name: student?.full_name || student?.first_name || 'Scholar',
+            admission_no: first.admission_no || student?.admission_no || '',
+            class_name: first.class_name || student?.class_name || '',
+            section: first.section || student?.section || 'A',
+            roll_no: student?.roll_no || '1',
+            father_name: student?.father_name || student?.guardian_name || 'Parent',
+            mobile: student?.guardian_phone || student?.father_phone || '',
+            payment_date: first.txn_date || new Date().toISOString().split('T')[0],
+            payment_mode: first.payment_mode || 'UPI',
+            txn_ref: first.txn_ref || null,
+            cheque_no: first.cheque_no || null,
+            amount_paise: totalPaise,
+            collected_by: first.collected_by || 'ACCOUNTS_OFFICE',
+            remarks: first.remarks || null,
+            is_cancelled: false,
+            allocated_heads: lines.map(l => ({
+              fee_head: l.fee_head,
+              month: l.month,
+              period: l.month || 'Academic Fee',
+              amount_paise: l.amount || 0
+            }))
+          });
+        }
+      }
+
+      return stored.sort((a, b) => (b.payment_date || '').localeCompare(a.payment_date || ''));
     }
   } catch (e) {
     console.error('[fees-engine/collection] Error fetching student receipts:', e);
