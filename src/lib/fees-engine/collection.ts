@@ -297,7 +297,31 @@ export async function getStudentReceipts(
         } as ReceiptRecord);
       });
 
-      return [...stored, ...ledgerReceipts];
+      const combined = [...stored, ...ledgerReceipts];
+      combined.sort((a, b) => {
+        const parseTime = (r: any): number => {
+          if (r.created_at) {
+            const t = new Date(r.created_at).getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          if (r.payment_date || r.receipt_date) {
+            const d = r.payment_date || r.receipt_date;
+            const t = new Date(d.includes('T') ? d : d + 'T12:00:00Z').getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          if (r._id && typeof r._id === 'string' && r._id.length === 24) {
+            const t = parseInt(r._id.substring(0, 8), 16) * 1000;
+            if (!isNaN(t) && t > 0) return t;
+          }
+          return 0;
+        };
+        const tA = parseTime(a);
+        const tB = parseTime(b);
+        if (tB !== tA) return tB - tA;
+        return String(b.receipt_no || '').localeCompare(String(a.receipt_no || ''));
+      });
+
+      return combined;
     }
   } catch (e) {
     console.error('[fees-engine/collection] Error fetching student receipts:', e);
@@ -321,7 +345,92 @@ export async function getSchoolReceipts(
         .sort({ payment_date: -1, created_at: -1, _id: -1 })
         .limit(limit)
         .toArray();
-      return docs as unknown as ReceiptRecord[];
+
+      const existingReceiptNos = new Set(docs.map((r: any) => r.receipt_no));
+
+      // Also check if fee_ledger has payments with receipt numbers not in fee_receipts
+      const paidLines = await db.collection('fee_ledger').find({
+        school_id: schoolId,
+        academic_session: session,
+        line_type: 'PAYMENT',
+        is_cancelled: { $ne: true }
+      }).sort({ txn_date: -1, _id: -1 }).limit(limit).toArray();
+
+      const ledgerReceipts: ReceiptRecord[] = [];
+      const groupedByReceipt = new Map<string, any[]>();
+      paidLines.forEach((l: any) => {
+        if (l.receipt_no && !existingReceiptNos.has(l.receipt_no)) {
+          if (!groupedByReceipt.has(l.receipt_no)) {
+            groupedByReceipt.set(l.receipt_no, []);
+          }
+          groupedByReceipt.get(l.receipt_no)!.push(l);
+        }
+      });
+
+      groupedByReceipt.forEach((lines, rNo) => {
+        const first = lines[0];
+        const allocated_heads = lines.map(l => ({
+          fee_head: l.fee_head,
+          month: l.month,
+          period: l.month || 'Academic Fee',
+          amount_paise: l.amount || 0,
+        }));
+        const totalAmount = lines.reduce((s, l) => s + (l.amount || 0), 0);
+
+        ledgerReceipts.push({
+          receipt_no: rNo,
+          school_id: schoolId,
+          academic_session: session,
+          student_id: first.student_id,
+          student_name: first.student_name || 'Scholar Student',
+          admission_no: first.admission_no || '',
+          class_name: first.class_name || '',
+          section: first.section || 'A',
+          father_name: first.father_name || '',
+          mobile: first.mobile || '',
+          payment_date: first.txn_date || new Date().toISOString().split('T')[0],
+          payment_mode: first.payment_mode || 'CASH',
+          txn_ref: first.txn_ref || null,
+          cheque_no: first.cheque_no || null,
+          amount_paise: totalAmount,
+          collected_by: first.collected_by || 'ACCOUNTS_OFFICE',
+          remarks: first.remarks || null,
+          is_cancelled: Boolean(first.is_cancelled),
+          cancelled_reason: first.cancelled_reason,
+          cancelled_by: first.cancelled_by,
+          cancelled_at: first.cancelled_at,
+          created_at: first.created_at || (first.txn_date ? first.txn_date + 'T10:00:00Z' : undefined),
+          allocated_heads,
+        } as ReceiptRecord);
+      });
+
+      const combined = [...docs, ...ledgerReceipts] as unknown as ReceiptRecord[];
+      
+      // Strict reverse chronological sort: newest timestamp / created_at / payment_date at the very top
+      combined.sort((a, b) => {
+        const parseTime = (r: any): number => {
+          if (r.created_at) {
+            const t = new Date(r.created_at).getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          if (r.payment_date || r.receipt_date) {
+            const d = r.payment_date || r.receipt_date;
+            const t = new Date(d.includes('T') ? d : d + 'T12:00:00Z').getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          if (r._id && typeof r._id === 'string' && r._id.length === 24) {
+            const t = parseInt(r._id.substring(0, 8), 16) * 1000;
+            if (!isNaN(t) && t > 0) return t;
+          }
+          return 0;
+        };
+        const tA = parseTime(a);
+        const tB = parseTime(b);
+        if (tB !== tA) return tB - tA;
+        return String(b.receipt_no || '').localeCompare(String(a.receipt_no || ''));
+      });
+
+      return combined.slice(0, limit);
     }
   } catch (e) {
     console.error('[fees-engine/collection] Error fetching school receipts:', e);

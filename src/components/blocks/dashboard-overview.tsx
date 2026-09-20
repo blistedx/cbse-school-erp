@@ -1128,9 +1128,27 @@ export function DashboardOverview({
     raw?: any;
   }
 
+  // Helper to parse exact timestamp for sorting (latest first)
+  const getInvoiceTimestamp = useCallback((item: any): number => {
+    if (item.created_at) {
+      const t = new Date(item.created_at).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+    if (item.payment_date || item.receipt_date || item.paid_date || item.date || item.txn_date || item.due_date) {
+      const dStr = item.payment_date || item.receipt_date || item.paid_date || item.date || item.txn_date || item.due_date;
+      const t = new Date(dStr.includes('T') ? dStr : dStr + 'T12:00:00Z').getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+    if (item._id && typeof item._id === 'string' && item._id.length === 24) {
+      const t = parseInt(item._id.substring(0, 8), 16) * 1000;
+      if (!isNaN(t) && t > 0) return t;
+    }
+    return 0;
+  }, []);
+
   // Filter invoices/receipts according to the active timeFilter (Daily, Weekly, Monthly) - Strictly PAID Receipts
   const timeFilteredInvoices = useMemo(() => {
-    return (invoices || []).filter(inv => {
+    const filtered = (invoices || []).filter(inv => {
       const anyInv = inv as any;
       const isPaid = anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
       if (!isPaid) return false;
@@ -1144,7 +1162,16 @@ export function DashboardOverview({
       // Monthly
       return invDate.startsWith(currentMonthStr);
     });
-  }, [invoices, timeFilter, todayDateStr, weekStartStr, currentMonthStr]);
+
+    return filtered.sort((a, b) => {
+      const tA = getInvoiceTimestamp(a);
+      const tB = getInvoiceTimestamp(b);
+      if (tB !== tA) return tB - tA;
+      const noA = (a as any).receipt_no || a.invoice_no || '';
+      const noB = (b as any).receipt_no || b.invoice_no || '';
+      return String(noB).localeCompare(String(noA));
+    });
+  }, [invoices, timeFilter, todayDateStr, weekStartStr, currentMonthStr, getInvoiceTimestamp]);
 
   const todayInvoices = useMemo(() => {
     return (invoices || []).filter(inv => {
@@ -1195,6 +1222,15 @@ export function DashboardOverview({
       allocated_heads: anyInv.allocated_heads,
     };
 
+    let timeFormatted = 'Counter';
+    if (anyInv.created_at) {
+      try {
+        timeFormatted = new Date(anyInv.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+      } catch {
+        timeFormatted = 'Counter';
+      }
+    }
+
     return {
       id: receiptId,
       studentName,
@@ -1205,27 +1241,36 @@ export function DashboardOverview({
       amount: `₹${amountRupees.toLocaleString('en-IN')}`,
       rawAmount: amountRupees,
       date: invDate || formattedToday,
-      time: anyInv.created_at ? new Date(anyInv.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '10:30 AM',
+      time: timeFormatted,
       raw: normalizedRaw
     };
   }, [formattedToday]);
 
   // Dynamic transactions list based on active timeFilter (Daily, Weekly, Monthly)
-  // When no transactions occurred in the specific date window, display the latest real paid receipts from the database!
+  // Strictly sorted in reverse chronological order (newest / latest payment at the very top)
   const transactions: DashboardTransaction[] = useMemo(() => {
+    let sourceList: any[] = [];
     if (timeFilteredInvoices.length > 0) {
-      return timeFilteredInvoices.map(mapInvoiceToTx);
-    }
-    // Fallback to real recent paid invoices/receipts from DB
-    if (invoices && invoices.length > 0) {
-      const paidOnly = invoices.filter(inv => {
+      sourceList = timeFilteredInvoices;
+    } else if (invoices && invoices.length > 0) {
+      // Fallback to real recent paid invoices/receipts from DB
+      sourceList = invoices.filter(inv => {
         const anyInv = inv as any;
         return anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
       });
-      return paidOnly.slice(-100).reverse().map(mapInvoiceToTx);
     }
-    return [];
-  }, [timeFilteredInvoices, invoices, mapInvoiceToTx]);
+
+    const sorted = [...sourceList].sort((a, b) => {
+      const tA = getInvoiceTimestamp(a);
+      const tB = getInvoiceTimestamp(b);
+      if (tB !== tA) return tB - tA;
+      const noA = (a as any).receipt_no || a.invoice_no || '';
+      const noB = (b as any).receipt_no || b.invoice_no || '';
+      return String(noB).localeCompare(String(noA));
+    });
+
+    return sorted.map(mapInvoiceToTx);
+  }, [timeFilteredInvoices, invoices, mapInvoiceToTx, getInvoiceTimestamp]);
 
   const todayCollectedTotal = useMemo(() => {
     // Sum all paid transactions for today's date
@@ -1258,8 +1303,8 @@ export function DashboardOverview({
       if (directMatches.length > 0) {
         baseList = directMatches;
       } else {
-        // Search across the entire live paid invoice database!
-        baseList = (invoices || []).filter(inv => {
+        // Search across the entire live paid invoice database and sort latest first
+        const rawMatches = (invoices || []).filter(inv => {
           const anyInv = inv as any;
           const isPaid = anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
           if (!isPaid) return false;
@@ -1270,12 +1315,20 @@ export function DashboardOverview({
           const pmode = (inv.payment_mode || '').toLowerCase();
           const term = (inv.month || (inv as any).fee_type || '').toLowerCase();
           return invNo.includes(q) || sname.includes(q) || adm.includes(q) || cls.includes(q) || pmode.includes(q) || term.includes(q);
-        }).map(mapInvoiceToTx);
+        }).sort((a, b) => {
+          const tA = getInvoiceTimestamp(a);
+          const tB = getInvoiceTimestamp(b);
+          if (tB !== tA) return tB - tA;
+          const noA = (a as any).receipt_no || a.invoice_no || '';
+          const noB = (b as any).receipt_no || b.invoice_no || '';
+          return String(noB).localeCompare(String(noA));
+        });
+        baseList = rawMatches.map(mapInvoiceToTx);
       }
     }
 
     return baseList;
-  }, [transactions, transactionSearch, invoices, mapInvoiceToTx]);
+  }, [transactions, transactionSearch, invoices, mapInvoiceToTx, getInvoiceTimestamp]);
 
   // Reset pagination on filter or search changes
   useEffect(() => {
@@ -2286,7 +2339,7 @@ export function DashboardOverview({
 
         {/* Data Table */}
         <div className="overflow-x-auto w-full">
-          <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+          <table className="w-full text-left text-xs border-collapse min-w-[750px]">
             <thead>
               <tr className="border-b border-[#E2EAE5] text-emerald-950/70 font-semibold text-[11px] bg-emerald-50/30">
                 <th className="py-3 px-3 w-8">
@@ -2298,6 +2351,7 @@ export function DashboardOverview({
                   />
                 </th>
                 <th className="py-3 px-3">Receipt ID</th>
+                <th className="py-3 px-3">Time &amp; Date</th>
                 <th className="py-3 px-3">Student / Scholar</th>
                 <th className="py-3 px-3">Class &amp; Fee Head</th>
                 <th className="py-3 px-3">Status</th>
@@ -2325,6 +2379,12 @@ export function DashboardOverview({
                     </td>
                     <td className="py-3 px-3 font-mono text-emerald-800 text-xs font-medium">
                       {tx.id}
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-emerald-950 text-xs">{tx.time || 'Counter'}</span>
+                        <span className="text-[10px] text-gray-500 font-mono">{tx.date}</span>
+                      </div>
                     </td>
                     <td className="py-3 px-3 font-semibold text-[#122A24]">
                       {tx.studentName}
@@ -2380,7 +2440,7 @@ export function DashboardOverview({
 
               {filteredTransactions.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-gray-400 font-mono text-xs">
+                  <td colSpan={10} className="py-8 text-center text-gray-400 font-mono text-xs">
                     No daily fee transactions found for today.
                   </td>
                 </tr>

@@ -286,6 +286,30 @@ export async function executeReport(
       const allReceipts = await getSchoolReceipts(schoolId, session, 2000);
       let receiptList = allReceipts.filter(r => !r.is_cancelled);
 
+      // Strict reverse chronological sort: newest / latest payment at the very top
+      receiptList.sort((a, b) => {
+        const parseTime = (r: any): number => {
+          if (r.created_at) {
+            const t = new Date(r.created_at).getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          if (r.payment_date || r.receipt_date) {
+            const d = r.payment_date || r.receipt_date;
+            const t = new Date(d.includes('T') ? d : d + 'T12:00:00Z').getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          if (r._id && typeof r._id === 'string' && r._id.length === 24) {
+            const t = parseInt(r._id.substring(0, 8), 16) * 1000;
+            if (!isNaN(t) && t > 0) return t;
+          }
+          return 0;
+        };
+        const tA = parseTime(a);
+        const tB = parseTime(b);
+        if (tB !== tA) return tB - tA;
+        return String(b.receipt_no || '').localeCompare(String(a.receipt_no || ''));
+      });
+
       if (filters.paymentModes && filters.paymentModes.length > 0) {
         receiptList = receiptList.filter(r => filters.paymentModes!.includes(r.payment_mode));
       }
@@ -301,8 +325,18 @@ export async function executeReport(
       let totalDayPaise = 0;
       const rows = receiptList.map(r => {
         totalDayPaise += (r.amount_paise || 0);
+        const dateStr = r.payment_date || (r as any).receipt_date || '2026-09-20';
+        let formattedDate = dateStr;
+        if (r.created_at) {
+          try {
+            const d = new Date(r.created_at);
+            formattedDate = `${dateStr} ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+          } catch {
+            formattedDate = dateStr;
+          }
+        }
         return {
-          txnDate: r.payment_date || (r as any).receipt_date || '2026-09-20',
+          txnDate: formattedDate,
           receiptNo: r.receipt_no,
           studentName: r.student_name || 'Scholar Student',
           className: `${r.class_name} - ${r.section || 'A'}`,
@@ -343,7 +377,28 @@ export async function executeReport(
     // 3. Receipt Register (with Cancelled)
     case 'receipt_register': {
       const allReceipts = await getSchoolReceipts(schoolId, session, 2000);
-      let receiptList = allReceipts;
+      let receiptList = [...allReceipts].sort((a, b) => {
+        const parseTime = (r: any): number => {
+          if (r.created_at) {
+            const t = new Date(r.created_at).getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          if (r.payment_date || r.receipt_date) {
+            const d = r.payment_date || r.receipt_date;
+            const t = new Date(d.includes('T') ? d : d + 'T12:00:00Z').getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          if (r._id && typeof r._id === 'string' && r._id.length === 24) {
+            const t = parseInt(r._id.substring(0, 8), 16) * 1000;
+            if (!isNaN(t) && t > 0) return t;
+          }
+          return 0;
+        };
+        const tA = parseTime(a);
+        const tB = parseTime(b);
+        if (tB !== tA) return tB - tA;
+        return String(b.receipt_no || '').localeCompare(String(a.receipt_no || ''));
+      });
       if (filters.search) {
         const q = filters.search.toLowerCase();
         receiptList = receiptList.filter(r =>

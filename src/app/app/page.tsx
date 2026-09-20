@@ -2711,7 +2711,29 @@ function ERPWorkspaceContent() {
       const freshClasses: ClassRoom[] = clData.success ? sortClassesChronologically<ClassRoom>(clData.classes || []) : [];
       const freshNotices = noData.success ? (noData.notices || []) : [];
       const freshAttendance = atData.success ? (atData.attendance || []) : [];
-      const freshInvoices = inData.success ? (inData.receipts || inData.invoices || []) : [];
+      const freshInvoicesRaw = inData.success ? (inData.receipts || inData.invoices || []) : [];
+      const freshInvoices = [...freshInvoicesRaw].sort((a: any, b: any) => {
+        const getT = (r: any): number => {
+          if (r.created_at) {
+            const t = new Date(r.created_at).getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          if (r.payment_date || r.receipt_date || r.paid_date || r.date || r.txn_date || r.due_date) {
+            const d = r.payment_date || r.receipt_date || r.paid_date || r.date || r.txn_date || r.due_date;
+            const t = new Date(d.includes('T') ? d : d + 'T12:00:00Z').getTime();
+            if (!isNaN(t) && t > 0) return t;
+          }
+          if (r._id && typeof r._id === 'string' && r._id.length === 24) {
+            const t = parseInt(r._id.substring(0, 8), 16) * 1000;
+            if (!isNaN(t) && t > 0) return t;
+          }
+          return 0;
+        };
+        const tA = getT(a);
+        const tB = getT(b);
+        if (tB !== tA) return tB - tA;
+        return String(b.receipt_no || b.invoice_no || '').localeCompare(String(a.receipt_no || a.invoice_no || ''));
+      });
 
       if (freshOverview) setOverview(freshOverview);
       if (stData.success) setStudents(freshStudents);
@@ -4184,15 +4206,31 @@ function ERPWorkspaceContent() {
     const q = _sq.toLowerCase().trim();
     const sname = (inv.student_name || '').toLowerCase();
     const adm = (inv.admission_no || '').toLowerCase();
-    const invNo = (inv.invoice_no || '').toLowerCase();
+    const invNo = (inv.invoice_no || (inv as any).receipt_no || '').toLowerCase();
     const cls = (inv.class_name || '').toLowerCase();
     return sname.includes(q) || adm.includes(q) || invNo.includes(q) || cls.includes(q);
   }).sort((a, b) => {
-    if (feeSortBy === 'Date-Desc') return (b.due_date || (b as any).created_at || '').localeCompare(a.due_date || (a as any).created_at || '');
-    if (feeSortBy === 'Date-Asc') return (a.due_date || (a as any).created_at || '').localeCompare(b.due_date || (b as any).created_at || '');
+    const parseTime = (r: any): number => {
+      if (r.created_at) {
+        const t = new Date(r.created_at).getTime();
+        if (!isNaN(t) && t > 0) return t;
+      }
+      if (r.payment_date || r.receipt_date || r.paid_date || r.date || r.txn_date || r.due_date) {
+        const d = r.payment_date || r.receipt_date || r.paid_date || r.date || r.txn_date || r.due_date;
+        const t = new Date(d.includes('T') ? d : d + 'T12:00:00Z').getTime();
+        if (!isNaN(t) && t > 0) return t;
+      }
+      if (r._id && typeof r._id === 'string' && r._id.length === 24) {
+        const t = parseInt(r._id.substring(0, 8), 16) * 1000;
+        if (!isNaN(t) && t > 0) return t;
+      }
+      return 0;
+    };
+    if (feeSortBy === 'Date-Desc') return parseTime(b) - parseTime(a);
+    if (feeSortBy === 'Date-Asc') return parseTime(a) - parseTime(b);
     if (feeSortBy === 'Amount-Desc') return (Number(b.amount) || 0) - (Number(a.amount) || 0);
     if (feeSortBy === 'Amount-Asc') return (Number(a.amount) || 0) - (Number(b.amount) || 0);
-    return 0;
+    return parseTime(b) - parseTime(a);
   });
 
   const totalFeeEntries = filteredInvoices.length;
