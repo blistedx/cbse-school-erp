@@ -2637,6 +2637,7 @@ function ERPWorkspaceContent() {
     const targetSession = sessionParam || selectedSession || '2026-27';
 
     // ⚡ Step 1: 0ms Instant Cache Hydration from Local Snapshot
+    let hasCachedData = false;
     if (typeof window !== 'undefined') {
       try {
         const snapRaw = localStorage.getItem(`giterp_snapshot_${cleanId}_${targetSession}`);
@@ -2651,13 +2652,10 @@ function ERPWorkspaceContent() {
             if (Array.isArray(snap.attendance) && snap.attendance.length > 0) setAttendance(snap.attendance);
             if (Array.isArray(snap.invoices) && snap.invoices.length > 0) setInvoices(snap.invoices);
             setLoading(false);
+            hasCachedData = true;
           }
         }
       } catch (_) {}
-    }
-
-    if (!isSilent) {
-      // If we didn't have cached data, setLoading is handled, else keep smooth transition
     }
 
     // ⚡ Step 2: Prevent concurrent duplicate network requests for the same payload
@@ -2665,7 +2663,9 @@ function ERPWorkspaceContent() {
       return;
     }
     isDataLoadingRef.current = true;
-    setIsSyncingLive(true);
+    if (!hasCachedData || !isSilent) {
+      setIsSyncingLive(true);
+    }
 
     try {
       const storedUser = typeof window !== 'undefined' ? localStorage.getItem('current_user') : null;
@@ -2681,7 +2681,7 @@ function ERPWorkspaceContent() {
       };
       const safeFetchJson = async (url: string) => {
         try {
-          const timeoutPromise = new Promise<{ success: false }>((resolve) => setTimeout(() => resolve({ success: false }), 25000));
+          const timeoutPromise = new Promise<{ success: false }>((resolve) => setTimeout(() => resolve({ success: false }), 6000));
           const fetchPromise = (async () => {
             const res = await apiFetch(url, fetchOpts);
             if (!res.ok) {
@@ -15212,34 +15212,6 @@ function ERPWorkspaceContent() {
           data={activeReportModal.data}
           onDownloadCSV={activeReportModal.onDownloadCSV}
         />
-      )}
-      {/* Floating Real-Time Synchronization Indicator */}
-      {isSyncingLive && (
-        <div className="fixed bottom-4 right-4 z-50 animate-bounce-short pointer-events-none select-none">
-          <div
-            className="inline-flex h-[56px] sm:h-[62px] items-center gap-3 rounded-full pl-[8px] pr-6 shadow-2xl backdrop-blur-xl border border-white/20"
-            style={{
-              background: 'rgba(7, 7, 7, 0.90)',
-              boxShadow:
-                'inset 0 0 0 1px rgba(44,47,54,0.4), inset 0 0 40px 0 rgba(255,255,255,0.02), 0 16px 36px rgba(0,0,0,0.5)',
-            }}
-          >
-            <span className="[&_canvas]:!size-11 sm:[&_canvas]:!size-12">
-              <ThinkingOrb state="composing" size={48} theme="dark" />
-            </span>
-            <div className="flex flex-col">
-              <span
-                className="whitespace-nowrap text-xs sm:text-sm font-semibold tracking-tight"
-                style={{ color: 'rgba(251,251,251,0.9)' }}
-              >
-                Syncing Live Database…
-              </span>
-              <span className="text-[10px] font-mono text-emerald-400">
-                CBSE Telemetry Cloud
-              </span>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

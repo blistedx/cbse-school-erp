@@ -90,6 +90,7 @@ export interface DateRangeBreakdown {
 }
 
 export const DASHBOARD_FEE_CYCLES_CONFIG = [
+  { id: 'cycle-all', cycleNumber: 'ALL', name: 'All Cycles: Full Academic Year (Annual)', shortLabel: 'All Cycles (Annual)', months: ['APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC', 'JAN', 'FEB', 'MAR'] as AcademicMonth[], multiplier: 12 },
   { id: 'cycle-1', cycleNumber: '1', name: 'Cycle 1: April (Admission & Reg)', shortLabel: 'Cycle 1 (April)', months: ['APR' as AcademicMonth], multiplier: 1 },
   { id: 'cycle-2', cycleNumber: '2', name: 'Cycle 2: May & June', shortLabel: 'Cycle 2 (May+Jun)', months: ['MAY' as AcademicMonth, 'JUN' as AcademicMonth], multiplier: 2 },
   { id: 'cycle-3', cycleNumber: '3', name: 'Cycle 3: July', shortLabel: 'Cycle 3 (July)', months: ['JUL' as AcademicMonth], multiplier: 1 },

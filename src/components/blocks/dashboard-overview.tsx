@@ -64,6 +64,22 @@ export interface DashboardFeeCycleItem {
 
 export const DASHBOARD_FEE_CYCLES: DashboardFeeCycleItem[] = [
   {
+    id: 'cycle-all',
+    cycleNumber: 'ALL',
+    name: 'All Cycles: Full Academic Year (Annual)',
+    shortLabel: 'All Cycles (Annual)',
+    badge: '12 Months',
+    months: ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'],
+    monthShorts: ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'],
+    monthKeys: ['04', '05', '06', '07', '08', '09', '10', '11', '12', '01', '02', '03'],
+    monthMultiplier: 12,
+    includesAnnualFee: true,
+    includesExamFee: true,
+    examFeePerStudent: 1500,
+    quarter: 'All Year',
+    description: 'Full Academic Year (12 Months Tuition + Annual Fees + CBSE Exams + Transport)'
+  },
+  {
     id: 'cycle-1',
     cycleNumber: '1',
     name: 'Cycle 1: April + Annual Fee',
@@ -654,7 +670,7 @@ export function DashboardOverview({
 
   // Active Fee Cycle & Comprehensive Metrics Calculation
   const activeFeeCycle = useMemo(() => {
-    return DASHBOARD_FEE_CYCLES.find(c => c.id === selectedFeeCycleId) || DASHBOARD_FEE_CYCLES[4]; // Default Cycle 5 (Sep + Feb)
+    return DASHBOARD_FEE_CYCLES.find(c => c.id === selectedFeeCycleId) || DASHBOARD_FEE_CYCLES.find(c => c.id === 'cycle-5') || DASHBOARD_FEE_CYCLES[0];
   }, [selectedFeeCycleId]);
 
   const dynamicFeeCycleMetrics = useMemo(() => {
@@ -662,7 +678,32 @@ export function DashboardOverview({
     const fin = liveFeeFinancials || (overview as any)?.financials;
     const serverCycle = fin?.cycleMetrics?.[selectedFeeCycleId];
 
-    if (serverCycle) {
+    if (selectedFeeCycleId === 'cycle-all') {
+      const grandDemand = totalBilled;
+      const collectedAmount = totalPaid;
+      const pendingAmount = totalPending;
+      const effStudentCount = totalStudentsCount || 505;
+      const zeroPaid = fin?.studentsWithNothingPaid ?? 0;
+      const paidStudentsCount = Math.max(0, effStudentCount - zeroPaid);
+      const pendingStudentsCount = Math.max(0, effStudentCount - Math.round(effStudentCount * (collectionRate / 100)));
+      
+      return {
+        cycle: activeCycle,
+        grandDemand,
+        collectedAmount,
+        pendingAmount,
+        paidStudentsCount: Math.min(effStudentCount, Math.max(paidStudentsCount, Math.round(effStudentCount * (collectionRate / 100)))),
+        pendingStudentsCount,
+        studentCount: effStudentCount,
+        totalTuitionDemand: 0,
+        totalTransportDemand: 0,
+        totalAnnualDemand: 0,
+        totalExamDemand: 0,
+        matchedInvoicesCount: effStudentCount
+      };
+    }
+
+    if (serverCycle && (serverCycle.grandDemand > 0 || serverCycle.collectedAmount > 0)) {
       return {
         cycle: activeCycle,
         grandDemand: serverCycle.grandDemand,
@@ -689,24 +730,23 @@ export function DashboardOverview({
 
     if (validStudents.length > 0) {
       validStudents.forEach(st => {
-        const tuitionRate = 2500;
+        const tuitionRate = (st as any).monthly_fee || 2500;
         const transportRate = (st as any).transport_fee || (st.transport_opted === 'YES' ? 1200 : 0);
         totalTuitionDemand += tuitionRate * activeCycle.monthMultiplier;
         totalTransportDemand += transportRate * activeCycle.monthMultiplier;
-        if (activeCycle.includesAnnualFee) totalAnnualDemand += 5000;
+        if (activeCycle.includesAnnualFee) totalAnnualDemand += ((st as any).annual_fee || 5000);
         if (activeCycle.includesExamFee) totalExamDemand += (activeCycle.examFeePerStudent || 750);
       });
     } else {
-      totalTuitionDemand = 1458000;
-      totalTransportDemand = 1010000;
-      totalAnnualDemand = activeCycle.includesAnnualFee ? 2525000 : 0;
-      totalExamDemand = activeCycle.includesExamFee ? 378750 : 0;
+      totalTuitionDemand = 2500 * effectiveStudentCount * activeCycle.monthMultiplier;
+      totalTransportDemand = 1200 * Math.round(effectiveStudentCount * 0.35) * activeCycle.monthMultiplier;
+      totalAnnualDemand = activeCycle.includesAnnualFee ? (5000 * effectiveStudentCount) : 0;
+      totalExamDemand = activeCycle.includesExamFee ? ((activeCycle.examFeePerStudent || 750) * effectiveStudentCount) : 0;
     }
 
     const grandDemand = totalTuitionDemand + totalTransportDemand + totalAnnualDemand + totalExamDemand;
 
     let collectedAmount = 0;
-    let invoicePendingAmount = 0;
     const paidStudentIds = new Set<string>();
 
     (invoices || []).forEach(inv => {
@@ -742,7 +782,7 @@ export function DashboardOverview({
 
     const paidStudentsCount = paidStudentIds.size;
     const pendingStudentsCount = Math.max(0, effectiveStudentCount - paidStudentsCount);
-    const pendingAmount = Math.max(invoicePendingAmount, Math.max(0, grandDemand - collectedAmount));
+    const pendingAmount = Math.max(0, grandDemand - collectedAmount);
 
     return {
       cycle: activeCycle,
@@ -758,12 +798,12 @@ export function DashboardOverview({
       totalExamDemand,
       matchedInvoicesCount: paidStudentsCount
     };
-  }, [activeFeeCycle, liveFeeFinancials, overview, students, invoices, totalStudentsCount, selectedFeeCycleId]);
+  }, [activeFeeCycle, liveFeeFinancials, overview, students, invoices, totalStudentsCount, selectedFeeCycleId, totalBilled, totalPaid, totalPending, collectionRate]);
 
   const kpiAttendance = activeAttendanceKpi.displayValue;
-  const kpiFeesCollected = formatLakh(livePaidAmount, '₹0');
-  const kpiFeesPending = formatLakh(livePendingAmount, '₹0');
-  const kpiFeesDemand = formatLakh(totalBilled, '₹0');
+  const kpiFeesCollected = formatLakh(dynamicFeeCycleMetrics.collectedAmount, '₹0');
+  const kpiFeesPending = formatLakh(dynamicFeeCycleMetrics.pendingAmount, '₹0');
+  const kpiFeesDemand = formatLakh(dynamicFeeCycleMetrics.grandDemand, '₹0');
   const kpiClasses = liveClassCount.toString();
   const kpiExams = '4';
   const kpiEnquiries = students.filter(s => s.status === 'INACTIVE' || /enquiry|provisional/i.test(s.admission_no || '')).length.toString();
