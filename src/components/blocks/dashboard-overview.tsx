@@ -595,7 +595,7 @@ export function DashboardOverview({
 
   // 8 Specific KPI Tile Values EXACT TO LIVE ERP DATA (NO FAKE DEFAULTS)
   const liveStudentCount = totalStudentsCount > 0 ? totalStudentsCount : ((overview?.kpis?.totalStudents) || 505);
-  const liveClassCount = (Array.isArray(classes) && classes.length > 0) ? classes.length : ((overview?.kpis?.totalClasses) || 18);
+  const liveClassCount = (Array.isArray(classes) && classes.length > 0) ? classes.length : (((overview?.kpis as any)?.totalClasses) || 18);
   const livePaidAmount = totalPaid > 0 ? totalPaid : ((overview?.kpis?.totalRevenue) || 6718700);
   const livePendingAmount = totalPending > 0 ? totalPending : ((overview?.kpis?.pendingFeeAmount) || 7600100);
 

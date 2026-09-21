@@ -93,8 +93,14 @@ export function DashboardFeeMaster({
     if (typeof window !== 'undefined') {
       try {
         const sId = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
-        const cached = sessionStorage.getItem(`fee_overview_${sId}_${selectedSession || '2026-27'}`);
-        if (cached) return JSON.parse(cached);
+        const key = `fee_overview_${sId}_${selectedSession || '2026-27'}`;
+        const cached = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && (parsed.totalBilledPaise > 0 || parsed.thisMonthBreakdown?.length > 0)) {
+            return parsed;
+          }
+        }
       } catch (e) {}
     }
     return {
@@ -113,8 +119,12 @@ export function DashboardFeeMaster({
     if (typeof window !== 'undefined') {
       try {
         const sId = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
-        const cached = sessionStorage.getItem(`fee_overview_${sId}_${selectedSession || '2026-27'}`);
-        if (cached) return false;
+        const key = `fee_overview_${sId}_${selectedSession || '2026-27'}`;
+        const cached = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.totalBilledPaise > 0) return false;
+        }
       } catch (e) {}
     }
     return true;
@@ -227,18 +237,22 @@ export function DashboardFeeMaster({
       setOverviewLoading(true);
     }
     setIsSyncingOverview(true);
-    setOverviewError(null);
     try {
       const sId = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
-      const res = await apiFetch(`/api/fee-master?action=overview&session=${session}&school_id=${encodeURIComponent(sId)}`);
+      const res = await apiFetch(`/api/fee-master?action=overview&session=${session}&school_id=${encodeURIComponent(sId)}&_t=${Date.now()}`);
       const data = await res.json();
-      if (data.success && data.overview) {
+      if (data.success && data.overview && data.overview.totalBilledPaise > 0) {
         setOverviewData(data.overview);
+        setOverviewError(null);
         try {
           if (typeof window !== 'undefined') {
-            sessionStorage.setItem(`fee_overview_${sId}_${session}`, JSON.stringify(data.overview));
+            const key = `fee_overview_${sId}_${session}`;
+            localStorage.setItem(key, JSON.stringify(data.overview));
+            sessionStorage.setItem(key, JSON.stringify(data.overview));
           }
         } catch (e) {}
+      } else if (data.success && data.overview) {
+        setOverviewData(prev => prev.totalBilledPaise > 0 ? prev : data.overview);
       } else {
         if (overviewData.totalBilledPaise === 0) {
           setOverviewError(data?.error || 'Failed to load fee overview metrics.');
@@ -247,7 +261,7 @@ export function DashboardFeeMaster({
     } catch (e: any) {
       console.error('[loadOverview error]', e);
       if (overviewData.totalBilledPaise === 0) {
-        setOverviewError(e?.message || 'Network error loading overview metrics.');
+        setOverviewError(e?.message || 'Network error loading overview metrics. Please retry.');
       }
     } finally {
       setOverviewLoading(false);

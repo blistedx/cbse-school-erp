@@ -250,6 +250,13 @@ export interface SchoolFeeOverviewAggregate {
     mobile: string;
     pendingPaise: number;
   }>;
+  thisMonthBreakdown?: Array<{
+    className: string;
+    totalStudents: number;
+    submittedCount: number;
+    notSubmittedCount: number;
+    collectedPaise: number;
+  }>;
   monthWiseTrend?: Array<{
     month: AcademicMonth;
     label: string;
@@ -314,6 +321,7 @@ export async function getSchoolFeeOverviewAggregation(
   await ensureLedgerIndexes();
   const db = await getDatabase();
   if (!db) {
+    if (cached) return cached.data;
     return {
       totalBilledPaise: 0,
       totalCollectedPaise: 0,
@@ -323,9 +331,42 @@ export async function getSchoolFeeOverviewAggregation(
       collectionPercentage: 0,
       studentsWithNothingPaid: 0,
       topPending: [],
+      thisMonthBreakdown: [],
       monthWiseTrend: [],
       cycleMetrics: {},
     };
+  }
+
+  // Populate student map for quick details lookup
+  let resolvedStudentsMap = studentsMap;
+  if (!resolvedStudentsMap) {
+    resolvedStudentsMap = new Map();
+    try {
+      const studentDocs = await db.collection('students').find({
+        school_id: schoolId,
+        status: 'ACTIVE'
+      }, {
+        projection: {
+          id: 1,
+          full_name: 1,
+          first_name: 1,
+          last_name: 1,
+          admission_no: 1,
+          father_name: 1,
+          guardian_name: 1,
+          mobile: 1,
+          guardian_phone: 1,
+          class_name: 1,
+          section: 1
+        }
+      }).toArray();
+      for (const s of studentDocs) {
+        resolvedStudentsMap.set(s.id, s);
+        if (s.admission_no) resolvedStudentsMap.set(s.admission_no, s);
+      }
+    } catch (e) {
+      console.warn('[getSchoolFeeOverviewAggregation] Error loading students metadata:', e);
+    }
   }
 
   // Single fast fetch of all active ledger lines
@@ -346,7 +387,25 @@ export async function getSchoolFeeOverviewAggregation(
     }
   }).toArray() as unknown as FeeLedgerLine[];
 
-  const studentMap = new Map<string, { studentId: string; admissionNo: string; className: string; section: string; demand: number; paid: number; discount: number }>();
+  const studentMap = new Map<string, {
+    studentId: string;
+    studentName: string;
+    admissionNo: string;
+    className: string;
+    section: string;
+    fatherName: string;
+    mobile: string;
+    demand: number;
+    paid: number;
+    discount: number;
+  }>();
+
+  const classBreakdownMap = new Map<string, {
+    className: string;
+    students: Set<string>;
+    paidStudents: Set<string>;
+    collectedPaise: number;
+  }>();
 
   const monthData: Record<AcademicMonth, { demand: number; paid: number; discount: number; paidStudents: Set<string> }> = {
     APR: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
@@ -366,11 +425,16 @@ export async function getSchoolFeeOverviewAggregation(
   for (const line of allLines) {
     const sId = String(line.student_id || line.admission_no || 'UNKNOWN');
     if (!studentMap.has(sId)) {
+      const sInfo = resolvedStudentsMap?.get(sId);
+      const sName = sInfo?.full_name || `${sInfo?.first_name || ''} ${sInfo?.last_name || ''}`.trim() || sId;
       studentMap.set(sId, {
         studentId: sId,
-        admissionNo: line.admission_no || '',
-        className: line.class_name || '',
-        section: line.section || 'A',
+        studentName: sName,
+        admissionNo: line.admission_no || sInfo?.admission_no || '',
+        className: line.class_name || sInfo?.class_name || '',
+        section: line.section || sInfo?.section || 'A',
+        fatherName: sInfo?.father_name || sInfo?.guardian_name || '',
+        mobile: sInfo?.guardian_phone || sInfo?.mobile || '',
         demand: 0,
         paid: 0,
         discount: 0,
@@ -395,6 +459,25 @@ export async function getSchoolFeeOverviewAggregation(
       st.discount += amt;
       if (line.month && monthData[line.month]) {
         monthData[line.month].discount += amt;
+      }
+    }
+
+    // Class-wise tracking for active month (September)
+    if (line.month === 'SEP') {
+      const cls = line.class_name || st.className || 'Class 1';
+      if (!classBreakdownMap.has(cls)) {
+        classBreakdownMap.set(cls, {
+          className: cls,
+          students: new Set(),
+          paidStudents: new Set(),
+          collectedPaise: 0,
+        });
+      }
+      const cData = classBreakdownMap.get(cls)!;
+      cData.students.add(sId);
+      if (line.line_type === 'PAYMENT' || (line.line_type === 'ADJUSTMENT' && line.adjustment_direction === 'CREDIT')) {
+        cData.collectedPaise += amt;
+        if (amt > 0) cData.paidStudents.add(sId);
       }
     }
   }
@@ -427,15 +510,25 @@ export async function getSchoolFeeOverviewAggregation(
     if (bal > 0) {
       pendingList.push({
         studentId: row.studentId,
-        studentName: row.studentId,
+        studentName: row.studentName,
         admissionNo: row.admissionNo,
         classSection: `${row.className} - ${row.section}`,
+        fatherName: row.fatherName,
+        mobile: row.mobile,
         pendingPaise: bal,
       });
     }
   }
 
   pendingList.sort((a, b) => b.pendingPaise - a.pendingPaise);
+
+  const thisMonthBreakdown = Array.from(classBreakdownMap.values()).map(c => ({
+    className: c.className,
+    totalStudents: c.students.size,
+    submittedCount: c.paidStudents.size,
+    notSubmittedCount: Math.max(0, c.students.size - c.paidStudents.size),
+    collectedPaise: c.collectedPaise,
+  })).sort((a, b) => a.className.localeCompare(b.className));
 
   const netDemand = Math.max(0, totalBilled - totalDiscount);
   const collectionPercentage = netDemand > 0 ? Math.round((totalCollected / netDemand) * 100) : 0;
@@ -500,6 +593,7 @@ export async function getSchoolFeeOverviewAggregation(
     collectionPercentage,
     studentsWithNothingPaid: zeroPaidStudents,
     topPending: pendingList.slice(0, 10),
+    thisMonthBreakdown,
     monthWiseTrend,
     cycleMetrics,
   };

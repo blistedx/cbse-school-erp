@@ -692,7 +692,7 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
     for (const p of ctx.payments) {
       if (p.cancelled) continue;
       for (const alloc of p.allocatedHeads || []) {
-        if (alloc.feeHead === 'SECURITY_DEPOSIT') {
+        if ((alloc.feeHead as string) === 'SECURITY_DEPOSIT') {
           refundableHeldPaise += (alloc.amountPaise || 0);
         }
       }

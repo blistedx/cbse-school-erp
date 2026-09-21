@@ -2962,10 +2962,6 @@ export const Database = {
         totalRevenue = Math.round(feeAgg.totalCollectedPaise / 100);
         pendingFeeAmount = Math.round(feeAgg.totalPendingPaise / 100);
         feeCollectionRate = feeAgg.collectionPercentage;
-      } else if (feeMetrics) {
-        totalRevenue = Math.round(feeMetrics.totalCollectedPaise / 100);
-        pendingFeeAmount = Math.round(feeMetrics.pendingDuesPaise / 100);
-        feeCollectionRate = feeMetrics.collectionRate;
       }
 
       const overviewResult: SchoolOverview = {

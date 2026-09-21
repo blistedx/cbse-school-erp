@@ -4,18 +4,18 @@ import { MongoClient, Db } from 'mongodb';
 const uri = process.env.MONGODB_URI || '';
 
 const options = {
-  maxPoolSize: 25,
-  minPoolSize: 2,
-  maxIdleTimeMS: 60000,
-  serverSelectionTimeoutMS: 6000,
-  connectTimeoutMS: 6000,
-  socketTimeoutMS: 20000,
+  maxPoolSize: 20,
+  minPoolSize: 1,
+  maxIdleTimeMS: 30000,
+  serverSelectionTimeoutMS: 15000,
+  connectTimeoutMS: 15000,
+  socketTimeoutMS: 45000,
   tls: true,
   tlsAllowInvalidCertificates: true
 };
 
 let lastConnectionFailedAt = 0;
-const FAILURE_COOLDOWN_MS = 20000;
+const FAILURE_COOLDOWN_MS = 2000;
 
 declare global {
   // eslint-disable-next-line no-var

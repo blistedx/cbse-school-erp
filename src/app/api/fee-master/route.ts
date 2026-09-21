@@ -140,7 +140,7 @@ export async function GET(req: Request) {
           totalAdvancePaise: feeOverviewAgg.totalAdvancePaise,
           collectionPercentage: feeOverviewAgg.collectionPercentage,
           studentsWithNothingPaid: feeOverviewAgg.studentsWithNothingPaid,
-          thisMonthBreakdown: [],
+          thisMonthBreakdown: feeOverviewAgg.thisMonthBreakdown || [],
           topPending: feeOverviewAgg.topPending || [],
           headBreakdown: [],
           monthWiseTrend: feeOverviewAgg.monthWiseTrend || [],

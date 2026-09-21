@@ -73,7 +73,7 @@ async function runTestSuite() {
     const sId = s.id || s._id.toString();
     const state = computeStudentFeeState(sId, demands, payments, AS_OF_TODAY_DATE);
     for (const d of state.demands) {
-      if (d.dueDate <= AS_OF_TODAY_DATE && !unconfirmedHeads.includes(d.feeHead) && d.feeHead !== 'SECURITY_DEPOSIT') {
+      if (d.dueDate <= AS_OF_TODAY_DATE && !unconfirmedHeads.includes(d.feeHead) && (d.feeHead as string) !== 'SECURITY_DEPOSIT') {
         pendingExcludingUnconfirmed += d.balance;
       }
     }
