@@ -2213,7 +2213,9 @@ function ERPWorkspaceContent() {
             const snapRaw = localStorage.getItem(snapKey);
             if (snapRaw) {
               const snap = JSON.parse(snapRaw);
-              if (snap.overview) setOverview(snap.overview);
+              if (snap.overview && (snap.overview.financials?.totalCollected > 0 || snap.overview.financials?.monthWiseTrend?.length > 0)) {
+                setOverview(snap.overview);
+              }
               if (Array.isArray(snap.students) && snap.students.length > 0) setStudents(snap.students);
               if (Array.isArray(snap.teachers) && snap.teachers.length > 0) {
                 const prinPhoto = (parsedSchool as any)?.principal_avatar || '/api/media/MEDIA-TCH-TCH-PRIN-DPS2026';

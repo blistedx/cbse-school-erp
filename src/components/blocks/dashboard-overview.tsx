@@ -43,6 +43,7 @@ import {
 import { School, Student, Teacher, ClassRoom, FeeInvoice, AttendanceRecord, SchoolOverview, User, Notice } from '@/lib/types';
 import { getSchoolInitials, getTodayDateStr } from '@/lib/utils';
 import { ACADEMIC_MONTHS, MONTH_FULL_NAMES } from '@/lib/fees-engine/constants';
+import { apiFetch } from '@/lib/api-client';
 
 export interface DashboardFeeCycleItem {
   id: string;
@@ -250,7 +251,7 @@ export function DashboardOverview({
   const fetchLiveFeeOverview = useCallback(async () => {
     const schoolCode = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
     try {
-      const res = await fetch(`/api/fee-master?action=overview&school_id=${encodeURIComponent(schoolCode)}&session=2026-27&_t=${Date.now()}`);
+      const res = await apiFetch(`/api/fee-master?action=overview&school_id=${encodeURIComponent(schoolCode)}&session=2026-27&_t=${Date.now()}`);
       const data = await res.json();
       if (data.success && data.overview) {
         setLiveFeeFinancials({
@@ -268,10 +269,17 @@ export function DashboardOverview({
     }
   }, [selectedSchool]);
 
+  // Update when overview prop changes with valid financials
+  useEffect(() => {
+    if ((overview as any)?.financials?.monthWiseTrend?.length > 0) {
+      setLiveFeeFinancials((overview as any).financials);
+    }
+  }, [overview]);
+
   // Initial load and whenever overview or selectedSchool changes
   useEffect(() => {
     fetchLiveFeeOverview();
-  }, [fetchLiveFeeOverview, overview, selectedSchool]);
+  }, [fetchLiveFeeOverview, selectedSchool]);
 
   // Re-fetch immediately when invoices list length changes (e.g. newly collected payment)
   useEffect(() => {
@@ -703,23 +711,32 @@ export function DashboardOverview({
 
     (invoices || []).forEach(inv => {
       const anyInv = inv as any;
-      const invMonth = (inv.month || '').toLowerCase();
-      const dueDate = inv.due_date || anyInv.date || '';
-      const paidDate = inv.paid_date || '';
-      const dueMonthNum = dueDate.length >= 7 ? dueDate.slice(5, 7) : '';
-      const paidMonthNum = paidDate.length >= 7 ? paidDate.slice(5, 7) : '';
-      const cycleTag = ((anyInv.cycle_name || anyInv.cycle || '') as string).toLowerCase();
+      if (anyInv.is_cancelled === true) return;
 
-      const matches = cycleTag.includes(`cycle ${activeCycle.cycleNumber}`.toLowerCase()) || 
-        activeCycle.monthShorts.some(mShort => invMonth.includes(mShort.toLowerCase())) ||
-        activeCycle.monthKeys.some(mKey => dueMonthNum === mKey || (inv.status === 'PAID' && paidMonthNum === mKey));
+      const pDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || '';
+      const pMonthNum = pDate.length >= 7 ? pDate.slice(5, 7) : '';
+      const alloc = anyInv.allocated_heads || [];
 
-      if (matches) {
-        const amt = Number(inv.amount) || 0;
-        const paid = typeof inv.paid_amount === 'number' ? inv.paid_amount : (inv.status === 'PAID' ? amt : 0);
-        collectedAmount += paid;
-        if (paid > 0) paidStudentIds.add(inv.student_id || inv.admission_no || inv.student_name);
-        if (inv.status !== 'PAID') invoicePendingAmount += Math.max(0, amt - paid);
+      if (alloc.length > 0) {
+        for (const h of alloc) {
+          const hMonth = String(h.month || h.period || '').toUpperCase();
+          const matches = activeCycle.monthShorts.some(mShort => hMonth.includes(mShort.toUpperCase())) ||
+            activeCycle.monthKeys.includes(pMonthNum);
+          if (matches) {
+            const hAmt = (typeof h.amount_paise === 'number') ? Math.round(h.amount_paise / 100) : (Number(h.amount) || 0);
+            collectedAmount += hAmt;
+            if (hAmt > 0) paidStudentIds.add(inv.student_id || anyInv.admission_no || anyInv.student_name);
+          }
+        }
+      } else {
+        const invMonth = String(inv.month || anyInv.period || anyInv.fee_type || '').toUpperCase();
+        const matches = activeCycle.monthShorts.some(mShort => invMonth.includes(mShort.toUpperCase())) ||
+          activeCycle.monthKeys.includes(pMonthNum);
+        if (matches) {
+          const amtRupees = typeof anyInv.amount_paise === 'number' ? Math.round(anyInv.amount_paise / 100) : (Number(inv.paid_amount || inv.amount) || 0);
+          collectedAmount += amtRupees;
+          if (amtRupees > 0) paidStudentIds.add(inv.student_id || anyInv.admission_no || anyInv.student_name);
+        }
       }
     });
 
@@ -801,22 +818,28 @@ export function DashboardOverview({
         let dues = 0;
         (invoices || []).forEach(inv => {
           const anyInv = inv as any;
-          const monthText = (inv.month || '').toLowerCase();
-          const dueDate = inv.due_date || anyInv.date || '';
-          const paidDate = inv.paid_date || '';
-          const dueMonthNum = dueDate.length >= 7 ? dueDate.slice(5, 7) : '';
-          const paidMonthNum = paidDate.length >= 7 ? paidDate.slice(5, 7) : '';
+          if (anyInv.is_cancelled === true) return;
 
-          const matchesMonth = 
-            monthText.includes(m.label.toLowerCase()) || 
-            dueMonthNum === m.key ||
-            (inv.status === 'PAID' && paidMonthNum === m.key);
+          const pDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || '';
+          const pMonthNum = pDate.length >= 7 ? pDate.slice(5, 7) : '';
+          const alloc = anyInv.allocated_heads || [];
 
-          if (matchesMonth) {
-            const amt = Number(inv.amount) || 0;
-            const paid = typeof inv.paid_amount === 'number' ? inv.paid_amount : (inv.status === 'PAID' ? amt : 0);
-            coll += paid;
-            dues += Math.max(0, amt - paid);
+          if (alloc.length > 0) {
+            for (const h of alloc) {
+              const hMonth = String(h.month || h.period || '').toUpperCase();
+              const matchesMonth = hMonth.includes(m.label.toUpperCase()) || pMonthNum === m.key;
+              if (matchesMonth) {
+                const hAmt = (typeof h.amount_paise === 'number') ? Math.round(h.amount_paise / 100) : (Number(h.amount) || 0);
+                coll += hAmt;
+              }
+            }
+          } else {
+            const monthText = String(inv.month || anyInv.period || '').toUpperCase();
+            const matchesMonth = monthText.includes(m.label.toUpperCase()) || pMonthNum === m.key;
+            if (matchesMonth) {
+              const amtRupees = typeof anyInv.amount_paise === 'number' ? Math.round(anyInv.amount_paise / 100) : (Number(inv.paid_amount || inv.amount) || 0);
+              coll += amtRupees;
+            }
           }
         });
         const collK = Math.round(coll / 1000);
