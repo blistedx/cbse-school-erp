@@ -385,67 +385,97 @@ export async function getSchoolReceipts(
           school_id: schoolId,
           academic_session: session,
         })
-        .sort({ payment_date: -1, created_at: -1, _id: -1 })
+        .sort({ payment_date: -1 })
         .limit(limit)
         .toArray();
 
       const existingReceiptNos = new Set(docs.map((r: any) => r.receipt_no));
-
-      // Also check if fee_ledger has payments with receipt numbers not in fee_receipts
-      const paidLines = await db.collection('fee_ledger').find({
-        school_id: schoolId,
-        academic_session: session,
-        line_type: 'PAYMENT',
-        is_cancelled: { $ne: true }
-      }).sort({ txn_date: -1, _id: -1 }).limit(limit).toArray();
-
       const ledgerReceipts: ReceiptRecord[] = [];
-      const groupedByReceipt = new Map<string, any[]>();
-      paidLines.forEach((l: any) => {
-        if (l.receipt_no && !existingReceiptNos.has(l.receipt_no)) {
-          if (!groupedByReceipt.has(l.receipt_no)) {
-            groupedByReceipt.set(l.receipt_no, []);
+
+      // If receipts collection is empty, supplement from fee_ledger
+      if (docs.length === 0) {
+        const paidLines = await db.collection('fee_ledger').find(
+          {
+            school_id: schoolId,
+            academic_session: session,
+            line_type: 'PAYMENT',
+            is_cancelled: { $ne: true }
+          },
+          {
+            projection: {
+              receipt_no: 1,
+              student_id: 1,
+              student_name: 1,
+              admission_no: 1,
+              class_name: 1,
+              section: 1,
+              father_name: 1,
+              mobile: 1,
+              txn_date: 1,
+              payment_mode: 1,
+              txn_ref: 1,
+              cheque_no: 1,
+              amount: 1,
+              collected_by: 1,
+              remarks: 1,
+              is_cancelled: 1,
+              cancelled_reason: 1,
+              cancelled_by: 1,
+              cancelled_at: 1,
+              created_at: 1,
+              fee_head: 1,
+              month: 1,
+            }
           }
-          groupedByReceipt.get(l.receipt_no)!.push(l);
-        }
-      });
+        ).limit(limit).toArray();
 
-      groupedByReceipt.forEach((lines, rNo) => {
-        const first = lines[0];
-        const allocated_heads = lines.map(l => ({
-          fee_head: l.fee_head,
-          month: l.month,
-          period: l.month || 'Academic Fee',
-          amount_paise: l.amount || 0,
-        }));
-        const totalAmount = lines.reduce((s, l) => s + (l.amount || 0), 0);
+        const groupedByReceipt = new Map<string, any[]>();
+        paidLines.forEach((l: any) => {
+          if (l.receipt_no && !existingReceiptNos.has(l.receipt_no)) {
+            if (!groupedByReceipt.has(l.receipt_no)) {
+              groupedByReceipt.set(l.receipt_no, []);
+            }
+            groupedByReceipt.get(l.receipt_no)!.push(l);
+          }
+        });
 
-        ledgerReceipts.push({
-          receipt_no: rNo,
-          school_id: schoolId,
-          academic_session: session,
-          student_id: first.student_id,
-          student_name: first.student_name || 'Scholar Student',
-          admission_no: first.admission_no || '',
-          class_name: first.class_name || '',
-          section: first.section || 'A',
-          father_name: first.father_name || '',
-          mobile: first.mobile || '',
-          payment_date: first.txn_date || new Date().toISOString().split('T')[0],
-          payment_mode: first.payment_mode || 'CASH',
-          txn_ref: first.txn_ref || null,
-          cheque_no: first.cheque_no || null,
-          amount_paise: totalAmount,
-          collected_by: first.collected_by || 'ACCOUNTS_OFFICE',
-          remarks: first.remarks || null,
-          is_cancelled: Boolean(first.is_cancelled),
-          cancelled_reason: first.cancelled_reason,
-          cancelled_by: first.cancelled_by,
-          cancelled_at: first.cancelled_at,
-          created_at: first.created_at || (first.txn_date ? first.txn_date + 'T10:00:00Z' : undefined),
-          allocated_heads,
-        } as ReceiptRecord);
-      });
+        groupedByReceipt.forEach((lines, rNo) => {
+          const first = lines[0];
+          const allocated_heads = lines.map(l => ({
+            fee_head: l.fee_head,
+            month: l.month,
+            period: l.month || 'Academic Fee',
+            amount_paise: l.amount || 0,
+          }));
+          const totalAmount = lines.reduce((s, l) => s + (l.amount || 0), 0);
+
+          ledgerReceipts.push({
+            receipt_no: rNo,
+            school_id: schoolId,
+            academic_session: session,
+            student_id: first.student_id,
+            student_name: first.student_name || 'Scholar Student',
+            admission_no: first.admission_no || '',
+            class_name: first.class_name || '',
+            section: first.section || 'A',
+            father_name: first.father_name || '',
+            mobile: first.mobile || '',
+            payment_date: first.txn_date || new Date().toISOString().split('T')[0],
+            payment_mode: first.payment_mode || 'CASH',
+            txn_ref: first.txn_ref || null,
+            cheque_no: first.cheque_no || null,
+            amount_paise: totalAmount,
+            collected_by: first.collected_by || 'ACCOUNTS_OFFICE',
+            remarks: first.remarks || null,
+            is_cancelled: Boolean(first.is_cancelled),
+            cancelled_reason: first.cancelled_reason,
+            cancelled_by: first.cancelled_by,
+            cancelled_at: first.cancelled_at,
+            created_at: first.created_at || (first.txn_date ? first.txn_date + 'T10:00:00Z' : undefined),
+            allocated_heads,
+          } as ReceiptRecord);
+        });
+      }
 
       const combined = [...docs, ...ledgerReceipts] as unknown as ReceiptRecord[];
       

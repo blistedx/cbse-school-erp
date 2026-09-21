@@ -1,8 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/mongoose';
-import Transaction from '@/models/finance/Transaction';
-import Income from '@/models/finance/Income';
-import Expense from '@/models/finance/Expense';
 import { extractToken, verifySessionToken, canonicalizeSchoolId } from '@/lib/auth-guard';
 import { getDatabase, sanitizeDocNoBinary } from '@/lib/mongodb';
 
@@ -45,99 +41,30 @@ export async function GET(req: NextRequest) {
     if (isNaN(to.getTime())) to.setTime(defaultTo.getTime());
     to.setHours(23, 59, 59, 999);
 
-    await connectDB();
-
-    let result: any[] = [];
     let income: any[] = [];
     let expense: any[] = [];
     let totalIncome = 0;
     let totalExpense = 0;
 
-    try {
-      // 1. Aggregate from Transaction collection
-      result = await Transaction.aggregate([
-        { 
-          $match: { 
-            schoolId, 
-            date: { $gte: from, $lte: to } 
-          } 
-        },
-        {
-          $group: {
-            _id: { type: '$type', category: '$category' },
-            total: { $sum: '$amount' },
-            count: { $sum: 1 }
-          }
-        },
-        { $sort: { '_id.type': 1, total: -1 } }
-      ]);
+    const db = await getDatabase();
+    if (db) {
+      // Aggregate income from fee_receipts & fee_ledger
+      const receipts = await db.collection('fee_receipts').find({
+        school_id: schoolId,
+        is_cancelled: { $ne: true }
+      }).toArray();
 
-      // 2. If Transaction collection returned records
-      if (result && result.length > 0) {
-        income = result
-          .filter(r => r._id && r._id.type === 'income')
-          .map(r => ({ category: r._id.category, total: r.total, count: r.count }));
-
-        expense = result
-          .filter(r => r._id && r._id.type === 'expense')
-          .map(r => ({ category: r._id.category, total: r.total, count: r.count }));
-
-        totalIncome = income.reduce((s, r) => s + (Number(r.total) || 0), 0);
-        totalExpense = expense.reduce((s, r) => s + (Number(r.total) || 0), 0);
-      } else {
-        // Fallback: Check Income & Expense collections if Transaction is not populated
-        const [incomeAgg, expenseAgg] = await Promise.all([
-          Income.aggregate([
-            { $match: { schoolId, date: { $gte: from, $lte: to }, status: { $ne: 'cancelled' } } },
-            { $group: { _id: '$category', total: { $sum: '$amount' }, count: { $sum: 1 } } },
-            { $sort: { total: -1 } }
-          ]),
-          Expense.aggregate([
-            { $match: { schoolId, date: { $gte: from, $lte: to }, status: { $ne: 'cancelled' } } },
-            { $group: { _id: '$category', total: { $sum: '$amount' }, count: { $sum: 1 } } },
-            { $sort: { total: -1 } }
-          ])
-        ]);
-
-        income = incomeAgg.map(r => ({ category: r._id, total: r.total, count: r.count }));
-        expense = expenseAgg.map(r => ({ category: r._id, total: r.total, count: r.count }));
-
-        totalIncome = income.reduce((s, r) => s + (Number(r.total) || 0), 0);
-        totalExpense = expense.reduce((s, r) => s + (Number(r.total) || 0), 0);
+      const incMap: Record<string, { total: number; count: number }> = {};
+      for (const r of receipts) {
+        const cat = r.payment_mode || 'Fee Collections';
+        const amt = Number(r.amount_paid || r.amount) || 0;
+        if (!incMap[cat]) incMap[cat] = { total: 0, count: 0 };
+        incMap[cat].total += amt;
+        incMap[cat].count += 1;
+        totalIncome += amt;
       }
-    } catch (aggError) {
-      console.warn('[P&L Report API] Aggregation failed, using native DB fallback:', aggError);
 
-      const db = await getDatabase();
-      if (db) {
-        const txCollection = db.collection('transactions');
-        const docs = await txCollection.find({
-          schoolId,
-          date: { $gte: from, $lte: to }
-        }).toArray();
-
-        const incMap: Record<string, { total: number; count: number }> = {};
-        const expMap: Record<string, { total: number; count: number }> = {};
-
-        for (const doc of docs) {
-          const amt = Number(doc.amount) || 0;
-          const cat = doc.category || 'General';
-          if (doc.type === 'income') {
-            if (!incMap[cat]) incMap[cat] = { total: 0, count: 0 };
-            incMap[cat].total += amt;
-            incMap[cat].count += 1;
-            totalIncome += amt;
-          } else if (doc.type === 'expense') {
-            if (!expMap[cat]) expMap[cat] = { total: 0, count: 0 };
-            expMap[cat].total += amt;
-            expMap[cat].count += 1;
-            totalExpense += amt;
-          }
-        }
-
-        income = Object.entries(incMap).map(([category, val]) => ({ category, total: val.total, count: val.count }));
-        expense = Object.entries(expMap).map(([category, val]) => ({ category, total: val.total, count: val.count }));
-      }
+      income = Object.entries(incMap).map(([category, val]) => ({ category, total: val.total, count: val.count }));
     }
 
     const netProfit = totalIncome - totalExpense;

@@ -32,13 +32,22 @@ export async function GET(req: Request) {
 
     const timingMs = Date.now() - startTs;
 
+    const sanitizedStudents = students.map((s: any) => {
+      const { passcode, password, password_hash, salt, ...safe } = s;
+      return safe;
+    });
+    const sanitizedTeachers = teachers.map((t: any) => {
+      const { passcode, password, password_hash, salt, salary, ...safe } = t;
+      return safe;
+    });
+
     return NextResponse.json({
       success: true,
       school_id: tenant,
       session,
       overview,
-      students,
-      teachers,
+      students: sanitizedStudents,
+      teachers: sanitizedTeachers,
       classes,
       notices,
       attendance,

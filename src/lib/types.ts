@@ -34,6 +34,8 @@ export interface School {
   houses?: SchoolHouseConfig[] | string[];
   role_permissions?: RolePermissionMatrix;
   status: 'ACTIVE' | 'PENDING' | 'INACTIVE';
+  must_change_password?: boolean;
+  password_hash?: string;
   created_at?: string;
 }
 
@@ -66,6 +68,8 @@ export interface User {
   status?: string;
   is_god_admin?: boolean;
   permissions?: string[];
+  must_change_password?: boolean;
+  password_hash?: string;
 }
 
 // Comprehensive CBSE OASIS / SARAS Compliant Student Record
@@ -88,6 +92,8 @@ export interface Student {
   attendance_percent?: number;
   status: 'ACTIVE' | 'INACTIVE' | 'ALUMNI' | 'SUSPENDED';
   passcode?: string; // Student portal login passcode / PIN
+  must_change_password?: boolean;
+  password_hash?: string;
   avatar?: string; // Student avatar URL or data URI
   photo?: string;  // Student profile picture
   created_at?: string;
@@ -211,6 +217,8 @@ export interface Teacher {
   email: string;
   status: 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE' | 'RESIGNED';
   passcode?: string; // Faculty portal login passcode / PIN
+  must_change_password?: boolean;
+  password_hash?: string;
   avatar?: string; // Faculty avatar URL or data URI
   photo?: string;  // Faculty profile picture
 

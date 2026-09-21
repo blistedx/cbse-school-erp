@@ -288,3 +288,38 @@ export const createSchoolSchema = z.object({
   plan: z.string().max(50).optional(),
   max_students: z.number().optional()
 }).strip();
+
+// 13. AUTHENTICATION SCHEMAS
+export const authLoginSchema = z.object({
+  school_code: z.string().max(50).optional(),
+  username: z.string().min(1, 'User ID / Username is required').max(100),
+  password: z.string().min(1, 'Password is required').max(200),
+  role: z.string().max(50).optional()
+}).strict();
+
+export const forgotPasscodeSchema = z.object({
+  school_code: z.string().max(50).optional(),
+  username: z.string().min(1, 'User ID is required').max(100),
+  account_type: z.string().max(50).optional()
+}).strict();
+
+/**
+ * Recursively strips MongoDB operator keys (keys starting with '$' or containing '.')
+ * to prevent NoSQL query injection across all endpoints.
+ */
+export function sanitizeNoSqlInput<T>(input: T): T {
+  if (input === null || input === undefined) return input;
+  if (typeof input !== 'object') return input;
+  if (Array.isArray(input)) {
+    return input.map(item => sanitizeNoSqlInput(item)) as any;
+  }
+  const clean: any = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (key.startsWith('$') || key.includes('.')) {
+      continue;
+    }
+    clean[key] = sanitizeNoSqlInput(value);
+  }
+  return clean;
+}
+

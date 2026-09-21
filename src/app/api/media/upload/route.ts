@@ -131,9 +131,12 @@ export async function POST(req: Request) {
     }
 
     // 5. Upload buffer directly to Vercel Blob and persist lightweight metadata (ZERO binary in MongoDB)
+    const rawFilename = body.filename ? body.filename.replace(/^.*[\\\/]/, '').replace(/[^a-zA-Z0-9._-]/g, '_') : '';
+    const safeFilename = rawFilename || `${body.id}.${detectedMime.split('/')[1] || 'jpg'}`;
+
     const mediaItem = await uploadToVercelBlob({
       id: body.id,
-      filename: body.filename || `${body.id}.${detectedMime.split('/')[1] || 'jpg'}`,
+      filename: safeFilename,
       buffer,
       mimeType: detectedMime,
       schoolId: schoolId || 'DPS2026',

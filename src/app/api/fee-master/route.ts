@@ -1,7 +1,6 @@
-/*! EduSuite Fee Master — Unified Ledger & Engine API v3.0.0 */
-
 import { NextResponse } from 'next/server';
 import { requireAuth, requireRole, resolveTenantSchoolId, ADMIN_ROLES } from '@/lib/auth-guard';
+import { FeesService } from '@/lib/services/fees.service';
 import {
   postLedgerLines,
   getStudentLedger,
@@ -40,6 +39,25 @@ export async function GET(req: Request) {
 
     const action = searchParams.get('action') || 'aggregate';
     const session = searchParams.get('session') || '2026-27';
+
+    const isStudentScopedAction = ['student_ledger_view', 'student_ledger', 'student_summary', 'student_receipts'].includes(action);
+
+    if (!isStudentScopedAction) {
+      if (![...ADMIN_ROLES, 'ACCOUNTANT'].includes(auth.role)) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden: Insufficient permissions to access school-wide fee records' },
+          { status: 403 }
+        );
+      }
+    } else if (auth.role === 'STUDENT') {
+      const studentId = searchParams.get('student_id');
+      if (studentId && auth.userId && studentId !== auth.userId) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden: Students can only access their own fee ledger' },
+          { status: 403 }
+        );
+      }
+    }
 
     // 1. Fee Configuration
     if (action === 'config') {
@@ -116,7 +134,7 @@ export async function GET(req: Request) {
       if (searchParams.get('sibling')) filters.siblingOpted = searchParams.get('sibling') === 'true';
       if (searchParams.get('search')) filters.search = searchParams.get('search')!;
 
-      const reportResult = await executeReport(tenant, reportId, filters);
+      const reportResult = await FeesService.executeReport(tenant, reportId, filters);
       return NextResponse.json({ success: true, report: reportResult });
     }
 

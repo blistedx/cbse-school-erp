@@ -1,7 +1,9 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
-import { Database, isSameClass } from '@/lib/db';
+import { revalidateTag } from 'next/cache';
 import { requireAuth, requireRole, resolveTenantSchoolId, STAFF_ROLES, ADMIN_ROLES } from '@/lib/auth-guard';
+import { Database } from '@/lib/db';
+import { isSameClass } from '@/lib/utils';
+import { AttendanceService } from '@/lib/services/attendance.service';
 
 export async function GET(req: Request) {
   try {
@@ -12,8 +14,49 @@ export async function GET(req: Request) {
     const tenant = resolveTenantSchoolId(auth, searchParams.get('school_id') || searchParams.get('schoolId'));
     if (tenant instanceof NextResponse) return tenant;
 
-    const session = searchParams.get('session') || searchParams.get('academic_session') || undefined;
-    const attendance = await Database.getAttendance(tenant, session);
+    const session = searchParams.get('session') || searchParams.get('academic_session') || '2026-27';
+    const action = searchParams.get('action');
+
+    // 1. Single Student Attendance Query
+    const studentId = searchParams.get('student_id');
+    if (studentId || action === 'student') {
+      const targetId = studentId || (auth.role === 'STUDENT' ? auth.userId : undefined);
+      if (!targetId) {
+        return NextResponse.json({ success: false, error: 'student_id is required' }, { status: 400 });
+      }
+      const from = searchParams.get('from') || undefined;
+      const to = searchParams.get('to') || undefined;
+      const summary = await AttendanceService.getStudentAttendance(tenant, targetId, session, { from, to });
+      return NextResponse.json({ success: true, summary });
+    }
+
+    // 2. School-wide Summary for a date
+    if (action === 'summary') {
+      const date = searchParams.get('date') || undefined;
+      const summary = await AttendanceService.getSchoolSummary(tenant, session, date);
+      return NextResponse.json({ success: true, summary });
+    }
+
+    // 3. Absent List for a date
+    if (action === 'absent_list') {
+      const date = searchParams.get('date') || undefined;
+      const className = searchParams.get('class_name') || undefined;
+      const section = searchParams.get('section') || undefined;
+      const absents = await AttendanceService.getAbsentList(tenant, date, session, className, section);
+      return NextResponse.json({ success: true, count: absents.length, absents });
+    }
+
+    // 4. Specific Class & Date Query
+    const className = searchParams.get('class_name') || searchParams.get('class');
+    const section = searchParams.get('section');
+    const date = searchParams.get('date');
+    if (className && section && date) {
+      const record = await AttendanceService.getClassAttendance(tenant, className, section, date, session);
+      return NextResponse.json({ success: true, record });
+    }
+
+    // 5. Default: Return all records for session
+    const attendance = await AttendanceService.getAllAttendanceRecords(tenant, session);
     return NextResponse.json({ success: true, count: attendance.length, attendance });
   } catch (error: any) {
     console.error('[API_ATTENDANCE_GET_ERROR]', error);
@@ -79,7 +122,11 @@ export async function POST(req: Request) {
       }
     }
 
-    const record = await Database.recordAttendance({ ...body, school_id: schoolId });
+    const record = await AttendanceService.markAttendance(schoolId, body.academic_session || '2026-27', { ...body, school_id: schoolId });
+    try {
+      revalidateTag('attendance', { expire: 0 });
+      revalidateTag('overview', { expire: 0 });
+    } catch {}
     return NextResponse.json({ success: true, message: 'Attendance recorded!', record });
   } catch (error: any) {
     console.error('[API_ATTENDANCE_POST_ERROR]', error);
@@ -101,6 +148,10 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 });
     }
     const success = await Database.deleteAttendance(id);
+    try {
+      revalidateTag('attendance', { expire: 0 });
+      revalidateTag('overview', { expire: 0 });
+    } catch {}
     return NextResponse.json({ success });
   } catch (error: any) {
     console.error('[API_ATTENDANCE_DELETE_ERROR]', error);

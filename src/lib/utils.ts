@@ -197,3 +197,17 @@ export function getTodayDateStr(date: Date = new Date()): string {
     return `${y}-${m}-${day}`;
   }
 }
+
+export function normalizeClassName(name?: string): string {
+  if (!name) return '';
+  return name.trim().toLowerCase().replace(/^(class|grade|std|standard)\s+/i, '').trim();
+}
+
+export function isSameClass(classA?: string, classB?: string): boolean {
+  if (!classA || !classB) return false;
+  return normalizeClassName(classA) === normalizeClassName(classB);
+}
+
+export function formatCurrency(paise: number): string {
+  return `₹${(Math.round(Number(paise) || 0) / 100).toLocaleString('en-IN')}`;
+}

@@ -23,28 +23,27 @@ import {
 } from './types';
 import { getDefaultCbseSubjectsForClass, sortClassesChronologically } from './cbse-subjects';
 import { getTodayDateStr } from './utils';
-import { getSchoolFeeMetrics } from './fees/metrics';
-import { getStudentLedger, computeSummaryFromLines, getSchoolFeeOverviewAggregation } from './fees-engine/ledger';
+import { AttendanceService } from './services/attendance.service';
+import { FeesService } from './services/fees.service';
+import { AggregatesService } from './services/aggregates.service';
+import { getStudentLedger, computeSummaryFromLines } from './fees-engine/ledger';
 import bcrypt from 'bcryptjs';
 
 export async function hashPassword(plainText: string): Promise<string> {
   if (!plainText) return '';
   const trimmed = plainText.trim();
-  if (trimmed.startsWith('$2a$') || trimmed.startsWith('$2b$')) {
+  if (trimmed.startsWith('$2a$') || trimmed.startsWith('$2b$') || trimmed.startsWith('$2y$')) {
     return trimmed;
   }
-  return bcrypt.hash(trimmed, 10);
+  return bcrypt.hash(trimmed, 12);
 }
 
-export async function verifyPassword(plainText: string, hashOrPlain?: string): Promise<boolean> {
-  if (!plainText || !hashOrPlain) return false;
-  if (hashOrPlain.startsWith('$2a$') || hashOrPlain.startsWith('$2b$')) {
-    return bcrypt.compare(plainText, hashOrPlain);
+export async function verifyPassword(plainText: string, hash?: string): Promise<boolean> {
+  if (!plainText || !hash) return false;
+  if (hash.startsWith('$2a$') || hash.startsWith('$2b$') || hash.startsWith('$2y$')) {
+    return bcrypt.compare(plainText, hash);
   }
-  const bufA = Buffer.from(plainText);
-  const bufB = Buffer.from(hashOrPlain);
-  if (bufA.length !== bufB.length) return false;
-  return crypto.timingSafeEqual(bufA, bufB);
+  return false;
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -279,15 +278,20 @@ async function ensureIndexes() {
       db.collection('schools').createIndex({ school_code: 1 }, { unique: true }),
       db.collection('schools').createIndex({ id: 1 }),
       db.collection('demo_requests').createIndex({ id: 1 }),
-      // Hierarchical indexes: School ID -> Academic Session -> Entity Identifiers
+      // Hierarchical compound indexes:
+      db.collection('students').createIndex({ school_id: 1, academic_session: 1, status: 1 }),
       db.collection('students').createIndex({ school_id: 1, academic_session: 1, admission_no: 1 }),
       db.collection('teachers').createIndex({ school_id: 1, academic_session: 1, staff_code: 1 }),
       db.collection('classes').createIndex({ school_id: 1, academic_session: 1, class_name: 1, section: 1 }),
       db.collection('notices').createIndex({ school_id: 1, academic_session: 1, created_at: -1 }),
-      db.collection('attendance').createIndex({ school_id: 1, academic_session: 1, date: -1 }),
-      db.collection('fee_invoices').createIndex({ school_id: 1, academic_session: 1, invoice_no: 1 }),
+      db.collection('attendance').createIndex({ school_id: 1, session: 1, date: -1 }),
+      db.collection('attendance').createIndex({ school_id: 1, session: 1, class_name: 1, section: 1, date: 1 }),
+      db.collection('fee_ledger').createIndex({ school_id: 1, academic_session: 1, is_cancelled: 1, line_type: 1 }),
+      db.collection('fee_ledger').createIndex({ school_id: 1, student_id: 1, academic_session: 1 }),
+      db.collection('fee_ledger').createIndex({ school_id: 1, academic_session: 1, fee_head: 1 }),
       db.collection('fee_receipts').createIndex({ school_id: 1, receipt_no: 1 }),
-      db.collection('fee_receipts').createIndex({ school_id: 1, academic_session: 1, payment_date: -1 }),
+      db.collection('fee_receipts').createIndex({ school_id: 1, academic_session: 1, is_cancelled: 1, payment_date: -1 }),
+      db.collection('school_aggregates').createIndex({ school_id: 1, session: 1 }, { unique: true }),
       db.collection('holidays').createIndex({ school_id: 1, academic_session: 1, start_date: 1, end_date: 1 }),
       db.collection('exams').createIndex({ school_id: 1, academic_session: 1, date: -1 }),
       db.collection('media_metadata').createIndex({ id: 1 }),
@@ -1010,17 +1014,22 @@ export const Database = {
     const isAgencyUser = uname === 'BLISTEDX' || cleanUname === 'BLISTEDX';
 
     if (isAgencyUser) {
-      const superadminPassword = process.env.AGENCY_SUPERADMIN_PASSWORD;
+      const superadminPasswordHash = process.env.AGENCY_SUPERADMIN_PASSWORD_HASH;
+      const superadminPasswordPlain = process.env.AGENCY_SUPERADMIN_PASSWORD;
 
-      // Fail closed: If AGENCY_SUPERADMIN_PASSWORD is not configured, deny access immediately
-      if (!superadminPassword) {
+      // Fail closed: If neither hash nor password is configured, deny access immediately
+      if (!superadminPasswordHash && !superadminPasswordPlain) {
         return null;
       }
 
-      // Timing-safe constant-time comparison via crypto.timingSafeEqual on SHA-256 digests
-      const inputDigest = crypto.createHash('sha256').update(pwd).digest();
-      const expectedDigest = crypto.createHash('sha256').update(superadminPassword).digest();
-      const isAgencyMatch = crypto.timingSafeEqual(inputDigest, expectedDigest);
+      let isAgencyMatch = false;
+      if (superadminPasswordHash) {
+        isAgencyMatch = await verifyPassword(pwd, superadminPasswordHash);
+      } else if (superadminPasswordPlain) {
+        const inputDigest = crypto.createHash('sha256').update(pwd).digest();
+        const expectedDigest = crypto.createHash('sha256').update(superadminPasswordPlain).digest();
+        isAgencyMatch = crypto.timingSafeEqual(inputDigest, expectedDigest);
+      }
 
       if (isAgencyMatch) {
         const allSchools = await this.getSchools();
@@ -1056,19 +1065,15 @@ export const Database = {
         };
       }
 
-      // If password does not match AGENCY_SUPERADMIN_PASSWORD, fail closed immediately
+      // If password does not match, fail closed immediately
       return null;
     }
 
-    let activeSchool = null;
-    if (schoolCode && schoolCode.trim()) {
-      activeSchool = await this.getSchoolByCode(schoolCode.trim().toUpperCase());
-    }
-    if (!activeSchool) {
-      const allSchools = await this.getSchools();
-      activeSchool = allSchools.find(s => s.school_code === 'DPS2026') || allSchools[0] || null;
+    if (!schoolCode || !schoolCode.trim()) {
+      return null;
     }
 
+    const activeSchool = await this.getSchoolByCode(schoolCode.trim().toUpperCase());
     if (!activeSchool || activeSchool.status !== 'ACTIVE') {
       return null;
     }
@@ -1089,10 +1094,7 @@ export const Database = {
       cleanUname === 'ADMIN';
 
     if (isPrimaryAdminUsername) {
-      const isPrimaryAdminPassword =
-        pwd === '123456' ||
-        pwd === 'admin@4317' ||
-        (expectedPin && (pwd === expectedPin || await verifyPassword(pwd, expectedPin)));
+      const isPrimaryAdminPassword = expectedPin ? await verifyPassword(pwd, expectedPin) : false;
 
       if (isPrimaryAdminPassword) {
         let principalAvatar = (school as any).principal_avatar || (school as any).avatar || (school as any).photo || '';
@@ -1138,10 +1140,7 @@ export const Database = {
 
     if (matchedTeacher) {
       const teacherPasscode = (matchedTeacher.passcode || '').trim();
-      const isTeacherMatch =
-        pwd === '123456' ||
-        pwd === 'admin@4317' ||
-        (teacherPasscode && (pwd === teacherPasscode || await verifyPassword(pwd, teacherPasscode)));
+      const isTeacherMatch = teacherPasscode ? await verifyPassword(pwd, teacherPasscode) : false;
 
       if (isTeacherMatch) {
         const desig = (matchedTeacher.designation || '').toLowerCase();
@@ -1188,10 +1187,7 @@ export const Database = {
 
     if (matchedStudent) {
       const studentPasscode = (matchedStudent.passcode || '').trim();
-      const isStudentMatch =
-        pwd === '123456' ||
-        pwd === 'admin@4317' ||
-        (studentPasscode && (pwd === studentPasscode || await verifyPassword(pwd, studentPasscode)));
+      const isStudentMatch = studentPasscode ? await verifyPassword(pwd, studentPasscode) : false;
 
       if (isStudentMatch) {
         const isParentRole = roleUpper === 'PARENT' || roleUpper === 'PARENTS';
@@ -2453,23 +2449,6 @@ export const Database = {
       } else {
         newStatus = sum.status;
       }
-    } else {
-      // Fallback to legacy invoices
-      const studentInvoices = (memoryStore.fee_invoices || []).filter(inv => {
-        if (inv.student_id && inv.student_id === targetStudent.id) return true;
-        if (inv.admission_no && targetStudent.admission_no && inv.admission_no.toLowerCase().trim() === targetStudent.admission_no.toLowerCase().trim()) {
-          if (targetStudent.school_id && inv.school_id && inv.school_id !== targetStudent.school_id) return false;
-          return true;
-        }
-        return false;
-      });
-      const totalGross = studentInvoices.reduce((acc, inv) => acc + (Number((inv as any).total_amount) || Number(inv.amount) || 0), 0);
-      const totalPaid = studentInvoices.reduce((acc, inv) => acc + (Number(inv.paid_amount) || 0), 0);
-      const totalConcession = studentInvoices.reduce((acc, inv) => acc + (Number((inv as any).concession_amount) || 0), 0);
-      const bal = totalGross - totalConcession - totalPaid;
-      if (bal <= 0) newStatus = 'PAID';
-      else if (totalPaid > 0) newStatus = 'PARTIAL';
-      else newStatus = 'PENDING';
     }
 
     targetStudent.fee_status = newStatus;
@@ -2898,70 +2877,42 @@ export const Database = {
     const todayDateStr = getTodayDateStr();
     const cacheKey = `overview:${schoolId}:${targetSession}:${todayDateStr}`;
     return singleFlight(cacheKey, async () => {
-      const [students, teachers, attendance, feeAgg] = await Promise.all([
-        this.getStudents(schoolId, targetSession),
-        this.getTeachers(schoolId, targetSession),
-        this.getAttendance(schoolId, targetSession),
-        getSchoolFeeOverviewAggregation(schoolId, targetSession)
+      // 1. Fetch pre-aggregated document (O(1) in <5ms) + attendance summary for today in parallel
+      const [aggregate, attSummary] = await Promise.all([
+        AggregatesService.getSchoolAggregate(schoolId, targetSession),
+        AttendanceService.getSchoolSummary(schoolId, targetSession, todayDateStr)
       ]);
 
-      const totalStudents = students.length;
-      const totalTeachers = teachers.length;
+      const totalStudents = aggregate.total_students;
+      const totalTeachers = aggregate.total_teachers;
 
-      // Deduplicate attendance records by class & section strictly for today (IST midnight-aligned)
-      const latestTodayMap = new Map<string, AttendanceRecord>();
-      attendance.forEach(a => {
-        if (a.date === todayDateStr) {
-          const normClass = normalizeClassName(a.class_name);
-          const key = `${normClass}_${(a.section || '').toLowerCase().trim()}`;
-          latestTodayMap.set(key, a);
-        }
-      });
+      const attendanceToday = attSummary.studentPercent;
+      const studentAttendanceToday = attSummary.studentPercent;
+      const facultyAttendanceToday = attSummary.facultyPercent;
+      const studentsPresentToday = attSummary.studentPresent;
+      const studentsTotalToday = attSummary.studentTotal;
+      const facultyPresentToday = attSummary.facultyPresent;
+      const facultyTotalToday = attSummary.facultyTotal;
+      const isStudentAttendanceMarkedToday = attSummary.isStudentMarked;
+      const isFacultyAttendanceMarkedToday = attSummary.isFacultyMarked;
 
-      const uniqueTodayRecords = Array.from(latestTodayMap.values());
+      const totalRevenue = Math.round(aggregate.financials.totalCollectedPaise / 100);
+      const pendingFeeAmount = Math.round(aggregate.financials.totalPendingPaise / 100);
+      const feeCollectionRate = aggregate.financials.collectionPercentage;
 
-      // 1. Student Attendance strictly for TODAY (Deduplicated per class)
-      const studentTodayRecords = uniqueTodayRecords.filter(a => 
-        (a.class_name || '').toLowerCase() !== 'faculty' && 
-        (a.class_name || '').toLowerCase() !== 'staff' &&
-        !(/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
-      );
-      const isStudentAttendanceMarkedToday = studentTodayRecords.length > 0;
-      const studentsPresentToday = isStudentAttendanceMarkedToday 
-        ? studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.present_count) || 0), 0)
-        : 0;
-      const enrolledInLogged = studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.total_students) || 0), 0);
-      const studentsTotalToday = enrolledInLogged > 0 ? enrolledInLogged : totalStudents;
-      const studentAttendanceToday = isStudentAttendanceMarkedToday && studentsTotalToday > 0
-        ? Number(((studentsPresentToday / studentsTotalToday) * 100).toFixed(1))
-        : 0;
-
-      // 2. Faculty Attendance strictly for TODAY (Deduplicated, capped at total teachers)
-      const facultyTodayRecords = uniqueTodayRecords.filter(a => 
-        /faculty|staff/i.test(a.class_name || '') || 
-        /faculty|staff/i.test(a.section || '') ||
-        (Array.isArray((a as any).teacher_records) && (a as any).teacher_records.length > 0)
-      );
-      const isFacultyAttendanceMarkedToday = facultyTodayRecords.length > 0;
-      const latestFacultyRecord = isFacultyAttendanceMarkedToday ? facultyTodayRecords[facultyTodayRecords.length - 1] : null;
-      const facultyPresentToday = latestFacultyRecord
-        ? Math.min(totalTeachers, Number(latestFacultyRecord.present_count) || 0)
-        : 0;
-      const facultyTotalToday = totalTeachers;
-      const facultyAttendanceToday = isFacultyAttendanceMarkedToday && totalTeachers > 0
-        ? Number(((facultyPresentToday / totalTeachers) * 100).toFixed(1))
-        : 0;
-
-      const attendanceToday = studentAttendanceToday;
-
-      let totalRevenue = 0;
-      let pendingFeeAmount = 0;
-      let feeCollectionRate = 0;
-
-      if (feeAgg) {
-        totalRevenue = Math.round(feeAgg.totalCollectedPaise / 100);
-        pendingFeeAmount = Math.round(feeAgg.totalPendingPaise / 100);
-        feeCollectionRate = feeAgg.collectionPercentage;
+      // 2. Fetch top 5 recent students via targeted indexed query
+      let recentStudents: Student[] = [];
+      const db = await getDatabase();
+      if (db) {
+        const docs = await db.collection('students')
+          .find({ school_id: schoolId, status: { $nin: ['INACTIVE', 'ALUMNI'] } })
+          .sort({ created_at: -1 })
+          .limit(5)
+          .toArray();
+        recentStudents = docs.map(sanitizeDoc<Student>);
+      } else {
+        const allStudents = await this.getStudents(schoolId, targetSession);
+        recentStudents = allStudents.slice(-5).reverse();
       }
 
       const overviewResult: SchoolOverview = {
@@ -2982,23 +2933,36 @@ export const Database = {
           pendingFeeAmount,
           totalRevenue
         },
-        financials: feeAgg ? {
-          totalDemand: Math.round(feeAgg.totalBilledPaise / 100),
-          totalCollected: Math.round(feeAgg.totalCollectedPaise / 100),
-          totalOutstanding: Math.round(feeAgg.totalPendingPaise / 100),
-          totalDiscount: Math.round(feeAgg.totalDiscountPaise / 100),
-          collectionRate: feeAgg.collectionPercentage,
-          zeroPaidStudents: feeAgg.studentsWithNothingPaid,
-          topPending: feeAgg.topPending || [],
-          monthWiseTrend: feeAgg.monthWiseTrend || [],
-          cycleMetrics: feeAgg.cycleMetrics || {},
-        } : null,
-        feeOverview: feeAgg as any,
-        recentStudents: students.slice(-5).reverse(),
+        financials: {
+          totalDemand: Math.round(aggregate.financials.totalBilledPaise / 100),
+          totalCollected: Math.round(aggregate.financials.totalCollectedPaise / 100),
+          totalOutstanding: Math.round(aggregate.financials.totalPendingPaise / 100),
+          totalDiscount: Math.round(aggregate.financials.totalDiscountPaise / 100),
+          collectionRate: aggregate.financials.collectionPercentage,
+          zeroPaidStudents: aggregate.financials.studentsWithNothingPaid,
+          topPending: [],
+          monthWiseTrend: aggregate.financials.monthWiseTrend || [],
+          cycleMetrics: {},
+        },
+        feeOverview: {
+          totalBilledPaise: aggregate.financials.totalBilledPaise,
+          totalCollectedPaise: aggregate.financials.totalCollectedPaise,
+          totalPendingPaise: aggregate.financials.totalPendingPaise,
+          totalDiscountPaise: aggregate.financials.totalDiscountPaise,
+          totalWaiverPaise: aggregate.financials.totalWaiverPaise,
+          totalFinePaise: aggregate.financials.totalFinePaise,
+          collectionPercentage: aggregate.financials.collectionPercentage,
+          studentsWithNothingPaid: aggregate.financials.studentsWithNothingPaid,
+          monthWiseTrend: aggregate.financials.monthWiseTrend || [],
+          topPending: [],
+          classBreakdown: [],
+          cycleMetrics: {},
+        } as any,
+        recentStudents,
         recentInvoices: []
       };
       return overviewResult;
-    }, 30000);
+    }, 10000);
   },
 
   // ==========================================

@@ -4,6 +4,7 @@ import { Database, isSameClass } from '@/lib/db';
 import { AttendanceRecord } from '@/lib/types';
 import { extractToken, verifySessionToken } from '@/lib/auth-guard';
 import { getTodayDateStr } from '@/lib/utils';
+import { AttendanceService } from '@/lib/services/attendance.service';
 
 export async function POST(req: Request) {
   try {
@@ -154,7 +155,7 @@ export async function POST(req: Request) {
     const absentCount = updatedStudentRecords.filter(r => r.status === 'ABSENT').length;
 
     // 5. Save Record strictly for TODAY
-    const savedRecord = await Database.recordAttendance({
+    const savedRecord = await AttendanceService.markAttendance(targetSchoolId, academicSession, {
       id: todayRecord?.id,
       school_id: targetSchoolId,
       academic_session: academicSession,

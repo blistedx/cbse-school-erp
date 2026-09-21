@@ -14,7 +14,6 @@
     "seed:demo": "node scripts/seed-unified-fee-engine.mjs"
   },
   "dependencies": {
-    "@netlify/plugin-nextjs": "^5.15.13",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^26.4.0",
     "@types/pg": "^8.23.1",

@@ -12,13 +12,39 @@
  */
 
 import { NextResponse } from 'next/server';
-import { createHmac, createHash } from 'crypto';
+import { createHmac, createHash, timingSafeEqual } from 'crypto';
+import { getDatabase } from '@/lib/mongodb';
 
 /**
  * Server-side token blocklist.
  * Maps token signature SHA-256 hash -> expiration timestamp (ms).
  */
 const revokedTokenHashes = new Map<string, number>();
+
+export async function revokeTokenAsync(token: string): Promise<void> {
+  revokeToken(token);
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 2) return;
+    const [payload, sig] = parts;
+    const data: TokenPayload = JSON.parse(fromB64url(payload));
+    const tokenHash = createHash('sha256').update(sig).digest('hex');
+    const db = await getDatabase();
+    if (db) {
+      await db.collection('revoked_tokens').updateOne(
+        { token_hash: tokenHash },
+        {
+          $set: {
+            token_hash: tokenHash,
+            expires_at: new Date(data.exp || Date.now() + TOKEN_TTL_MS),
+            created_at: new Date()
+          }
+        },
+        { upsert: true }
+      );
+    }
+  } catch {}
+}
 
 export function revokeToken(token: string): void {
   try {
@@ -107,13 +133,14 @@ export function verifySessionToken(token: string): TokenPayload | null {
 
     const [payload, sig] = parts;
     const expectedSig = sign(payload);
-    // Constant-time comparison to prevent timing attacks
-    if (sig.length !== expectedSig.length) return null;
-    let diff = 0;
-    for (let i = 0; i < sig.length; i++) {
-      diff |= sig.charCodeAt(i) ^ expectedSig.charCodeAt(i);
+    
+    // Constant-time comparison using crypto.timingSafeEqual to prevent timing attacks
+    const sigBuf = Buffer.from(sig, 'utf8');
+    const expectedBuf = Buffer.from(expectedSig, 'utf8');
+    if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) {
+      return null;
     }
-    if (diff !== 0) return null;
+
     const data: TokenPayload = JSON.parse(fromB64url(payload));
     if (Date.now() > data.exp) return null;
     return data;
@@ -246,14 +273,10 @@ export function resolveTenantSchoolId(
     const cleanReq = requestedSchoolId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     const cleanUser = userSchoolId.toUpperCase().replace(/[^A-Z0-9]/g, '');
     
-    // Known school ID/code cross-mappings
+    // Exact or canonical match only
     const isDirectMatch = requestedSchoolId.trim() === userSchoolId || cleanReq === cleanUser || canonicalReq === canonicalUser;
-    const isKnownAlias = (cleanReq.startsWith('DPS') && cleanUser.startsWith('DPS')) ||
-                         (cleanReq.startsWith('SXHS') && cleanUser.startsWith('SXHS')) ||
-                         (cleanReq.startsWith('KV') && cleanUser.startsWith('KV')) ||
-                         (cleanReq === 'DPS2026' && cleanUser === 'SCH1788255333307') ||
-                         (cleanUser === 'DPS2026' && cleanReq === 'SCH1788255333307') ||
-                         cleanReq.includes(cleanUser) || cleanUser.includes(cleanReq);
+    const isKnownAlias = (cleanReq === 'DPS2026' && cleanUser === 'SCH1788255333307') ||
+                         (cleanUser === 'DPS2026' && cleanReq === 'SCH1788255333307');
 
     if (!isDirectMatch && !isKnownAlias) {
       return NextResponse.json(
@@ -266,6 +289,6 @@ export function resolveTenantSchoolId(
     }
   }
 
-  return canonicalReq || canonicalUser;
+  return canonicalUser;
 }
 

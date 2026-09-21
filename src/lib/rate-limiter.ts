@@ -1,21 +1,19 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
+import { getDatabase } from '@/lib/mongodb';
 
 interface RateLimitRecord {
   count: number;
   firstAttempt: number;
 }
 
-// In-memory sliding-window bucket store
-// NOTE: For multi-instance/serverless production (e.g. Vercel Edge/Serverless),
-// replace or supplement this with Upstash Redis / Redis for shared state across lambdas.
 const bucketStores = new Map<string, Map<string, RateLimitRecord>>();
 
 export function getClientIp(req: Request): string {
   return (
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     req.headers.get('x-real-ip') ||
-    'unknown'
+    '127.0.0.1'
   );
 }
 
@@ -26,11 +24,12 @@ export function checkRateLimit(
     maxAttempts: number;
     windowMs: number;
     skipLocalhost?: boolean;
+    customKey?: string;
   }
 ): { allowed: boolean; retryAfterSeconds?: number; response?: NextResponse } {
-  const ip = getClientIp(req);
+  const ip = options.customKey || getClientIp(req);
   const now = Date.now();
-  const isLocal = ip === '127.0.0.1' || ip === '::1' || ip === 'unknown';
+  const isLocal = !options.customKey && (ip === '127.0.0.1' || ip === '::1' || ip === 'unknown');
 
   if (options.skipLocalhost && isLocal) {
     return { allowed: true };
@@ -54,7 +53,7 @@ export function checkRateLimit(
         response: NextResponse.json(
           {
             success: false,
-            error: `Too many requests. Please try again in ${retryAfterMin} minute(s).`
+            error: `Too many attempts. Account/IP temporarily locked. Please try again in ${retryAfterMin} minute(s).`
           },
           {
             status: 429,
@@ -73,10 +72,34 @@ export function checkRateLimit(
   return { allowed: true };
 }
 
-export function resetRateLimit(bucketName: string, req: Request): void {
-  const ip = getClientIp(req);
+export function checkAccountLockout(
+  schoolCode: string,
+  username: string,
+  maxAttempts = 5,
+  windowMs = 15 * 60 * 1000
+): { locked: boolean; retryAfterSeconds?: number; response?: NextResponse } {
+  const key = `${schoolCode.toUpperCase()}:${username.toUpperCase()}`;
+  const rate = checkRateLimit({ headers: new Headers() } as any, {
+    bucketName: 'account-lockout',
+    maxAttempts,
+    windowMs,
+    customKey: key
+  });
+  return {
+    locked: !rate.allowed,
+    retryAfterSeconds: rate.retryAfterSeconds,
+    response: rate.response
+  };
+}
+
+export function resetRateLimit(bucketName: string, req?: Request, customKey?: string): void {
   const store = bucketStores.get(bucketName);
-  if (store) {
+  if (!store) return;
+  if (customKey) {
+    store.delete(customKey);
+  }
+  if (req) {
+    const ip = getClientIp(req);
     store.delete(ip);
   }
 }

@@ -1,17 +1,24 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { MongoClient, Db } from 'mongodb';
+import dotenv from 'dotenv';
 
-const uri = process.env.MONGODB_URI || '';
+if (typeof window === 'undefined') {
+  dotenv.config({ path: '.env.local' });
+  dotenv.config({ path: '.env' });
+}
+
+const isDev = process.env.NODE_ENV === 'development';
+const allowInsecureTls = isDev && process.env.ALLOW_INSECURE_TLS === 'true';
 
 const options = {
-  maxPoolSize: 20,
+  maxPoolSize: 50,
   minPoolSize: 1,
-  maxIdleTimeMS: 30000,
-  serverSelectionTimeoutMS: 15000,
-  connectTimeoutMS: 15000,
+  maxIdleTimeMS: 60000,
+  serverSelectionTimeoutMS: 30000,
+  connectTimeoutMS: 30000,
   socketTimeoutMS: 45000,
   tls: true,
-  tlsAllowInvalidCertificates: true
+  ...(allowInsecureTls ? { tlsAllowInvalidCertificates: true } : {})
 };
 
 let lastConnectionFailedAt = 0;
@@ -23,18 +30,7 @@ declare global {
 }
 
 export function getMongoUri(): string {
-  let uri = process.env.MONGODB_URI || '';
-  if (!uri && typeof window === 'undefined' && process.env.NEXT_RUNTIME !== 'edge') {
-    try {
-      const dotenv = require('dotenv');
-      dotenv.config({ path: '.env.local' });
-      dotenv.config({ path: '.env' });
-      uri = process.env.MONGODB_URI || '';
-    } catch {
-      // ignore
-    }
-  }
-  return uri;
+  return process.env.MONGODB_URI || '';
 }
 
 export function isMongoConfigured(): boolean {
@@ -84,6 +80,7 @@ export async function getDatabase(dbName = 'edugit'): Promise<Db | null> {
 }
 
 export async function checkMongoStatus(): Promise<{ connected: boolean; error: string | null; uriMasked: string }> {
+  const uri = getMongoUri();
   const uriMasked = uri ? uri.replace(/:([^@]+)@/, ':****@') : 'Local Only';
 
   if (!isMongoConfigured()) {

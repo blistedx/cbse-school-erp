@@ -1,8 +1,7 @@
-/*! EduSuite Single Source of Truth Stats Engine v1.0.0 */
-
 import { getDatabase } from '@/lib/mongodb';
 import { ACADEMIC_MONTHS, MONTH_FULL_NAMES } from '@/lib/fees-engine/constants';
 import type { AcademicMonth, FeeLedgerLine, ReceiptRecord } from '@/lib/fees-engine/types';
+import { AggregatesService } from '@/lib/services/aggregates.service';
 
 export interface FeeStatsFilters {
   session?: string;
@@ -129,290 +128,38 @@ export async function getSchoolFinancialStats(
     return cached.stats;
   }
 
-  const db = await getDatabase();
-  if (!db) {
-    if (cached) return cached.stats;
-    return getEmptyStats(schoolId, session);
-  }
-
-  // 1. Fetch active students for metadata mapping
-  const studentDocs = await db.collection('students').find({
-    school_id: schoolId,
-    status: 'ACTIVE'
-  }, {
-    projection: {
-      id: 1,
-      admission_no: 1,
-      full_name: 1,
-      first_name: 1,
-      last_name: 1,
-      class_name: 1,
-      section: 1,
-      father_name: 1,
-      guardian_name: 1,
-      mobile: 1,
-      guardian_phone: 1
-    }
-  }).toArray();
-
-  const studentsMap = new Map<string, any>();
-  for (const s of studentDocs) {
-    studentsMap.set(s.id, s);
-    if (s.admission_no) studentsMap.set(s.admission_no, s);
-  }
-
-  // 2. Fetch all active ledger lines in one single projection
-  const allLines = await db.collection('fee_ledger').find({
-    school_id: schoolId,
-    academic_session: session,
-    is_cancelled: { $ne: true }
-  }, {
-    projection: {
-      student_id: 1,
-      admission_no: 1,
-      class_name: 1,
-      section: 1,
-      line_type: 1,
-      fee_head: 1,
-      adjustment_direction: 1,
-      amount: 1,
-      month: 1,
-      txn_date: 1
-    }
-  }).toArray() as unknown as FeeLedgerLine[];
-
-  const studentLedgerMap = new Map<string, {
-    studentId: string;
-    studentName: string;
-    admissionNo: string;
-    className: string;
-    section: string;
-    fatherName: string;
-    mobile: string;
-    demand: number;
-    paid: number;
-    discount: number;
-  }>();
-
-  const classBreakdownMap = new Map<string, {
-    className: string;
-    students: Set<string>;
-    paidStudents: Set<string>;
-    collectedPaise: number;
-  }>();
-
-  const monthData: Record<AcademicMonth, { demand: number; paid: number; discount: number; paidStudents: Set<string> }> = {
-    APR: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
-    MAY: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
-    JUN: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
-    JUL: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
-    AUG: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
-    SEP: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
-    OCT: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
-    NOV: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
-    DEC: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
-    JAN: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
-    FEB: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
-    MAR: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
-  };
-
-  for (const line of allLines) {
-    const sId = String(line.student_id || line.admission_no || 'UNKNOWN');
-    if (!studentLedgerMap.has(sId)) {
-      const sInfo = studentsMap.get(sId);
-      const sName = sInfo?.full_name || `${sInfo?.first_name || ''} ${sInfo?.last_name || ''}`.trim() || sId;
-      studentLedgerMap.set(sId, {
-        studentId: sId,
-        studentName: sName,
-        admissionNo: line.admission_no || sInfo?.admission_no || '',
-        className: line.class_name || sInfo?.class_name || '',
-        section: line.section || sInfo?.section || 'A',
-        fatherName: sInfo?.father_name || sInfo?.guardian_name || '',
-        mobile: sInfo?.guardian_phone || sInfo?.mobile || '',
-        demand: 0,
-        paid: 0,
-        discount: 0,
-      });
-    }
-
-    const st = studentLedgerMap.get(sId)!;
-    const amt = Number(line.amount) || 0;
-
-    if (['DEMAND', 'OPENING_BALANCE', 'FINE'].includes(line.line_type) || (line.line_type === 'ADJUSTMENT' && line.adjustment_direction !== 'CREDIT')) {
-      st.demand += amt;
-      if (line.month && monthData[line.month]) {
-        monthData[line.month].demand += amt;
-      }
-    } else if (line.line_type === 'PAYMENT' || (line.line_type === 'ADJUSTMENT' && line.adjustment_direction === 'CREDIT')) {
-      st.paid += amt;
-      let mKey: AcademicMonth | null = (line.month && monthData[line.month as AcademicMonth]) ? (line.month as AcademicMonth) : null;
-      if (!mKey && line.txn_date) {
-        const mNum = String(line.txn_date).slice(5, 7);
-        const numToMonth: Record<string, AcademicMonth> = {
-          '04': 'APR', '05': 'MAY', '06': 'JUN', '07': 'JUL',
-          '08': 'AUG', '09': 'SEP', '10': 'OCT', '11': 'NOV',
-          '12': 'DEC', '01': 'JAN', '02': 'FEB', '03': 'MAR'
-        };
-        if (numToMonth[mNum]) mKey = numToMonth[mNum];
-      }
-      if (mKey && monthData[mKey]) {
-        monthData[mKey].paid += amt;
-        if (amt > 0) monthData[mKey].paidStudents.add(sId);
-      }
-    } else if (['DISCOUNT', 'WAIVER'].includes(line.line_type)) {
-      st.discount += amt;
-      if (line.month && monthData[line.month]) {
-        monthData[line.month].discount += amt;
-      }
-    }
-
-    // Class month breakdown for SEP (or current month)
-    const effectiveLineMonth = line.month || (line.txn_date && line.txn_date.slice(5, 7) === '09' ? 'SEP' : null);
-    if (effectiveLineMonth === 'SEP') {
-      const cls = line.class_name || st.className || 'Class 1';
-      if (!classBreakdownMap.has(cls)) {
-        classBreakdownMap.set(cls, {
-          className: cls,
-          students: new Set(),
-          paidStudents: new Set(),
-          collectedPaise: 0,
-        });
-      }
-      const cData = classBreakdownMap.get(cls)!;
-      cData.students.add(sId);
-      if (line.line_type === 'PAYMENT' || (line.line_type === 'ADJUSTMENT' && line.adjustment_direction === 'CREDIT')) {
-        cData.collectedPaise += amt;
-        if (amt > 0) cData.paidStudents.add(sId);
-      }
-    }
-  }
-
-  let totalBilled = 0;
-  let totalCollected = 0;
-  let totalDiscount = 0;
-  let totalPending = 0;
-  let totalAdvance = 0;
-  let zeroPaidStudents = 0;
-  const pendingList: Array<any> = [];
-
-  for (const row of Array.from(studentLedgerMap.values())) {
-    const demand = row.demand;
-    const paid = row.paid;
-    const discount = row.discount;
-    const bal = Math.max(0, demand - discount - paid);
-    const adv = Math.max(0, paid + discount - demand);
-
-    totalBilled += demand;
-    totalCollected += paid;
-    totalDiscount += discount;
-    totalPending += bal;
-    totalAdvance += adv;
-
-    if (demand > 0 && paid === 0) zeroPaidStudents++;
-
-    if (bal > 0) {
-      pendingList.push({
-        studentId: row.studentId,
-        studentName: row.studentName,
-        admissionNo: row.admissionNo,
-        classSection: `${row.className} - ${row.section}`,
-        fatherName: row.fatherName,
-        mobile: row.mobile,
-        pendingPaise: bal,
-      });
-    }
-  }
-
-  pendingList.sort((a, b) => b.pendingPaise - a.pendingPaise);
-
-  const thisMonthBreakdown = Array.from(classBreakdownMap.values()).map(c => ({
-    className: c.className,
-    totalStudents: c.students.size,
-    submittedCount: c.paidStudents.size,
-    notSubmittedCount: Math.max(0, c.students.size - c.paidStudents.size),
-    collectedPaise: c.collectedPaise,
-  })).sort((a, b) => a.className.localeCompare(b.className));
-
-  const netDemand = Math.max(0, totalBilled - totalDiscount);
-  const collectionPercentage = netDemand > 0 ? Math.round((totalCollected / netDemand) * 100) : 0;
-  const totalStudentsCount = Math.max(studentDocs.length, studentLedgerMap.size, 505);
-
-  const monthWiseTrend: MonthTrendItem[] = ACADEMIC_MONTHS.map(m => {
-    const d = monthData[m];
-    const yearStr = ['JAN', 'FEB', 'MAR'].includes(m) ? '2027' : '2026';
-    const demandRupees = Math.round(d.demand / 100);
-    const paidRupees = Math.round(d.paid / 100);
-    const discountRupees = Math.round(d.discount / 100);
-    const duesRupees = Math.max(0, demandRupees - discountRupees - paidRupees);
-    return {
-      month: m,
-      label: m,
-      period: `${MONTH_FULL_NAMES[m]} ${yearStr}`,
-      demandRupees,
-      collectedRupees: paidRupees,
-      paidRupees,
-      discountRupees,
-      duesRupees,
-      paidStudentsCount: d.paidStudents.size,
-      totalStudentsCount,
-    };
-  });
-
-  const cycleMetrics: Record<string, CycleMetricItem> = {};
-  for (const cycle of DASHBOARD_FEE_CYCLES_CONFIG) {
-    let grandDemandPaise = 0;
-    let collectedPaise = 0;
-    let discountPaise = 0;
-    const paidStudents = new Set<string>();
-
-    for (const m of cycle.months) {
-      grandDemandPaise += monthData[m].demand;
-      collectedPaise += monthData[m].paid;
-      discountPaise += monthData[m].discount;
-      monthData[m].paidStudents.forEach(s => paidStudents.add(s));
-    }
-
-    const pendingPaise = Math.max(0, grandDemandPaise - discountPaise - collectedPaise);
-    const paidStudentsCount = paidStudents.size;
-
-    cycleMetrics[cycle.id] = {
-      cycleId: cycle.id,
-      cycleNumber: cycle.cycleNumber,
-      name: cycle.name,
-      shortLabel: cycle.shortLabel,
-      grandDemand: Math.round(grandDemandPaise / 100),
-      collectedAmount: Math.round(collectedPaise / 100),
-      pendingAmount: Math.round(pendingPaise / 100),
-      paidStudentsCount,
-      pendingStudentsCount: Math.max(0, totalStudentsCount - paidStudentsCount),
-      studentCount: totalStudentsCount,
-    };
-  }
-
-  const stats: SchoolFinancialStats = {
+  const aggregate = await AggregatesService.getSchoolAggregate(schoolId, session, forceFresh);
+  const formatted: SchoolFinancialStats = {
     schoolId,
     session,
-    totalBilledPaise: totalBilled,
-    totalCollectedPaise: totalCollected,
-    totalPendingPaise: totalPending,
-    totalDiscountPaise: totalDiscount,
-    totalAdvancePaise: totalAdvance,
-    collectionPercentage,
-    studentsWithNothingPaid: zeroPaidStudents,
-    totalStudentsCount,
-    topPending: pendingList.slice(0, 10),
-    thisMonthBreakdown,
-    monthWiseTrend,
-    cycleMetrics,
-    cachedAt: new Date().toISOString()
+    totalBilledPaise: aggregate.financials.totalBilledPaise,
+    totalCollectedPaise: aggregate.financials.totalCollectedPaise,
+    totalPendingPaise: aggregate.financials.totalPendingPaise,
+    totalDiscountPaise: aggregate.financials.totalDiscountPaise,
+    totalAdvancePaise: 0,
+    collectionPercentage: aggregate.financials.collectionPercentage,
+    studentsWithNothingPaid: aggregate.financials.studentsWithNothingPaid,
+    totalStudentsCount: aggregate.total_students,
+    topPending: [],
+    thisMonthBreakdown: [],
+    monthWiseTrend: (aggregate.financials.monthWiseTrend || []).map(m => ({
+      month: m.month as AcademicMonth,
+      label: m.month,
+      period: m.month,
+      demandRupees: m.billed,
+      collectedRupees: m.collected,
+      paidRupees: m.collected,
+      duesRupees: m.pending,
+      discountRupees: 0,
+      paidStudentsCount: 0,
+      totalStudentsCount: aggregate.total_students
+    })),
+    cycleMetrics: {},
+    cachedAt: aggregate.updated_at || new Date().toISOString()
   };
 
-  statsMemoryCache.set(cacheKey, {
-    stats,
-    expiresAt: Date.now() + 60000
-  });
-
-  return stats;
+  statsMemoryCache.set(cacheKey, { stats: formatted, expiresAt: Date.now() + 60000 });
+  return formatted;
 }
 
 /**

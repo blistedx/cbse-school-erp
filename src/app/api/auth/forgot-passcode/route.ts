@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { Database } from '@/lib/db';
+import { Database, hashPassword } from '@/lib/db';
 import { checkRateLimit, resetRateLimit } from '@/lib/rate-limiter';
 import { sendPasswordResetEmail, maskEmail } from '@/lib/email';
+import { validateBody, forgotPasscodeSchema, sanitizeNoSqlInput } from '@/lib/validation-schemas';
 
 const UNIFORM_RESET_RESPONSE = 'If the provided credentials match an active account, a password reset notification has been dispatched to the registered contact on file.';
 
@@ -11,15 +12,27 @@ export async function POST(req: Request) {
     const rate = checkRateLimit(req, {
       bucketName: 'auth-forgot-passcode',
       maxAttempts: 5,
-      windowMs: 15 * 60 * 1000
+      windowMs: 15 * 60 * 1000,
+      skipLocalhost: process.env.NODE_ENV !== 'production'
     });
     if (!rate.allowed) return rate.response!;
 
-    const body = await req.json();
-    const { school_code, username, account_type } = body;
+    const rawBody = await req.json().catch(() => null);
+    if (!rawBody) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON request payload.' },
+        { status: 400 }
+      );
+    }
 
-    const rawSchoolCode = (school_code || '').toString().trim().toUpperCase();
-    const rawUsername = (username || '').toString().trim();
+    const validation = validateBody(forgotPasscodeSchema, sanitizeNoSqlInput(rawBody));
+    if (!validation.success) {
+      return validation.response;
+    }
+
+    const { school_code, username, account_type } = validation.data;
+    const rawSchoolCode = (school_code || '').trim().toUpperCase();
+    const rawUsername = (username || '').trim();
     const uname = rawUsername.toUpperCase();
 
     // 0. AGENCY SUPERADMIN FORGOT PASSCODE FLOW
@@ -46,9 +59,8 @@ export async function POST(req: Request) {
         });
       }
 
-      // Cryptographically secure 6-digit passcode generator
+      // Cryptographically secure 6-digit temporary passcode generator
       const newPasscode = crypto.randomInt(100000, 1000000).toString();
-
       const agencyEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'blistedx@gmail.com';
       const maskedEmail = maskEmail(agencyEmail);
 
@@ -63,58 +75,38 @@ export async function POST(req: Request) {
         isAgencySuperAdmin: true
       });
 
-      if (!emailResult.success) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Failed to deliver passcode reset email: ${emailResult.message}`
-          },
-          { status: 500 }
-        );
+      if (emailResult.success) {
+        const hashedPasscode = await hashPassword(newPasscode);
+        await Database.updateAgencyPassword(hashedPasscode);
+        resetRateLimit('auth-forgot-passcode', req);
       }
-
-      // Persist only after email is successfully sent
-      await Database.updateAgencyPassword(newPasscode);
-
-      resetRateLimit('auth-forgot-passcode', req);
 
       return NextResponse.json({
         success: true,
         message: UNIFORM_RESET_RESPONSE,
         target_email: maskedEmail,
-        masked_email: maskedEmail,
         is_agency: true
       });
     }
 
     // 1. SCHOOL USER FORGOT PASSCODE FLOW
-    if (!rawSchoolCode) {
-      return NextResponse.json(
-        { success: false, error: 'School Code is required to reset passcode.' },
-        { status: 400 }
-      );
-    }
-
-    if (!rawUsername) {
-      return NextResponse.json(
-        { success: false, error: 'User ID / Admission No / Staff Code is required.' },
-        { status: 400 }
-      );
+    if (!rawSchoolCode || !rawUsername) {
+      return NextResponse.json({
+        success: true,
+        message: UNIFORM_RESET_RESPONSE
+      });
     }
 
     // Locate the school
     const school = await Database.getSchoolByCode(rawSchoolCode);
     if (!school || school.status !== 'ACTIVE') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `School with code "${rawSchoolCode}" was not found or is currently inactive. Please check the institutional code.`
-        },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: true,
+        message: UNIFORM_RESET_RESPONSE
+      });
     }
 
-    // Cryptographically secure 6-digit passcode generator
+    // Cryptographically secure 6-digit temporary passcode generator
     const newPasscode = crypto.randomInt(100000, 1000000).toString();
 
     let emailPayload: {
@@ -206,58 +198,40 @@ export async function POST(req: Request) {
     }
 
     if (!emailPayload) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `No registered account found matching ID "${rawUsername}" in ${school.school_name}. Please check your User ID, Staff Code, or Admission No.`
-        },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: true,
+        message: UNIFORM_RESET_RESPONSE
+      });
     }
 
-    // 5. Send notification email
+    // 5. Send notification email with temporary passcode
     const emailResult = await sendPasswordResetEmail(emailPayload);
 
-    if (!emailResult.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Failed to deliver passcode reset email: ${emailResult.message}`
-        },
-        { status: 500 }
-      );
+    if (emailResult.success) {
+      const hashedPasscode = await hashPassword(newPasscode);
+      if (matchedType === 'admin' && matchedRecordId) {
+        await Database.updateSchoolSettings(matchedRecordId, { admin_pin: hashedPasscode, must_change_password: true });
+      } else if (matchedType === 'teacher' && matchedRecordId) {
+        await Database.updateTeacher(matchedRecordId, { passcode: hashedPasscode, must_change_password: true });
+      } else if (matchedType === 'student' && matchedRecordId) {
+        await Database.updateStudent(matchedRecordId, { passcode: hashedPasscode, must_change_password: true });
+      }
+      resetRateLimit('auth-forgot-passcode', req);
     }
-
-    // Crucial: Only commit password change to database AFTER email delivery succeeds
-    if (matchedType === 'admin' && matchedRecordId) {
-      await Database.updateSchoolSettings(matchedRecordId, { admin_pin: newPasscode });
-    } else if (matchedType === 'teacher' && matchedRecordId) {
-      await Database.updateTeacher(matchedRecordId, { passcode: newPasscode });
-    } else if (matchedType === 'student' && matchedRecordId) {
-      await Database.updateStudent(matchedRecordId, { passcode: newPasscode });
-    }
-
-    // Reset rate limiter on valid request
-    resetRateLimit('auth-forgot-passcode', req);
 
     const rawTargetEmail = emailPayload.userEmail || process.env.ADMIN_NOTIFICATION_EMAIL || 'blistedx@gmail.com';
     const maskedEmail = maskEmail(rawTargetEmail);
-    const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'blistedx@gmail.com';
-    const isCcAdmin = rawTargetEmail.trim().toLowerCase() !== adminEmail.trim().toLowerCase();
 
     return NextResponse.json({
       success: true,
-      message: `A new security passcode has been dispatched to ${maskedEmail}${isCcAdmin ? ` (copy sent to ${maskEmail(adminEmail)})` : ''}.`,
+      message: UNIFORM_RESET_RESPONSE,
       target_email: maskedEmail,
-      admin_email: isCcAdmin ? maskEmail(adminEmail) : undefined,
-      masked_email: maskedEmail,
-      account_name: emailPayload.userName,
       is_agency: false
     });
   } catch (err: any) {
     console.error('[AUTH_FORGOT_PASSCODE_ERROR]', err);
     return NextResponse.json(
-      { success: false, error: `Passcode reset error: ${err?.message || 'Server error'}` },
+      { success: false, error: 'Failed to process passcode reset request.' },
       { status: 500 }
     );
   }

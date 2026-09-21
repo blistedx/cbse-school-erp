@@ -555,13 +555,9 @@ function ERPWorkspaceContent() {
   const [showProfilePin, setShowProfilePin] = useState(true);
   const [showModalPin, setShowModalPin] = useState(true);
 
-  // Helper: format passcodes in plain text, converting legacy bcrypt hashes to 123456
-  const cleanPlainPasscode = (code?: string): string => {
-    if (!code) return '123456';
-    if (code.startsWith('$2a$') || code.startsWith('$2b$') || code.startsWith('$2y$')) {
-      return '123456';
-    }
-    return code.trim() || '123456';
+  // Helper: mask passcodes for display
+  const cleanPlainPasscode = (_code?: string): string => {
+    return '••••••';
   };
 
   // Modals & Active Edit States
@@ -3004,10 +3000,10 @@ function ERPWorkspaceContent() {
   };
 
   // PIN / Passcode Reset Powers
-  const handleOpenPinModal = (type: 'student' | 'teacher', id: string, name: string, currentPin = '123456') => {
-    const cleanPin = cleanPlainPasscode(currentPin);
-    setPinModal({ type, id, name, currentPin: cleanPin });
-    setCustomPinInput(cleanPin);
+  const handleOpenPinModal = (type: 'student' | 'teacher', id: string, name: string) => {
+    const randomPin = Math.floor(100000 + Math.random() * 900000).toString();
+    setPinModal({ type, id, name, currentPin: '••••••' });
+    setCustomPinInput(randomPin);
   };
 
   const handleSaveCustomPin = async (e: React.FormEvent) => {
@@ -3022,7 +3018,7 @@ function ERPWorkspaceContent() {
       });
       const data = await res.json();
       if (data.success) {
-        showAdminToast(`Login PIN for ${pinModal.name} updated to "${customPinInput}"!`);
+        showAdminToast(`Temporary PIN for ${pinModal.name} updated to "${customPinInput}". User must change it on next login.`);
         setPinModal(null);
         loadSchoolData(selectedSchool.id);
       }
@@ -6576,7 +6572,6 @@ function ERPWorkspaceContent() {
                                   >
                                     {s.admission_no}
                                   </button>
-                                  <span className="text-[10px] text-emerald-700 font-mono font-semibold block">PIN: {cleanPlainPasscode(s.passcode)}</span>
                                 </td>
 
                                 {/* Roll No */}
@@ -6788,7 +6783,7 @@ function ERPWorkspaceContent() {
                                             <button
                                               onClick={() => {
                                                 setActiveStudentMenuId(null);
-                                                handleOpenPinModal('student', s.id, s.full_name, s.passcode || '123456');
+                                                handleOpenPinModal('student', s.id, s.full_name);
                                               }}
                                               className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
                                             >
@@ -7017,7 +7012,7 @@ function ERPWorkspaceContent() {
                               {s.status !== 'INACTIVE' ? 'Active' : 'Inactive'}
                             </button>
                             <button
-                              onClick={() => handleOpenPinModal('student', s.id, s.full_name, s.passcode || '123456')}
+                              onClick={() => handleOpenPinModal('student', s.id, s.full_name)}
                               className="p-1.5 rounded-full bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] cursor-pointer transition-colors"
                               title="Reset PIN"
                             >
@@ -7841,9 +7836,6 @@ function ERPWorkspaceContent() {
                                   >
                                     {t.staff_code}
                                   </button>
-                                  {['SUPERADMIN', 'AGENCY_SUPERADMIN', 'ADMIN', 'PRINCIPAL', 'VICE_PRINCIPAL', 'SCHOOL_ADMIN'].includes(effectiveRole) && (
-                                    <span className="text-[10px] text-emerald-700 font-mono font-semibold block">PIN: {cleanPlainPasscode(t.passcode)}</span>
-                                  )}
                                 </td>
 
                                 {/* Name with Circular Avatar & 1-Click Photo Upload */}
@@ -8006,7 +7998,7 @@ function ERPWorkspaceContent() {
                                           <button
                                             onClick={() => {
                                               setActiveTeacherMenuId(null);
-                                              handleOpenPinModal('teacher', t.id, t.full_name, t.passcode || '123456');
+                                              handleOpenPinModal('teacher', t.id, t.full_name);
                                             }}
                                             className="w-full text-left px-3.5 py-1.5 hover:bg-[#F4F8F5] border-none bg-transparent cursor-pointer flex items-center gap-2 text-[#122A24]"
                                           >
@@ -8189,7 +8181,7 @@ function ERPWorkspaceContent() {
                               {t.status !== 'INACTIVE' ? 'Active' : 'Inactive'}
                             </button>
                             <button
-                              onClick={() => handleOpenPinModal('teacher', t.id, t.full_name, t.passcode || '123456')}
+                              onClick={() => handleOpenPinModal('teacher', t.id, t.full_name)}
                               className="p-1.5 rounded-full bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] cursor-pointer transition-colors"
                               title="Reset PIN"
                             >
@@ -14699,26 +14691,35 @@ function ERPWorkspaceContent() {
                 Role: {pinModal.type === 'student' ? 'Student SIS Account' : 'Faculty Staff Account'}
               </div>
               <div className="mt-2 flex items-center gap-2 font-mono text-xs">
-                <span className="text-slate-600 font-sans">Current Plain Text PIN:</span>
-                <span className="font-bold text-emerald-800 bg-white px-2.5 py-0.5 rounded-lg border border-emerald-200 tracking-wider shadow-2xs">{cleanPlainPasscode(pinModal.currentPin)}</span>
+                <span className="text-slate-600 font-sans">Credential Security:</span>
+                <span className="font-bold text-emerald-800 bg-white px-2.5 py-0.5 rounded-lg border border-emerald-200 tracking-wider shadow-2xs">Bcrypt Work Factor 12 (Hashed)</span>
               </div>
             </div>
 
             <form onSubmit={handleSaveCustomPin} className="space-y-4 text-xs">
               <div>
-                <label className="block font-semibold text-[#122A24] mb-1">
-                  New 6-Digit Passcode / Security PIN *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-[#122A24]">
+                    New Temporary 6-Digit Passcode *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setCustomPinInput(Math.floor(100000 + Math.random() * 900000).toString())}
+                    className="text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold underline bg-transparent border-none cursor-pointer"
+                  >
+                    🎲 Generate Random PIN
+                  </button>
+                </div>
                 <input
                   type="text"
                   required
                   value={customPinInput}
                   onChange={(e) => setCustomPinInput(e.target.value)}
-                  placeholder="e.g. 123456"
+                  placeholder="e.g. 583921"
                   className="w-full px-3.5 py-2.5 border border-[#DCE8E0] rounded-xl font-mono text-sm font-bold text-[#122A24] tracking-widest text-center"
                 />
                 <span className="text-[10.5px] text-[#2D5A4E] mt-1 block">
-                  Admin can set any 4-6 digit passcode for instant login access.
+                  Assigning a new temporary passcode will require the user to change their password upon their next sign-in.
                 </span>
               </div>
 
@@ -14734,7 +14735,7 @@ function ERPWorkspaceContent() {
                   type="submit"
                   className="px-5 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white font-semibold rounded-full cursor-pointer border-none shadow-xs text-xs"
                 >
-                  Update PIN in Database
+                  Set Temporary Passcode
                 </button>
               </div>
             </form>

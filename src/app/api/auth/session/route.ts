@@ -1,45 +1,51 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
-import { Database } from '@/lib/db';
-import { createSessionToken } from '@/lib/auth-guard';
+import { extractToken, verifySessionToken, createSessionToken } from '@/lib/auth-guard';
 
 /**
  * POST /api/auth/session
- * Ensures an active client workspace has a valid signed session token.
- * Validates the user credentials/context and returns a signed session token,
- * while also setting the erp_session_token cookie.
+ * Strictly verifies and refreshes an active, valid session token.
+ * Never accepts user id, role, or school from the request body.
+ * Returns 401 Unauthorized if no valid session exists.
  */
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const { userId, schoolId, role, username } = body;
-
-    if (!userId || !schoolId || !role) {
+    const token = extractToken(req);
+    if (!token) {
       return NextResponse.json(
-        { success: false, error: 'User context is required to issue a session token.' },
-        { status: 400 }
+        { success: false, error: 'Unauthorized: No active session token found. Please log in.' },
+        { status: 401 }
       );
     }
 
-    // Verify that the school exists
-    const school = (await Database.getSchoolById(schoolId)) || (await Database.getSchoolByCode(schoolId));
-    if (!school) {
+    const payload = verifySessionToken(token);
+    if (!payload) {
       return NextResponse.json(
-        { success: false, error: 'Specified school workspace does not exist.' },
-        { status: 404 }
+        { success: false, error: 'Unauthorized: Session token is invalid, expired, or revoked.' },
+        { status: 401 }
       );
     }
 
-    // Issue signed token valid for 12 hours
-    const sessionToken = createSessionToken(userId, schoolId, role.toUpperCase());
+    // Refresh valid session token
+    const refreshedToken = createSessionToken(
+      payload.userId,
+      payload.schoolId,
+      payload.role
+    );
 
     const response = NextResponse.json({
       success: true,
-      session_token: sessionToken
+      valid: true,
+      user: {
+        id: payload.userId,
+        school_id: payload.schoolId,
+        role: payload.role
+      },
+      session_token: refreshedToken
     });
 
     const isProd = process.env.NODE_ENV === 'production';
-    response.cookies.set('erp_session_token', sessionToken, {
+    response.cookies.set('erp_session_token', refreshedToken, {
       path: '/',
       maxAge: 43200,
       sameSite: 'lax',
@@ -50,8 +56,13 @@ export async function POST(req: Request) {
     return response;
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: err?.message || 'Failed to issue session token.' },
+      { success: false, error: err?.message || 'Failed to refresh session.' },
       { status: 500 }
     );
   }
 }
+
+export async function GET(req: Request) {
+  return POST(req);
+}
+
