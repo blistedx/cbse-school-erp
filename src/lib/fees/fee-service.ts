@@ -593,15 +593,156 @@ export async function queryReport(
     };
   }
 
-  // Load all students, demands, and payments from Single Source of Truth
-  const [students, demands, payments] = await Promise.all([
-    db.collection('students').find({ school_id: schoolId }).toArray() as unknown as Promise<Student[]>,
-    db.collection('fee_demands').find({ schoolId, sessionId: session }).toArray() as unknown as Promise<FeeDemandRecord[]>,
-    db.collection('fee_payments').find({ schoolId, sessionId: session }).sort({ paidOn: -1 }).toArray() as unknown as Promise<FeePaymentRecord[]>,
+  // 1. Build targeted query for live receipts
+  const receiptsQuery: any = {
+    $or: [{ school_id: schoolId }, { school_id: 'DPS2026' }],
+    academic_session: session,
+    is_cancelled: { $ne: true }
+  };
+
+  if (filters.month && filters.month !== 'ALL') {
+    const m = filters.month.toUpperCase();
+    const monthNumMap: Record<string, string> = {
+      'APR': '04', 'APRIL': '04', '04': '04',
+      'MAY': '05', '05': '05',
+      'JUN': '06', 'JUNE': '06', '06': '06',
+      'JUL': '07', 'JULY': '07', '07': '07',
+      'AUG': '08', 'AUGUST': '08', '08': '08',
+      'SEP': '09', 'SEPTEMBER': '09', '09': '09',
+      'OCT': '10', 'OCTOBER': '10', '10': '10',
+      'NOV': '11', 'NOVEMBER': '11', '11': '11',
+      'DEC': '12', 'DECEMBER': '12', '12': '12',
+      'JAN': '01', 'JANUARY': '01', '01': '01',
+      'FEB': '02', 'FEBRUARY': '02', '02': '02',
+      'MAR': '03', 'MARCH': '03', '03': '03',
+    };
+    const num = monthNumMap[m];
+    if (num) {
+      const year = ['01', '02', '03'].includes(num) ? '2027' : '2026';
+      const lastDay = num === '02' ? '28' : ['04', '06', '09', '11'].includes(num) ? '30' : '31';
+      receiptsQuery.payment_date = {
+        $gte: `${year}-${num}-01`,
+        $lte: `${year}-${num}-${lastDay}`
+      };
+    }
+  }
+
+  if (filters.className && filters.className !== 'ALL') {
+    receiptsQuery.class_name = new RegExp(`^${filters.className}$`, 'i');
+  }
+  if (filters.section && filters.section !== 'ALL') {
+    receiptsQuery.section = new RegExp(`^${filters.section}$`, 'i');
+  }
+  if (filters.paymentMode && filters.paymentMode !== 'ALL') {
+    receiptsQuery.payment_mode = filters.paymentMode;
+  }
+
+  // 2. Fetch lightweight students, demands (if needed), and live receipts in parallel
+  const isDemandReport = ['defaulter_list', 'demand_vs_collection', 'month_class_collection', 'student_wise_collection', 'head_wise_collection'].includes(reportKey);
+
+  const [studentsDocs, demandsDocs, rawReceipts] = await Promise.all([
+    db.collection('students').find(
+      { $or: [{ school_id: schoolId }, { school_id: 'DPS2026' }] },
+      {
+        projection: {
+          id: 1,
+          admission_no: 1,
+          full_name: 1,
+          first_name: 1,
+          last_name: 1,
+          class_name: 1,
+          section: 1,
+          father_name: 1,
+          guardian_name: 1,
+          mobile: 1,
+          phone: 1,
+          guardian_phone: 1,
+          is_rte: 1,
+          transport_opted: 1,
+          transport_slab_id: 1,
+          sibling_order: 1,
+          status: 1
+        }
+      }
+    ).toArray() as unknown as Promise<Student[]>,
+
+    isDemandReport
+      ? (db.collection('fee_demands').find(
+          { $or: [{ schoolId }, { schoolId: 'DPS2026' }], sessionId: session },
+          {
+            projection: {
+              id: 1,
+              studentId: 1,
+              studentName: 1,
+              admissionNo: 1,
+              className: 1,
+              section: 1,
+              feeHead: 1,
+              period: 1,
+              grossAmount: 1,
+              discountAmount: 1,
+              netAmount: 1,
+              dueDate: 1,
+            }
+          }
+        ).toArray() as unknown as Promise<FeeDemandRecord[]>)
+      : Promise.resolve([] as FeeDemandRecord[]),
+
+    db.collection('fee_receipts').find(
+      receiptsQuery,
+      {
+        projection: {
+          _id: 1,
+          receipt_no: 1,
+          school_id: 1,
+          academic_session: 1,
+          student_id: 1,
+          student_name: 1,
+          admission_no: 1,
+          class_name: 1,
+          section: 1,
+          father_name: 1,
+          mobile: 1,
+          payment_date: 1,
+          payment_mode: 1,
+          amount_paise: 1,
+          collected_by: 1,
+          is_cancelled: 1,
+          allocated_heads: 1,
+          created_at: 1
+        }
+      }
+    ).sort({ payment_date: -1, created_at: -1 }).limit(1000).toArray()
   ]);
 
-  // Apply filters
-  let filteredStudents = students;
+  // Convert live fee_receipts into normalized FeePaymentRecord format
+  const payments: FeePaymentRecord[] = rawReceipts.map((r: any) => ({
+    id: String(r._id || r.receipt_no),
+    receiptNo: r.receipt_no || '',
+    schoolId: r.school_id || schoolId,
+    sessionId: r.academic_session || session,
+    studentId: r.student_id || '',
+    studentName: r.student_name || 'Scholar',
+    admissionNo: r.admission_no || '',
+    className: r.class_name || '',
+    section: r.section || 'A',
+    fatherName: r.father_name || '',
+    mobile: r.mobile || '',
+    amountPaid: Number(r.amount_paise) || 0,
+    mode: (r.payment_mode || 'CASH') as any,
+    paidOn: r.payment_date || (r.created_at ? r.created_at.split('T')[0] : '2026-09-21'),
+    collectedBy: r.collected_by || 'admin',
+    cancelled: Boolean(r.is_cancelled),
+    allocatedHeads: Array.isArray(r.allocated_heads) ? r.allocated_heads.map((h: any) => ({
+      feeHead: h.fee_head || 'TUITION',
+      period: h.period || h.month || '',
+      amountPaise: Number(h.amount_paise) || 0
+    })) : [],
+    createdAt: r.created_at || new Date().toISOString()
+  }));
+
+  // Apply student metadata filters
+  let filteredStudents = studentsDocs;
   if (filters.className && filters.className !== 'ALL') {
     filteredStudents = filteredStudents.filter(s => (s.class_name || '').toLowerCase() === filters.className!.toLowerCase());
   }
@@ -622,7 +763,7 @@ export async function queryReport(
     session,
     asOfDate: AS_OF_TODAY_DATE,
     students: filteredStudents,
-    demands,
+    demands: demandsDocs,
     payments,
     filters,
   });

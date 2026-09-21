@@ -192,6 +192,30 @@ export async function collectFeePayment(
     const db = await getDatabase();
     if (db) {
       await db.collection(RECEIPTS_COLLECTION).insertOne(sanitizeDocNoBinary({ ...receipt }));
+      await db.collection('fee_payments').insertOne(sanitizeDocNoBinary({
+        id: receiptNo,
+        receiptNo: receiptNo,
+        schoolId: schoolId,
+        sessionId: session,
+        studentId: student.id,
+        studentName: receipt.student_name,
+        admissionNo: student.admission_no || '',
+        className: student.class_name || '',
+        section: student.section || 'A',
+        fatherName: student.father_name || '',
+        mobile: student.emergency_contact_phone || student.phone || student.guardian_phone || student.mobile || '',
+        amountPaid: amountPaise,
+        mode: paymentMode,
+        paidOn: todayDate,
+        collectedBy: collectedBy,
+        cancelled: false,
+        allocatedHeads: Array.isArray(allocatedHeads) ? allocatedHeads.map(h => ({
+          feeHead: h.fee_head || 'TUITION',
+          period: h.period || h.month || '',
+          amountPaise: Number(h.amount_paise) || 0
+        })) : [],
+        createdAt: receipt.created_at
+      }));
       // Update precomputed school_stats atomically
       await db.collection('school_stats').updateOne(
         { school_id: schoolId, session },

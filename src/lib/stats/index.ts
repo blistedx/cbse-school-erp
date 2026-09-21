@@ -245,9 +245,19 @@ export async function getSchoolFinancialStats(
       }
     } else if (line.line_type === 'PAYMENT' || (line.line_type === 'ADJUSTMENT' && line.adjustment_direction === 'CREDIT')) {
       st.paid += amt;
-      if (line.month && monthData[line.month]) {
-        monthData[line.month].paid += amt;
-        if (amt > 0) monthData[line.month].paidStudents.add(sId);
+      let mKey: AcademicMonth | null = (line.month && monthData[line.month as AcademicMonth]) ? (line.month as AcademicMonth) : null;
+      if (!mKey && line.txn_date) {
+        const mNum = String(line.txn_date).slice(5, 7);
+        const numToMonth: Record<string, AcademicMonth> = {
+          '04': 'APR', '05': 'MAY', '06': 'JUN', '07': 'JUL',
+          '08': 'AUG', '09': 'SEP', '10': 'OCT', '11': 'NOV',
+          '12': 'DEC', '01': 'JAN', '02': 'FEB', '03': 'MAR'
+        };
+        if (numToMonth[mNum]) mKey = numToMonth[mNum];
+      }
+      if (mKey && monthData[mKey]) {
+        monthData[mKey].paid += amt;
+        if (amt > 0) monthData[mKey].paidStudents.add(sId);
       }
     } else if (['DISCOUNT', 'WAIVER'].includes(line.line_type)) {
       st.discount += amt;
@@ -257,7 +267,8 @@ export async function getSchoolFinancialStats(
     }
 
     // Class month breakdown for SEP (or current month)
-    if (line.month === 'SEP') {
+    const effectiveLineMonth = line.month || (line.txn_date && line.txn_date.slice(5, 7) === '09' ? 'SEP' : null);
+    if (effectiveLineMonth === 'SEP') {
       const cls = line.class_name || st.className || 'Class 1';
       if (!classBreakdownMap.has(cls)) {
         classBreakdownMap.set(cls, {

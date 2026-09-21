@@ -1976,8 +1976,13 @@ export function DashboardFeeMaster({
                   <span className="text-xs font-bold text-slate-600">Month:</span>
                   <select
                     value={reportFilters.month}
-                    onChange={(e) => setReportFilters(p => ({ ...p, month: e.target.value }))}
-                    className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800"
+                    onChange={(e) => {
+                      const newM = e.target.value;
+                      const next = { ...reportFilters, month: newM };
+                      setReportFilters(next);
+                      loadReport(selectedReportId, next);
+                    }}
+                    className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 cursor-pointer"
                   >
                     {ACADEMIC_MONTHS.map(m => (
                       <option key={m} value={m}>{MONTH_FULL_NAMES[m]}</option>
@@ -1992,8 +1997,13 @@ export function DashboardFeeMaster({
                   <span className="text-xs font-bold text-slate-600">Class:</span>
                   <select
                     value={reportFilters.class}
-                    onChange={(e) => setReportFilters(p => ({ ...p, class: e.target.value }))}
-                    className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800"
+                    onChange={(e) => {
+                      const newC = e.target.value;
+                      const next = { ...reportFilters, class: newC };
+                      setReportFilters(next);
+                      loadReport(selectedReportId, next);
+                    }}
+                    className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 cursor-pointer"
                   >
                     <option value="ALL">All Classes</option>
                     {Array.from(new Set(students.map(s => s.class_name))).filter(Boolean).sort().map(c => (
@@ -2009,8 +2019,13 @@ export function DashboardFeeMaster({
                   <span className="text-xs font-bold text-slate-600">Transport:</span>
                   <select
                     value={reportFilters.transport}
-                    onChange={(e) => setReportFilters(p => ({ ...p, transport: e.target.value }))}
-                    className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800"
+                    onChange={(e) => {
+                      const newT = e.target.value;
+                      const next = { ...reportFilters, transport: newT };
+                      setReportFilters(next);
+                      loadReport(selectedReportId, next);
+                    }}
+                    className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 cursor-pointer"
                   >
                     <option value="ALL">All</option>
                     <option value="YES">Transport Opted</option>
@@ -2025,8 +2040,13 @@ export function DashboardFeeMaster({
                   <span className="text-xs font-bold text-slate-600">Sibling:</span>
                   <select
                     value={reportFilters.sibling}
-                    onChange={(e) => setReportFilters(p => ({ ...p, sibling: e.target.value }))}
-                    className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800"
+                    onChange={(e) => {
+                      const newS = e.target.value;
+                      const next = { ...reportFilters, sibling: newS };
+                      setReportFilters(next);
+                      loadReport(selectedReportId, next);
+                    }}
+                    className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 cursor-pointer"
                   >
                     <option value="ALL">All</option>
                     <option value="YES">Sibling Discount Eligible</option>
