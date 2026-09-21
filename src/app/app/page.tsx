@@ -1454,6 +1454,40 @@ function ERPWorkspaceContent() {
     };
   }, [selectedSchool?.id, selectedSchool?.school_code, selectedSession]);
 
+  // ⚡ Live Real-Time Fee Sync: Whenever any fee payment is recorded anywhere, immediately update invoices state & silently re-sync overview & reports
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let debounceTimer: NodeJS.Timeout | null = null;
+    const handleFeeRecorded = (e: any) => {
+      const newReceipt = e?.detail;
+      if (newReceipt && (newReceipt.receipt_no || newReceipt.id)) {
+        setInvoices(prev => {
+          const exists = prev.some(i => (i as any).receipt_no === newReceipt.receipt_no || i.id === newReceipt.id);
+          if (exists) {
+            return prev.map(i => ((i as any).receipt_no === newReceipt.receipt_no || i.id === newReceipt.id) ? newReceipt : i);
+          }
+          return [newReceipt, ...prev];
+        });
+      }
+
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const schoolCode = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+        loadSchoolData(schoolCode, selectedSession, true);
+      }, 150);
+    };
+
+    window.addEventListener('fee_payment_recorded', handleFeeRecorded);
+    window.addEventListener('erp_data_updated', handleFeeRecorded);
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      window.removeEventListener('fee_payment_recorded', handleFeeRecorded);
+      window.removeEventListener('erp_data_updated', handleFeeRecorded);
+    };
+  }, [selectedSchool?.id, selectedSchool?.school_code, selectedSession]);
+
   // Global Ctrl+K / Cmd+K shortcut for Omni-Search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

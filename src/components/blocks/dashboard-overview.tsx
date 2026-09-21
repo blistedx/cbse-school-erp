@@ -263,22 +263,42 @@ export function DashboardOverview({
   const [selectedFeeCycleId, setSelectedFeeCycleId] = useState<string>('cycle-5');
   const [feeCycleDropdownOpen, setFeeCycleDropdownOpen] = useState<boolean>(false);
   const [liveFeeFinancials, setLiveFeeFinancials] = useState<any>((overview as any)?.financials || null);
+  const [liveReceipts, setLiveReceipts] = useState<FeeInvoice[]>(invoices || []);
+
+  // Sync with prop updates
+  useEffect(() => {
+    if (Array.isArray(invoices) && invoices.length > 0) {
+      setLiveReceipts(invoices);
+    }
+  }, [invoices]);
 
   const fetchLiveFeeOverview = useCallback(async () => {
     const schoolCode = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
     try {
-      const res = await apiFetch(`/api/fee-master?action=overview&school_id=${encodeURIComponent(schoolCode)}&session=2026-27&_t=${Date.now()}`);
-      const data = await res.json();
-      if (data.success && data.overview) {
+      const [ovRes, recRes] = await Promise.all([
+        apiFetch(`/api/fee-master?action=overview&school_id=${encodeURIComponent(schoolCode)}&session=2026-27&_t=${Date.now()}`),
+        apiFetch(`/api/fee-master?action=receipts&school_id=${encodeURIComponent(schoolCode)}&session=2026-27&limit=1000&_t=${Date.now()}`)
+      ]);
+
+      const [ovData, recData] = await Promise.all([
+        ovRes.ok ? ovRes.json() : { success: false },
+        recRes.ok ? recRes.json() : { success: false }
+      ]);
+
+      if (ovData.success && ovData.overview) {
         setLiveFeeFinancials({
-          totalDemand: Math.round(data.overview.totalBilledPaise / 100),
-          totalCollected: Math.round(data.overview.totalCollectedPaise / 100),
-          totalOutstanding: Math.round(data.overview.totalPendingPaise / 100),
-          totalDiscount: Math.round(data.overview.totalDiscountPaise / 100),
-          collectionRate: data.overview.collectionPercentage,
-          monthWiseTrend: data.overview.monthWiseTrend || [],
-          cycleMetrics: data.overview.cycleMetrics || {},
+          totalDemand: Math.round(ovData.overview.totalBilledPaise / 100),
+          totalCollected: Math.round(ovData.overview.totalCollectedPaise / 100),
+          totalOutstanding: Math.round(ovData.overview.totalPendingPaise / 100),
+          totalDiscount: Math.round(ovData.overview.totalDiscountPaise / 100),
+          collectionRate: ovData.overview.collectionPercentage,
+          monthWiseTrend: ovData.overview.monthWiseTrend || [],
+          cycleMetrics: ovData.overview.cycleMetrics || {},
         });
+      }
+
+      if (recData.success && Array.isArray(recData.receipts) && recData.receipts.length > 0) {
+        setLiveReceipts(recData.receipts);
       }
     } catch (err) {
       console.error('[overview live fee fetch error]', err);
@@ -305,11 +325,22 @@ export function DashboardOverview({
   // Live real-time event listener for fee payment events across the ERP
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | null = null;
-    const handleLiveFeeUpdate = () => {
+    const handleLiveFeeUpdate = (e?: any) => {
+      const newRec = e?.detail;
+      if (newRec && (newRec.receipt_no || newRec.id)) {
+        setLiveReceipts(prev => {
+          const exists = prev.some(i => (i as any).receipt_no === newRec.receipt_no || i.id === newRec.id);
+          if (exists) {
+            return prev.map(i => ((i as any).receipt_no === newRec.receipt_no || i.id === newRec.id) ? newRec : i);
+          }
+          return [newRec, ...prev];
+        });
+      }
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         fetchLiveFeeOverview();
-      }, 300);
+        onRefresh?.();
+      }, 150);
     };
 
     window.addEventListener('fee_payment_recorded', handleLiveFeeUpdate);
@@ -322,7 +353,7 @@ export function DashboardOverview({
       window.removeEventListener('erp_data_updated', handleLiveFeeUpdate);
       window.removeEventListener('focus', handleLiveFeeUpdate);
     };
-  }, [fetchLiveFeeOverview]);
+  }, [fetchLiveFeeOverview, onRefresh]);
 
   // Close dropdown when clicking outside
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -1238,9 +1269,16 @@ export function DashboardOverview({
     return 0;
   }, []);
 
+  // Composite active invoices: prefers live receipts fetched or updated in real-time, falls back to invoices prop
+  const activeInvoicesList = useMemo(() => {
+    if (Array.isArray(liveReceipts) && liveReceipts.length > 0) return liveReceipts;
+    if (Array.isArray(invoices) && invoices.length > 0) return invoices;
+    return [];
+  }, [liveReceipts, invoices]);
+
   // Filter invoices/receipts according to the active timeFilter (Daily, Weekly, Monthly) - Strictly PAID Receipts
   const timeFilteredInvoices = useMemo(() => {
-    const filtered = (invoices || []).filter(inv => {
+    const filtered = (activeInvoicesList || []).filter(inv => {
       const anyInv = inv as any;
       const isPaid = anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
       if (!isPaid) return false;
@@ -1263,17 +1301,17 @@ export function DashboardOverview({
       const noB = (b as any).receipt_no || b.invoice_no || '';
       return String(noB).localeCompare(String(noA));
     });
-  }, [invoices, timeFilter, todayDateStr, weekStartStr, currentMonthStr, getInvoiceTimestamp]);
+  }, [activeInvoicesList, timeFilter, todayDateStr, weekStartStr, currentMonthStr, getInvoiceTimestamp]);
 
   const todayInvoices = useMemo(() => {
-    return (invoices || []).filter(inv => {
+    return (activeInvoicesList || []).filter(inv => {
       const anyInv = inv as any;
       const isPaid = anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
       if (!isPaid) return false;
       const invDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
       return invDate === todayDateStr;
     });
-  }, [invoices, todayDateStr]);
+  }, [activeInvoicesList, todayDateStr]);
 
   const mapInvoiceToTx = useCallback((inv: FeeInvoice, idx: number): DashboardTransaction => {
     const anyInv = inv as any;
@@ -1344,9 +1382,9 @@ export function DashboardOverview({
     let sourceList: any[] = [];
     if (timeFilteredInvoices.length > 0) {
       sourceList = timeFilteredInvoices;
-    } else if (invoices && invoices.length > 0) {
+    } else if (activeInvoicesList && activeInvoicesList.length > 0) {
       // Fallback to real recent paid invoices/receipts from DB
-      sourceList = invoices.filter(inv => {
+      sourceList = activeInvoicesList.filter(inv => {
         const anyInv = inv as any;
         return anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
       });
@@ -1362,11 +1400,11 @@ export function DashboardOverview({
     });
 
     return sorted.map(mapInvoiceToTx);
-  }, [timeFilteredInvoices, invoices, mapInvoiceToTx, getInvoiceTimestamp]);
+  }, [timeFilteredInvoices, activeInvoicesList, mapInvoiceToTx, getInvoiceTimestamp]);
 
   const todayCollectedTotal = useMemo(() => {
     // Sum all paid transactions for today's date
-    return (invoices || [])
+    const todayPaid = (activeInvoicesList || [])
       .filter(inv => {
         const anyInv = inv as any;
         const invDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
@@ -1377,7 +1415,36 @@ export function DashboardOverview({
         const amt = typeof anyInv.amount_paise === 'number' ? Math.round(anyInv.amount_paise / 100) : Number(inv.paid_amount || inv.amount || 0);
         return acc + amt;
       }, 0);
-  }, [invoices, todayDateStr]);
+
+    if (timeFilter === 'Daily') {
+      return todayPaid;
+    }
+    if (timeFilter === 'Weekly') {
+      return (activeInvoicesList || [])
+        .filter(inv => {
+          const anyInv = inv as any;
+          const invDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
+          return invDate >= weekStartStr && invDate <= todayDateStr && anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
+        })
+        .reduce((acc, inv) => {
+          const anyInv = inv as any;
+          const amt = typeof anyInv.amount_paise === 'number' ? Math.round(anyInv.amount_paise / 100) : Number(inv.paid_amount || inv.amount || 0);
+          return acc + amt;
+        }, 0);
+    }
+    // Monthly
+    return (activeInvoicesList || [])
+      .filter(inv => {
+        const anyInv = inv as any;
+        const invDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
+        return invDate.startsWith(currentMonthStr) && anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
+      })
+      .reduce((acc, inv) => {
+        const anyInv = inv as any;
+        const amt = typeof anyInv.amount_paise === 'number' ? Math.round(anyInv.amount_paise / 100) : Number(inv.paid_amount || inv.amount || 0);
+        return acc + amt;
+      }, 0);
+  }, [activeInvoicesList, todayDateStr, timeFilter, weekStartStr, currentMonthStr]);
 
   // Comprehensive search across transactions or the full paid receipt database
   const filteredTransactions = useMemo(() => {
@@ -1396,7 +1463,7 @@ export function DashboardOverview({
         baseList = directMatches;
       } else {
         // Search across the entire live paid invoice database and sort latest first
-        const rawMatches = (invoices || []).filter(inv => {
+        const rawMatches = (activeInvoicesList || []).filter(inv => {
           const anyInv = inv as any;
           const isPaid = anyInv.is_cancelled !== true && inv.status !== 'PENDING' && inv.status !== 'OVERDUE';
           if (!isPaid) return false;
@@ -1420,7 +1487,7 @@ export function DashboardOverview({
     }
 
     return baseList;
-  }, [transactions, transactionSearch, invoices, mapInvoiceToTx, getInvoiceTimestamp]);
+  }, [transactions, transactionSearch, activeInvoicesList, mapInvoiceToTx, getInvoiceTimestamp]);
 
   // Reset pagination on filter or search changes
   useEffect(() => {
@@ -2533,7 +2600,7 @@ export function DashboardOverview({
               {filteredTransactions.length === 0 && (
                 <tr>
                   <td colSpan={10} className="py-8 text-center text-gray-400 font-mono text-xs">
-                    No daily fee transactions found for today.
+                    {transactionSearch.trim() ? `No fee receipts matching "${transactionSearch}" found.` : 'No counter fee transactions found.'}
                   </td>
                 </tr>
               )}
