@@ -231,7 +231,7 @@ export function DashboardOverview({
   // Chart & filter controls (Dynamic Timeframe for Fee Realization Trend)
   const [salesTimeframe, setSalesTimeframe] = useState<'quarterly' | 'monthly' | 'yearly'>('monthly');
   const [activeTooltipIndex, setActiveTooltipIndex] = useState<number | null>(null);
-  const [revenueDateRange, setRevenueDateRange] = useState<string>('Apr 1 - Sep 17 (YTD)');
+  const [revenueDateRange, setRevenueDateRange] = useState<string>('Full Session (2026-27)');
   const [revenueDropdownOpen, setRevenueDropdownOpen] = useState<boolean>(false);
   const [isAiInsightOpen, setIsAiInsightOpen] = useState<boolean>(false);
   const [transactionSearch, setTransactionSearch] = useState<string>('');
@@ -761,9 +761,9 @@ export function DashboardOverview({
   }, [activeFeeCycle, liveFeeFinancials, overview, students, invoices, totalStudentsCount, selectedFeeCycleId]);
 
   const kpiAttendance = activeAttendanceKpi.displayValue;
-  const kpiFeesCollected = formatLakh(dynamicFeeCycleMetrics.collectedAmount, '₹0');
-  const kpiFeesPending = formatLakh(dynamicFeeCycleMetrics.pendingAmount, '₹0');
-  const kpiFeesDemand = formatLakh(dynamicFeeCycleMetrics.grandDemand, '₹0');
+  const kpiFeesCollected = formatLakh(livePaidAmount, '₹0');
+  const kpiFeesPending = formatLakh(livePendingAmount, '₹0');
+  const kpiFeesDemand = formatLakh(totalBilled, '₹0');
   const kpiClasses = liveClassCount.toString();
   const kpiExams = '4';
   const kpiEnquiries = students.filter(s => s.status === 'INACTIVE' || /enquiry|provisional/i.test(s.admission_no || '')).length.toString();

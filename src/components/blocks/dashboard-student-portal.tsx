@@ -54,7 +54,7 @@ export interface MonthlyFeeItem {
   paymentDate?: string;
 }
 
-function getStudentMonthlyFeeSchedule(student: Student, invoices: FeeInvoice[]) {
+function getStudentMonthlyFeeSchedule(student: Student, invoices: FeeInvoice[] = []) {
   const monthsData: { name: string; short: string; quarter: string }[] = [
     { name: 'April', short: 'Apr', quarter: 'Q1' },
     { name: 'May', short: 'May', quarter: 'Q1' },
@@ -70,37 +70,58 @@ function getStudentMonthlyFeeSchedule(student: Student, invoices: FeeInvoice[]) 
     { name: 'March', short: 'Mar', quarter: 'Q4' },
   ];
 
-  const isPaid = student.fee_status === 'PAID' || student.fee_status === 'WAIVED';
-  const tuition = 2500;
-  const transport = student.transport_opted === 'YES' ? 1200 : 0;
-  const annual = 5000;
-  const exam = (student.class_name?.includes('10') || student.class_name?.includes('12')) ? 500 : 0;
-  const monthlyAnnual = Math.round(annual / 12);
-  const monthlyTotal = tuition + transport + monthlyAnnual + exam;
+  const studentInvoices = (invoices || []).filter(inv => {
+    const i = inv as any;
+    return !i.is_cancelled && (
+      i.student_id === student.id ||
+      (student.admission_no && i.admission_no === student.admission_no) ||
+      (student.full_name && i.student_name?.toLowerCase() === student.full_name.toLowerCase())
+    );
+  });
 
-  const months: MonthlyFeeItem[] = monthsData.map((m, idx) => ({
-    id: `cycle-${idx + 1}`,
-    monthIndex: idx + 1,
-    month: m.name,
-    monthShort: m.short,
-    cycleName: `Cycle ${idx + 1}: ${m.name}`,
-    quarter: m.quarter,
-    tuitionFee: tuition,
-    transportFee: transport,
-    annualFee: monthlyAnnual,
-    examFee: exam,
-    totalBilled: monthlyTotal,
-    paidAmount: isPaid ? monthlyTotal : 0,
-    balanceDue: isPaid ? 0 : monthlyTotal,
-    status: isPaid ? 'PAID' : 'PENDING',
-    invoiceNo: `INV-2026-${1000 + idx}`,
-    receiptNo: isPaid ? `REC-2026-${1000 + idx}` : undefined,
-    paymentDate: isPaid ? `2026-0${idx + 4 <= 12 ? idx + 4 : idx - 8}-10` : undefined,
-  }));
+  const totalPaid = studentInvoices.reduce((sum, inv) => {
+    const i = inv as any;
+    const amt = i.amount_paise ? Math.round(i.amount_paise / 100) : (Number(i.amount || i.paid_amount) || 0);
+    return sum + amt;
+  }, 0);
+
+  const monthlyDemand = (student as any).fee_structure_amount ? Math.round((student as any).fee_structure_amount / 12) : 2360;
+  const transport = student.transport_opted === 'YES' ? 1200 : 0;
+  const exam = (student.class_name?.includes('10') || student.class_name?.includes('12')) ? 500 : 0;
+  const monthlyTotal = monthlyDemand + transport + exam;
+
+  let remainingPaid = totalPaid;
+
+  const months: MonthlyFeeItem[] = monthsData.map((m, idx) => {
+    const monthPaid = Math.min(remainingPaid, monthlyTotal);
+    remainingPaid = Math.max(0, remainingPaid - monthPaid);
+    const balanceDue = Math.max(0, monthlyTotal - monthPaid);
+    const matchedReceipt: any = studentInvoices[idx] || (monthPaid > 0 ? studentInvoices[0] : null);
+
+    return {
+      id: `cycle-${idx + 1}`,
+      monthIndex: idx + 1,
+      month: m.name,
+      monthShort: m.short,
+      cycleName: `Cycle ${idx + 1}: ${m.name}`,
+      quarter: m.quarter,
+      tuitionFee: Math.max(0, monthlyDemand - 300),
+      transportFee: transport,
+      annualFee: 300,
+      examFee: exam,
+      totalBilled: monthlyTotal,
+      paidAmount: monthPaid,
+      balanceDue,
+      status: balanceDue === 0 ? 'PAID' : (monthPaid > 0 ? 'PARTIAL' : 'PENDING'),
+      invoiceNo: matchedReceipt ? (matchedReceipt.receipt_no || matchedReceipt.invoice_no) : undefined,
+      receiptNo: monthPaid > 0 && matchedReceipt ? matchedReceipt.receipt_no : undefined,
+      paymentDate: monthPaid > 0 && matchedReceipt ? (matchedReceipt.payment_date || matchedReceipt.created_at?.split('T')[0]) : undefined,
+    };
+  });
 
   const totalAnnualBilled = months.reduce((s, m) => s + m.totalBilled, 0);
-  const totalPaidToDate = months.reduce((s, m) => s + m.paidAmount, 0);
-  const currentBalanceDue = months.reduce((s, m) => s + m.balanceDue, 0);
+  const totalPaidToDate = totalPaid;
+  const currentBalanceDue = Math.max(0, totalAnnualBilled - totalPaidToDate);
 
   return {
     months,

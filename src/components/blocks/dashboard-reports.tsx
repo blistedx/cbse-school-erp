@@ -48,32 +48,59 @@ const CBSE_ACADEMIC_MONTHS = [
   { index: 12, name: 'March', short: 'Mar', cycleName: 'Cycle 12: March', quarter: 'Q4' },
 ];
 
-function getStudentMonthlyFeeSchedule(student: Student, invoices: FeeInvoice[]) {
-  const isPaid = student.fee_status === 'PAID' || student.fee_status === 'WAIVED';
-  const tuition = 2500;
+function getStudentMonthlyFeeSchedule(student: Student, invoices: FeeInvoice[] = []) {
+  const studentInvoices = (invoices || []).filter(inv => {
+    const i = inv as any;
+    return !i.is_cancelled && (
+      i.student_id === student.id ||
+      (student.admission_no && i.admission_no === student.admission_no) ||
+      (student.full_name && i.student_name?.toLowerCase() === student.full_name.toLowerCase())
+    );
+  });
+
+  const totalPaid = studentInvoices.reduce((sum, inv) => {
+    const i = inv as any;
+    const amt = i.amount_paise ? Math.round(i.amount_paise / 100) : (Number(i.amount || i.paid_amount) || 0);
+    return sum + amt;
+  }, 0);
+
+  const monthlyDemand = (student as any).fee_structure_amount ? Math.round((student as any).fee_structure_amount / 12) : 2360;
   const transport = student.transport_opted === 'YES' ? 1200 : 0;
-  const annual = 5000;
-  const total = tuition + transport + Math.round(annual / 12);
+  const totalMonthly = monthlyDemand + transport;
+
+  let remainingPaid = totalPaid;
+
   return {
-    months: CBSE_ACADEMIC_MONTHS.map(m => ({
-      monthIndex: m.index,
-      monthName: m.name,
-      quarter: m.quarter,
-      tuitionFee: tuition,
-      transportFee: transport,
-      annualFee: Math.round(annual / 12),
-      totalBilled: total,
-      paidAmount: isPaid ? total : 0,
-      balanceDue: isPaid ? 0 : total,
-      status: isPaid ? 'PAID' : 'PENDING'
-    }))
+    months: CBSE_ACADEMIC_MONTHS.map(m => {
+      const monthPaid = Math.min(remainingPaid, totalMonthly);
+      remainingPaid = Math.max(0, remainingPaid - monthPaid);
+      const balanceDue = Math.max(0, totalMonthly - monthPaid);
+      return {
+        monthIndex: m.index,
+        monthName: m.name,
+        quarter: m.quarter,
+        tuitionFee: Math.max(0, monthlyDemand - 300),
+        transportFee: transport,
+        annualFee: 300,
+        totalBilled: totalMonthly,
+        paidAmount: monthPaid,
+        balanceDue,
+        status: balanceDue === 0 ? 'PAID' : (monthPaid > 0 ? 'PARTIAL' : 'PENDING')
+      };
+    }),
+    totalAnnualBilled: totalMonthly * 12,
+    totalPaidToDate: totalPaid,
+    currentBalanceDue: Math.max(0, (totalMonthly * 12) - totalPaid),
   };
 }
 
-function getStudentFeeSummary(student: Student, invoices: FeeInvoice[]) {
+function getStudentFeeSummary(student: Student, invoices: FeeInvoice[] = []) {
+  const sched = getStudentMonthlyFeeSchedule(student, invoices);
   return {
-    feeStatus: student.fee_status || 'PENDING',
-    currentBalanceDue: student.fee_status === 'PAID' || student.fee_status === 'WAIVED' ? 0 : 2500,
+    feeStatus: sched.currentBalanceDue === 0 ? 'PAID' : (sched.totalPaidToDate > 0 ? 'PARTIAL' : (student.fee_status || 'PENDING')),
+    currentBalanceDue: sched.currentBalanceDue,
+    totalAnnualBilled: sched.totalAnnualBilled,
+    totalPaidToDate: sched.totalPaidToDate
   };
 }
 

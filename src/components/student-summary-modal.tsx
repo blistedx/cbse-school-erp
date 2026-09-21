@@ -42,33 +42,47 @@ function matchInvoicesForStudent(invoices: FeeInvoice[], student: Student) {
 }
 
 function getStudentFeeSummary(student: Student, invoices?: FeeInvoice[]) {
-  const isPaid = student.fee_status === 'PAID' || student.fee_status === 'WAIVED';
+  const matched = matchInvoicesForStudent(invoices || [], student);
+  const paid = matched.reduce((sum, inv) => {
+    const i = inv as any;
+    return sum + (i.amount_paise ? Math.round(i.amount_paise / 100) : (Number(i.amount || i.paid_amount) || 0));
+  }, 0);
+  const billed = (student as any).fee_structure_amount || 28320;
+  const balance = Math.max(0, billed - paid);
   return {
-    feeStatus: student.fee_status || 'PENDING',
-    currentBalanceDue: isPaid ? 0 : 2500,
-    totalAnnualBilled: 35000,
-    totalPaidToDate: isPaid ? 35000 : 0,
+    feeStatus: balance === 0 ? 'PAID' : (paid > 0 ? 'PARTIAL' : (student.fee_status || 'PENDING')),
+    currentBalanceDue: balance,
+    totalAnnualBilled: billed,
+    totalPaidToDate: paid,
   };
 }
 
 function getStudentMonthlyFeeSchedule(student: Student, invoices?: FeeInvoice[]) {
   const months = ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'];
-  const isPaid = student.fee_status === 'PAID' || student.fee_status === 'WAIVED';
+  const summary = getStudentFeeSummary(student, invoices);
+  const monthlyBilled = Math.round(summary.totalAnnualBilled / 12);
+  let remainingPaid = summary.totalPaidToDate;
+
   return {
-    months: months.map((m) => ({
-      month: m,
-      monthName: m,
-      tuitionFee: 2500,
-      transportFee: student.transport_opted === 'YES' ? 1200 : 0,
-      annualFee: 417,
-      totalBilled: 2917,
-      paidAmount: isPaid ? 2917 : 0,
-      balanceDue: isPaid ? 0 : 2917,
-      status: isPaid ? 'PAID' : 'PENDING',
-    })),
-    totalAnnualBilled: 35000,
-    totalPaidToDate: isPaid ? 35000 : 0,
-    currentBalanceDue: isPaid ? 0 : 35000,
+    months: months.map((m) => {
+      const monthPaid = Math.min(remainingPaid, monthlyBilled);
+      remainingPaid = Math.max(0, remainingPaid - monthPaid);
+      const due = Math.max(0, monthlyBilled - monthPaid);
+      return {
+        month: m,
+        monthName: m,
+        tuitionFee: Math.max(0, monthlyBilled - 300),
+        transportFee: student.transport_opted === 'YES' ? 1200 : 0,
+        annualFee: 300,
+        totalBilled: monthlyBilled,
+        paidAmount: monthPaid,
+        balanceDue: due,
+        status: due === 0 ? 'PAID' : (monthPaid > 0 ? 'PARTIAL' : 'PENDING'),
+      };
+    }),
+    totalAnnualBilled: summary.totalAnnualBilled,
+    totalPaidToDate: summary.totalPaidToDate,
+    currentBalanceDue: summary.currentBalanceDue,
   };
 }
 

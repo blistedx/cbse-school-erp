@@ -192,10 +192,27 @@ export async function collectFeePayment(
     const db = await getDatabase();
     if (db) {
       await db.collection(RECEIPTS_COLLECTION).insertOne(sanitizeDocNoBinary({ ...receipt }));
+      // Update precomputed school_stats atomically
+      await db.collection('school_stats').updateOne(
+        { school_id: schoolId, session },
+        {
+          $inc: {
+            totalCollectedPaise: amountPaise,
+            totalPendingPaise: -amountPaise
+          },
+          $set: { updated_at: new Date().toISOString() }
+        }
+      );
     }
   } catch (e) {
     console.error('[fees-engine/collection] Error persisting receipt record:', e);
   }
+
+  // Live cache invalidation
+  try {
+    const { invalidateStatsCache } = await import('@/lib/stats');
+    invalidateStatsCache(schoolId);
+  } catch (_) {}
 
   // Log audit event
   try {
@@ -649,6 +666,24 @@ export async function cancelReceipt(
         },
       }
     );
+
+    const cancelledPaise = lines.reduce((sum, l) => sum + (Number(l.amount) || 0), 0);
+    const session = lines[0]?.academic_session || '2026-27';
+    await db.collection('school_stats').updateOne(
+      { school_id: schoolId, session },
+      {
+        $inc: {
+          totalCollectedPaise: -cancelledPaise,
+          totalPendingPaise: cancelledPaise
+        },
+        $set: { updated_at: new Date().toISOString() }
+      }
+    );
+
+    try {
+      const { invalidateStatsCache } = await import('@/lib/stats');
+      invalidateStatsCache(schoolId);
+    } catch (_) {}
 
     // Audit log
     try {

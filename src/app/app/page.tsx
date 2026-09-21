@@ -2697,23 +2697,46 @@ function ERPWorkspaceContent() {
         }
       };
 
-      const [ovData, stData, tcData, clData, noData, atData, inData] = await Promise.all([
-        safeFetchJson(`/api/overview?school_id=${cleanId}&session=${targetSession}`),
-        safeFetchJson(`/api/students?school_id=${cleanId}&session=${targetSession}`),
-        safeFetchJson(`/api/teachers?school_id=${cleanId}&session=${targetSession}`),
-        safeFetchJson(`/api/classes?school_id=${cleanId}&session=${targetSession}`),
-        safeFetchJson(`/api/notices?school_id=${cleanId}&session=${targetSession}`),
-        safeFetchJson(`/api/attendance?school_id=${cleanId}&session=${targetSession}`),
-        safeFetchJson(`/api/fee-master?action=receipts&school_id=${cleanId}&session=${targetSession}`)
-      ]);
+      // ⚡ Sub-800ms Fast Unified App Initializer (Single Roundtrip)
+      const initData = await safeFetchJson(`/api/app-init?school_id=${cleanId}&session=${targetSession}`);
+      
+      let freshOverview: any = null;
+      let freshStudents: Student[] = [];
+      let freshTeachers: Teacher[] = [];
+      let freshClasses: ClassRoom[] = [];
+      let freshNotices: Notice[] = [];
+      let freshAttendance: AttendanceRecord[] = [];
+      let freshInvoicesRaw: any[] = [];
 
-      const freshOverview = ovData.success ? ovData : null;
-      const freshStudents = stData.success ? (stData.students || []) : [];
-      const freshTeachers = tcData.success ? (tcData.teachers || []) : [];
-      const freshClasses: ClassRoom[] = clData.success ? sortClassesChronologically<ClassRoom>(clData.classes || []) : [];
-      const freshNotices = noData.success ? (noData.notices || []) : [];
-      const freshAttendance = atData.success ? (atData.attendance || []) : [];
-      const freshInvoicesRaw = inData.success ? (inData.receipts || inData.invoices || []) : [];
+      if (initData && initData.success) {
+        freshOverview = initData.overview || null;
+        freshStudents = initData.students || [];
+        freshTeachers = initData.teachers || [];
+        freshClasses = sortClassesChronologically<ClassRoom>(initData.classes || []);
+        freshNotices = initData.notices || [];
+        freshAttendance = initData.attendance || [];
+        freshInvoicesRaw = initData.receipts || [];
+      } else {
+        // Fallback: Parallel individual fetches
+        const [ovData, stData, tcData, clData, noData, atData, inData] = await Promise.all([
+          safeFetchJson(`/api/overview?school_id=${cleanId}&session=${targetSession}`),
+          safeFetchJson(`/api/students?school_id=${cleanId}&session=${targetSession}`),
+          safeFetchJson(`/api/teachers?school_id=${cleanId}&session=${targetSession}`),
+          safeFetchJson(`/api/classes?school_id=${cleanId}&session=${targetSession}`),
+          safeFetchJson(`/api/notices?school_id=${cleanId}&session=${targetSession}`),
+          safeFetchJson(`/api/attendance?school_id=${cleanId}&session=${targetSession}`),
+          safeFetchJson(`/api/fee-master?action=receipts&school_id=${cleanId}&session=${targetSession}`)
+        ]);
+
+        freshOverview = ovData.success ? ovData : null;
+        freshStudents = stData.success ? (stData.students || []) : [];
+        freshTeachers = tcData.success ? (tcData.teachers || []) : [];
+        freshClasses = clData.success ? sortClassesChronologically<ClassRoom>(clData.classes || []) : [];
+        freshNotices = noData.success ? (noData.notices || []) : [];
+        freshAttendance = atData.success ? (atData.attendance || []) : [];
+        freshInvoicesRaw = inData.success ? (inData.receipts || inData.invoices || []) : [];
+      }
+
       const freshInvoices = [...freshInvoicesRaw].sort((a: any, b: any) => {
         const getT = (r: any): number => {
           if (r.created_at) {
@@ -2738,18 +2761,18 @@ function ERPWorkspaceContent() {
       });
 
       if (freshOverview) setOverview(freshOverview);
-      if (stData.success) setStudents(freshStudents);
-      if (tcData.success) setTeachers(freshTeachers);
-      if (clData.success) setClasses(freshClasses);
-      if (noData.success) setNotices(freshNotices);
-      if (atData.success) setAttendance(freshAttendance);
-      if (inData.success) setInvoices(freshInvoices);
+      if (freshStudents.length > 0) setStudents(freshStudents);
+      if (freshTeachers.length > 0) setTeachers(freshTeachers);
+      if (freshClasses.length > 0) setClasses(freshClasses);
+      if (freshNotices.length > 0) setNotices(freshNotices);
+      if (freshAttendance.length > 0) setAttendance(freshAttendance);
+      if (freshInvoices.length > 0) setInvoices(freshInvoices);
 
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem('last_active_school_id', cleanId);
           localStorage.setItem('giterp_active_session', targetSession);
-          if (stData.success || freshStudents.length > 0 || freshInvoices.length > 0 || freshOverview) {
+          if (freshStudents.length > 0 || freshInvoices.length > 0 || freshOverview) {
             const snap = {
               overview: freshOverview,
               students: freshStudents,
