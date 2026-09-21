@@ -107,7 +107,6 @@ export async function GET(req: Request) {
     // 6. Reports Engine Query
     if (action === 'report') {
       const reportId = searchParams.get('report_id') || 'month_class_collection';
-      const students = await Database.getStudents(tenant, session);
 
       const filters: FeeAggregateFilters = { session };
       if (searchParams.get('month')) filters.months = [searchParams.get('month') as any];
@@ -117,7 +116,7 @@ export async function GET(req: Request) {
       if (searchParams.get('sibling')) filters.siblingOpted = searchParams.get('sibling') === 'true';
       if (searchParams.get('search')) filters.search = searchParams.get('search')!;
 
-      const reportResult = await executeReport(tenant, reportId, filters, students);
+      const reportResult = await executeReport(tenant, reportId, filters);
       return NextResponse.json({ success: true, report: reportResult });
     }
 

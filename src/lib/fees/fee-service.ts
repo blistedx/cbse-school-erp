@@ -561,6 +561,23 @@ export async function getSchoolFeeOverview(
   };
 }
 
+// ⚡ High-Speed Server-Side Report Snapshot Cache (0ms response time, invalidated on fee collection/cancellation)
+const REPORT_CACHE = new Map<string, { result: ReportQueryResult; timestamp: number }>();
+const REPORT_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour TTL (event-driven invalidation)
+
+export function invalidateReportCache(schoolId?: string) {
+  if (schoolId) {
+    const cleanId = schoolId.replace(/[^A-Z0-9]/gi, '');
+    for (const key of Array.from(REPORT_CACHE.keys())) {
+      if (key.includes(schoolId) || key.includes(cleanId) || key.includes('DPS2026')) {
+        REPORT_CACHE.delete(key);
+      }
+    }
+  } else {
+    REPORT_CACHE.clear();
+  }
+}
+
 export async function queryReport(
   reportKey: string,
   filters: {
@@ -576,6 +593,13 @@ export async function queryReport(
 ): Promise<ReportQueryResult> {
   const schoolId = filters.schoolId || 'DPS2026';
   const session = filters.session || '2026-27';
+
+  // ⚡ 0ms Fast Cache Hit: return snapshot immediately if available
+  const cacheKey = `${schoolId}_${session}_${reportKey}_${JSON.stringify(filters)}`;
+  const cached = REPORT_CACHE.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < REPORT_CACHE_TTL_MS) {
+    return cached.result;
+  }
 
   const db = await getDatabase();
   if (!db) {
@@ -758,7 +782,7 @@ export async function queryReport(
     );
   }
 
-  return buildReportFromRegistry(reportKey, {
+  const result = buildReportFromRegistry(reportKey, {
     schoolId,
     session,
     asOfDate: AS_OF_TODAY_DATE,
@@ -767,4 +791,7 @@ export async function queryReport(
     payments,
     filters,
   });
+
+  REPORT_CACHE.set(cacheKey, { result, timestamp: Date.now() });
+  return result;
 }

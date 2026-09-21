@@ -236,6 +236,8 @@ export async function collectFeePayment(
   try {
     const { invalidateStatsCache } = await import('@/lib/stats');
     invalidateStatsCache(schoolId);
+    const { invalidateReportCache } = await import('@/lib/fees/fee-service');
+    invalidateReportCache(schoolId);
   } catch (_) {}
 
   // Log audit event
@@ -707,6 +709,8 @@ export async function cancelReceipt(
     try {
       const { invalidateStatsCache } = await import('@/lib/stats');
       invalidateStatsCache(schoolId);
+      const { invalidateReportCache } = await import('@/lib/fees/fee-service');
+      invalidateReportCache(schoolId);
     } catch (_) {}
 
     // Audit log

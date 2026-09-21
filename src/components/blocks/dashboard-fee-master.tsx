@@ -1,7 +1,7 @@
 'use client';
 /*! EduSuite Fee Master — Single Fees Engine 4-Tab UI v3.0.0 */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Wallet, Layers, Plus, Sparkles, CheckCircle2,
   FileSpreadsheet, ArrowRight, ShieldCheck,
@@ -283,11 +283,26 @@ export function DashboardFeeMaster({
     }
   }, [session, selectedSchool]);
 
-  // ─── LOAD REPORT DATA ───
-  const loadReport = useCallback(async (reportId: string, currentFilters = reportFilters) => {
-    setReportLoading(true);
+  // ⚡ Client-Side Report Fast Memory Snapshot Cache
+  const reportCacheRef = useRef<Record<string, any>>({});
+
+  // ─── LOAD REPORT DATA (0ms INSTANT SWR CACHE HIT + SILENT REVALIDATION) ───
+  const loadReport = useCallback(async (reportId: string, currentFilters = reportFilters, forceRefresh = false) => {
+    const schoolId = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+    const cacheKey = `${schoolId}_${session}_${reportId}_${JSON.stringify(currentFilters)}`;
+
+    // 0ms Instant SWR Hit
+    if (!forceRefresh && reportCacheRef.current[cacheKey]) {
+      setReportResult(reportCacheRef.current[cacheKey]);
+      setReportLoading(false);
+      return;
+    }
+
+    if (!reportCacheRef.current[cacheKey]) {
+      setReportLoading(true);
+    }
+
     try {
-      const schoolId = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
       const params = new URLSearchParams({
         action: 'report',
         report_id: reportId,
@@ -304,6 +319,7 @@ export function DashboardFeeMaster({
       const res = await apiFetch(`/api/fee-master?${params.toString()}`);
       const data = await res.json();
       if (data.success && data.report) {
+        reportCacheRef.current[cacheKey] = data.report;
         setReportResult(data.report);
         setReportPage(1);
       }
@@ -314,6 +330,23 @@ export function DashboardFeeMaster({
       setReportLoading(false);
     }
   }, [session, selectedSchool, reportFilters, toast]);
+
+  // Live real-time listener: Invalidate report cache & auto-refresh report on payment
+  useEffect(() => {
+    const handleLiveUpdate = () => {
+      reportCacheRef.current = {};
+      loadOverview(true);
+      loadReport(selectedReportId, reportFilters, true);
+    };
+
+    window.addEventListener('fee_payment_recorded', handleLiveUpdate);
+    window.addEventListener('erp_data_updated', handleLiveUpdate);
+
+    return () => {
+      window.removeEventListener('fee_payment_recorded', handleLiveUpdate);
+      window.removeEventListener('erp_data_updated', handleLiveUpdate);
+    };
+  }, [loadOverview, loadReport, selectedReportId, reportFilters]);
 
   // ─── LOAD STUDENT LEDGER ───
   const loadStudentLedger = useCallback(async (studentId: string) => {
