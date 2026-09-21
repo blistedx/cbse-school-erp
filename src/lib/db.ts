@@ -2898,11 +2898,10 @@ export const Database = {
     const todayDateStr = getTodayDateStr();
     const cacheKey = `overview:${schoolId}:${targetSession}:${todayDateStr}`;
     return singleFlight(cacheKey, async () => {
-      const [students, teachers, attendance, feeMetrics, feeAgg] = await Promise.all([
+      const [students, teachers, attendance, feeAgg] = await Promise.all([
         this.getStudents(schoolId, targetSession),
         this.getTeachers(schoolId, targetSession),
         this.getAttendance(schoolId, targetSession),
-        getSchoolFeeMetrics(schoolId, targetSession),
         getSchoolFeeOverviewAggregation(schoolId, targetSession)
       ]);
 
@@ -2997,23 +2996,13 @@ export const Database = {
           topPending: feeAgg.topPending || [],
           monthWiseTrend: feeAgg.monthWiseTrend || [],
           cycleMetrics: feeAgg.cycleMetrics || {},
-        } : (feeMetrics ? {
-          totalDemand: Math.round(feeMetrics.billedDueToDatePaise / 100),
-          totalCollected: Math.round(feeMetrics.totalCollectedPaise / 100),
-          totalOutstanding: Math.round(feeMetrics.pendingDuesPaise / 100),
-          totalDiscount: Math.round(feeMetrics.discountFullSessionPaise / 100),
-          collectionRate: feeMetrics.collectionRate,
-          zeroPaidStudents: feeMetrics.neverPaidCount,
-          topPending: [],
-          monthWiseTrend: [],
-          cycleMetrics: {},
-        } : null),
-        feeOverview: feeMetrics as any,
+        } : null,
+        feeOverview: feeAgg as any,
         recentStudents: students.slice(-5).reverse(),
         recentInvoices: []
       };
       return overviewResult;
-    }, 180000);
+    }, 30000);
   },
 
   // ==========================================

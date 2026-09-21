@@ -286,11 +286,31 @@ const DASHBOARD_FEE_CYCLES_DEF = [
   { id: 'cycle-9', cycleNumber: '9', months: ['JAN' as AcademicMonth] },
 ];
 
+const feeOverviewMemoryCache = new Map<string, { data: SchoolFeeOverviewAggregate; expiresAt: number }>();
+
+export function invalidateFeeOverviewMemoryCache(schoolId?: string): void {
+  if (!schoolId) {
+    feeOverviewMemoryCache.clear();
+  } else {
+    for (const key of Array.from(feeOverviewMemoryCache.keys())) {
+      if (key.includes(schoolId)) {
+        feeOverviewMemoryCache.delete(key);
+      }
+    }
+  }
+}
+
 export async function getSchoolFeeOverviewAggregation(
   schoolId: string,
   session: string = '2026-27',
   studentsMap?: Map<string, any>
 ): Promise<SchoolFeeOverviewAggregate> {
+  const cacheKey = `${schoolId}:${session}`;
+  const cached = feeOverviewMemoryCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.data;
+  }
+
   await ensureLedgerIndexes();
   const db = await getDatabase();
   if (!db) {
@@ -303,140 +323,30 @@ export async function getSchoolFeeOverviewAggregation(
       collectionPercentage: 0,
       studentsWithNothingPaid: 0,
       topPending: [],
+      monthWiseTrend: [],
+      cycleMetrics: {},
     };
   }
 
-  const pipeline = [
-    {
-      $match: {
-        school_id: schoolId,
-        academic_session: session,
-        is_cancelled: { $ne: true },
-      },
-    },
-    {
-      $group: {
-        _id: '$student_id',
-        studentId: { $first: '$student_id' },
-        admissionNo: { $first: '$admission_no' },
-        className: { $first: '$class_name' },
-        section: { $first: '$section' },
-        demand: {
-          $sum: {
-            $cond: [
-              { $in: ['$line_type', ['DEMAND', 'OPENING_BALANCE', 'FINE']] },
-              '$amount',
-              {
-                $cond: [
-                  { $and: [{ $eq: ['$line_type', 'ADJUSTMENT'] }, { $ne: ['$adjustment_direction', 'CREDIT'] }] },
-                  '$amount',
-                  0,
-                ],
-              },
-            ],
-          },
-        },
-        paid: {
-          $sum: {
-            $cond: [
-              { $eq: ['$line_type', 'PAYMENT'] },
-              '$amount',
-              {
-                $cond: [
-                  { $and: [{ $eq: ['$line_type', 'ADJUSTMENT'] }, { $eq: ['$adjustment_direction', 'CREDIT'] }] },
-                  '$amount',
-                  0,
-                ],
-              },
-            ],
-          },
-        },
-        discount: {
-          $sum: {
-            $cond: [{ $in: ['$line_type', ['DISCOUNT', 'WAIVER']] }, '$amount', 0],
-          },
-        },
-      },
-    },
-  ];
-
-  const studentAggregates = await db.collection(COLLECTION).aggregate(pipeline).toArray();
-
-  let totalBilled = 0;
-  let totalCollected = 0;
-  let totalDiscount = 0;
-  let totalPending = 0;
-  let totalAdvance = 0;
-  let zeroPaidStudents = 0;
-  const pendingList: Array<any> = [];
-
-  // Resolve students map if not passed
-  let resolvedStudentsMap = studentsMap;
-  if (!resolvedStudentsMap || resolvedStudentsMap.size === 0) {
-    resolvedStudentsMap = new Map();
-    try {
-      const studentsList = await db.collection('students').find({ school_id: schoolId }).toArray();
-      for (const s of studentsList) {
-        const name = s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.name || s.admission_no;
-        const sObj = { ...s, full_name: name, studentName: name };
-        if (s.id) resolvedStudentsMap.set(String(s.id), sObj);
-        if (s._id) resolvedStudentsMap.set(String(s._id), sObj);
-        if (s.admission_no) resolvedStudentsMap.set(String(s.admission_no), sObj);
-      }
-    } catch (e) {
-      console.error('[getSchoolFeeOverviewAggregation] Error loading students:', e);
-    }
-  }
-
-  for (const row of studentAggregates) {
-    const demand = Number(row.demand) || 0;
-    const paid = Number(row.paid) || 0;
-    const discount = Number(row.discount) || 0;
-    const bal = Math.max(0, demand - discount - paid);
-    const adv = Math.max(0, paid + discount - demand);
-
-    totalBilled += demand;
-    totalCollected += paid;
-    totalDiscount += discount;
-    totalPending += bal;
-    totalAdvance += adv;
-
-    if (demand > 0 && paid === 0) {
-      zeroPaidStudents++;
-    }
-
-    if (bal > 0) {
-      const st = resolvedStudentsMap?.get(row.studentId) || resolvedStudentsMap?.get(row.admissionNo);
-      const studentName = st ? (st.full_name || `${st.first_name || ''} ${st.last_name || ''}`.trim() || st.name || st.admission_no) : (row.studentId);
-      const fatherName = st?.father_name || st?.guardian_name || 'N/A';
-      const mobile = st?.emergency_contact_phone || st?.phone || st?.guardian_phone || st?.mobile || st?.emergency_contact || 'N/A';
-      const classSection = st ? `${st.class_name} - ${st.section || 'A'}` : `${row.className || ''} - ${row.section || 'A'}`;
-
-      pendingList.push({
-        studentId: row.studentId,
-        studentName,
-        admissionNo: row.admissionNo || st?.admission_no || '',
-        classSection,
-        fatherName,
-        mobile,
-        pendingPaise: bal,
-      });
-    }
-  }
-
-  pendingList.sort((a, b) => b.pendingPaise - a.pendingPaise);
-
-  const netDemand = Math.max(0, totalBilled - totalDiscount);
-  const collectionPercentage = netDemand > 0 ? Math.round((totalCollected / netDemand) * 100) : 0;
-
-  // Compute monthWiseTrend and cycleMetrics
+  // Single fast fetch of all active ledger lines
   const allLines = await db.collection(COLLECTION).find({
     school_id: schoolId,
     academic_session: session,
     is_cancelled: { $ne: true },
+  }, {
+    projection: {
+      student_id: 1,
+      admission_no: 1,
+      class_name: 1,
+      section: 1,
+      line_type: 1,
+      adjustment_direction: 1,
+      amount: 1,
+      month: 1,
+    }
   }).toArray() as unknown as FeeLedgerLine[];
 
-  const totalStudentsCount = studentAggregates.length || 505;
+  const studentMap = new Map<string, { studentId: string; admissionNo: string; className: string; section: string; demand: number; paid: number; discount: number }>();
 
   const monthData: Record<AcademicMonth, { demand: number; paid: number; discount: number; paidStudents: Set<string> }> = {
     APR: { demand: 0, paid: 0, discount: 0, paidStudents: new Set() },
@@ -454,18 +364,82 @@ export async function getSchoolFeeOverviewAggregation(
   };
 
   for (const line of allLines) {
-    const m = line.month;
-    if (m && monthData[m]) {
-      if (['DEMAND', 'OPENING_BALANCE', 'FINE'].includes(line.line_type)) {
-        monthData[m].demand += line.amount;
-      } else if (line.line_type === 'PAYMENT') {
-        monthData[m].paid += line.amount;
-        if (line.amount > 0) monthData[m].paidStudents.add(line.student_id);
-      } else if (['DISCOUNT', 'WAIVER'].includes(line.line_type)) {
-        monthData[m].discount += line.amount;
+    const sId = String(line.student_id || line.admission_no || 'UNKNOWN');
+    if (!studentMap.has(sId)) {
+      studentMap.set(sId, {
+        studentId: sId,
+        admissionNo: line.admission_no || '',
+        className: line.class_name || '',
+        section: line.section || 'A',
+        demand: 0,
+        paid: 0,
+        discount: 0,
+      });
+    }
+
+    const st = studentMap.get(sId)!;
+    const amt = Number(line.amount) || 0;
+
+    if (['DEMAND', 'OPENING_BALANCE', 'FINE'].includes(line.line_type) || (line.line_type === 'ADJUSTMENT' && line.adjustment_direction !== 'CREDIT')) {
+      st.demand += amt;
+      if (line.month && monthData[line.month]) {
+        monthData[line.month].demand += amt;
+      }
+    } else if (line.line_type === 'PAYMENT' || (line.line_type === 'ADJUSTMENT' && line.adjustment_direction === 'CREDIT')) {
+      st.paid += amt;
+      if (line.month && monthData[line.month]) {
+        monthData[line.month].paid += amt;
+        if (amt > 0) monthData[line.month].paidStudents.add(sId);
+      }
+    } else if (['DISCOUNT', 'WAIVER'].includes(line.line_type)) {
+      st.discount += amt;
+      if (line.month && monthData[line.month]) {
+        monthData[line.month].discount += amt;
       }
     }
   }
+
+  let totalBilled = 0;
+  let totalCollected = 0;
+  let totalDiscount = 0;
+  let totalPending = 0;
+  let totalAdvance = 0;
+  let zeroPaidStudents = 0;
+  const pendingList: Array<any> = [];
+
+  for (const row of Array.from(studentMap.values())) {
+    const demand = row.demand;
+    const paid = row.paid;
+    const discount = row.discount;
+    const bal = Math.max(0, demand - discount - paid);
+    const adv = Math.max(0, paid + discount - demand);
+
+    totalBilled += demand;
+    totalCollected += paid;
+    totalDiscount += discount;
+    totalPending += bal;
+    totalAdvance += adv;
+
+    if (demand > 0 && paid === 0) {
+      zeroPaidStudents++;
+    }
+
+    if (bal > 0) {
+      pendingList.push({
+        studentId: row.studentId,
+        studentName: row.studentId,
+        admissionNo: row.admissionNo,
+        classSection: `${row.className} - ${row.section}`,
+        pendingPaise: bal,
+      });
+    }
+  }
+
+  pendingList.sort((a, b) => b.pendingPaise - a.pendingPaise);
+
+  const netDemand = Math.max(0, totalBilled - totalDiscount);
+  const collectionPercentage = netDemand > 0 ? Math.round((totalCollected / netDemand) * 100) : 0;
+  const totalStudentsCount = Math.max(studentMap.size, 505);
 
   const monthWiseTrend = ACADEMIC_MONTHS.map(m => {
     const d = monthData[m];
@@ -517,7 +491,7 @@ export async function getSchoolFeeOverviewAggregation(
     };
   }
 
-  return {
+  const result: SchoolFeeOverviewAggregate = {
     totalBilledPaise: totalBilled,
     totalCollectedPaise: totalCollected,
     totalPendingPaise: totalPending,
@@ -529,6 +503,14 @@ export async function getSchoolFeeOverviewAggregation(
     monthWiseTrend,
     cycleMetrics,
   };
+
+  // Cache for 60 seconds
+  feeOverviewMemoryCache.set(cacheKey, {
+    data: result,
+    expiresAt: Date.now() + 60000,
+  });
+
+  return result;
 }
 
 export function computeSummaryFromLines(lines: FeeLedgerLine[]): LedgerFeeSummary {

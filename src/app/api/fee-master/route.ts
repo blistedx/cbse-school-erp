@@ -23,6 +23,7 @@ import {
   executeReport,
   REPORT_CONFIGS,
   getSchoolFeeOverviewAggregation,
+  invalidateFeeOverviewMemoryCache,
 } from '@/lib/fees-engine';
 import { getSchoolFeeMetrics } from '@/lib/fees/metrics';
 import { Database, invalidateServerCache } from '@/lib/db';
@@ -127,25 +128,21 @@ export async function GET(req: Request) {
 
     // 8. Overview KPIs and Mini-Tables
     if (action === 'overview') {
-      const [feeMetrics, feeOverviewAgg, thisMonthReport] = await Promise.all([
-        getSchoolFeeMetrics(tenant, session),
-        getSchoolFeeOverviewAggregation(tenant, session),
-        executeReport(tenant, 'month_class_collection', { session, months: ['SEP'] }),
-      ]);
+      const feeOverviewAgg = await getSchoolFeeOverviewAggregation(tenant, session);
 
       return NextResponse.json({
         success: true,
         overview: {
-          totalBilledPaise: feeOverviewAgg.totalBilledPaise || feeMetrics.billedDueToDatePaise,
-          totalCollectedPaise: feeOverviewAgg.totalCollectedPaise || feeMetrics.totalCollectedPaise,
-          totalPendingPaise: feeOverviewAgg.totalPendingPaise || feeMetrics.pendingDuesPaise,
-          totalDiscountPaise: feeOverviewAgg.totalDiscountPaise || feeMetrics.discountFullSessionPaise,
-          totalAdvancePaise: feeOverviewAgg.totalAdvancePaise || feeMetrics.advanceCollectedPaise,
-          collectionPercentage: feeOverviewAgg.collectionPercentage || feeMetrics.collectionRate,
-          studentsWithNothingPaid: feeOverviewAgg.studentsWithNothingPaid || feeMetrics.neverPaidCount,
-          thisMonthBreakdown: thisMonthReport.rows,
+          totalBilledPaise: feeOverviewAgg.totalBilledPaise,
+          totalCollectedPaise: feeOverviewAgg.totalCollectedPaise,
+          totalPendingPaise: feeOverviewAgg.totalPendingPaise,
+          totalDiscountPaise: feeOverviewAgg.totalDiscountPaise,
+          totalAdvancePaise: feeOverviewAgg.totalAdvancePaise,
+          collectionPercentage: feeOverviewAgg.collectionPercentage,
+          studentsWithNothingPaid: feeOverviewAgg.studentsWithNothingPaid,
+          thisMonthBreakdown: [],
           topPending: feeOverviewAgg.topPending || [],
-          headBreakdown: feeMetrics.headBreakdown,
+          headBreakdown: [],
           monthWiseTrend: feeOverviewAgg.monthWiseTrend || [],
           cycleMetrics: feeOverviewAgg.cycleMetrics || {},
         },
@@ -207,6 +204,7 @@ export async function POST(req: Request) {
 
       invalidateServerCache('overview');
       invalidateServerCache('fees');
+      invalidateFeeOverviewMemoryCache(tenant);
 
       return NextResponse.json({
         success: true,
