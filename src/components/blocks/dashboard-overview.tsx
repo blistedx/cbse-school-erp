@@ -248,7 +248,7 @@ export function DashboardOverview({
   const [liveFeeFinancials, setLiveFeeFinancials] = useState<any>((overview as any)?.financials || null);
 
   useEffect(() => {
-    if ((overview as any)?.financials) {
+    if ((overview as any)?.financials?.monthWiseTrend?.length > 0) {
       setLiveFeeFinancials((overview as any).financials);
     } else {
       const schoolCode = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';

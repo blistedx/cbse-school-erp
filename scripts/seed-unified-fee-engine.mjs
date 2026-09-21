@@ -963,14 +963,36 @@ async function seedUnifiedFeeEngine() {
     }
   }
 
-  // 3. Atomically overwrite fee_demands, fee_payments, fee_ledger, fee_receipts
-  console.log(`\n💾 Persisting ${allDemands.length} demands into fee_demands...`);
-  await db.collection('fee_demands').deleteMany({ sessionId: session });
-  await db.collection('fee_demands').insertMany(allDemands);
-
-  console.log(`💾 Persisting ${allPayments.length} payments into fee_payments...`);
-  await db.collection('fee_payments').deleteMany({ sessionId: session });
-  await db.collection('fee_payments').insertMany(allPayments);
+  // Populate legacy ledger payments
+  for (const p of allPayments) {
+    for (const h of p.allocatedHeads) {
+      legacyLedgerLines.push({
+        id: `FLL-PAY-${p.receiptNo}-${h.feeHead}-${h.period}`,
+        school_id: p.schoolId,
+        academic_session: p.sessionId,
+        student_id: p.studentId,
+        class_name: p.className,
+        section: p.section || 'A',
+        admission_no: p.admissionNo || '',
+        line_type: 'PAYMENT',
+        fee_head: h.feeHead,
+        month: h.period === 'ONE_TIME' ? null : h.period,
+        slot_id: h.period === 'ONE_TIME' ? 'ONE_TIME' : `SLOT_${h.period}`,
+        amount: h.amountPaise,
+        txn_date: p.paidOn,
+        payment_mode: p.mode,
+        receipt_no: p.receiptNo,
+        txn_ref: p.txnRef || null,
+        cheque_no: p.chequeNo || null,
+        collected_by: p.collectedBy || 'ACCOUNTS_OFFICE',
+        remarks: p.remarks || null,
+        is_cancelled: Boolean(p.cancelled),
+        cancelled_reason: p.cancelledReason || null,
+        cancelled_at: p.cancelledAt || null,
+        created_at: p.createdAt,
+      });
+    }
+  }
 
   console.log(`💾 Syncing legacy fee_ledger collection (${legacyLedgerLines.length} lines)...`);
   await db.collection('fee_ledger').deleteMany({ academic_session: session });

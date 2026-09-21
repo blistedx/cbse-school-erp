@@ -24,7 +24,7 @@ import {
 import { getDefaultCbseSubjectsForClass, sortClassesChronologically } from './cbse-subjects';
 import { getTodayDateStr } from './utils';
 import { getSchoolFeeMetrics } from './fees/metrics';
-import { getStudentLedger, computeSummaryFromLines } from './fees-engine/ledger';
+import { getStudentLedger, computeSummaryFromLines, getSchoolFeeOverviewAggregation } from './fees-engine/ledger';
 import bcrypt from 'bcryptjs';
 
 export async function hashPassword(plainText: string): Promise<string> {
@@ -2898,11 +2898,12 @@ export const Database = {
     const todayDateStr = getTodayDateStr();
     const cacheKey = `overview:${schoolId}:${targetSession}:${todayDateStr}`;
     return singleFlight(cacheKey, async () => {
-      const [students, teachers, attendance, feeMetrics] = await Promise.all([
+      const [students, teachers, attendance, feeMetrics, feeAgg] = await Promise.all([
         this.getStudents(schoolId, targetSession),
         this.getTeachers(schoolId, targetSession),
         this.getAttendance(schoolId, targetSession),
-        getSchoolFeeMetrics(schoolId, targetSession)
+        getSchoolFeeMetrics(schoolId, targetSession),
+        getSchoolFeeOverviewAggregation(schoolId, targetSession)
       ]);
 
       const totalStudents = students.length;
@@ -2958,7 +2959,11 @@ export const Database = {
       let pendingFeeAmount = 0;
       let feeCollectionRate = 0;
 
-      if (feeMetrics) {
+      if (feeAgg) {
+        totalRevenue = Math.round(feeAgg.totalCollectedPaise / 100);
+        pendingFeeAmount = Math.round(feeAgg.totalPendingPaise / 100);
+        feeCollectionRate = feeAgg.collectionPercentage;
+      } else if (feeMetrics) {
         totalRevenue = Math.round(feeMetrics.totalCollectedPaise / 100);
         pendingFeeAmount = Math.round(feeMetrics.pendingDuesPaise / 100);
         feeCollectionRate = feeMetrics.collectionRate;
@@ -2982,7 +2987,17 @@ export const Database = {
           pendingFeeAmount,
           totalRevenue
         },
-        financials: feeMetrics ? {
+        financials: feeAgg ? {
+          totalDemand: Math.round(feeAgg.totalBilledPaise / 100),
+          totalCollected: Math.round(feeAgg.totalCollectedPaise / 100),
+          totalOutstanding: Math.round(feeAgg.totalPendingPaise / 100),
+          totalDiscount: Math.round(feeAgg.totalDiscountPaise / 100),
+          collectionRate: feeAgg.collectionPercentage,
+          zeroPaidStudents: feeAgg.studentsWithNothingPaid,
+          topPending: feeAgg.topPending || [],
+          monthWiseTrend: feeAgg.monthWiseTrend || [],
+          cycleMetrics: feeAgg.cycleMetrics || {},
+        } : (feeMetrics ? {
           totalDemand: Math.round(feeMetrics.billedDueToDatePaise / 100),
           totalCollected: Math.round(feeMetrics.totalCollectedPaise / 100),
           totalOutstanding: Math.round(feeMetrics.pendingDuesPaise / 100),
@@ -2992,7 +3007,7 @@ export const Database = {
           topPending: [],
           monthWiseTrend: [],
           cycleMetrics: {},
-        } : null,
+        } : null),
         feeOverview: feeMetrics as any,
         recentStudents: students.slice(-5).reverse(),
         recentInvoices: []

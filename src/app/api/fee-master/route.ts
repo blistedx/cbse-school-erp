@@ -22,6 +22,7 @@ import {
   seedRealisticFeeData,
   executeReport,
   REPORT_CONFIGS,
+  getSchoolFeeOverviewAggregation,
 } from '@/lib/fees-engine';
 import { getSchoolFeeMetrics } from '@/lib/fees/metrics';
 import { Database } from '@/lib/db';
@@ -126,24 +127,27 @@ export async function GET(req: Request) {
 
     // 8. Overview KPIs and Mini-Tables
     if (action === 'overview') {
-      const [feeMetrics, thisMonthReport] = await Promise.all([
+      const [feeMetrics, feeOverviewAgg, thisMonthReport] = await Promise.all([
         getSchoolFeeMetrics(tenant, session),
+        getSchoolFeeOverviewAggregation(tenant, session),
         executeReport(tenant, 'month_class_collection', { session, months: ['SEP'] }),
       ]);
 
       return NextResponse.json({
         success: true,
         overview: {
-          totalBilledPaise: feeMetrics.billedDueToDatePaise,
-          totalCollectedPaise: feeMetrics.totalCollectedPaise,
-          totalPendingPaise: feeMetrics.pendingDuesPaise,
-          totalDiscountPaise: feeMetrics.discountFullSessionPaise,
-          totalAdvancePaise: feeMetrics.advanceCollectedPaise,
-          collectionPercentage: feeMetrics.collectionRate,
-          studentsWithNothingPaid: feeMetrics.neverPaidCount,
+          totalBilledPaise: feeOverviewAgg.totalBilledPaise || feeMetrics.billedDueToDatePaise,
+          totalCollectedPaise: feeOverviewAgg.totalCollectedPaise || feeMetrics.totalCollectedPaise,
+          totalPendingPaise: feeOverviewAgg.totalPendingPaise || feeMetrics.pendingDuesPaise,
+          totalDiscountPaise: feeOverviewAgg.totalDiscountPaise || feeMetrics.discountFullSessionPaise,
+          totalAdvancePaise: feeOverviewAgg.totalAdvancePaise || feeMetrics.advanceCollectedPaise,
+          collectionPercentage: feeOverviewAgg.collectionPercentage || feeMetrics.collectionRate,
+          studentsWithNothingPaid: feeOverviewAgg.studentsWithNothingPaid || feeMetrics.neverPaidCount,
           thisMonthBreakdown: thisMonthReport.rows,
-          topPending: [],
+          topPending: feeOverviewAgg.topPending || [],
           headBreakdown: feeMetrics.headBreakdown,
+          monthWiseTrend: feeOverviewAgg.monthWiseTrend || [],
+          cycleMetrics: feeOverviewAgg.cycleMetrics || {},
         },
       });
     }
