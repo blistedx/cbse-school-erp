@@ -566,6 +566,12 @@ export function DashboardFeeMaster({
         setIsAdvanceYearly(false);
         loadStudentLedger(selectedStudent.id);
         loadOverview();
+
+        // Dispatch instant event for Dashboard KPI Tiles and real-time telemetry
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('fee_payment_recorded', { detail: data.receipt }));
+          window.dispatchEvent(new CustomEvent('erp_data_updated'));
+        }
       } else {
         toast(data.error || 'Failed to collect payment', 'error');
       }

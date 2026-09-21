@@ -25,7 +25,7 @@ import {
   getSchoolFeeOverviewAggregation,
 } from '@/lib/fees-engine';
 import { getSchoolFeeMetrics } from '@/lib/fees/metrics';
-import { Database } from '@/lib/db';
+import { Database, invalidateServerCache } from '@/lib/db';
 import type { FeeAggregateFilters, GroupByDimension } from '@/lib/fees-engine';
 
 export async function GET(req: Request) {
@@ -204,6 +204,9 @@ export async function POST(req: Request) {
         selectedHeadPeriodKeys: body.selected_keys,
         isAdvanceYearly: body.is_advance_yearly,
       });
+
+      invalidateServerCache('overview');
+      invalidateServerCache('fees');
 
       return NextResponse.json({
         success: true,

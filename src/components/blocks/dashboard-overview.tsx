@@ -247,29 +247,62 @@ export function DashboardOverview({
   const [feeCycleDropdownOpen, setFeeCycleDropdownOpen] = useState<boolean>(false);
   const [liveFeeFinancials, setLiveFeeFinancials] = useState<any>((overview as any)?.financials || null);
 
-  useEffect(() => {
-    if ((overview as any)?.financials?.monthWiseTrend?.length > 0) {
-      setLiveFeeFinancials((overview as any).financials);
-    } else {
-      const schoolCode = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
-      fetch(`/api/fee-master?action=overview&school_id=${encodeURIComponent(schoolCode)}&session=2026-27`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.overview) {
-            setLiveFeeFinancials({
-              totalDemand: Math.round(data.overview.totalBilledPaise / 100),
-              totalCollected: Math.round(data.overview.totalCollectedPaise / 100),
-              totalOutstanding: Math.round(data.overview.totalPendingPaise / 100),
-              totalDiscount: Math.round(data.overview.totalDiscountPaise / 100),
-              collectionRate: data.overview.collectionPercentage,
-              monthWiseTrend: data.overview.monthWiseTrend || [],
-              cycleMetrics: data.overview.cycleMetrics || {},
-            });
-          }
-        })
-        .catch(err => console.error('[overview live fee fetch error]', err));
+  const fetchLiveFeeOverview = useCallback(async () => {
+    const schoolCode = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
+    try {
+      const res = await fetch(`/api/fee-master?action=overview&school_id=${encodeURIComponent(schoolCode)}&session=2026-27&_t=${Date.now()}`);
+      const data = await res.json();
+      if (data.success && data.overview) {
+        setLiveFeeFinancials({
+          totalDemand: Math.round(data.overview.totalBilledPaise / 100),
+          totalCollected: Math.round(data.overview.totalCollectedPaise / 100),
+          totalOutstanding: Math.round(data.overview.totalPendingPaise / 100),
+          totalDiscount: Math.round(data.overview.totalDiscountPaise / 100),
+          collectionRate: data.overview.collectionPercentage,
+          monthWiseTrend: data.overview.monthWiseTrend || [],
+          cycleMetrics: data.overview.cycleMetrics || {},
+        });
+      }
+    } catch (err) {
+      console.error('[overview live fee fetch error]', err);
     }
-  }, [overview, selectedSchool]);
+  }, [selectedSchool]);
+
+  // Initial load and whenever overview or selectedSchool changes
+  useEffect(() => {
+    fetchLiveFeeOverview();
+  }, [fetchLiveFeeOverview, overview, selectedSchool]);
+
+  // Re-fetch immediately when invoices list length changes (e.g. newly collected payment)
+  useEffect(() => {
+    fetchLiveFeeOverview();
+  }, [invoices?.length, fetchLiveFeeOverview]);
+
+  // Live real-time event listener for fee payment events across the ERP
+  useEffect(() => {
+    const handleLiveFeeUpdate = () => {
+      fetchLiveFeeOverview();
+      onRefresh?.();
+    };
+
+    window.addEventListener('fee_payment_recorded', handleLiveFeeUpdate);
+    window.addEventListener('erp_data_updated', handleLiveFeeUpdate);
+    window.addEventListener('focus', handleLiveFeeUpdate);
+
+    // Active lightweight 4-second live poll for instantaneous telemetry
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchLiveFeeOverview();
+      }
+    }, 4000);
+
+    return () => {
+      window.removeEventListener('fee_payment_recorded', handleLiveFeeUpdate);
+      window.removeEventListener('erp_data_updated', handleLiveFeeUpdate);
+      window.removeEventListener('focus', handleLiveFeeUpdate);
+      clearInterval(interval);
+    };
+  }, [fetchLiveFeeOverview, onRefresh]);
 
   // Close dropdown when clicking outside
   const dropdownRef = useRef<HTMLDivElement>(null);

@@ -3406,6 +3406,11 @@ function ERPWorkspaceContent() {
         // Sync fresh data from MongoDB in background
         loadSchoolData(schoolCode, session, true);
 
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('fee_payment_recorded', { detail: newReceipt }));
+          window.dispatchEvent(new CustomEvent('erp_data_updated'));
+        }
+
         // Reset form
         setInvoiceForm({
           student_id: '',
