@@ -25,13 +25,13 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
   const [splashFading, setSplashFading] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. Splash Screen Timer (1.8s zoom-in + 350ms smooth fade)
+    // 1. Splash Screen Timer (1.2s icon zoom-in + 300ms smooth fade out)
     const splashTimer = setTimeout(() => {
       setSplashFading(true);
       setTimeout(() => {
         setShowSplash(false);
-      }, 350);
-    }, 1800);
+      }, 300);
+    }, 1200);
 
     // 2. Restore active theme immediately
     if (typeof window !== 'undefined') {
@@ -272,55 +272,34 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
       {children}
 
       {/* ─────────────────────────────────────────────────────────────
-          1. CLEAN GITERP LOGO ZOOM-IN APP OPENING ANIMATION
+          1. CLEAN PURE APP ICON OPENING ZOOM-IN ANIMATION
           ───────────────────────────────────────────────────────────── */}
       {showSplash && (
         <div
-          className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#122A24] text-white transition-opacity duration-350 ease-out select-none ${
+          className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#122A24] text-white transition-opacity duration-300 ease-out select-none ${
             splashFading ? 'opacity-0 pointer-events-none' : 'opacity-100'
           }`}
           style={{
-            background: 'radial-gradient(circle at center, #1C443A 0%, #122A24 65%, #0B1B17 100%)'
+            background: 'radial-gradient(circle at center, #1C443A 0%, #122A24 70%, #0B1B17 100%)'
           }}
         >
           {/* Subtle Ambient Radial Glow */}
-          <div className="absolute w-96 h-96 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none animate-pulse" />
+          <div className="absolute w-72 h-72 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
 
-          {/* Centered Brand Emblem with GITERP Zoom-In Animation */}
-          <div className="relative z-10 flex flex-col items-center text-center space-y-6 animate-giterp-zoom">
-            <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-3xl p-1 bg-gradient-to-b from-white/20 to-white/5 border border-white/25 shadow-2xl shadow-emerald-950/80 overflow-hidden group">
+          {/* Centered App Icon with Pure Zoom-In Animation */}
+          <div className="relative z-10 flex flex-col items-center justify-center animate-giterp-zoom">
+            <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-3xl p-1 bg-gradient-to-b from-white/15 to-white/5 border border-white/20 shadow-2xl shadow-emerald-950/80 overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/giterp-logo.png"
-                alt="Giterp Official Emblem"
+                alt="Giterp App Icon"
                 className="w-full h-full object-cover rounded-2xl"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <span className="inline-block px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-[11px] font-mono font-bold tracking-wider text-emerald-300 uppercase">
-                Manage • Integrate • Grow
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-black font-display tracking-tight text-white">
-                Giterp <span className="text-emerald-400">ERP</span>
-              </h1>
-              <p className="text-xs text-emerald-200/80 font-medium">
-                Enterprise CBSE School Management Suite
-              </p>
-            </div>
-
-            {/* Smooth 1.8s Progress Loader */}
-            <div className="w-44 h-1.5 bg-white/10 rounded-full overflow-hidden relative shadow-inner">
-              <div
-                className="h-full bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500 rounded-full"
-                style={{
-                  animation: 'giterpProgress 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards'
-                }}
               />
             </div>
           </div>
         </div>
       )}
+
 
       {/* Floating Offline Notification Banner */}
       {showOfflineAlert && (
