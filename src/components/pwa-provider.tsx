@@ -20,25 +20,37 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
-  // ─── 2-SECOND GITERP ZOOM-IN OPENING SPLASH ANIMATION ───
-  const [showSplash, setShowSplash] = useState<boolean>(true);
+  // ─── GITERP ZOOM-IN OPENING ANIMATION (MOBILE ONLY) ───
+  const [showSplash, setShowSplash] = useState<boolean>(false);
   const [splashFading, setSplashFading] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. Splash Screen Timer (1.2s icon zoom-in + 300ms smooth fade out)
-    const splashTimer = setTimeout(() => {
-      setSplashFading(true);
-      setTimeout(() => {
-        setShowSplash(false);
-      }, 300);
-    }, 1200);
+    let splashTimer: NodeJS.Timeout | null = null;
+    let fadeTimer: NodeJS.Timeout | null = null;
 
-    // 2. Restore active theme immediately
     if (typeof window !== 'undefined') {
+      // Check if user is on mobile app / mobile viewport
+      const isMobile =
+        window.innerWidth < 768 ||
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+      // Only show opening animation on mobile
+      if (isMobile) {
+        setShowSplash(true);
+        splashTimer = setTimeout(() => {
+          setSplashFading(true);
+          fadeTimer = setTimeout(() => {
+            setShowSplash(false);
+          }, 300);
+        }, 1200);
+      }
+
+      // Restore active theme immediately
       try {
         const themeId = getSavedThemeId();
         applyAntigravityTheme(themeId);
       } catch (e) {}
+
 
       setIsOnline(navigator.onLine);
       if (!navigator.onLine) {
@@ -226,7 +238,8 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
       window.addEventListener('appinstalled', handleAppInstalled);
 
       return () => {
-        clearTimeout(splashTimer);
+        if (splashTimer) clearTimeout(splashTimer);
+        if (fadeTimer) clearTimeout(fadeTimer);
         window.removeEventListener('online', handleOnline);
         window.removeEventListener('offline', handleOffline);
         window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -272,11 +285,11 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
       {children}
 
       {/* ─────────────────────────────────────────────────────────────
-          1. CLEAN PURE APP ICON OPENING ZOOM-IN ANIMATION
+          1. CLEAN PURE APP ICON OPENING ZOOM-IN ANIMATION (MOBILE ONLY)
           ───────────────────────────────────────────────────────────── */}
       {showSplash && (
         <div
-          className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#122A24] text-white transition-opacity duration-300 ease-out select-none ${
+          className={`fixed inset-0 z-[99999] md:hidden flex flex-col items-center justify-center bg-[#122A24] text-white transition-opacity duration-300 ease-out select-none ${
             splashFading ? 'opacity-0 pointer-events-none' : 'opacity-100'
           }`}
           style={{
@@ -299,6 +312,7 @@ export default function PWAProvider({ children }: { children: React.ReactNode })
           </div>
         </div>
       )}
+
 
 
       {/* Floating Offline Notification Banner */}
