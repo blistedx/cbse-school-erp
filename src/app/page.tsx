@@ -6,6 +6,7 @@ import { ClearCTABanner } from '@/components/landing/clear-cta';
 import { FAQSection } from '@/components/landing/faq-section';
 import CookiePreferencesButton from '@/components/ui/cookie-preferences-button';
 import { faqPageSchema } from '@/lib/json-ld';
+import PwaClientNav from '@/components/landing/pwa-client-nav';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,7 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased">
+      <PwaClientNav />
       {/* Search Engine Structured Data for Google Rich Snippets */}
       <script
         type="application/ld+json"

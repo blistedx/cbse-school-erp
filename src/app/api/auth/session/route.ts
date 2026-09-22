@@ -26,11 +26,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // Refresh valid session token
+    // Refresh valid session token (preserve remember setting)
+    const isRemembered = payload.rem !== false;
     const refreshedToken = createSessionToken(
       payload.userId,
       payload.schoolId,
-      payload.role
+      payload.role,
+      isRemembered
     );
 
     const response = NextResponse.json({
@@ -45,9 +47,10 @@ export async function POST(req: Request) {
     });
 
     const isProd = process.env.NODE_ENV === 'production';
+    const cookieMaxAge = isRemembered ? 30 * 24 * 60 * 60 : 24 * 60 * 60;
     response.cookies.set('erp_session_token', refreshedToken, {
       path: '/',
-      maxAge: 43200,
+      maxAge: cookieMaxAge,
       sameSite: 'lax',
       httpOnly: true,
       secure: isProd

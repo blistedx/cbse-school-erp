@@ -21,9 +21,10 @@ export async function POST(req: Request) {
       return validation.response;
     }
 
-    const { school_code, username, password, role } = validation.data;
+    const { school_code, username, password, role, remember } = validation.data;
     const cleanSchoolCode = school_code ? school_code.trim().toUpperCase() : '';
     const cleanUsername = username.trim();
+    const shouldRemember = remember !== false; // Default to true unless explicitly false
 
     // 1. Check IP-based rate limiting (Max 25 attempts / 15 mins)
     const ipRate = checkRateLimit(req, {
@@ -63,11 +64,12 @@ export async function POST(req: Request) {
 
     const canonicalSchool = canonicalizeSchoolId(auth.user.school_id || auth.school?.id || cleanSchoolCode || 'DPS2026');
 
-    // Issue a signed session token (12h validity)
+    // Issue a signed session token (30 days if remember is true, 24h if false)
     const sessionToken = createSessionToken(
       auth.user.id,
       canonicalSchool,
-      auth.user.role
+      auth.user.role,
+      shouldRemember
     );
 
     const response = NextResponse.json({
@@ -81,11 +83,12 @@ export async function POST(req: Request) {
       session_token: sessionToken
     });
 
-    // Set cookie for browser fetch auto-attachment
+    // Set cookie for browser fetch auto-attachment (30 days if remember is true)
     const isProd = process.env.NODE_ENV === 'production';
+    const cookieMaxAge = shouldRemember ? 30 * 24 * 60 * 60 : 24 * 60 * 60;
     response.cookies.set('erp_session_token', sessionToken, {
       path: '/',
-      maxAge: 43200,
+      maxAge: cookieMaxAge,
       sameSite: 'lax',
       httpOnly: true,
       secure: isProd

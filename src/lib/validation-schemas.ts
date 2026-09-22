@@ -294,7 +294,8 @@ export const authLoginSchema = z.object({
   school_code: z.string().max(50).optional(),
   username: z.string().min(1, 'User ID / Username is required').max(100),
   password: z.string().min(1, 'Password is required').max(200),
-  role: z.string().max(50).optional()
+  role: z.string().max(50).optional(),
+  remember: z.boolean().optional()
 }).strict();
 
 export const forgotPasscodeSchema = z.object({

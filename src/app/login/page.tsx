@@ -143,7 +143,7 @@ function LoginPageContent() {
   const [userId, setUserId] = useState(() => searchParams.get('userId') || searchParams.get('username') || searchParams.get('user') || 'admin');
   const [password, setPassword] = useState(() => searchParams.get('password') || searchParams.get('passcode') || searchParams.get('pwd') || '123456');
   const [showPassword, setShowPassword] = useState(false);
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -161,7 +161,50 @@ function LoginPageContent() {
   const [forgotSuccess, setForgotSuccess] = useState<{ message: string; target_email: string; account_name?: string } | null>(null);
 
   useEffect(() => {
-    // Dynamically fetch live server build info to bypass any local service-worker or browser cache
+    // 1. Restore remembered login credentials
+    try {
+      const saved = localStorage.getItem('giterp_saved_login');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.schoolCode && !searchParams.get('schoolCode') && !searchParams.get('school')) {
+          setSchoolCode(parsed.schoolCode);
+        }
+        if (parsed.userId && !searchParams.get('userId') && !searchParams.get('username') && !searchParams.get('user')) {
+          setUserId(parsed.userId);
+        }
+        if (typeof parsed.remember === 'boolean') {
+          setRemember(parsed.remember);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Check if already authenticated with a valid session — auto redirect to /app
+    const isLogoutIntent = searchParams.get('logout') === 'true';
+    if (!isLogoutIntent) {
+      try {
+        const rawUser = localStorage.getItem('current_user');
+        const token = localStorage.getItem('erp_session_token');
+        if (rawUser && token) {
+          fetch('/api/auth/session', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+            .then((r) => r.json())
+            .then((d) => {
+              if (d && d.success) {
+                const parsed = JSON.parse(rawUser);
+                const targetSchool = parsed.school_code || parsed.school_id || searchParams.get('school') || 'DPS2026';
+                window.location.href = `/app?school=${encodeURIComponent(targetSchool)}`;
+              }
+            })
+            .catch(() => {});
+        }
+      } catch (_) {}
+    }
+
+    // 3. Dynamically fetch live server build info
     fetch(`/api/app-info?t=${Date.now()}`, { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => {
@@ -173,7 +216,7 @@ function LoginPageContent() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [searchParams]);
 
   const executeLogin = async (rawSchool: string, rawUser: string, rawPass: string) => {
     setLoading(true);
@@ -207,7 +250,8 @@ function LoginPageContent() {
           body: JSON.stringify({
             school_code: effectiveSchoolCode,
             username: cleanUserId,
-            password: cleanPassword
+            password: cleanPassword,
+            remember: remember
           })
         });
       } catch (fetchErr: any) {
@@ -219,7 +263,8 @@ function LoginPageContent() {
           body: JSON.stringify({
             school_code: effectiveSchoolCode,
             username: cleanUserId,
-            password: cleanPassword
+            password: cleanPassword,
+            remember: remember
           })
         });
       }
@@ -240,6 +285,22 @@ function LoginPageContent() {
         } else {
           setSuccess(`Authentication successful! Welcome ${data.user?.full_name || data.user?.username}...`);
         }
+
+        // Save remembered credentials if enabled
+        if (remember) {
+          try {
+            localStorage.setItem('giterp_saved_login', JSON.stringify({
+              schoolCode: effectiveSchoolCode,
+              userId: cleanUserId,
+              remember: true
+            }));
+          } catch (_) {}
+        } else {
+          try {
+            localStorage.removeItem('giterp_saved_login');
+          } catch (_) {}
+        }
+
         localStorage.setItem('current_user', JSON.stringify({
           ...data.user,
           login_role: data.user.role

@@ -86,12 +86,15 @@ export interface TokenPayload {
   userId: string;
   schoolId: string;
   role: string;
+  rem?: boolean;
   iat: number;
   exp: number;
 }
 
-/** Token validity window — 12 hours */
-const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
+/** Token validity windows: 30 days if remember is true, 24 hours if false */
+export const TOKEN_TTL_REMEMBER_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+export const TOKEN_TTL_DEFAULT_MS = 24 * 60 * 60 * 1000; // 24 hours
+export const TOKEN_TTL_MS = TOKEN_TTL_REMEMBER_MS;
 
 function b64url(str: string): string {
   return Buffer.from(str).toString('base64url');
@@ -113,11 +116,13 @@ function sign(payload: string): string {
 export function createSessionToken(
   userId: string,
   schoolId: string,
-  role: string
+  role: string,
+  remember: boolean = true
 ): string {
   const iat = Date.now();
-  const exp = iat + TOKEN_TTL_MS;
-  const payload = b64url(JSON.stringify({ userId, schoolId, role, iat, exp }));
+  const ttl = remember ? TOKEN_TTL_REMEMBER_MS : TOKEN_TTL_DEFAULT_MS;
+  const exp = iat + ttl;
+  const payload = b64url(JSON.stringify({ userId, schoolId, role, rem: remember, iat, exp }));
   const sig = sign(payload);
   return `${payload}.${sig}`;
 }
