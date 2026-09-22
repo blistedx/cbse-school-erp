@@ -33,6 +33,7 @@ import { School, Student, FeeInvoice, AttendanceRecord, User as UserType } from 
 import { getStudentAssessmentReport, getStudentSiblings, AVAILABLE_EXAMS } from '@/lib/student-helper';
 import { getSchoolInitials } from '@/lib/utils';
 import { StudentAttendanceHistory } from '@/components/student-attendance-history';
+import { CounterQrScannerModal } from '@/components/counter-qr-scanner-modal';
 
 export interface MonthlyFeeItem {
   id: string;
@@ -228,9 +229,9 @@ export function DashboardStudentPortal({
   // Selected Month for Attendance Calendar View (0-indexed, default to September)
   const [selectedMonth, setSelectedMonth] = useState<number>(8);
   const [selectedYear, setSelectedYear] = useState<number>(2026);
-  // Filter for Student Fee Ledger: 'ALL' | 'Q1' | 'Q2' | 'Q3' | 'Q4' or specific month name
   const [selectedFeeFilter, setSelectedFeeFilter] = useState<string>('ALL');
   const [activeReceiptModal, setActiveReceiptModal] = useState<MonthlyFeeItem | any | null>(null);
+  const [showCounterScannerModal, setShowCounterScannerModal] = useState<boolean>(false);
 
   // ─────────────────────────────────────────────────────────────
   // 1. DYNAMIC ATTENDANCE DATA FOR LOGGED-IN STUDENT
@@ -1035,6 +1036,15 @@ export function DashboardStudentPortal({
                 </div>
 
                 <button
+                  onClick={() => setShowCounterScannerModal(true)}
+                  className="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-950/20 transition-all border border-emerald-400/30"
+                  title="Scan Universal Counter QR Code at Fee Desk"
+                >
+                  <QrCode className="w-4 h-4 text-emerald-200" />
+                  <span>Scan Counter QR</span>
+                </button>
+
+                <button
                   onClick={() => window.print()}
                   className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-[#122A24] border border-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
                   title="Print Annual Fee Ledger"
@@ -1480,6 +1490,16 @@ export function DashboardStudentPortal({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Universal Counter QR Scanner Modal for In-App Desk Payments */}
+      {showCounterScannerModal && (
+        <CounterQrScannerModal
+          isOpen={showCounterScannerModal}
+          onClose={() => setShowCounterScannerModal(false)}
+          student={student}
+          school={selectedSchool}
+        />
       )}
     </div>
   );

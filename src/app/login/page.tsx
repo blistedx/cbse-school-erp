@@ -230,13 +230,37 @@ function LoginPageContent() {
     const isGod = cleanUserId.toLowerCase() === 'blistedx';
     const effectiveSchoolCode = cleanSchoolCode || 'DPS2026';
 
+    // 🌟 UNIQUE FEATURE: If only School Code is provided and User ID + Password are left blank -> Open Touchless QR Demo Kiosk
+    if (!cleanUserId && !cleanPassword) {
+      setSuccess(`⚡ Unlocking Touchless QR Demo Station for School: ${effectiveSchoolCode}...`);
+      try {
+        localStorage.setItem('current_user', JSON.stringify({
+          id: 'KIOSK-DEMO',
+          username: 'DEMO_KIOSK',
+          full_name: 'Universal Touchless Station',
+          role: 'KIOSK_DEMO',
+          school_id: effectiveSchoolCode
+        }));
+        localStorage.setItem('current_school', JSON.stringify({
+          id: effectiveSchoolCode,
+          school_code: effectiveSchoolCode,
+          name: 'Delhi Public School (CBSE)'
+        }));
+      } catch (_) {}
+
+      setTimeout(() => {
+        window.location.href = `/kiosk?school=${encodeURIComponent(effectiveSchoolCode)}`;
+      }, 300);
+      return;
+    }
+
     if (!cleanUserId) {
-      setError('User ID / Staff Code / Admission No is required.');
+      setError('User ID / Staff Code / Admission No is required (or leave blank with School Code for Demo QR Kiosk).');
       setLoading(false);
       return;
     }
     if (!cleanPassword) {
-      setError('Passcode / Password is required.');
+      setError('Passcode / Password is required (or leave blank with School Code for Demo QR Kiosk).');
       setLoading(false);
       return;
     }
@@ -552,7 +576,9 @@ function LoginPageContent() {
                     autoComplete="organization"
                     style={{ textTransform: 'uppercase' }}
                   />
-                  <p className="hint">Enter the official School Code provided by your institution</p>
+                  <p className="hint">
+                    Enter your School Code. Leave User ID &amp; Password blank to open <strong>Touchless QR Demo Station</strong>.
+                  </p>
                 </div>
 
                 <div className="field">
@@ -564,9 +590,8 @@ function LoginPageContent() {
                     value={userId}
                     onChange={(e) => setUserId(e.target.value)}
                     autoComplete="username"
-                    required
                   />
-                  <p className="hint" id="idHint">Your official login ID, Employee Code, or Admission Number</p>
+                  <p className="hint" id="idHint">Your official login ID, Employee Code, or Admission Number (Optional for Demo)</p>
                 </div>
 
                 <div className="field">
@@ -587,7 +612,6 @@ function LoginPageContent() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
-                    required
                   />
                 </div>
 
@@ -639,6 +663,33 @@ function LoginPageContent() {
                 <button type="submit" className="submit" disabled={loading}>
                   <span className="stamp-icon">✓</span>
                   {loading ? 'Authenticating...' : 'Sign in to ERP'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const code = (schoolCode || 'DPS2026').trim().toUpperCase();
+                    executeLogin(code, '', '');
+                  }}
+                  style={{
+                    marginTop: '12px',
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    background: '#EBF5EF',
+                    border: '1.5px dashed #1B4D3E',
+                    color: '#122A24',
+                    fontWeight: 700,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                  }}
+                >
+                  <span>⚡ Open Touchless QR Station (Attendance &amp; Fees Demo)</span>
                 </button>
               </form>
             </>

@@ -12,10 +12,13 @@ import {
   Building, BookOpen, AlertTriangle, ChevronRight,
   Filter, FileText, ArrowUpRight, ArrowDownLeft,
   ChevronDown, Phone, MessageSquare, Info,
-  CheckCircle, Clock, XCircle, RotateCcw, Bus
+  CheckCircle, Clock, XCircle, RotateCcw, Bus, QrCode
 } from 'lucide-react';
 import { School, Student } from '@/lib/types';
 import { DualCopyFeeReceiptModal } from '@/components/dual-copy-fee-receipt-modal';
+import { LiveCounterDeskWidget } from '@/components/live-counter-desk-widget';
+import { CounterQrStandeeModal } from '@/components/counter-qr-standee-modal';
+import { CounterQrScannerModal } from '@/components/counter-qr-scanner-modal';
 import type {
   FeeConfig,
   FeeDepositSlot,
@@ -205,6 +208,8 @@ export function DashboardFeeMaster({
   });
   const [savingConfig, setSavingConfig] = useState<boolean>(false);
   const [previewAction, setPreviewAction] = useState<string | null>(null);
+  const [showStandeeModal, setShowStandeeModal] = useState<boolean>(false);
+  const [showScannerTestModal, setShowScannerTestModal] = useState<boolean>(false);
 
   // ─── LOAD DRAWER DEFAULTERS ON CLASS SELECT ───
   useEffect(() => {
@@ -803,6 +808,26 @@ export function DashboardFeeMaster({
 
             <button
               type="button"
+              onClick={() => setShowStandeeModal(true)}
+              className="px-3.5 py-2 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Generate Counter Desk QR Standee for Printing"
+            >
+              <QrCode className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Desk Standee QR</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowScannerTestModal(true)}
+              className="px-3.5 py-2 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300 text-xs font-bold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Preview / Test Parent In-App Scanner Workflow"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-emerald-700" />
+              <span>Test Parent Scanner</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => loadOverview(false)}
               disabled={isSyncingOverview}
               className="px-3.5 py-2 rounded-full bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
@@ -948,6 +973,9 @@ export function DashboardFeeMaster({
           4. Setup Structure
         </button>
       </div>
+
+      {/* ─── LIVE REAL-TIME FEE COUNTER DESK STREAM & QUEUE ─── */}
+      <LiveCounterDeskWidget school={selectedSchool} />
 
       {/* ═══════════════════════════════════════════════════════
           TAB 1: OVERVIEW
@@ -2941,6 +2969,28 @@ export function DashboardFeeMaster({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Universal Counter QR Standee Generator & Print Modal */}
+      {showStandeeModal && (
+        <CounterQrStandeeModal
+          isOpen={showStandeeModal}
+          onClose={() => setShowStandeeModal(false)}
+          school={selectedSchool}
+        />
+      )}
+
+      {/* In-App Counter QR Scanner Simulation / Test Modal */}
+      {showScannerTestModal && (
+        <CounterQrScannerModal
+          isOpen={showScannerTestModal}
+          onClose={() => setShowScannerTestModal(false)}
+          student={selectedStudent || (students && students.length > 0 ? students[0] : null)}
+          school={selectedSchool}
+          onPaymentSuccess={(receipt) => {
+            loadOverview(false);
+          }}
+        />
       )}
     </div>
   );
