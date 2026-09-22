@@ -266,44 +266,43 @@ function LoginPageContent() {
     }
 
     try {
-      let res: Response;
-      try {
-        res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            school_code: effectiveSchoolCode,
-            username: cleanUserId,
-            password: cleanPassword,
-            remember: remember
-          })
-        });
-      } catch (fetchErr: any) {
-        // Quick retry once in case of transient network glitch during cold start/deployment
-        await new Promise(r => setTimeout(r, 600));
-        res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            school_code: effectiveSchoolCode,
-            username: cleanUserId,
-            password: cleanPassword,
-            remember: remember
-          })
-        });
+      let res: Response | null = null;
+      let lastFetchError: any = null;
+
+      // Try up to 2 times with 400ms delay in case of momentary serverless wake-up
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              school_code: effectiveSchoolCode,
+              username: cleanUserId,
+              password: cleanPassword,
+              remember: remember
+            })
+          });
+          if (res) break;
+        } catch (fetchErr: any) {
+          lastFetchError = fetchErr;
+          if (attempt < 2) {
+            await new Promise((r) => setTimeout(r, 400));
+          }
+        }
+      }
+
+      if (!res) {
+        throw lastFetchError || new Error('Network timeout');
       }
 
       let data: any = null;
       try {
         data = await res.json();
       } catch (jsonErr) {
-        if (!res.ok) {
-          setError(`Server busy (${res.status}). Please wait a few seconds and click Login again.`);
-          return;
-        }
+        // Response was not valid JSON
       }
 
-      if (data && data.success) {
+      if (res.ok && data && data.success) {
         if (data.user?.is_god_admin || data.user?.role === 'AGENCY_SUPERADMIN' || isGod) {
           setSuccess('⚡ GOD ACCESS GRANTED! Welcome Administrator — Unlocking all schools on platform...');
         } else {
@@ -330,7 +329,6 @@ function LoginPageContent() {
           login_role: data.user.role
         }));
         localStorage.setItem('current_school', JSON.stringify(data.school));
-        // Store signed session token for secure API calls
         if (data.session_token) {
           localStorage.setItem('erp_session_token', data.session_token);
         }
@@ -338,10 +336,11 @@ function LoginPageContent() {
           window.location.href = `/app?school=${encodeURIComponent(data.school?.school_code || effectiveSchoolCode || 'DPS2026')}`;
         }, 150);
       } else {
-        setError(data?.error || 'Authentication failed. Please verify your school code and credentials.');
+        setError(data?.error || `Login failed (${res.status}). Please check your School Code, ID, and Passcode.`);
       }
     } catch (err: any) {
-      setError('Connection issue: Server was deploying or network is slow. Please click Login again in a moment.');
+      console.error('Login submit error:', err);
+      setError('Connection timeout. Please verify your internet connection and click Sign in again.');
     } finally {
       setLoading(false);
     }

@@ -26,17 +26,17 @@ export async function POST(req: Request) {
     const cleanUsername = username.trim();
     const shouldRemember = remember !== false; // Default to true unless explicitly false
 
-    // 1. Check IP-based rate limiting (Max 25 attempts / 15 mins)
+    // 1. Check IP-based rate limiting (Max 60 attempts / 15 mins)
     const ipRate = checkRateLimit(req, {
       bucketName: 'auth-login-ip',
-      maxAttempts: 25,
+      maxAttempts: 60,
       windowMs: 15 * 60 * 1000,
-      skipLocalhost: process.env.NODE_ENV !== 'production'
+      skipLocalhost: true
     });
     if (!ipRate.allowed) return ipRate.response!;
 
-    // 2. Check Account-based lockout (Max 5 failed attempts per account / 15 mins)
-    const accountLock = checkAccountLockout(cleanSchoolCode || 'SYSTEM', cleanUsername, 5, 15 * 60 * 1000);
+    // 2. Check Account-based lockout (Max 20 attempts per account / 15 mins)
+    const accountLock = checkAccountLockout(cleanSchoolCode || 'SYSTEM', cleanUsername, 20, 15 * 60 * 1000);
     if (accountLock.locked) {
       return accountLock.response!;
     }
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       // Record failed attempt for account lockout
       checkRateLimit(req, {
         bucketName: 'account-lockout',
-        maxAttempts: 5,
+        maxAttempts: 20,
         windowMs: 15 * 60 * 1000,
         customKey: `${(cleanSchoolCode || 'SYSTEM').toUpperCase()}:${cleanUsername.toUpperCase()}`
       });
