@@ -631,8 +631,8 @@ export function DashboardReports({
         const statsSummary = [
           { label: 'Total Enrolled Scholars', value: `${classSummaryTotals.totalStudents} Students` },
           { label: 'Gender Breakdown', value: `${classSummaryTotals.maleCount} Boys | ${classSummaryTotals.femaleCount} Girls` },
-          { label: '4-House Distribution', value: `🔴 ${classSummaryTotals.redHouseCount} | 🟡 ${classSummaryTotals.yellowHouseCount} | 🔵 ${classSummaryTotals.blueHouseCount} | 🟢 ${classSummaryTotals.greenHouseCount}` },
-          { label: 'Transport Users', value: `${classSummaryTotals.transportOptedCount} Bus Riders` }
+          { label: '4-House Distribution', value: `Red: ${classSummaryTotals.redHouseCount} | Yellow: ${classSummaryTotals.yellowHouseCount} | Blue: ${classSummaryTotals.blueHouseCount} | Green: ${classSummaryTotals.greenHouseCount}` },
+          { label: 'Transport Users', value: `${classSummaryTotals.transportOptedCount} Bus Commuters` }
         ];
         return {
           title: `Class-Wise Student Strength, Gender, House & Transport Summary`,
@@ -1154,10 +1154,10 @@ export function DashboardReports({
                 </span>
                 <UserCheck className="w-4 h-4 text-teal-700" />
               </div>
-              <div className="font-display font-bold text-xl text-[#1C443A] flex items-center gap-2">
-                <span className="text-blue-700 font-bold">👦 {classSummaryTotals.maleCount}</span>
-                <span className="text-slate-300 font-normal">/</span>
-                <span className="text-rose-600 font-bold">👧 {classSummaryTotals.femaleCount}</span>
+              <div className="font-display font-bold text-lg text-[#122A24] flex items-center gap-2 pt-0.5">
+                <span className="text-slate-800 font-bold">Boys (M): {classSummaryTotals.maleCount}</span>
+                <span className="text-slate-300 font-normal">|</span>
+                <span className="text-slate-800 font-bold">Girls (F): {classSummaryTotals.femaleCount}</span>
               </div>
               <p className="text-[11px] text-[#2D5A4E] font-medium">
                 {classSummaryTotals.totalStudents > 0 ? ((classSummaryTotals.maleCount / classSummaryTotals.totalStudents) * 100).toFixed(1) : 0}% Boys • {classSummaryTotals.totalStudents > 0 ? ((classSummaryTotals.femaleCount / classSummaryTotals.totalStudents) * 100).toFixed(1) : 0}% Girls
@@ -1171,14 +1171,14 @@ export function DashboardReports({
                 </span>
                 <Shield className="w-4 h-4 text-amber-600" />
               </div>
-              <div className="font-mono font-bold text-sm text-[#122A24] flex items-center gap-1.5 flex-wrap pt-0.5">
-                <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-800 text-[11px] font-bold">🔴 {classSummaryTotals.redHouseCount}</span>
-                <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-900 text-[11px] font-bold">🟡 {classSummaryTotals.yellowHouseCount}</span>
-                <span className="px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[11px] font-bold">🔵 {classSummaryTotals.blueHouseCount}</span>
-                <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">🟢 {classSummaryTotals.greenHouseCount}</span>
+              <div className="font-mono font-bold text-xs text-[#122A24] flex items-center gap-1.5 flex-wrap pt-1">
+                <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-900 border border-rose-200">Red: {classSummaryTotals.redHouseCount}</span>
+                <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200">Yellow: {classSummaryTotals.yellowHouseCount}</span>
+                <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-900 border border-blue-200">Blue: {classSummaryTotals.blueHouseCount}</span>
+                <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-900 border border-emerald-200">Green: {classSummaryTotals.greenHouseCount}</span>
               </div>
               <p className="text-[11px] text-[#2D5A4E] font-medium">
-                Red, Yellow, Blue &amp; Green house balances
+                Official Red, Yellow, Blue &amp; Green house balances
               </p>
             </div>
 
@@ -1189,8 +1189,8 @@ export function DashboardReports({
                 </span>
                 <Bus className="w-4 h-4 text-blue-600" />
               </div>
-              <div className="font-display font-bold text-xl text-[#005A36]">
-                🚌 {classSummaryTotals.transportOptedCount} Bus Riders
+              <div className="font-display font-bold text-lg text-[#005A36] pt-0.5">
+                {classSummaryTotals.transportOptedCount} Bus / {classSummaryTotals.selfTransportCount} Self
               </div>
               <p className="text-[11px] text-[#2D5A4E] font-medium">
                 RTE: {classSummaryTotals.rteCount} • Single Girl: {classSummaryTotals.sgcCount} • CWSN: {classSummaryTotals.cwsnCount}
@@ -1206,13 +1206,12 @@ export function DashboardReports({
                   <h2 className="font-display font-bold text-base text-[#122A24]">
                     Comprehensive Classwise Demographics &amp; Strength Roster
                   </h2>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-emerald-700" />
-                    <span>Single-Row Complete Class Profile</span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                    Single-Row Complete Class Profile
                   </span>
                 </div>
                 <p className="text-xs text-[#2D5A4E] font-mono mt-0.5">
-                  Complete class-wise student strength, gender ratio, house breakdown, transport mode, and CBSE inclusion metrics in one consolidated view.
+                  Class-wise student strength, gender ratio, house breakdown, transport mode, and CBSE inclusion metrics.
                 </p>
               </div>
 
@@ -1243,10 +1242,10 @@ export function DashboardReports({
                     <th className="py-3.5 px-4 font-bold">CLASS &amp; SEC</th>
                     <th className="py-3.5 px-3 text-center font-bold">TOTAL STRENGTH</th>
                     <th className="py-3.5 px-3 text-center font-bold">GENDER (BOYS / GIRLS)</th>
-                    <th className="py-3.5 px-3 text-center font-bold">HOUSE BREAKDOWN</th>
-                    <th className="py-3.5 px-3 text-center font-bold">TRANSPORT MODE</th>
-                    <th className="py-3.5 px-3 text-center font-bold">SOCIAL CATEGORIES</th>
-                    <th className="py-3.5 px-3 text-center font-bold">INCLUSION / RTE</th>
+                    <th className="py-3.5 px-3 text-center font-bold">HOUSE (RED / YEL / BLU / GRN)</th>
+                    <th className="py-3.5 px-3 text-center font-bold">TRANSPORT (BUS / SELF)</th>
+                    <th className="py-3.5 px-3 text-center font-bold">CATEGORY (GEN/OBC/SC/ST)</th>
+                    <th className="py-3.5 px-3 text-center font-bold">STATUTORY QUOTAS</th>
                     <th className="py-3.5 px-4 text-right font-bold">ATTENDANCE TODAY</th>
                   </tr>
                 </thead>
@@ -1272,74 +1271,74 @@ export function DashboardReports({
                       </td>
 
                       <td className="py-3 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 font-bold text-xs border border-blue-200">
-                            👦 {row.maleCount}
+                        <div className="flex items-center justify-center gap-1.5 font-mono text-xs">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-semibold border border-slate-200">
+                            M: {row.maleCount}
                           </span>
-                          <span className="px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 font-bold text-xs border border-rose-200">
-                            👧 {row.femaleCount}
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-semibold border border-slate-200">
+                            F: {row.femaleCount}
                           </span>
                           {row.otherGenderCount > 0 && (
-                            <span className="px-1.5 py-0.5 rounded-lg bg-purple-50 text-purple-700 font-bold text-xs">
-                              ⚧ {row.otherGenderCount}
+                            <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-800 font-semibold border border-slate-200">
+                              O: {row.otherGenderCount}
                             </span>
                           )}
                         </div>
                       </td>
 
                       <td className="py-3 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1 flex-wrap">
-                          <span className="px-1.5 py-0.5 rounded-md bg-rose-100/90 text-rose-900 text-[10.5px] font-bold border border-rose-200" title="Red House">
-                            🔴 {row.redHouseCount}
+                        <div className="flex items-center justify-center gap-1 flex-wrap font-mono text-[11px]">
+                          <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-900 border border-rose-200 font-semibold">
+                            Red: {row.redHouseCount}
                           </span>
-                          <span className="px-1.5 py-0.5 rounded-md bg-amber-100/90 text-amber-900 text-[10.5px] font-bold border border-amber-200" title="Yellow House">
-                            🟡 {row.yellowHouseCount}
+                          <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 font-semibold">
+                            Yel: {row.yellowHouseCount}
                           </span>
-                          <span className="px-1.5 py-0.5 rounded-md bg-blue-100/90 text-blue-900 text-[10.5px] font-bold border border-blue-200" title="Blue House">
-                            🔵 {row.blueHouseCount}
+                          <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-200 font-semibold">
+                            Blu: {row.blueHouseCount}
                           </span>
-                          <span className="px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-900 text-[10.5px] font-bold border border-emerald-200" title="Green House">
-                            🟢 {row.greenHouseCount}
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-900 border border-emerald-200 font-semibold">
+                            Grn: {row.greenHouseCount}
                           </span>
                         </div>
                       </td>
 
                       <td className="py-3 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-800 font-bold text-xs border border-indigo-200" title="Transport Opted (Bus Users)">
-                            🚌 {row.transportOptedCount}
+                        <div className="flex items-center justify-center gap-1.5 font-mono text-xs">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-semibold border border-slate-200">
+                            Bus: {row.transportOptedCount}
                           </span>
-                          <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200" title="Self Commuters / Walkers">
-                            🚶 {row.selfTransportCount}
+                          <span className="px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 font-normal border border-slate-200">
+                            Self: {row.selfTransportCount}
                           </span>
                         </div>
                       </td>
 
                       <td className="py-3 px-3 text-center text-[11px]">
-                        <div className="flex items-center justify-center gap-1 text-[10.5px] text-slate-700">
-                          <span className="bg-slate-100 px-1 py-0.5 rounded font-bold">GEN:{row.generalCount}</span>
-                          <span className="bg-slate-100 px-1 py-0.5 rounded font-bold">OBC:{row.obcCount}</span>
-                          <span className="bg-slate-100 px-1 py-0.5 rounded font-bold">SC/ST:{row.scCount + row.stCount}</span>
-                          {row.ewsCount > 0 && <span className="bg-amber-50 text-amber-800 px-1 py-0.5 rounded font-bold">EWS:{row.ewsCount}</span>}
+                        <div className="flex items-center justify-center gap-1 text-[10.5px] font-mono text-slate-700">
+                          <span className="bg-slate-100 px-1.5 py-0.5 rounded font-semibold">GEN: {row.generalCount}</span>
+                          <span className="bg-slate-100 px-1.5 py-0.5 rounded font-semibold">OBC: {row.obcCount}</span>
+                          <span className="bg-slate-100 px-1.5 py-0.5 rounded font-semibold">SC/ST: {row.scCount + row.stCount}</span>
+                          {row.ewsCount > 0 && <span className="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-semibold border border-amber-200">EWS: {row.ewsCount}</span>}
                         </div>
                       </td>
 
                       <td className="py-3 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1 text-[10.5px]">
+                        <div className="flex items-center justify-center gap-1 text-[10.5px] font-mono">
                           {row.rteCount > 0 ? (
-                            <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200">
                               RTE: {row.rteCount}
                             </span>
                           ) : (
                             <span className="text-slate-400 font-normal">RTE: 0</span>
                           )}
                           {row.sgcCount > 0 && (
-                            <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-800 font-bold border border-rose-200" title="Single Girl Child">
+                            <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-800 font-semibold border border-rose-200">
                               SGC: {row.sgcCount}
                             </span>
                           )}
                           {row.cwsnCount > 0 && (
-                            <span className="px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-800 font-bold border border-purple-200" title="CWSN">
+                            <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 font-semibold border border-purple-200">
                               CWSN: {row.cwsnCount}
                             </span>
                           )}
@@ -1379,32 +1378,35 @@ export function DashboardReports({
                         </span>
                       </td>
                       <td className="py-3.5 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5 font-bold">
-                          <span className="text-blue-700">👦 {classSummaryTotals.maleCount}</span>
+                        <div className="flex items-center justify-center gap-1.5 font-mono font-bold text-xs">
+                          <span className="text-slate-800">M: {classSummaryTotals.maleCount}</span>
                           <span className="text-slate-300">/</span>
-                          <span className="text-rose-600">👧 {classSummaryTotals.femaleCount}</span>
+                          <span className="text-slate-800">F: {classSummaryTotals.femaleCount}</span>
                         </div>
                       </td>
                       <td className="py-3.5 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1 font-bold text-[11px]">
-                          <span className="text-rose-800">🔴{classSummaryTotals.redHouseCount}</span>
-                          <span className="text-amber-800">🟡{classSummaryTotals.yellowHouseCount}</span>
-                          <span className="text-blue-800">🔵{classSummaryTotals.blueHouseCount}</span>
-                          <span className="text-emerald-800">🟢{classSummaryTotals.greenHouseCount}</span>
+                        <div className="flex items-center justify-center gap-1 font-mono font-bold text-[11px]">
+                          <span className="text-rose-800">Red: {classSummaryTotals.redHouseCount}</span>
+                          <span className="text-slate-300">|</span>
+                          <span className="text-amber-800">Yel: {classSummaryTotals.yellowHouseCount}</span>
+                          <span className="text-slate-300">|</span>
+                          <span className="text-blue-800">Blu: {classSummaryTotals.blueHouseCount}</span>
+                          <span className="text-slate-300">|</span>
+                          <span className="text-emerald-800">Grn: {classSummaryTotals.greenHouseCount}</span>
                         </div>
                       </td>
                       <td className="py-3.5 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1 font-bold text-xs">
-                          <span className="text-indigo-800">🚌 {classSummaryTotals.transportOptedCount}</span>
-                          <span className="text-slate-400">/</span>
-                          <span className="text-slate-700">🚶 {classSummaryTotals.selfTransportCount}</span>
+                        <div className="flex items-center justify-center gap-1 font-mono font-bold text-xs">
+                          <span className="text-slate-800">Bus: {classSummaryTotals.transportOptedCount}</span>
+                          <span className="text-slate-300">/</span>
+                          <span className="text-slate-600">Self: {classSummaryTotals.selfTransportCount}</span>
                         </div>
                       </td>
                       <td className="py-3.5 px-3 text-center text-[10.5px]">
-                        GEN:{classSummaryTotals.generalCount} • OBC:{classSummaryTotals.obcCount} • SC/ST:{classSummaryTotals.scCount + classSummaryTotals.stCount}
+                        GEN: {classSummaryTotals.generalCount} • OBC: {classSummaryTotals.obcCount} • SC/ST: {classSummaryTotals.scCount + classSummaryTotals.stCount}
                       </td>
                       <td className="py-3.5 px-3 text-center text-[10.5px]">
-                        RTE:{classSummaryTotals.rteCount} • SGC:{classSummaryTotals.sgcCount} • CWSN:{classSummaryTotals.cwsnCount}
+                        RTE: {classSummaryTotals.rteCount} • SGC: {classSummaryTotals.sgcCount} • CWSN: {classSummaryTotals.cwsnCount}
                       </td>
                       <td className="py-3.5 px-4 text-right text-[#005A36] font-bold">
                         {classSummaryTotals.presentTodayCount} / {classSummaryTotals.totalStudents}
