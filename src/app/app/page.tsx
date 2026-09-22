@@ -851,10 +851,10 @@ function ERPWorkspaceContent() {
       return ['overview', 'attendance', 'exams', 'homework', 'classes', 'subjects', 'students', 'fees', 'reports', 'siblings', 'certificates', 'transport', 'approvals', 'library', 'notices', 'profile'];
     }
     if (effectiveRole === 'STUDENT') {
-      return ['profile', 'attendance', 'exams', 'homework', 'library', 'certificates', 'notices'];
+      return ['profile', 'fees', 'attendance', 'exams', 'homework', 'library', 'certificates', 'notices'];
     }
     if (effectiveRole === 'PARENT') {
-      return ['profile', 'attendance', 'exams', 'homework', 'siblings', 'transport', 'library', 'notices', 'broadcast'];
+      return ['profile', 'fees', 'attendance', 'exams', 'homework', 'siblings', 'transport', 'library', 'notices', 'broadcast'];
     }
 
     const roleConfig = rolePermissions[effectiveRole as ManagedRole];
@@ -5209,10 +5209,10 @@ function ERPWorkspaceContent() {
               >
                 <span className="flex items-center gap-3">
                   <Coins className={getNavIconClass('fees')} />
-                  <span>Fee Master</span>
+                  <span>{(effectiveRole === 'STUDENT' || effectiveRole === 'PARENT') ? 'Fee Ledger' : 'Fee Master'}</span>
                 </span>
                 <span className={getNavBadgeClass('fees')}>
-                  Ledger
+                  {(effectiveRole === 'STUDENT' || effectiveRole === 'PARENT') ? 'Dues' : 'Ledger'}
                 </span>
               </button>
             )}
@@ -5583,10 +5583,10 @@ function ERPWorkspaceContent() {
             >
               <span className="flex items-center gap-3">
                 <Coins className={getNavIconClass('fees')} />
-                <span>Fee Master</span>
+                <span>{(effectiveRole === 'STUDENT' || effectiveRole === 'PARENT') ? 'Fee Ledger' : 'Fee Master'}</span>
               </span>
               <span className={getNavBadgeClass('fees')}>
-                Ledger
+                {(effectiveRole === 'STUDENT' || effectiveRole === 'PARENT') ? 'Dues' : 'Ledger'}
               </span>
             </button>
           )}
@@ -9068,21 +9068,35 @@ function ERPWorkspaceContent() {
             )
           )}
 
-          {/* TAB: FEE MASTER (IMMUTABLE LEDGER FIRST REVENUE ENGINE) */}
-          {activeTab === 'fees' && (
-            <DashboardFeeMaster
-              selectedSchool={selectedSchool}
-              students={students}
-              classes={classes}
-              teachers={teachers}
-              selectedSession={selectedSession}
-              userRole={effectiveRole}
-              currentUser={currentUser}
-              preselectedStudentId={feeCollectTarget?.studentId}
-              preselectedTimestamp={feeCollectTarget?.ts}
-              onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession)}
-              showAdminToast={showAdminToast}
-            />
+          {/* TAB: FEE MASTER (ADMIN/STAFF) vs STUDENT FEE LEDGER (STUDENT/PARENT) */}
+          {activeTab === 'fees' && allowedTabs.includes('fees') && (
+            (effectiveRole === 'STUDENT' || effectiveRole === 'PARENT') ? (
+              <DashboardStudentPortal
+                currentUser={currentUser}
+                selectedSchool={selectedSchool}
+                students={students}
+                invoices={invoices}
+                attendance={attendance}
+                selectedSession={selectedSession}
+                activeView="fees"
+                setActiveTab={setActiveTab}
+                showAdminToast={showAdminToast}
+              />
+            ) : (
+              <DashboardFeeMaster
+                selectedSchool={selectedSchool}
+                students={students}
+                classes={classes}
+                teachers={teachers}
+                selectedSession={selectedSession}
+                userRole={effectiveRole}
+                currentUser={currentUser}
+                preselectedStudentId={feeCollectTarget?.studentId}
+                preselectedTimestamp={feeCollectTarget?.ts}
+                onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession)}
+                showAdminToast={showAdminToast}
+              />
+            )
           )}
 
           {/* TAB: COMPREHENSIVE SCHOOL REPORTS & MASTER DOSSIERS */}
