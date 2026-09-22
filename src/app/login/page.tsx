@@ -221,6 +221,14 @@ function LoginPageContent() {
   const [scanManualInput, setScanManualInput] = useState('');
   const [recentScanCount, setRecentScanCount] = useState(0);
 
+  const getInitials = (name?: string) => {
+    if (!name) return 'ID';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'ID';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
   // New Sign In Form states (Matching User Template & ERP Theme)
   const [recentEntries, setRecentEntries] = useState<Array<{
     id: string;
@@ -228,13 +236,15 @@ function LoginPageContent() {
     role: string;
     time: string;
     classOrDept?: string;
+    photo?: string;
   }>>([
     {
       id: '2026/0481',
       name: 'Monu Kumar',
       role: 'Student',
       time: '10:35 AM',
-      classOrDept: 'Class 9-A'
+      classOrDept: 'Class 9-A',
+      photo: ''
     }
   ]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -585,6 +595,7 @@ function LoginPageContent() {
       const attendeeName = data?.student?.full_name || data?.faculty?.full_name || scannedPerson?.student?.full_name || scannedPerson?.faculty?.full_name || targetId;
       const attendeeRole = (data?.person_type || scannedPerson?.person_type) === 'FACULTY' ? 'Faculty' : 'Student';
       const attendeeClass = data?.student?.class_name ? `${data.student.class_name}-${data.student.section || 'A'}` : (data?.faculty?.department || 'Academics');
+      const attendeePhoto = data?.student?.photo || data?.student?.avatar || data?.faculty?.photo || data?.faculty?.avatar || scannedPerson?.student?.photo || scannedPerson?.faculty?.photo || '';
 
       setRecentEntries((prev) => [
         {
@@ -592,7 +603,8 @@ function LoginPageContent() {
           name: attendeeName,
           role: attendeeRole,
           time: timeStr,
-          classOrDept: attendeeClass
+          classOrDept: attendeeClass,
+          photo: attendeePhoto
         },
         ...prev.filter(e => e.id !== targetId).slice(0, 6)
       ]);
@@ -600,13 +612,15 @@ function LoginPageContent() {
       showAttendanceToast(`✓ Attendance Marked: ${attendeeName} is Present!`);
     } catch (_) {
       const attendeeName = scannedPerson?.student?.full_name || scannedPerson?.faculty?.full_name || targetId;
+      const attendeePhoto = scannedPerson?.student?.photo || scannedPerson?.faculty?.photo || '';
       setRecentEntries((prev) => [
         {
           id: targetId,
           name: attendeeName,
           role: scannedPerson?.person_type === 'FACULTY' ? 'Faculty' : 'Student',
           time: timeStr,
-          classOrDept: scannedPerson?.student?.class_name || 'Academics'
+          classOrDept: scannedPerson?.student?.class_name || 'Academics',
+          photo: attendeePhoto
         },
         ...prev.filter(e => e.id !== targetId).slice(0, 6)
       ]);
@@ -1128,9 +1142,9 @@ function LoginPageContent() {
                     </div>
                   </div>
 
-                  {/* Expandable Live Camera Viewport (When user clicks Scan button) */}
+                  {/* Expandable Live Camera Viewport (Half Screen on Mobile with Spacious HUD) */}
                   {isCameraScannerOpen && (
-                    <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black border-2 border-emerald-500/70 shadow-2xl animate-fadeIn">
+                    <div className="relative w-full h-[46vh] sm:h-[350px] min-h-[290px] max-h-[460px] rounded-2xl overflow-hidden bg-black border-2 border-emerald-400 shadow-2xl animate-fadeIn flex flex-col items-center justify-center">
                       <video
                         ref={videoRef}
                         playsInline
@@ -1140,120 +1154,160 @@ function LoginPageContent() {
                       />
                       <canvas ref={canvasRef} className="hidden" />
 
-                      {/* HUD Viewfinder Overlay */}
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="relative w-36 h-36 border-2 border-dashed border-emerald-400 rounded-2xl flex flex-col items-center justify-between p-2 bg-emerald-950/20 backdrop-blur-[1px]">
-                          <span className="text-[9px] font-mono text-emerald-300 bg-black/70 px-1.5 py-0.5 rounded">
-                            Align ID QR
+                      {/* Spacious HUD Viewfinder Frame with L-Brackets */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-4">
+                        <div className="relative w-52 h-52 sm:w-60 sm:h-60 rounded-2xl flex flex-col items-center justify-between p-3.5 bg-emerald-950/15 backdrop-blur-[0.5px]">
+                          {/* 4 Corner L-Brackets */}
+                          <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-emerald-400 rounded-tl-lg shadow-[0_0_8px_#34d399]" />
+                          <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-emerald-400 rounded-tr-lg shadow-[0_0_8px_#34d399]" />
+                          <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-emerald-400 rounded-bl-lg shadow-[0_0_8px_#34d399]" />
+                          <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-emerald-400 rounded-br-lg shadow-[0_0_8px_#34d399]" />
+
+                          <span className="text-[10px] font-mono font-bold text-emerald-300 bg-black/80 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                            SCAN ANY ID CARD / QR
                           </span>
-                          <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_10px_#34d399] animate-pulse" />
-                          <span className="text-[8.5px] text-slate-300 bg-black/70 px-1.5 py-0.5 rounded">
-                            Auto-Scanning
+
+                          <div className="w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_15px_#34d399] animate-pulse my-auto" />
+
+                          <span className="text-[9px] font-mono text-slate-300 bg-black/80 px-2 py-0.5 rounded-full">
+                            Align ID Card within box
                           </span>
                         </div>
                       </div>
 
                       {/* Camera Switch & Torch Buttons */}
-                      <div className="absolute top-2 right-2 z-20 flex items-center gap-1.5">
+                      <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
                         <button
                           type="button"
                           onClick={toggleCameraFacing}
-                          className="p-1.5 bg-black/70 hover:bg-black/90 text-emerald-300 rounded-lg text-xs font-mono font-bold flex items-center gap-1 border border-emerald-500/40 cursor-pointer"
+                          className="p-2 bg-black/80 hover:bg-black text-emerald-300 rounded-xl text-xs font-mono font-bold flex items-center gap-1 border border-emerald-500/50 cursor-pointer shadow-lg active:scale-95 transition-all"
                           title="Flip Camera"
                         >
-                          <SwitchCamera className="w-3.5 h-3.5" />
+                          <SwitchCamera className="w-4 h-4" />
                         </button>
                         <button
                           type="button"
                           onClick={toggleTorch}
-                          className={`p-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1 border border-emerald-500/40 cursor-pointer ${
-                            torchOn ? 'bg-amber-400 text-slate-950' : 'bg-black/70 text-emerald-300'
+                          className={`p-2 rounded-xl text-xs font-mono font-bold flex items-center gap-1 border border-emerald-500/50 cursor-pointer shadow-lg active:scale-95 transition-all ${
+                            torchOn ? 'bg-amber-400 text-slate-950' : 'bg-black/80 text-emerald-300'
                           }`}
                           title="Toggle Torch"
                         >
-                          <Flashlight className="w-3.5 h-3.5" />
+                          <Flashlight className="w-4 h-4" />
                         </button>
                       </div>
 
                       {scanLoading && (
-                        <div className="absolute inset-0 bg-black/80 flex items-center justify-center text-emerald-300 font-mono text-xs gap-2 z-30">
-                          <div className="w-4 h-4 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
-                          <span>Looking up profile...</span>
+                        <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center text-emerald-300 font-mono text-xs gap-2.5 z-30">
+                          <div className="w-6 h-6 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+                          <span className="font-bold tracking-wider">Verifying Student / Faculty ID...</span>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* Verified Profile Card (if found) */}
+                  {/* Verified Profile Card with Picture / Avatar Fallback */}
                   {scannedPerson && (
-                    <div className="bg-[#081714] border-2 border-emerald-500 rounded-2xl p-4 space-y-3 animate-fadeIn text-white shadow-lg">
-                      <div className="flex items-center justify-between border-b border-emerald-900/60 pb-2">
+                    <div className="bg-[#081714] border-2 border-emerald-500 rounded-2xl p-4 space-y-3.5 animate-fadeIn text-white shadow-xl">
+                      {/* Header with Verified Tag & Close Button */}
+                      <div className="flex items-center justify-between border-b border-emerald-900/60 pb-2.5">
                         <div className="flex items-center gap-2">
-                          {scannedPerson.person_type === 'STUDENT' ? (
-                            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold">
-                              <GraduationCap className="w-4 h-4" />
-                            </div>
-                          ) : (
-                            <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold">
-                              <Briefcase className="w-4 h-4" />
-                            </div>
-                          )}
-                          <div>
-                            <span className="text-xs font-bold text-white block">
-                              {scannedPerson.person_type === 'STUDENT' ? 'Student Verified' : 'Faculty Verified'}
-                            </span>
-                            <span className="text-[9.5px] font-mono text-emerald-300/70 uppercase">
-                              PASS VERIFICATION
-                            </span>
-                          </div>
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-300 font-mono">
+                            {scannedPerson.person_type === 'STUDENT' ? 'Student ID Verified' : 'Faculty ID Verified'}
+                          </span>
                         </div>
                         <button
                           type="button"
-                          onClick={() => setScannedPerson(null)}
+                          onClick={() => {
+                            setScannedPerson(null);
+                            setIsCameraScannerOpen(true);
+                          }}
                           className="p-1 rounded-md text-slate-400 hover:text-white cursor-pointer"
-                          title="Clear"
+                          title="Clear & Rescan"
                         >
                           <X className="w-4 h-4" />
                         </button>
                       </div>
 
-                      {/* Profile Fields */}
-                      <div className="space-y-1.5 text-xs">
-                        <div className="flex justify-between border-b border-emerald-950 pb-1">
-                          <span className="text-slate-400 font-mono uppercase">
-                            {scannedPerson.person_type === 'STUDENT' ? 'STUDENT NAME:' : 'FACULTY NAME:'}
-                          </span>
-                          <strong className="text-white font-bold uppercase">
-                            {scannedPerson.person_type === 'STUDENT' ? scannedPerson.student?.full_name : scannedPerson.faculty?.full_name}
-                          </strong>
-                        </div>
+                      {/* Profile Photo / Avatar + Primary Info */}
+                      <div className="flex items-center gap-3.5">
+                        {/* Dynamic Avatar / Photo Box */}
+                        {(() => {
+                          const isStudent = scannedPerson.person_type === 'STUDENT';
+                          const name = isStudent ? scannedPerson.student?.full_name : scannedPerson.faculty?.full_name;
+                          const photo = isStudent
+                            ? (scannedPerson.student?.photo || (scannedPerson.student as any)?.avatar)
+                            : (scannedPerson.faculty?.photo || (scannedPerson.faculty as any)?.avatar);
+                          const initials = getInitials(name);
 
-                        {scannedPerson.person_type === 'STUDENT' && scannedPerson.student && (
-                          <>
-                            <div className="flex justify-between border-b border-emerald-950 pb-1">
-                              <span className="text-slate-400 font-mono uppercase">CLASS &amp; SEC:</span>
-                              <strong className="text-emerald-300 font-bold">
-                                {scannedPerson.student.class_name} - {scannedPerson.student.section || 'A'}
-                              </strong>
+                          return photo ? (
+                            <div className="relative w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden shrink-0 border-2 border-emerald-400 shadow-md bg-[#0c231d]">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={photo}
+                                alt={name || 'User Photo'}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  if (e.currentTarget.nextElementSibling) {
+                                    (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                                  }
+                                }}
+                              />
+                              <div className="hidden w-full h-full items-center justify-center bg-gradient-to-br from-emerald-600 via-teal-800 to-emerald-950 text-white font-display font-black text-xl">
+                                {initials}
+                              </div>
                             </div>
-                            <div className="flex justify-between text-[11px] font-mono text-slate-400 pt-0.5">
-                              <span>Adm: <strong className="text-white">{scannedPerson.student.admission_no}</strong></span>
-                              <span>Roll: <strong className="text-emerald-300">{scannedPerson.student.roll_no || '14'}</strong></span>
+                          ) : (
+                            <div className="relative w-16 h-16 sm:w-18 sm:h-18 rounded-2xl shrink-0 flex items-center justify-center font-display font-black text-xl border-2 border-emerald-400 bg-gradient-to-br from-emerald-600 via-teal-800 to-emerald-950 text-white shadow-lg shadow-emerald-950/50">
+                              <span>{initials}</span>
+                              <div className="absolute -bottom-1 -right-1 p-1 rounded-full bg-emerald-400 text-slate-950 shadow">
+                                {isStudent ? <GraduationCap className="w-3.5 h-3.5" /> : <Briefcase className="w-3.5 h-3.5" />}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-base sm:text-lg font-black text-white truncate font-display tracking-tight">
+                            {scannedPerson.person_type === 'STUDENT' ? scannedPerson.student?.full_name : scannedPerson.faculty?.full_name}
+                          </h3>
+                          <p className="text-xs font-semibold text-emerald-300 font-mono mt-0.5">
+                            {scannedPerson.person_type === 'STUDENT'
+                              ? `${scannedPerson.student?.class_name} - ${scannedPerson.student?.section || 'A'}`
+                              : (scannedPerson.faculty?.designation || 'Faculty Member')}
+                          </p>
+                          <span className="inline-block mt-1 px-2 py-0.5 bg-emerald-950 border border-emerald-600/50 text-[10px] font-mono text-emerald-200 rounded-md">
+                            {scannedPerson.person_type === 'STUDENT'
+                              ? `Adm: ${scannedPerson.student?.admission_no || scannedPerson.student?.id}`
+                              : `Code: ${scannedPerson.faculty?.staff_code || scannedPerson.faculty?.id}`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Secondary Details Grid */}
+                      <div className="bg-[#0c231d] border border-[#1C443A] rounded-xl p-3 grid grid-cols-2 gap-2 text-xs font-mono">
+                        {scannedPerson.person_type === 'STUDENT' ? (
+                          <>
+                            <div>
+                              <span className="text-slate-400 block text-[10px] uppercase">Roll Number</span>
+                              <strong className="text-white text-xs">{scannedPerson.student?.roll_no || '14'}</strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 block text-[10px] uppercase">Section</span>
+                              <strong className="text-emerald-300 text-xs">{scannedPerson.student?.section || 'A'}</strong>
                             </div>
                           </>
-                        )}
-
-                        {scannedPerson.person_type === 'FACULTY' && scannedPerson.faculty && (
+                        ) : (
                           <>
-                            <div className="flex justify-between border-b border-emerald-950 pb-1">
-                              <span className="text-slate-400 font-mono uppercase">DESIGNATION:</span>
-                              <strong className="text-cyan-300 font-bold">
-                                {scannedPerson.faculty.designation}
-                              </strong>
+                            <div>
+                              <span className="text-slate-400 block text-[10px] uppercase">Department</span>
+                              <strong className="text-cyan-300 text-xs">{scannedPerson.faculty?.department || 'Academics'}</strong>
                             </div>
-                            <div className="flex justify-between text-[11px] font-mono text-slate-400 pt-0.5">
-                              <span>Staff Code: <strong className="text-white">{scannedPerson.faculty.staff_code}</strong></span>
-                              <span>Dept: <strong className="text-cyan-300">{scannedPerson.faculty.department || 'Academics'}</strong></span>
+                            <div>
+                              <span className="text-slate-400 block text-[10px] uppercase">Staff Code</span>
+                              <strong className="text-white text-xs">{scannedPerson.faculty?.staff_code || scannedPerson.faculty?.id}</strong>
                             </div>
                           </>
                         )}
@@ -1264,7 +1318,7 @@ function LoginPageContent() {
                         <button
                           type="button"
                           onClick={() => handleConfirmVerifiedPresent()}
-                          className="py-2.5 px-3 bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs rounded-xl shadow flex items-center justify-center gap-1.5 cursor-pointer hover:brightness-110 active:scale-98 transition-all"
+                          className="py-3 px-3 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs sm:text-sm rounded-xl shadow-lg flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 transition-all"
                         >
                           <Check className="w-4 h-4 stroke-[3]" />
                           <span>VERIFIED &amp; PRESENT</span>
@@ -1274,8 +1328,9 @@ function LoginPageContent() {
                           onClick={() => {
                             setScannedPerson(null);
                             setScanManualInput('');
+                            setIsCameraScannerOpen(true);
                           }}
-                          className="py-2.5 px-3 bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-600/60 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                          className="py-3 px-3 bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-600/60 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all"
                         >
                           <X className="w-4 h-4 stroke-[3]" />
                           <span>WRONG PERSON</span>
@@ -1309,7 +1364,7 @@ function LoginPageContent() {
                   )}
                 </div>
 
-                {/* 3. RECENT ENTRIES (AppSheet Style with ERP Emerald Theme) */}
+                {/* 3. RECENT ENTRIES (AppSheet Style with ERP Emerald Theme & Avatars) */}
                 <div className="p-4 bg-[#081714] border-t border-[#1C443A]/80 shrink-0 max-h-[220px] overflow-y-auto">
                   <h3 className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center justify-between">
                     <span>Recently Marked</span>
@@ -1322,13 +1377,34 @@ function LoginPageContent() {
                         key={idx}
                         className="bg-[#0c231d] border border-[#1C443A] rounded-xl p-2.5 sm:px-3 flex items-center justify-between animate-fadeIn shadow-xs"
                       >
-                        <div className="min-w-0 pr-2">
-                          <h4 className="text-xs sm:text-[13px] font-bold text-white truncate font-sans">
-                            {entry.name} <span className="text-[10px] text-slate-400 font-normal">({entry.id})</span>
-                          </h4>
-                          <p className="text-[10px] text-emerald-300/70 font-mono">
-                            {entry.classOrDept} • Marked at {entry.time}
-                          </p>
+                        <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                          {entry.photo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={entry.photo}
+                              alt={entry.name}
+                              className="w-8 h-8 rounded-full object-cover border border-emerald-400/60 shrink-0"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                if (e.currentTarget.nextElementSibling) {
+                                  (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                                }
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`${entry.photo ? 'hidden' : 'flex'} w-8 h-8 rounded-full bg-emerald-800 text-emerald-100 font-bold text-xs items-center justify-center border border-emerald-500/40 shrink-0`}
+                          >
+                            {getInitials(entry.name)}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-xs sm:text-[13px] font-bold text-white truncate font-sans">
+                              {entry.name} <span className="text-[10px] text-slate-400 font-normal font-mono">({entry.id})</span>
+                            </h4>
+                            <p className="text-[10px] text-emerald-300/70 font-mono truncate">
+                              {entry.classOrDept} • Marked at {entry.time}
+                            </p>
+                          </div>
                         </div>
                         <span className="px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-500/40 rounded-full shrink-0 flex items-center gap-1">
                           <Check className="w-3 h-3 text-emerald-400" /> Present
@@ -1358,7 +1434,9 @@ function LoginPageContent() {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowQrScanner(!showQrScanner);
+                    const next = !showQrScanner;
+                    setShowQrScanner(next);
+                    setIsCameraScannerOpen(next);
                     setScannedPerson(null);
                   }}
                   className={`w-11 h-11 shrink-0 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
