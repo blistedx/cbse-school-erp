@@ -254,21 +254,47 @@ export class AggregatesService {
       }
     ]).toArray();
 
-    const academicMonths = ['APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER', 'JANUARY', 'FEBRUARY', 'MARCH'];
-    const monthMap = new Map(monthWiseAgg.map(m => [m._id, m]));
+    const academicMonths = [
+      { key: 'APR', label: 'APR', full: 'April' },
+      { key: 'MAY', label: 'MAY', full: 'May' },
+      { key: 'JUN', label: 'JUN', full: 'June' },
+      { key: 'JUL', label: 'JUL', full: 'July' },
+      { key: 'AUG', label: 'AUG', full: 'August' },
+      { key: 'SEP', label: 'SEP', full: 'September' },
+      { key: 'OCT', label: 'OCT', full: 'October' },
+      { key: 'NOV', label: 'NOV', full: 'November' },
+      { key: 'DEC', label: 'DEC', full: 'December' },
+      { key: 'JAN', label: 'JAN', full: 'January' },
+      { key: 'FEB', label: 'FEB', full: 'February' },
+      { key: 'MAR', label: 'MAR', full: 'March' }
+    ];
+    const monthMap = new Map<string, any>();
+    for (const m of monthWiseAgg) {
+      if (m._id) {
+        monthMap.set(String(m._id).toUpperCase().trim(), m);
+      }
+    }
 
     const monthWiseTrend = academicMonths.map(m => {
-      const data = monthMap.get(m);
+      const data = monthMap.get(m.key) || monthMap.get(m.label) || monthMap.get(m.full.toUpperCase());
       const billed = Math.round((data?.billed || 0) / 100);
       const collected = Math.round((data?.collected || 0) / 100);
       const discount = Math.round((data?.discount || 0) / 100);
       const pending = Math.max(0, billed - collected - discount);
       const collectionRate = billed > 0 ? Math.round((collected / billed) * 100) : 0;
+      const yearStr = ['JAN', 'FEB', 'MAR'].includes(m.key) ? '2027' : '2026';
       return {
-        month: m,
+        month: m.key,
+        label: m.key,
+        period: `${m.full} ${yearStr}`,
         billed,
         collected,
         pending,
+        demandRupees: billed,
+        collectedRupees: collected,
+        paidRupees: collected,
+        duesRupees: pending,
+        discountRupees: discount,
         collectionRate
       };
     });

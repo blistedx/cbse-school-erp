@@ -254,6 +254,10 @@ export function DashboardAttendance({
             ...prev.filter(r => r.student_id !== stu.id).slice(0, 40)
           ]);
         }
+        if (data.record && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('attendance_recorded', { detail: data.record }));
+          window.dispatchEvent(new CustomEvent('erp_data_updated', { detail: { type: 'attendance', record: data.record } }));
+        }
         showAdminToast(`✅ Attendance Recorded: ${data.student?.full_name || 'Student'} Marked PRESENT!`);
         onRefresh();
       } else {
@@ -937,6 +941,10 @@ export function DashboardAttendance({
               ));
               return [data.record, ...filtered];
             });
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('attendance_recorded', { detail: data.record }));
+              window.dispatchEvent(new CustomEvent('erp_data_updated', { detail: { type: 'attendance', record: data.record } }));
+            }
           }
           triggerSaveSuccess(
             'Attendance Saved!',
@@ -1011,6 +1019,10 @@ export function DashboardAttendance({
               ));
               return [data.record, ...filtered];
             });
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('attendance_recorded', { detail: data.record }));
+              window.dispatchEvent(new CustomEvent('erp_data_updated', { detail: { type: 'attendance', record: data.record } }));
+            }
           }
           triggerSaveSuccess(
             'Faculty Attendance Saved!',
@@ -1254,6 +1266,12 @@ export function DashboardAttendance({
           const filtered = prev.filter(r => !savedKeys.has(`${r.date}_${normalizeClassName(r.class_name)}_${(r.section || '').toUpperCase().trim()}`));
           return [...newlySavedRecords, ...filtered];
         });
+        if (typeof window !== 'undefined') {
+          newlySavedRecords.forEach(rec => {
+            window.dispatchEvent(new CustomEvent('attendance_recorded', { detail: rec }));
+          });
+          window.dispatchEvent(new CustomEvent('erp_data_updated', { detail: { type: 'attendance' } }));
+        }
       }
 
       setSheetEdits({});

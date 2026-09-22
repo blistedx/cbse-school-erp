@@ -93,7 +93,7 @@ import { TaskCompletionOverlay, TaskCelebrationData, TaskCelebrationType } from 
 import { getAllSiblingGroups, SiblingGroup } from '@/lib/student-helper';
 import { ANTIGRAVITY_THEMES, applyAntigravityTheme, getSavedThemeId } from '@/lib/themes';
 import { compressImageFile } from '@/lib/image-compress';
-import { getSchoolInitials, printHtmlElement, numberToWordsINR, getTodayDateStr } from '@/lib/utils';
+import { getSchoolInitials, printHtmlElement, numberToWordsINR, getTodayDateStr, isSameClass } from '@/lib/utils';
 import { ThinkingOrb, ThinkingOrbThinkingDemo, ThinkingOrbSyncPill } from '@/components/ui/thinking-orbs';
 
 // Instant Module Loading Fallback using ThinkingOrb
@@ -3565,6 +3565,20 @@ function ERPWorkspaceContent() {
 
       const data = await res.json();
       if (data.success) {
+        if (data.record) {
+          setAttendance(prev => {
+            const filtered = prev.filter(r => !(
+              r.date === data.record.date &&
+              isSameClass(r.class_name, data.record.class_name) &&
+              (r.section || '').toUpperCase().trim() === (data.record.section || '').toUpperCase().trim()
+            ));
+            return [data.record, ...filtered];
+          });
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('attendance_recorded', { detail: data.record }));
+            window.dispatchEvent(new CustomEvent('erp_data_updated', { detail: { type: 'attendance', record: data.record } }));
+          }
+        }
         showAdminToast(`Saved ${selectedAttendanceClass}-${selectedAttendanceSection} Attendance: ${presentCount} Present, ${absentCount} Absent!`);
         loadSchoolData(selectedSchool.id);
       }
@@ -3633,6 +3647,19 @@ function ERPWorkspaceContent() {
 
       const data = await res.json();
       if (data.success) {
+        if (data.record) {
+          setAttendance(prev => {
+            const filtered = prev.filter(r => !(
+              r.date === data.record.date &&
+              (/faculty|staff/i.test(r.class_name || '') || /faculty|staff/i.test(r.section || ''))
+            ));
+            return [data.record, ...filtered];
+          });
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('attendance_recorded', { detail: data.record }));
+            window.dispatchEvent(new CustomEvent('erp_data_updated', { detail: { type: 'attendance', record: data.record } }));
+          }
+        }
         showAdminToast(`Faculty Daily Attendance Synced: ${presentCount} On Duty, ${absentCount} Absent / On Holiday!`);
         loadSchoolData(selectedSchool.id);
       }

@@ -41,7 +41,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { School, Student, Teacher, ClassRoom, FeeInvoice, AttendanceRecord, SchoolOverview, User, Notice } from '@/lib/types';
-import { getSchoolInitials, getTodayDateStr } from '@/lib/utils';
+import { getSchoolInitials, getTodayDateStr, isSameClass } from '@/lib/utils';
 import { ACADEMIC_MONTHS, MONTH_FULL_NAMES } from '@/lib/fees-engine/constants';
 import { apiFetch } from '@/lib/api-client';
 
@@ -264,6 +264,7 @@ export function DashboardOverview({
   const [feeCycleDropdownOpen, setFeeCycleDropdownOpen] = useState<boolean>(false);
   const [liveFeeFinancials, setLiveFeeFinancials] = useState<any>((overview as any)?.financials || null);
   const [liveReceipts, setLiveReceipts] = useState<FeeInvoice[]>(invoices || []);
+  const [liveAttendance, setLiveAttendance] = useState<AttendanceRecord[]>(attendance || []);
 
   // Sync with prop updates
   useEffect(() => {
@@ -271,6 +272,12 @@ export function DashboardOverview({
       setLiveReceipts(invoices);
     }
   }, [invoices]);
+
+  useEffect(() => {
+    if (Array.isArray(attendance)) {
+      setLiveAttendance(attendance);
+    }
+  }, [attendance]);
 
   const fetchLiveFeeOverview = useCallback(async () => {
     const schoolCode = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
@@ -322,7 +329,7 @@ export function DashboardOverview({
     fetchLiveFeeOverview();
   }, [invoices?.length, fetchLiveFeeOverview]);
 
-  // Live real-time event listener for fee payment events across the ERP
+  // Live real-time event listener for fee payment and attendance events across the ERP
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | null = null;
     const handleLiveFeeUpdate = (e?: any) => {
@@ -343,14 +350,36 @@ export function DashboardOverview({
       }, 150);
     };
 
+    const handleLiveAttendanceUpdate = (e?: any) => {
+      const rec = e?.detail?.record || e?.detail;
+      if (rec && (rec.class_name || rec.date)) {
+        setLiveAttendance(prev => {
+          const filtered = prev.filter(r => !(
+            r.date === rec.date &&
+            isSameClass(r.class_name, rec.class_name) &&
+            (r.section || '').toUpperCase().trim() === (rec.section || '').toUpperCase().trim()
+          ));
+          return [rec, ...filtered];
+        });
+      }
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        onRefresh?.();
+      }, 100);
+    };
+
     window.addEventListener('fee_payment_recorded', handleLiveFeeUpdate);
+    window.addEventListener('attendance_recorded', handleLiveAttendanceUpdate);
     window.addEventListener('erp_data_updated', handleLiveFeeUpdate);
+    window.addEventListener('erp_data_updated', handleLiveAttendanceUpdate);
     window.addEventListener('focus', handleLiveFeeUpdate);
 
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
       window.removeEventListener('fee_payment_recorded', handleLiveFeeUpdate);
+      window.removeEventListener('attendance_recorded', handleLiveAttendanceUpdate);
       window.removeEventListener('erp_data_updated', handleLiveFeeUpdate);
+      window.removeEventListener('erp_data_updated', handleLiveAttendanceUpdate);
       window.removeEventListener('focus', handleLiveFeeUpdate);
     };
   }, [fetchLiveFeeOverview, onRefresh]);
@@ -434,12 +463,12 @@ export function DashboardOverview({
   const totalStudentsCount = (Array.isArray(students) && students.length > 0) ? students.length : (overview?.kpis?.totalStudents || 505);
   
   const studentAttendanceRecords = useMemo(() => {
-    return (attendance || []).filter(a => 
+    return (liveAttendance || []).filter(a => 
       (a.class_name || '').toLowerCase() !== 'faculty' && 
       (a.class_name || '').toLowerCase() !== 'staff' &&
       !(/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || ''))
     );
-  }, [attendance]);
+  }, [liveAttendance]);
 
   // Today's student attendance strictly for todayDateStr
   const studentTodayMap = new Map<string, AttendanceRecord>();
@@ -518,14 +547,14 @@ export function DashboardOverview({
   const liveTeacherCount = totalTeachersCount > 0 ? totalTeachersCount : 31;
 
   const facultyAttendanceRecords = useMemo(() => {
-    return (attendance || []).filter(a => 
+    return (liveAttendance || []).filter(a => 
       (a.class_name || '').toLowerCase() === 'faculty' || 
       (a.section || '').toLowerCase() === 'staff' ||
       /faculty|staff/i.test(a.class_name || '') || 
       /faculty|staff/i.test(a.section || '') ||
       (Array.isArray((a as any).teacher_records) && (a as any).teacher_records.length > 0)
     );
-  }, [attendance]);
+  }, [liveAttendance]);
 
   const facultyTodayRecords = useMemo(() => {
     return facultyAttendanceRecords.filter(a => {
@@ -851,39 +880,49 @@ export function DashboardOverview({
     const fin = liveFeeFinancials || (overview as any)?.financials;
     const serverTrends = fin?.monthWiseTrend;
 
+    const monthDefs = [
+      { key: 'APR', label: 'APR', full: 'April', num: '04' },
+      { key: 'MAY', label: 'MAY', full: 'May', num: '05' },
+      { key: 'JUN', label: 'JUN', full: 'June', num: '06' },
+      { key: 'JUL', label: 'JUL', full: 'July', num: '07' },
+      { key: 'AUG', label: 'AUG', full: 'August', num: '08' },
+      { key: 'SEP', label: 'SEP', full: 'September', num: '09' },
+      { key: 'OCT', label: 'OCT', full: 'October', num: '10' },
+      { key: 'NOV', label: 'NOV', full: 'November', num: '11' },
+      { key: 'DEC', label: 'DEC', full: 'December', num: '12' },
+      { key: 'JAN', label: 'JAN', full: 'January', num: '01' },
+      { key: 'FEB', label: 'FEB', full: 'February', num: '02' },
+      { key: 'MAR', label: 'MAR', full: 'March', num: '03' }
+    ];
+
     let monthlyTrend: any[] = [];
-    if (Array.isArray(serverTrends) && serverTrends.length > 0) {
-      monthlyTrend = serverTrends.map((m: any) => {
-        const collK = Math.round((m.paidRupees || 0) / 1000);
-        const duesK = Math.round((m.duesRupees || 0) / 1000);
-        const coll = m.paidRupees || 0;
-        const dues = m.duesRupees || 0;
+    if (Array.isArray(serverTrends) && serverTrends.length > 0 && serverTrends.some((t: any) => (t.paidRupees || t.collected || 0) > 0)) {
+      const serverMap = new Map<string, any>();
+      serverTrends.forEach((m: any) => {
+        const k = String(m.month || m.label || '').toUpperCase().trim();
+        serverMap.set(k, m);
+      });
+
+      monthlyTrend = monthDefs.map(m => {
+        const match = serverMap.get(m.key) || serverMap.get(m.full.toUpperCase());
+        const coll = Number(match?.paidRupees !== undefined ? match.paidRupees : (match?.collected !== undefined ? match.collected : (match?.collectedRupees || 0)));
+        const dues = Number(match?.duesRupees !== undefined ? match.duesRupees : (match?.pending !== undefined ? match.pending : (match?.pendingRupees || 0)));
+        const collK = Math.round(coll / 1000);
+        const duesK = Math.round(dues / 1000);
+        const yearStr = ['JAN', 'FEB', 'MAR'].includes(m.key) ? '2027' : '2026';
         return {
           label: m.label,
-          period: m.period,
+          period: `${m.full} ${yearStr}`,
           collected: collK,
           dues: duesK,
+          rawCollected: coll,
+          rawDues: dues,
           total: Math.max(collK + duesK, 1),
           collectedDisplay: coll >= 100000 ? `₹${(coll / 100000).toFixed(1)}L` : (coll > 0 ? `₹${collK}k` : '₹0'),
           duesDisplay: dues >= 100000 ? `₹${(dues / 100000).toFixed(1)}L` : (dues > 0 ? `₹${duesK}k` : '₹0')
         };
       });
     } else {
-      const monthDefs = [
-        { key: '04', label: 'APR', full: 'APR' },
-        { key: '05', label: 'MAY', full: 'MAY' },
-        { key: '06', label: 'JUN', full: 'JUN' },
-        { key: '07', label: 'JUL', full: 'JUL' },
-        { key: '08', label: 'AUG', full: 'AUG' },
-        { key: '09', label: 'SEP', full: 'SEP' },
-        { key: '10', label: 'OCT', full: 'OCT' },
-        { key: '11', label: 'NOV', full: 'NOV' },
-        { key: '12', label: 'DEC', full: 'DEC' },
-        { key: '01', label: 'JAN', full: 'JAN' },
-        { key: '02', label: 'FEB', full: 'FEB' },
-        { key: '03', label: 'MAR', full: 'MAR' }
-      ];
-
       monthlyTrend = monthDefs.map(m => {
         let coll = 0;
         let dues = 0;
@@ -898,7 +937,7 @@ export function DashboardOverview({
           if (alloc.length > 0) {
             for (const h of alloc) {
               const hMonth = String(h.month || h.period || '').toUpperCase();
-              const matchesMonth = hMonth.includes(m.label.toUpperCase()) || pMonthNum === m.key;
+              const matchesMonth = hMonth.includes(m.key) || pMonthNum === m.num;
               if (matchesMonth) {
                 const hAmt = (typeof h.amount_paise === 'number') ? Math.round(h.amount_paise / 100) : (Number(h.amount) || 0);
                 coll += hAmt;
@@ -906,7 +945,7 @@ export function DashboardOverview({
             }
           } else {
             const monthText = String(inv.month || anyInv.period || '').toUpperCase();
-            const matchesMonth = monthText.includes(m.label.toUpperCase()) || pMonthNum === m.key;
+            const matchesMonth = monthText.includes(m.key) || pMonthNum === m.num;
             if (matchesMonth) {
               const amtRupees = typeof anyInv.amount_paise === 'number' ? Math.round(anyInv.amount_paise / 100) : (Number(inv.paid_amount || inv.amount) || 0);
               coll += amtRupees;
@@ -915,12 +954,14 @@ export function DashboardOverview({
         });
         const collK = Math.round(coll / 1000);
         const duesK = Math.round(dues / 1000);
-        const yearStr = ['JAN', 'FEB', 'MAR'].includes(m.label) ? '2027' : '2026';
+        const yearStr = ['JAN', 'FEB', 'MAR'].includes(m.key) ? '2027' : '2026';
         return {
           label: m.label,
           period: `${m.full} ${yearStr}`,
           collected: collK,
           dues: duesK,
+          rawCollected: coll,
+          rawDues: dues,
           total: Math.max(collK + duesK, 1),
           collectedDisplay: coll >= 100000 ? `₹${(coll / 100000).toFixed(1)}L` : (coll > 0 ? `₹${collK}k` : '₹0'),
           duesDisplay: dues >= 100000 ? `₹${(dues / 100000).toFixed(1)}L` : (dues > 0 ? `₹${duesK}k` : '₹0')
@@ -930,26 +971,37 @@ export function DashboardOverview({
 
     const q1Coll = monthlyTrend.slice(0, 3).reduce((acc, c) => acc + c.collected, 0);
     const q1Dues = monthlyTrend.slice(0, 3).reduce((acc, c) => acc + c.dues, 0);
+    const q1RawColl = monthlyTrend.slice(0, 3).reduce((acc, c) => acc + (c.rawCollected || c.collected * 1000), 0);
+    const q1RawDues = monthlyTrend.slice(0, 3).reduce((acc, c) => acc + (c.rawDues || c.dues * 1000), 0);
+
     const q2Coll = monthlyTrend.slice(3, 6).reduce((acc, c) => acc + c.collected, 0);
     const q2Dues = monthlyTrend.slice(3, 6).reduce((acc, c) => acc + c.dues, 0);
+    const q2RawColl = monthlyTrend.slice(3, 6).reduce((acc, c) => acc + (c.rawCollected || c.collected * 1000), 0);
+    const q2RawDues = monthlyTrend.slice(3, 6).reduce((acc, c) => acc + (c.rawDues || c.dues * 1000), 0);
+
     const q3Coll = monthlyTrend.slice(6, 9).reduce((acc, c) => acc + c.collected, 0);
     const q3Dues = monthlyTrend.slice(6, 9).reduce((acc, c) => acc + c.dues, 0);
+    const q3RawColl = monthlyTrend.slice(6, 9).reduce((acc, c) => acc + (c.rawCollected || c.collected * 1000), 0);
+    const q3RawDues = monthlyTrend.slice(6, 9).reduce((acc, c) => acc + (c.rawDues || c.dues * 1000), 0);
+
     const q4Coll = monthlyTrend.slice(9, 12).reduce((acc, c) => acc + c.collected, 0);
     const q4Dues = monthlyTrend.slice(9, 12).reduce((acc, c) => acc + c.dues, 0);
+    const q4RawColl = monthlyTrend.slice(9, 12).reduce((acc, c) => acc + (c.rawCollected || c.collected * 1000), 0);
+    const q4RawDues = monthlyTrend.slice(9, 12).reduce((acc, c) => acc + (c.rawDues || c.dues * 1000), 0);
 
     const quarterlyTrend = [
-      { label: 'Q1', period: 'Q1 (Apr - Jun)', collected: q1Coll, dues: q1Dues, total: Math.max(q1Coll + q1Dues, 1), collectedDisplay: `₹${(q1Coll / 100).toFixed(1)}L`, duesDisplay: `₹${(q1Dues / 100).toFixed(1)}L` },
-      { label: 'Q2', period: 'Q2 (Jul - Sep)', collected: q2Coll, dues: q2Dues, total: Math.max(q2Coll + q2Dues, 1), collectedDisplay: `₹${(q2Coll / 100).toFixed(1)}L`, duesDisplay: `₹${(q2Dues / 100).toFixed(1)}L` },
-      { label: 'Q3', period: 'Q3 (Oct - Dec)', collected: q3Coll, dues: q3Dues, total: Math.max(q3Coll + q3Dues, 1), collectedDisplay: `₹${(q3Coll / 100).toFixed(1)}L`, duesDisplay: `₹${(q3Dues / 100).toFixed(1)}L` },
-      { label: 'Q4', period: 'Q4 (Jan - Mar)', collected: q4Coll, dues: q4Dues, total: Math.max(q4Coll + q4Dues, 1), collectedDisplay: `₹${(q4Coll / 100).toFixed(1)}L`, duesDisplay: `₹${(q4Dues / 100).toFixed(1)}L` }
+      { label: 'Q1', period: 'Q1 (Apr - Jun)', collected: q1Coll, dues: q1Dues, rawCollected: q1RawColl, rawDues: q1RawDues, total: Math.max(q1Coll + q1Dues, 1), collectedDisplay: `₹${(q1RawColl / 100000).toFixed(1)}L`, duesDisplay: `₹${(q1RawDues / 100000).toFixed(1)}L` },
+      { label: 'Q2', period: 'Q2 (Jul - Sep)', collected: q2Coll, dues: q2Dues, rawCollected: q2RawColl, rawDues: q2RawDues, total: Math.max(q2Coll + q2Dues, 1), collectedDisplay: `₹${(q2RawColl / 100000).toFixed(1)}L`, duesDisplay: `₹${(q2RawDues / 100000).toFixed(1)}L` },
+      { label: 'Q3', period: 'Q3 (Oct - Dec)', collected: q3Coll, dues: q3Dues, rawCollected: q3RawColl, rawDues: q3RawDues, total: Math.max(q3Coll + q3Dues, 1), collectedDisplay: `₹${(q3RawColl / 100000).toFixed(1)}L`, duesDisplay: `₹${(q3RawDues / 100000).toFixed(1)}L` },
+      { label: 'Q4', period: 'Q4 (Jan - Mar)', collected: q4Coll, dues: q4Dues, rawCollected: q4RawColl, rawDues: q4RawDues, total: Math.max(q4Coll + q4Dues, 1), collectedDisplay: `₹${(q4RawColl / 100000).toFixed(1)}L`, duesDisplay: `₹${(q4RawDues / 100000).toFixed(1)}L` }
     ];
 
     const curPaidK = Math.round(livePaidAmount / 1000);
     const curDueK = Math.round(livePendingAmount / 1000);
     const yearlyTrend = [
-      { label: "'24-25", period: 'Academic 2024-25', collected: 6680, dues: 950, total: 7630, collectedDisplay: '₹66.8L', duesDisplay: '₹9.5L' },
-      { label: "'25-26", period: 'Academic 2025-26', collected: 7050, dues: 840, total: 7890, collectedDisplay: '₹70.5L', duesDisplay: '₹8.4L' },
-      { label: "'26-27", period: 'Academic 2026-27 (Current)', collected: curPaidK, dues: curDueK, total: Math.max(curPaidK + curDueK, 1), collectedDisplay: `₹${(curPaidK / 100).toFixed(1)}L`, duesDisplay: `₹${(curDueK / 100).toFixed(1)}L` }
+      { label: "'24-25", period: 'Academic 2024-25', collected: 6680, dues: 950, rawCollected: 6680000, rawDues: 950000, total: 7630, collectedDisplay: '₹66.8L', duesDisplay: '₹9.5L' },
+      { label: "'25-26", period: 'Academic 2025-26', collected: 7050, dues: 840, rawCollected: 7050000, rawDues: 840000, total: 7890, collectedDisplay: '₹70.5L', duesDisplay: '₹8.4L' },
+      { label: "'26-27", period: 'Academic 2026-27 (Current)', collected: curPaidK, dues: curDueK, rawCollected: livePaidAmount, rawDues: livePendingAmount, total: Math.max(curPaidK + curDueK, 1), collectedDisplay: `₹${(livePaidAmount / 100000).toFixed(1)}L`, duesDisplay: `₹${(livePendingAmount / 100000).toFixed(1)}L` }
     ];
 
     return { monthlyTrend, quarterlyTrend, yearlyTrend };
@@ -968,16 +1020,16 @@ export function DashboardOverview({
 
   const trendTotalCollectedDisplay = useMemo(() => {
     if (salesTimeframe === 'monthly' || salesTimeframe === 'quarterly') {
-      const sum = currentTrendData.reduce((acc, curr) => acc + (curr.collected * 1000), 0);
-      return `₹${sum.toLocaleString('en-IN')}`;
+      const sum = currentTrendData.reduce((acc, curr) => acc + (curr.rawCollected || curr.collected * 1000), 0);
+      return sum > 0 ? `₹${sum.toLocaleString('en-IN')}` : displayRevenue;
     }
     return displayRevenue;
   }, [salesTimeframe, currentTrendData, displayRevenue]);
 
   const yAxisLabels = useMemo(() => {
     const maxValK = maxTrendTotal;
-    const steps = [1, 0.85, 0.7, 0.5, 0.35, 0.2, 0];
-    return steps.map(pct => {
+    const steps = [1, 0.75, 0.5, 0.25, 0];
+    const generated = steps.map(pct => {
       const valK = Math.round(maxValK * pct);
       if (valK === 0) return '0';
       if (valK >= 100) {
@@ -986,93 +1038,63 @@ export function DashboardOverview({
       }
       return `${valK}k`;
     });
+    return Array.from(new Set(generated));
   }, [maxTrendTotal]);
 
   // Dynamic Fee Breakdown calculation based on selected Academic Range
   const breakdownRangeBilled = useMemo(() => {
-    const fin = liveFeeFinancials || (overview as any)?.financials;
-    const trends = fin?.monthWiseTrend || [];
+    const trends = dynamicFeeTrends.monthlyTrend || [];
 
     if (trends.length > 0) {
       if (revenueDateRange.includes('Q1')) {
-        return trends.slice(0, 3).reduce((acc: number, c: any) => acc + (c.paidRupees || 0), 0);
+        return trends.slice(0, 3).reduce((acc: number, c: any) => acc + (c.rawCollected || c.collected * 1000 || 0), 0);
       }
       if (revenueDateRange.includes('Q2')) {
-        return trends.slice(3, 6).reduce((acc: number, c: any) => acc + (c.paidRupees || 0), 0);
+        return trends.slice(3, 6).reduce((acc: number, c: any) => acc + (c.rawCollected || c.collected * 1000 || 0), 0);
       }
       if (revenueDateRange.includes('Q3')) {
-        return trends.slice(6, 9).reduce((acc: number, c: any) => acc + (c.paidRupees || 0), 0);
+        return trends.slice(6, 9).reduce((acc: number, c: any) => acc + (c.rawCollected || c.collected * 1000 || 0), 0);
       }
       if (revenueDateRange.includes('Q4')) {
-        return trends.slice(9, 12).reduce((acc: number, c: any) => acc + (c.paidRupees || 0), 0);
+        return trends.slice(9, 12).reduce((acc: number, c: any) => acc + (c.rawCollected || c.collected * 1000 || 0), 0);
       }
-      if (revenueDateRange.includes('YTD') || revenueDateRange.includes('Sep 17')) {
-        return trends.slice(0, 6).reduce((acc: number, c: any) => acc + (c.paidRupees || 0), 0);
+      if (revenueDateRange.includes('YTD') || revenueDateRange.includes('Sep 17') || revenueDateRange.includes('Apr 1 - Sep')) {
+        return trends.slice(0, 6).reduce((acc: number, c: any) => acc + (c.rawCollected || c.collected * 1000 || 0), 0);
       }
-      return totalPaid;
+      return livePaidAmount > 0 ? livePaidAmount : totalPaid;
     }
 
-    if (invoices && invoices.length > 0) {
-      if (revenueDateRange.includes('Q1')) {
-        return invoices.filter(inv => {
-          const m = (inv.month || '').toLowerCase();
-          const d = inv.due_date || (inv as any).created_at || '';
-          return m.includes('apr') || m.includes('may') || m.includes('jun') || /-(04|05|06)-/.test(d);
-        }).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-      }
-      if (revenueDateRange.includes('Q2')) {
-        return invoices.filter(inv => {
-          const m = (inv.month || '').toLowerCase();
-          const d = inv.due_date || (inv as any).created_at || '';
-          return m.includes('jul') || m.includes('aug') || m.includes('sep') || /-(07|08|09)-/.test(d);
-        }).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-      }
-      if (revenueDateRange.includes('Q3')) {
-        return invoices.filter(inv => {
-          const m = (inv.month || '').toLowerCase();
-          const d = inv.due_date || (inv as any).created_at || '';
-          return m.includes('oct') || m.includes('nov') || m.includes('dec') || /-(10|11|12)-/.test(d);
-        }).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-      }
-      if (revenueDateRange.includes('Q4')) {
-        return invoices.filter(inv => {
-          const m = (inv.month || '').toLowerCase();
-          const d = inv.due_date || (inv as any).created_at || '';
-          return m.includes('jan') || m.includes('feb') || m.includes('mar') || /-(01|02|03)-/.test(d);
-        }).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-      }
-      if (revenueDateRange.includes('YTD') || revenueDateRange.includes('Sep 17')) {
-        return invoices.filter(inv => {
-          const m = (inv.month || '').toLowerCase();
-          const d = inv.due_date || (inv as any).created_at || '';
-          return m.includes('apr') || m.includes('may') || m.includes('jun') || m.includes('jul') || m.includes('aug') || m.includes('sep') || /-(04|05|06|07|08|09)-/.test(d);
-        }).reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-      }
-    }
-    
-    return totalPaid;
-  }, [liveFeeFinancials, overview, invoices, revenueDateRange, totalPaid]);
+    return livePaidAmount > 0 ? livePaidAmount : totalPaid;
+  }, [dynamicFeeTrends, revenueDateRange, livePaidAmount, totalPaid]);
 
-  // High-Density Revenue Breakdown Bars (17 dense bars matching reference image)
-  const breakdownBars = [
-    { day: '1', height: 48 },
-    { day: '3', height: 65 },
-    { day: '5', height: 40 },
-    { day: '7', height: 75 },
-    { day: '9', height: 55 },
-    { day: '11', height: 85 },
-    { day: '13', height: 60 },
-    { day: '15', height: 95 },
-    { day: '17', height: 70 },
-    { day: '19', height: 80 },
-    { day: '21', height: 62 },
-    { day: '23', height: 90 },
-    { day: '25', height: 74 },
-    { day: '27', height: 82 },
-    { day: '28', height: 68 },
-    { day: '29', height: 72 },
-    { day: '30', height: 50 }
-  ];
+  // Dynamic High-Density Revenue Breakdown Bars adapting to selected filter range
+  const breakdownBars = useMemo(() => {
+    const trends = dynamicFeeTrends.monthlyTrend || [];
+    let activeSubset: any[] = trends;
+    if (revenueDateRange.includes('Q1')) {
+      activeSubset = trends.slice(0, 3);
+    } else if (revenueDateRange.includes('Q2')) {
+      activeSubset = trends.slice(3, 6);
+    } else if (revenueDateRange.includes('Q3')) {
+      activeSubset = trends.slice(6, 9);
+    } else if (revenueDateRange.includes('Q4')) {
+      activeSubset = trends.slice(9, 12);
+    } else if (revenueDateRange.includes('YTD') || revenueDateRange.includes('Sep 17') || revenueDateRange.includes('Apr 1 - Sep')) {
+      activeSubset = trends.slice(0, 6);
+    }
+
+    const maxVal = Math.max(...activeSubset.map(m => (m.rawCollected || m.collected * 1000 || 1)), 1);
+
+    return Array.from({ length: 17 }).map((_, i) => {
+      const subsetIdx = Math.min(activeSubset.length - 1, Math.floor((i / 17) * activeSubset.length));
+      const m = activeSubset[subsetIdx];
+      const val = m ? (m.rawCollected || m.collected * 1000 || 0) : 0;
+      const ratio = maxVal > 0 ? (val / maxVal) : 0.5;
+      const cadence = 0.75 + 0.25 * Math.sin((i * 1.5) + (subsetIdx * 1.8));
+      const height = Math.min(100, Math.max(20, Math.round(ratio * cadence * 95)));
+      return { day: `${i + 1}`, height };
+    });
+  }, [dynamicFeeTrends, revenueDateRange]);
 
   // Calendar calculations
   const activeCalendarDate = new Date(now.getFullYear(), now.getMonth() + calendarMonthOffset, 1);

@@ -7,7 +7,7 @@
 import { getDatabase, sanitizeDocNoBinary as sanitizeDoc } from '@/lib/mongodb';
 import { AttendanceRecord, Holiday, Student, Teacher } from '@/lib/types';
 import { getTodayDateStr, normalizeClassName, isSameClass } from '@/lib/utils';
-import { Database, invalidateServerCache } from '@/lib/db';
+import { Database, invalidateServerCache, expandSchoolIds } from '@/lib/db';
 import { AggregatesService } from '@/lib/services/aggregates.service';
 
 export interface StudentAttendanceSummary {
@@ -163,11 +163,13 @@ export class AttendanceService {
     // Invalidate caches
     invalidateServerCache('attendance');
     invalidateServerCache('overview');
+    AggregatesService.invalidateMemoryCache(targetSchoolId, targetSession);
 
-    // Update pre-aggregated attendance snapshot
-    this.getSchoolSummary(targetSchoolId, targetSession, date).then(summary => {
-      AggregatesService.updateAttendanceSnapshot(targetSchoolId, targetSession, summary);
-    }).catch(() => {});
+    // Update pre-aggregated attendance snapshot immediately
+    try {
+      const summary = await this.getSchoolSummary(targetSchoolId, targetSession, date);
+      await AggregatesService.updateAttendanceSnapshot(targetSchoolId, targetSession, summary);
+    } catch (_) {}
 
     return record;
   }
@@ -345,13 +347,23 @@ export class AttendanceService {
   ): Promise<SchoolAttendanceDaySummary> {
     const db = await getDatabase();
     if (db) {
+      const cleanIds = [schoolId, ...expandSchoolIds([schoolId])].filter(Boolean);
       const [todayRecords, totalStudents, totalTeachers] = await Promise.all([
         db.collection('attendance').find(
-          { school_id: schoolId, session, date: dateStr },
+          {
+            school_id: { $in: cleanIds },
+            $or: [
+              { academic_session: session },
+              { academic_session: { $exists: false } },
+              { academic_session: null },
+              { academic_session: '' }
+            ],
+            date: dateStr
+          },
           { projection: { student_records: 0 } }
         ).toArray(),
-        db.collection('students').countDocuments({ school_id: schoolId, status: { $nin: ['INACTIVE', 'ALUMNI'] } }),
-        db.collection('teachers').countDocuments({ school_id: schoolId })
+        db.collection('students').countDocuments({ school_id: { $in: cleanIds }, status: { $nin: ['INACTIVE', 'ALUMNI'] } }),
+        db.collection('teachers').countDocuments({ school_id: { $in: cleanIds } })
       ]);
 
       const dateMap = new Map<string, AttendanceRecord>();
