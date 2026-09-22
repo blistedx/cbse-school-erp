@@ -132,6 +132,9 @@ export function DashboardReports({
   const [feeCycleFilter, setFeeCycleFilter] = useState<string>('ALL');
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
+  const todayDateStr = getTodayDateStr();
+  const [selectedDate, setSelectedDate] = useState<string>(() => getTodayDateStr());
+
   // Sorted unique class list
   const sortedClasses = useMemo(() => {
     const rawList = classes && classes.length > 0
@@ -152,8 +155,6 @@ export function DashboardReports({
     if (found) return `${found.cycleName} (${found.name})`;
     return cycleVal;
   };
-
-  const todayDateStr = getTodayDateStr();
 
   // 1. Comprehensive Classwise Summary Matrix (Strength, Gender, House, Transport, RTE & Statutory Quotas)
   const classwiseSummaryData = useMemo(() => {
@@ -281,17 +282,22 @@ export function DashboardReports({
       if (s.single_girl_child === 'YES') row.sgcCount += 1;
       if (s.cwsn_status === 'YES') row.cwsnCount += 1;
 
-      // Attendance check
-      let isPresent = true;
+      // Attendance check for selectedDate
+      let isPresentOnDate = false;
       attendance.forEach(rec => {
-        if (rec.date === todayDateStr && (rec as any).student_records && Array.isArray((rec as any).student_records)) {
-          const match = (rec as any).student_records.find((r: any) => r.student_id === s.id);
-          if (match && match.status === 'ABSENT') {
-            isPresent = false;
+        if (rec.date === selectedDate && (rec as any).student_records && Array.isArray((rec as any).student_records)) {
+          const match = (rec as any).student_records.find((r: any) =>
+            r.student_id === s.id ||
+            (r.admission_no && s.admission_no && r.admission_no.trim().toUpperCase() === s.admission_no.trim().toUpperCase()) ||
+            (r.student_name && s.full_name && r.student_name.trim().toLowerCase() === s.full_name.trim().toLowerCase()) ||
+            (r.name && s.full_name && r.name.trim().toLowerCase() === s.full_name.trim().toLowerCase())
+          );
+          if (match && (match.status === 'PRESENT' || match.status === 'LATE')) {
+            isPresentOnDate = true;
           }
         }
       });
-      if (isPresent) {
+      if (isPresentOnDate) {
         row.presentTodayCount += 1;
       }
     });
@@ -307,36 +313,64 @@ export function DashboardReports({
       }
       return a.section.localeCompare(b.section);
     });
-  }, [students, classes, teachers, attendance, todayDateStr]);
+  }, [students, classes, teachers, attendance, selectedDate]);
 
-
-  // 2. Student Attendance Register Data (Derived from live attendance records)
+  // 2. Student Attendance Register Data (Derived dynamically from live attendance records for selectedDate)
   const studentAttendanceData = useMemo(() => {
     return students.map((s, idx) => {
-      // Find all records for this student
       let presentDays = 0;
       let absentDays = 0;
-      let isAbsentToday = false;
-      let isPresentToday = false;
+      let leaveDays = 0;
+      let dateStatus: 'PRESENT' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'UNMARKED' = 'UNMARKED';
 
-      attendance.forEach(rec => {
+      for (const rec of attendance) {
         if ((rec as any).student_records && Array.isArray((rec as any).student_records)) {
-          const match = (rec as any).student_records.find((r: any) => r.student_id === s.id);
+          const match = (rec as any).student_records.find((r: any) =>
+            r.student_id === s.id ||
+            (r.admission_no && s.admission_no && r.admission_no.trim().toUpperCase() === s.admission_no.trim().toUpperCase()) ||
+            (r.student_name && s.full_name && r.student_name.trim().toLowerCase() === s.full_name.trim().toLowerCase()) ||
+            (r.name && s.full_name && r.name.trim().toLowerCase() === s.full_name.trim().toLowerCase())
+          );
           if (match) {
-            if (match.status === 'PRESENT') {
+            if (match.status === 'PRESENT' || match.status === 'LATE') {
               presentDays++;
-              if (rec.date === todayDateStr) isPresentToday = true;
             } else if (match.status === 'ABSENT') {
               absentDays++;
-              if (rec.date === todayDateStr) isAbsentToday = true;
+            } else if (match.status === 'LEAVE') {
+              leaveDays++;
+            }
+
+            if (rec.date === selectedDate) {
+              if (match.status === 'PRESENT' || match.status === 'LATE') {
+                dateStatus = 'PRESENT';
+              } else if (match.status === 'ABSENT') {
+                dateStatus = 'ABSENT';
+              } else if (match.status === 'LEAVE') {
+                dateStatus = 'LEAVE';
+              } else if (match.status === 'HOLIDAY') {
+                dateStatus = 'HOLIDAY';
+              }
             }
           }
         }
-      });
+      }
 
-      const totalRecorded = presentDays + absentDays;
-      const attendancePercent = totalRecorded > 0 ? parseFloat(((presentDays / totalRecorded) * 100).toFixed(1)) : 0;
+      const totalRecorded = presentDays + absentDays + leaveDays;
+      const attendancePercent = (presentDays + absentDays) > 0
+        ? parseFloat(((presentDays / (presentDays + absentDays)) * 100).toFixed(1))
+        : (totalRecorded > 0 ? 100 : 0);
       const isDefaulter = totalRecorded > 0 && attendancePercent < 75.0;
+
+      const isPresentOnDate = dateStatus === 'PRESENT';
+      const isAbsentOnDate = dateStatus === 'ABSENT' || dateStatus === 'LEAVE';
+      const dateLabel = selectedDate === todayDateStr ? 'Today' : selectedDate;
+
+      const todayStatusLabel =
+        dateStatus === 'PRESENT' ? `PRESENT (${dateLabel})` :
+        dateStatus === 'ABSENT' ? `ABSENT (${dateLabel})` :
+        dateStatus === 'LEAVE' ? `ON LEAVE (${dateLabel})` :
+        dateStatus === 'HOLIDAY' ? `HOLIDAY (${dateLabel})` :
+        `UNMARKED (${dateLabel})`;
 
       return {
         id: s.id,
@@ -347,41 +381,107 @@ export function DashboardReports({
         totalDays: totalRecorded,
         presentDays,
         absentDays,
+        leaveDays,
         percentage: attendancePercent,
         isDefaulter,
-        isAbsentToday,
-        todayStatus: isAbsentToday ? 'ABSENT TODAY' : isPresentToday ? 'PRESENT TODAY' : 'UNMARKED',
+        dateStatus,
+        isPresentOnDate,
+        isAbsentOnDate,
+        todayStatus: todayStatusLabel,
         status: isDefaulter ? 'SHORTAGE (<75%)' : totalRecorded === 0 ? 'NO LOGS' : 'REGULAR'
       };
     });
-  }, [students, attendance, todayDateStr]);
+  }, [students, attendance, selectedDate, todayDateStr]);
 
-  // 3. Staff Attendance Register Data (Derived from live attendance records)
+  const studentAttMetrics = useMemo(() => {
+    let presentCount = 0;
+    let absentCount = 0;
+    let leaveCount = 0;
+    let unmarkedCount = 0;
+    let totalPresentDays = 0;
+    let totalActiveDays = 0;
+    let defaultersCount = 0;
+
+    for (const s of studentAttendanceData) {
+      if (s.dateStatus === 'PRESENT') presentCount++;
+      else if (s.dateStatus === 'ABSENT') absentCount++;
+      else if (s.dateStatus === 'LEAVE') leaveCount++;
+      else unmarkedCount++;
+
+      totalPresentDays += s.presentDays;
+      totalActiveDays += (s.presentDays + s.absentDays);
+      if (s.isDefaulter) defaultersCount++;
+    }
+
+    const sessionRate = totalActiveDays > 0
+      ? parseFloat(((totalPresentDays / totalActiveDays) * 100).toFixed(1))
+      : 0;
+
+    return {
+      presentCount,
+      absentCount,
+      leaveCount,
+      unmarkedCount,
+      sessionRate,
+      defaultersCount
+    };
+  }, [studentAttendanceData]);
+
+  // 3. Staff Attendance Register Data (Derived dynamically from live attendance records for selectedDate)
   const staffAttendanceData = useMemo(() => {
     return teachers.map((t, idx) => {
       let presentDays = 0;
       let leavesTaken = 0;
-      let isAbsentToday = false;
-      let isPresentToday = false;
+      let absentDays = 0;
+      let dateStatus: 'PRESENT' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'UNMARKED' = 'UNMARKED';
 
-      attendance.forEach(rec => {
+      for (const rec of attendance) {
         if ((rec as any).teacher_records && Array.isArray((rec as any).teacher_records)) {
-          const match = (rec as any).teacher_records.find((r: any) => r.teacher_id === t.id || r.staff_code === t.staff_code);
+          const match = (rec as any).teacher_records.find((r: any) =>
+            r.teacher_id === t.id ||
+            (r.staff_code && t.staff_code && r.staff_code.trim().toUpperCase() === t.staff_code.trim().toUpperCase()) ||
+            (r.name && t.full_name && r.name.trim().toLowerCase() === t.full_name.trim().toLowerCase())
+          );
           if (match) {
             if (match.status === 'PRESENT' || match.status === 'LATE') {
               presentDays++;
-              if (rec.date === todayDateStr) isPresentToday = true;
-            } else {
+            } else if (match.status === 'LEAVE') {
               leavesTaken++;
-              if (rec.date === todayDateStr) isAbsentToday = true;
+            } else if (match.status === 'ABSENT') {
+              absentDays++;
+            }
+
+            if (rec.date === selectedDate) {
+              if (match.status === 'PRESENT' || match.status === 'LATE') {
+                dateStatus = 'PRESENT';
+              } else if (match.status === 'LEAVE') {
+                dateStatus = 'LEAVE';
+              } else if (match.status === 'ABSENT') {
+                dateStatus = 'ABSENT';
+              } else if (match.status === 'HOLIDAY') {
+                dateStatus = 'HOLIDAY';
+              }
             }
           }
         }
-      });
+      }
 
-      const totalRecorded = presentDays + leavesTaken;
-      const percentage = totalRecorded > 0 ? parseFloat(((presentDays / totalRecorded) * 100).toFixed(1)) : 0;
+      const totalRecorded = presentDays + leavesTaken + absentDays;
+      const percentage = (presentDays + absentDays) > 0
+        ? parseFloat(((presentDays / (presentDays + absentDays)) * 100).toFixed(1))
+        : (totalRecorded > 0 ? 100 : 0);
       const punctuality = totalRecorded > 0 ? `${percentage}%` : '—';
+
+      const isPresentOnDate = dateStatus === 'PRESENT';
+      const isAbsentOnDate = dateStatus === 'ABSENT' || dateStatus === 'LEAVE';
+      const dateLabel = selectedDate === todayDateStr ? 'Today' : selectedDate;
+
+      const todayStatusLabel =
+        dateStatus === 'PRESENT' ? `PRESENT & PUNCHED IN (${dateLabel})` :
+        dateStatus === 'LEAVE' ? `ON LEAVE (${dateLabel})` :
+        dateStatus === 'ABSENT' ? `ABSENT (${dateLabel})` :
+        dateStatus === 'HOLIDAY' ? `INSTITUTIONAL HOLIDAY (${dateLabel})` :
+        `UNMARKED (${dateLabel})`;
 
       return {
         id: t.id,
@@ -392,14 +492,48 @@ export function DashboardReports({
         workingDays: totalRecorded,
         presentDays,
         leavesTaken,
+        absentDays,
         percentage,
         punctuality,
-        isAbsentToday,
-        todayStatus: isAbsentToday ? 'ABSENT TODAY (Casual Leave)' : isPresentToday ? 'PRESENT & PUNCHED IN' : 'UNMARKED TODAY',
-        status: isAbsentToday ? 'On Leave' : isPresentToday ? 'Active / On Duty' : 'Pending'
+        dateStatus,
+        isPresentOnDate,
+        isAbsentOnDate,
+        todayStatus: todayStatusLabel,
+        status: isAbsentOnDate ? 'On Leave / Absent' : isPresentOnDate ? 'Active / On Duty' : 'Pending'
       };
     });
-  }, [teachers, attendance, todayDateStr]);
+  }, [teachers, attendance, selectedDate, todayDateStr]);
+
+  const staffAttMetrics = useMemo(() => {
+    let presentCount = 0;
+    let leaveCount = 0;
+    let absentCount = 0;
+    let unmarkedCount = 0;
+    let totalWorkingDays = 0;
+    let totalPresentDays = 0;
+
+    for (const t of staffAttendanceData) {
+      if (t.isPresentOnDate) presentCount++;
+      else if (t.dateStatus === 'LEAVE') leaveCount++;
+      else if (t.dateStatus === 'ABSENT') absentCount++;
+      else unmarkedCount++;
+
+      totalWorkingDays += t.workingDays;
+      totalPresentDays += t.presentDays;
+    }
+
+    const avgPresenceRate = totalWorkingDays > 0
+      ? parseFloat(((totalPresentDays / totalWorkingDays) * 100).toFixed(1))
+      : 0;
+
+    return {
+      presentCount,
+      leaveCount,
+      absentCount,
+      unmarkedCount,
+      avgPresenceRate
+    };
+  }, [staffAttendanceData]);
 
   // 4. Exam Marks & Rankings Data
   const examRankingsData = useMemo(() => {
@@ -524,8 +658,9 @@ export function DashboardReports({
   const filteredStudentAttendanceData = useMemo(() => {
     return studentAttendanceData.filter(r => {
       if (classFilter !== 'ALL' && r.className !== classFilter) return false;
-      if (statusFilter === 'PRESENT_TODAY' && r.isAbsentToday) return false;
-      if (statusFilter === 'ABSENT_TODAY' && !r.isAbsentToday) return false;
+      if (statusFilter === 'PRESENT' && !r.isPresentOnDate) return false;
+      if (statusFilter === 'ABSENT' && !r.isAbsentOnDate) return false;
+      if (statusFilter === 'LEAVE' && r.dateStatus !== 'LEAVE') return false;
       if (statusFilter === 'REGULAR' && r.isDefaulter) return false;
       if (statusFilter === 'DEFAULTER' && !r.isDefaulter) return false;
       if (searchFilter) {
@@ -538,8 +673,9 @@ export function DashboardReports({
 
   const filteredStaffAttendanceData = useMemo(() => {
     return staffAttendanceData.filter(r => {
-      if (statusFilter === 'PRESENT' && r.isAbsentToday) return false;
-      if (statusFilter === 'ABSENT' && !r.isAbsentToday) return false;
+      if (statusFilter === 'PRESENT' && !r.isPresentOnDate) return false;
+      if (statusFilter === 'ABSENT' && r.dateStatus !== 'ABSENT') return false;
+      if (statusFilter === 'LEAVE' && r.dateStatus !== 'LEAVE') return false;
       if (searchFilter) {
         const q = searchFilter.toLowerCase();
         return r.name.toLowerCase().includes(q) || r.empCode.toLowerCase().includes(q) || r.subject.toLowerCase().includes(q);
@@ -621,10 +757,11 @@ export function DashboardReports({
           { header: 'Self / Walk', key: 'selfTransportCount', align: 'center' },
           { header: 'Social Quotas (GEN/OBC/SC/ST)', render: (r) => `${r.generalCount} / ${r.obcCount} / ${r.scCount} / ${r.stCount}`, align: 'center' },
           { header: 'RTE / SGC / CWSN', render: (r) => `RTE:${r.rteCount} | SGC:${r.sgcCount} | CWSN:${r.cwsnCount}`, align: 'center' },
-          { header: 'Present Today', key: 'presentTodayCount', align: 'right' }
+          { header: `Present (${selectedDate})`, key: 'presentTodayCount', align: 'right' }
         ];
         const filterSummary = [
           { label: 'Academic Session', value: selectedSession || '2026-27' },
+          { label: 'Audit Date', value: selectedDate },
           { label: 'Class Scope', value: classFilter === 'ALL' ? 'All Classes' : classFilter },
           ...(searchFilter ? [{ label: 'Search Query', value: `"${searchFilter}"` }] : [])
         ];
@@ -632,7 +769,7 @@ export function DashboardReports({
           { label: 'Total Enrolled Scholars', value: `${classSummaryTotals.totalStudents} Students` },
           { label: 'Gender Breakdown', value: `${classSummaryTotals.maleCount} Boys | ${classSummaryTotals.femaleCount} Girls` },
           { label: '4-House Distribution', value: `Red: ${classSummaryTotals.redHouseCount} | Yellow: ${classSummaryTotals.yellowHouseCount} | Blue: ${classSummaryTotals.blueHouseCount} | Green: ${classSummaryTotals.greenHouseCount}` },
-          { label: 'Transport Users', value: `${classSummaryTotals.transportOptedCount} Bus Commuters` }
+          { label: `Present on ${selectedDate}`, value: `${classSummaryTotals.presentTodayCount} / ${classSummaryTotals.totalStudents} (${classSummaryTotals.totalStudents > 0 ? ((classSummaryTotals.presentTodayCount / classSummaryTotals.totalStudents) * 100).toFixed(1) : 0}%)` }
         ];
         return {
           title: `Class-Wise Student Strength, Gender, House & Transport Summary`,
@@ -649,25 +786,27 @@ export function DashboardReports({
           { header: 'Adm No', key: 'admissionNo', width: '100px' },
           { header: 'Student Name', key: 'name' },
           { header: 'Class & Sec', render: (r) => `${r.className} (${r.section})` },
-          { header: 'Today Status', key: 'todayStatus', align: 'center' },
+          { header: `Status (${selectedDate})`, key: 'todayStatus', align: 'center' },
           { header: 'Days Present', key: 'presentDays', align: 'center' },
           { header: 'Days Absent', key: 'absentDays', align: 'center' },
           { header: 'Session %', render: (r) => `${r.percentage}%`, align: 'center' },
           { header: 'CBSE 75% Status', key: 'status', align: 'right' }
         ];
         const filterSummary = [
+          { label: 'Audit Date', value: selectedDate },
           { label: 'Class Scope', value: classFilter === 'ALL' ? 'All Classes' : classFilter },
           { label: 'Attendance Filter', value: statusFilter === 'ALL' ? 'All Scholars' : statusFilter },
           ...(searchFilter ? [{ label: 'Search Query', value: `"${searchFilter}"` }] : [])
         ];
         const statsSummary = [
           { label: 'Total Scholars', value: `${students.length} Students` },
-          { label: 'Present Today', value: `${Math.max(0, students.length - 1)} Students` },
-          { label: 'Critical Defaulters', value: `${studentAttendanceData.filter(s => s.isDefaulter).length} (<75%)` },
-          { label: 'Compliance Rate', value: '94.2%' }
+          { label: `Present (${selectedDate})`, value: `${studentAttMetrics.presentCount} Students` },
+          { label: `Absent (${selectedDate})`, value: `${studentAttMetrics.absentCount} Students` },
+          { label: 'Critical Defaulters', value: `${studentAttMetrics.defaultersCount} (<75%)` },
+          { label: 'Session Compliance Rate', value: `${studentAttMetrics.sessionRate}%` }
         ];
         return {
-          title: 'Student Daily Attendance & CBSE 75% Compliance Register',
+          title: `Student Daily Attendance & CBSE 75% Compliance Register (${selectedDate})`,
           subtitle: 'Statutory examination clearance eligibility register and daily roll call audit',
           columns,
           filterSummary,
@@ -682,25 +821,26 @@ export function DashboardReports({
           { header: 'Faculty Name', key: 'name' },
           { header: 'Designation', key: 'designation' },
           { header: 'Subject / Dept', key: 'subject' },
-          { header: 'Today Status', key: 'todayStatus', align: 'center' },
+          { header: `Status (${selectedDate})`, key: 'todayStatus', align: 'center' },
           { header: 'Present Days', key: 'presentDays', align: 'center' },
           { header: 'Leaves Taken', key: 'leavesTaken', align: 'center' },
           { header: 'Punctuality', key: 'punctuality', align: 'center' },
           { header: 'Biometric Status', key: 'status', align: 'right' }
         ];
         const filterSummary = [
+          { label: 'Audit Date', value: selectedDate },
           { label: 'Total Faculty', value: `${teachers.length} Staff Members` },
-          { label: 'Daily Status', value: statusFilter === 'ALL' ? 'All Faculty' : statusFilter === 'PRESENT' ? 'Present on Campus' : 'On Leave' },
+          { label: 'Daily Status', value: statusFilter === 'ALL' ? 'All Faculty' : statusFilter },
           ...(searchFilter ? [{ label: 'Search Query', value: `"${searchFilter}"` }] : [])
         ];
         const statsSummary = [
           { label: 'Total Staff', value: `${teachers.length} Faculty` },
-          { label: 'Present Today', value: `${Math.max(0, teachers.length - 1)} Teachers` },
-          { label: 'On Leave Today', value: '1 Faculty' },
-          { label: 'Faculty Attendance %', value: '96.8%' }
+          { label: `Present (${selectedDate})`, value: `${staffAttMetrics.presentCount} Teachers` },
+          { label: `On Leave / Absent (${selectedDate})`, value: `${staffAttMetrics.leaveCount + staffAttMetrics.absentCount} Faculty` },
+          { label: 'Average Presence Rate', value: `${staffAttMetrics.avgPresenceRate}%` }
         ];
         return {
-          title: 'Faculty & Staff Biometric Attendance Ledger',
+          title: `Faculty & Staff Biometric Attendance Ledger (${selectedDate})`,
           subtitle: 'Biometric biometric verification, leave records, and punctuality audit',
           columns,
           filterSummary,
@@ -846,9 +986,13 @@ export function DashboardReports({
     searchFilter,
     feeCycleFilter,
     selectedSession,
+    selectedDate,
     students,
     teachers,
     studentAttendanceData,
+    studentAttMetrics,
+    staffAttendanceData,
+    staffAttMetrics,
     transportFleetData,
     filteredClassSummaryData,
     classSummaryTotals,
@@ -866,21 +1010,21 @@ export function DashboardReports({
     const session = selectedSession || '2026-27';
 
     if (reportSubTab === 'classwise_summary') {
-      csvContent += `Central School ERP - Class-Wise Strength, Gender, House & Transport Summary - Session ${session}\r\n`;
-      csvContent += "Class,Section,Class Teacher,Total Strength,Boys (Male),Girls (Female),Other Gender,Red House,Yellow House,Blue House,Green House,Unassigned House,Transport (Bus),Self / Walk,General,OBC,SC,ST,EWS,RTE Quota,Single Girl Child,CWSN,Present Today\r\n";
+      csvContent += `Central School ERP - Class-Wise Strength, Gender, House & Transport Summary - Session ${session} - Date ${selectedDate}\r\n`;
+      csvContent += `Class,Section,Class Teacher,Total Strength,Boys (Male),Girls (Female),Other Gender,Red House,Yellow House,Blue House,Green House,Unassigned House,Transport (Bus),Self / Walk,General,OBC,SC,ST,EWS,RTE Quota,Single Girl Child,CWSN,Present (${selectedDate})\r\n`;
       filteredClassSummaryData.forEach(r => {
         csvContent += `"${r.className}","${r.section}","${r.classTeacherName}",${r.totalStudents},${r.maleCount},${r.femaleCount},${r.otherGenderCount},${r.redHouseCount},${r.yellowHouseCount},${r.blueHouseCount},${r.greenHouseCount},${r.unassignedHouseCount},${r.transportOptedCount},${r.selfTransportCount},${r.generalCount},${r.obcCount},${r.scCount},${r.stCount},${r.ewsCount},${r.rteCount},${r.sgcCount},${r.cwsnCount},${r.presentTodayCount}\r\n`;
       });
       csvContent += `"TOTAL","ALL SECTIONS","Consolidated",${classSummaryTotals.totalStudents},${classSummaryTotals.maleCount},${classSummaryTotals.femaleCount},${classSummaryTotals.otherGenderCount},${classSummaryTotals.redHouseCount},${classSummaryTotals.yellowHouseCount},${classSummaryTotals.blueHouseCount},${classSummaryTotals.greenHouseCount},${classSummaryTotals.unassignedHouseCount},${classSummaryTotals.transportOptedCount},${classSummaryTotals.selfTransportCount},${classSummaryTotals.generalCount},${classSummaryTotals.obcCount},${classSummaryTotals.scCount},${classSummaryTotals.stCount},${classSummaryTotals.ewsCount},${classSummaryTotals.rteCount},${classSummaryTotals.sgcCount},${classSummaryTotals.cwsnCount},${classSummaryTotals.presentTodayCount}\r\n`;
     } else if (reportSubTab === 'student_att') {
-      csvContent += `Central School ERP - Student Attendance & CBSE 75% Compliance Register - Session ${session}\r\n`;
-      csvContent += "Admission No,Student Name,Class,Section,Today Status,Total Working Days,Days Present,Days Absent,Attendance %,CBSE 75% Status\r\n";
+      csvContent += `Central School ERP - Student Attendance & CBSE 75% Compliance Register - Session ${session} - Date ${selectedDate}\r\n`;
+      csvContent += `Admission No,Student Name,Class,Section,Status (${selectedDate}),Total Working Days,Days Present,Days Absent,Attendance %,CBSE 75% Status\r\n`;
       filteredStudentAttendanceData.forEach(r => {
         csvContent += `"${r.admissionNo}","${r.name}","${r.className}","${r.section}","${r.todayStatus}",${r.totalDays},${r.presentDays},${r.absentDays},${r.percentage}%,"${r.status}"\r\n`;
       });
     } else if (reportSubTab === 'staff_att') {
-      csvContent += `Central School ERP - Faculty & Staff Biometric Attendance Ledger - Session ${session}\r\n`;
-      csvContent += "Employee Code,Faculty Name,Designation,Subject,Today Attendance Status,Total Days,Days Present,Leaves Taken,Attendance %,Punctuality,Status\r\n";
+      csvContent += `Central School ERP - Faculty & Staff Biometric Attendance Ledger - Session ${session} - Date ${selectedDate}\r\n`;
+      csvContent += `Employee Code,Faculty Name,Designation,Subject,Attendance Status (${selectedDate}),Total Days,Days Present,Leaves Taken,Attendance %,Punctuality,Status\r\n`;
       filteredStaffAttendanceData.forEach(r => {
         csvContent += `"${r.empCode}","${r.name}","${r.designation}","${r.subject}","${r.todayStatus}",${r.workingDays},${r.presentDays},${r.leavesTaken},${r.percentage}%,${r.punctuality},"${r.status}"\r\n`;
       });
@@ -923,7 +1067,7 @@ export function DashboardReports({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `CBSE_ERP_Report_${reportSubTab}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `CBSE_ERP_Report_${reportSubTab}_${selectedDate}_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1032,6 +1176,28 @@ export function DashboardReports({
             ───────────────────────────────────────────────────────────── */}
         <div className="bg-[#F8FAF9] p-3 rounded-2xl border border-[#DCE8E0] flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 flex-1 flex-wrap">
+            {/* Interactive Date Selector */}
+            <div className="flex items-center gap-2 bg-white border border-[#DCE8E0] px-3 py-1.5 rounded-xl shadow-2xs">
+              <Calendar className="w-3.5 h-3.5 text-emerald-800 shrink-0" />
+              <label className="text-[11px] font-bold text-[#122A24] whitespace-nowrap">Date:</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="text-xs font-mono text-[#122A24] bg-transparent border-none outline-none cursor-pointer font-bold"
+              />
+              {selectedDate !== todayDateStr && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(todayDateStr)}
+                  className="text-[10px] font-bold font-mono px-2 py-0.5 bg-emerald-100 text-emerald-900 hover:bg-emerald-200 rounded-lg transition-colors border border-emerald-300 cursor-pointer"
+                  title="Reset to Today"
+                >
+                  Today
+                </button>
+              )}
+            </div>
+
             {/* Quick Text Search */}
             <div className="min-w-[180px] flex-1">
               <input
@@ -1065,10 +1231,13 @@ export function DashboardReports({
                 className="px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs text-[#122A24] focus:outline-none focus:border-emerald-600 font-medium shadow-2xs cursor-pointer"
               >
                 <option key="att-opt-all" value="ALL">All Attendance Statuses</option>
-                <option key="att-opt-pres" value="PRESENT_TODAY">Present Today ({students.length - 1})</option>
-                <option key="att-opt-abs" value="ABSENT_TODAY">Absent Today (1 Absent)</option>
+                <option key="att-opt-pres" value="PRESENT">Present on Date ({studentAttMetrics.presentCount})</option>
+                <option key="att-opt-abs" value="ABSENT">Absent on Date ({studentAttMetrics.absentCount})</option>
+                {studentAttMetrics.leaveCount > 0 && (
+                  <option key="att-opt-lve" value="LEAVE">On Leave ({studentAttMetrics.leaveCount})</option>
+                )}
                 <option key="att-opt-reg" value="REGULAR">Regular (75%+ Passed)</option>
-                <option key="att-opt-def" value="DEFAULTER">Critical Shortage (&lt;75%)</option>
+                <option key="att-opt-def" value="DEFAULTER">Critical Shortage (&lt;75%) ({studentAttMetrics.defaultersCount})</option>
               </select>
             )}
 
@@ -1079,8 +1248,11 @@ export function DashboardReports({
                 className="px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs text-[#122A24] focus:outline-none focus:border-emerald-600 font-medium shadow-2xs cursor-pointer"
               >
                 <option key="stf-opt-all" value="ALL">All Faculty Statuses</option>
-                <option key="stf-opt-pres" value="PRESENT">Present Today ({teachers.length - 1})</option>
-                <option key="stf-opt-abs" value="ABSENT">Absent Today (1 on Leave)</option>
+                <option key="stf-opt-pres" value="PRESENT">Present on Date ({staffAttMetrics.presentCount})</option>
+                <option key="stf-opt-abs" value="ABSENT">Absent on Date ({staffAttMetrics.absentCount})</option>
+                {staffAttMetrics.leaveCount > 0 && (
+                  <option key="stf-opt-lve" value="LEAVE">On Leave ({staffAttMetrics.leaveCount})</option>
+                )}
               </select>
             )}
 
@@ -1098,17 +1270,18 @@ export function DashboardReports({
               </select>
             )}
 
-            {(searchFilter || classFilter !== 'ALL' || statusFilter !== 'ALL') && (
+            {(searchFilter || classFilter !== 'ALL' || statusFilter !== 'ALL' || selectedDate !== todayDateStr) && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchFilter('');
                   setClassFilter('ALL');
                   setStatusFilter('ALL');
+                  setSelectedDate(todayDateStr);
                 }}
                 className="px-2.5 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
               >
-                Clear Filters ✕
+                Reset All ✕
               </button>
             )}
           </div>
@@ -1116,7 +1289,17 @@ export function DashboardReports({
           <div className="text-[11px] font-mono text-[#2D5A4E] shrink-0 self-end md:self-center">
             {reportSubTab === 'classwise_summary' && (
               <span className="font-semibold text-emerald-800">
-                Showing {filteredClassSummaryData.length} Class Sections • {classSummaryTotals.totalStudents} Enrolled
+                Showing {filteredClassSummaryData.length} Class Sections • {classSummaryTotals.totalStudents} Enrolled • Date: {selectedDate}
+              </span>
+            )}
+            {reportSubTab === 'student_att' && (
+              <span className="font-semibold text-emerald-800">
+                {studentAttMetrics.presentCount} Present • {studentAttMetrics.absentCount} Absent • Date: {selectedDate}
+              </span>
+            )}
+            {reportSubTab === 'staff_att' && (
+              <span className="font-semibold text-emerald-800">
+                {staffAttMetrics.presentCount} Present • {staffAttMetrics.absentCount + staffAttMetrics.leaveCount} Absent/Leave • Date: {selectedDate}
               </span>
             )}
           </div>
@@ -1428,21 +1611,27 @@ export function DashboardReports({
         <div className="space-y-6 animate-fade-in">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-white rounded-3xl border border-[#DCE8E0] p-5 shadow-xs">
-              <span className="text-xs font-mono text-[#0D652D] font-bold uppercase">Present Today</span>
-              <div className="text-2xl font-bold text-[#005A36] mt-1">{Math.max(0, students.length - 1)} Students</div>
+              <span className="text-xs font-mono text-[#0D652D] font-bold uppercase">
+                Present ({selectedDate === todayDateStr ? 'Today' : selectedDate})
+              </span>
+              <div className="text-2xl font-bold text-[#005A36] mt-1">{studentAttMetrics.presentCount} Students</div>
             </div>
             <div className="bg-white rounded-3xl border border-[#DCE8E0] p-5 shadow-xs">
-              <span className="text-xs font-mono text-rose-800 font-bold uppercase">Absent Today</span>
-              <div className="text-2xl font-bold text-rose-700 mt-1">1 Student</div>
+              <span className="text-xs font-mono text-rose-800 font-bold uppercase">
+                Absent / Leave ({selectedDate === todayDateStr ? 'Today' : selectedDate})
+              </span>
+              <div className="text-2xl font-bold text-rose-700 mt-1">
+                {studentAttMetrics.absentCount} Absent {studentAttMetrics.leaveCount > 0 ? `• ${studentAttMetrics.leaveCount} Leave` : ''}
+              </div>
             </div>
             <div className="bg-white rounded-3xl border border-[#DCE8E0] p-5 shadow-xs">
               <span className="text-xs font-mono text-[#0D652D] font-bold uppercase">Overall Session Rate</span>
-              <div className="text-2xl font-bold text-[#005A36] mt-1">94.2%</div>
+              <div className="text-2xl font-bold text-[#005A36] mt-1">{studentAttMetrics.sessionRate}%</div>
             </div>
             <div className="bg-white rounded-3xl border border-[#DCE8E0] p-5 shadow-xs">
               <span className="text-xs font-mono text-rose-800 font-bold uppercase">Critical Defaulters (&lt;75%)</span>
               <div className="text-2xl font-bold text-rose-700 mt-1">
-                {studentAttendanceData.filter(s => s.isDefaulter).length} Students
+                {studentAttMetrics.defaultersCount} Students
               </div>
             </div>
           </div>
@@ -1451,10 +1640,10 @@ export function DashboardReports({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8F0EA]">
               <div>
                 <h2 className="font-display font-bold text-base text-[#122A24]">
-                  Student Daily Attendance &amp; CBSE 75% Compliance Register
+                  Student Attendance &amp; CBSE 75% Compliance Register ({selectedDate})
                 </h2>
                 <p className="text-xs text-[#2D5A4E] font-mono">
-                  Official roll register with real-time presence counts and examination clearance eligibility
+                  Official roll register with date-wise presence counts and examination clearance eligibility
                 </p>
               </div>
 
@@ -1485,7 +1674,7 @@ export function DashboardReports({
                     <th className="py-3 px-3.5 font-bold">ADM NO</th>
                     <th className="py-3 px-3 font-bold">STUDENT NAME</th>
                     <th className="py-3 px-3 font-bold">CLASS &amp; SEC</th>
-                    <th className="py-3 px-3 text-center font-bold">TODAY STATUS</th>
+                    <th className="py-3 px-3 text-center font-bold">STATUS ({selectedDate === todayDateStr ? 'TODAY' : selectedDate})</th>
                     <th className="py-3 px-3 text-center font-bold">PRESENT DAYS</th>
                     <th className="py-3 px-3 text-center font-bold">ABSENT DAYS</th>
                     <th className="py-3 px-3 text-center font-bold">SESSION %</th>
@@ -1500,9 +1689,15 @@ export function DashboardReports({
                       <td className="py-3 px-3">{row.className} ({row.section})</td>
                       <td className="py-3 px-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          row.isAbsentToday
+                          row.dateStatus === 'PRESENT'
+                            ? 'bg-emerald-50 text-[#0D652D] border border-emerald-200'
+                            : row.dateStatus === 'ABSENT'
                             ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                            : 'bg-emerald-50 text-[#0D652D] border border-emerald-200'
+                            : row.dateStatus === 'LEAVE'
+                            ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                            : row.dateStatus === 'HOLIDAY'
+                            ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                            : 'bg-slate-100 text-slate-600 border border-slate-200'
                         }`}>
                           {row.todayStatus}
                         </span>
@@ -1536,24 +1731,34 @@ export function DashboardReports({
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          SUB-TAB 3: STAFF ATTENDANCE REPORT (1 FACULTY ABSENT TODAY)
+          SUB-TAB 3: STAFF ATTENDANCE REPORT
           ───────────────────────────────────────────────────────────── */}
       {reportSubTab === 'staff_att' && (
         <div className="space-y-6 animate-fade-in">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-white rounded-3xl border border-[#DCE8E0] p-5 shadow-xs">
-              <span className="text-xs font-mono text-[#0D652D] font-bold uppercase">Faculty Present Today</span>
+              <span className="text-xs font-mono text-[#0D652D] font-bold uppercase">
+                Faculty Present ({selectedDate === todayDateStr ? 'Today' : selectedDate})
+              </span>
               <div className="text-2xl font-bold text-[#005A36] mt-1">
-                {Math.max(0, teachers.length - 1)} / {teachers.length} ({( ((Math.max(0, teachers.length - 1)) / teachers.length) * 100 ).toFixed(0)}%)
+                {staffAttMetrics.presentCount} / {teachers.length} ({teachers.length > 0 ? ((staffAttMetrics.presentCount / teachers.length) * 100).toFixed(0) : 0}%)
               </div>
             </div>
             <div className="bg-white rounded-3xl border border-[#DCE8E0] p-5 shadow-xs">
-              <span className="text-xs font-mono text-rose-800 font-bold uppercase">Absent Today</span>
-              <div className="text-2xl font-bold text-rose-700 mt-1">1 Faculty Member (Casual Leave)</div>
+              <span className="text-xs font-mono text-rose-800 font-bold uppercase">
+                Absent / Leave ({selectedDate === todayDateStr ? 'Today' : selectedDate})
+              </span>
+              <div className="text-2xl font-bold text-rose-700 mt-1">
+                {staffAttMetrics.absentCount + staffAttMetrics.leaveCount} Staff ({staffAttMetrics.leaveCount} Leave, {staffAttMetrics.absentCount} Absent)
+              </div>
             </div>
             <div className="bg-white rounded-3xl border border-[#DCE8E0] p-5 shadow-xs">
-              <span className="text-xs font-mono text-[#122A24] font-bold uppercase">Average Monthly Presence</span>
-              <div className="text-2xl font-bold text-[#122A24] mt-1">98.6%</div>
+              <span className="text-xs font-mono text-[#122A24] font-bold uppercase">Average Session Presence</span>
+              <div className="text-2xl font-bold text-[#122A24] mt-1">{staffAttMetrics.avgPresenceRate}%</div>
+            </div>
+            <div className="bg-white rounded-3xl border border-[#DCE8E0] p-5 shadow-xs">
+              <span className="text-xs font-mono text-[#2D5A4E] font-bold uppercase">Total Faculty Strength</span>
+              <div className="text-2xl font-bold text-[#005A36] mt-1">{teachers.length} Staff</div>
             </div>
           </div>
 
@@ -1561,10 +1766,10 @@ export function DashboardReports({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8F0EA]">
               <div>
                 <h2 className="font-display font-bold text-base text-[#122A24]">
-                  Staff Daily Biometric Attendance &amp; Leave Ledger
+                  Staff Biometric Attendance &amp; Leave Ledger ({selectedDate})
                 </h2>
                 <p className="text-xs text-[#2D5A4E] font-mono">
-                  Faculty punch-in tracking, today attendance status, and approved casual leave balances
+                  Faculty punch-in tracking, date attendance status, and approved casual leave balances
                 </p>
               </div>
 
@@ -1596,7 +1801,7 @@ export function DashboardReports({
                     <th className="py-3 px-3 font-bold">FACULTY NAME</th>
                     <th className="py-3 px-3 font-bold">DESIGNATION</th>
                     <th className="py-3 px-3 font-bold">SUBJECT</th>
-                    <th className="py-3 px-3 text-center font-bold">TODAY ATTENDANCE</th>
+                    <th className="py-3 px-3 text-center font-bold">STATUS ({selectedDate === todayDateStr ? 'TODAY' : selectedDate})</th>
                     <th className="py-3 px-3 text-center font-bold">DAYS PRESENT</th>
                     <th className="py-3 px-3 text-center font-bold">LEAVES TAKEN</th>
                     <th className="py-3 px-3.5 text-right font-bold">PUNCTUALITY</th>
@@ -1611,9 +1816,15 @@ export function DashboardReports({
                       <td className="py-3 px-3">{row.subject}</td>
                       <td className="py-3 px-3 text-center">
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          row.isAbsentToday
+                          row.dateStatus === 'PRESENT'
+                            ? 'bg-[#E6F4EA] text-[#0D652D] border border-[#CEEAD6]'
+                            : row.dateStatus === 'ABSENT'
                             ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                            : 'bg-[#E6F4EA] text-[#0D652D] border border-[#CEEAD6]'
+                            : row.dateStatus === 'LEAVE'
+                            ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                            : row.dateStatus === 'HOLIDAY'
+                            ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                            : 'bg-slate-100 text-slate-600 border border-slate-200'
                         }`}>
                           {row.todayStatus}
                         </span>
