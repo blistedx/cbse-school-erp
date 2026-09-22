@@ -1307,4 +1307,19 @@ a {
   }
 }
 
+@keyframes giterpProgress {
+  0% {
+    width: 0%;
+  }
+  40% {
+    width: 65%;
+  }
+  80% {
+    width: 90%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
 
