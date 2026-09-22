@@ -17,8 +17,6 @@ import {
 import { School, Student } from '@/lib/types';
 import { DualCopyFeeReceiptModal } from '@/components/dual-copy-fee-receipt-modal';
 import { LiveCounterDeskWidget } from '@/components/live-counter-desk-widget';
-import { CounterQrStandeeModal } from '@/components/counter-qr-standee-modal';
-import { CounterQrScannerModal } from '@/components/counter-qr-scanner-modal';
 import type {
   FeeConfig,
   FeeDepositSlot,
@@ -208,8 +206,6 @@ export function DashboardFeeMaster({
   });
   const [savingConfig, setSavingConfig] = useState<boolean>(false);
   const [previewAction, setPreviewAction] = useState<string | null>(null);
-  const [showStandeeModal, setShowStandeeModal] = useState<boolean>(false);
-  const [showScannerTestModal, setShowScannerTestModal] = useState<boolean>(false);
 
   // ─── LOAD DRAWER DEFAULTERS ON CLASS SELECT ───
   useEffect(() => {
@@ -773,84 +769,36 @@ export function DashboardFeeMaster({
         {/* Top Header & Action Toolbar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8F0EA] relative z-10">
           <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#122A24] tracking-tight flex items-center gap-2.5">
-                <Landmark className="h-7 w-7 text-emerald-700 shrink-0" />
-                <span>Fee Master &amp; Institutional Finance</span>
-              </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
-                Session {session} • One Fees Engine
-              </span>
-              {isSyncingOverview && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 animate-pulse">
-                  <RefreshCw className="w-3 h-3 animate-spin text-emerald-700" /> Live Syncing
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-[#2D5A4E] mt-1 font-mono">
-              Single Source of Truth for Institutional Finances, Realtime Fee Ledgers &amp; CBSE Receipts
-            </p>
+            <h1 className="text-xl sm:text-2xl font-bold text-[#122A24] tracking-tight">Fee Master & Financial Ledger</h1>
+            <p className="text-xs sm:text-sm text-[#4A7265] mt-0.5">Comprehensive real-time financial hub, fee demands & reconciliation</p>
           </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="flex items-center gap-2 bg-[#EBF5EF]/70 px-3 py-1.5 rounded-2xl border border-[#DCE8E0]">
-              <label className="text-xs font-bold text-[#122A24]">Session:</label>
-              <select
-                value={session}
-                onChange={(e) => setSession(e.target.value)}
-                className="bg-white border border-[#DCE8E0] rounded-xl px-2.5 py-1 text-xs font-bold text-[#122A24] focus:outline-none focus:ring-2 focus:ring-emerald-600 cursor-pointer shadow-2xs"
-              >
-                <option value="2026-27">2026-27 (Current)</option>
-                <option value="2025-26">2025-26</option>
-                <option value="2027-28">2027-28</option>
-              </select>
-            </div>
-
+          <div className="flex items-center gap-2.5">
             <button
-              type="button"
-              onClick={() => setShowStandeeModal(true)}
-              className="px-3.5 py-2 rounded-full bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
-              title="Generate Counter Desk QR Standee for Printing"
+              onClick={() => setActiveTab('collect')}
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-white bg-[#122A24] hover:bg-[#1B3E35] rounded-xl shadow-xs transition-all cursor-pointer"
             >
-              <QrCode className="h-3.5 w-3.5 text-emerald-400" />
-              <span>Desk Standee QR</span>
+              <Receipt className="w-3.5 h-3.5" />
+              Collect Fees
             </button>
-
             <button
-              type="button"
-              onClick={() => setShowScannerTestModal(true)}
-              className="px-3.5 py-2 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300 text-xs font-bold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
-              title="Preview / Test Parent In-App Scanner Workflow"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-emerald-700" />
-              <span>Test Parent Scanner</span>
-            </button>
-
-            <button
-              type="button"
               onClick={() => loadOverview(false)}
               disabled={isSyncingOverview}
-              className="px-3.5 py-2 rounded-full bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] text-xs font-semibold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
-              title="Sync Live Ledger Data"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-[#122A24] bg-[#EBF5EF] hover:bg-[#DCE8E0] rounded-xl transition-all cursor-pointer"
             >
-              <RefreshCw className={`h-3.5 w-3.5 text-emerald-700 ${isSyncingOverview ? 'animate-spin' : ''}`} />
-              <span>Sync Live Ledger</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingOverview ? 'animate-spin' : ''}`} />
+              Refresh
             </button>
           </div>
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
-            2. MERGED DASHBOARD KPI HERO BANNER (DEEP FOREST GREEN #122A24)
-            ───────────────────────────────────────────────────────────── */}
+        {/* ─── UNIFIED DARK EMERALD EXECUTIVE KPI BANNER ─── */}
         <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
-          <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 sm:gap-8 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/70 relative z-10">
-            {/* Tile 1: Total Demand Invoiced */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 sm:gap-4 divide-y sm:divide-y-0 sm:divide-x divide-[#1C443A]/60">
+            {/* Tile 1: Total Invoiced */}
             <div className="sm:pr-4 group select-none">
               <div className="flex items-center gap-2 text-emerald-300">
-                <Wallet className="w-4 h-4 shrink-0 text-emerald-400" />
-                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90 uppercase tracking-wider">Total Billed</span>
+                <Receipt className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span className="text-xs sm:text-[13px] font-medium text-emerald-200/90 uppercase tracking-wider">Total Invoiced</span>
               </div>
               <div className="text-2xl sm:text-[28px] font-bold text-white tracking-tight mt-2 font-sans">
                 {overviewLoading && !overviewData.totalBilledPaise ? (
@@ -2971,27 +2919,6 @@ export function DashboardFeeMaster({
         </div>
       )}
 
-      {/* Universal Counter QR Standee Generator & Print Modal */}
-      {showStandeeModal && (
-        <CounterQrStandeeModal
-          isOpen={showStandeeModal}
-          onClose={() => setShowStandeeModal(false)}
-          school={selectedSchool}
-        />
-      )}
-
-      {/* In-App Counter QR Scanner Simulation / Test Modal */}
-      {showScannerTestModal && (
-        <CounterQrScannerModal
-          isOpen={showScannerTestModal}
-          onClose={() => setShowScannerTestModal(false)}
-          student={selectedStudent || (students && students.length > 0 ? students[0] : null)}
-          school={selectedSchool}
-          onPaymentSuccess={(receipt) => {
-            loadOverview(false);
-          }}
-        />
-      )}
     </div>
   );
 }

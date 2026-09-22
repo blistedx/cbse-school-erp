@@ -33,7 +33,6 @@ import { School, Student, FeeInvoice, AttendanceRecord, User as UserType } from 
 import { getStudentAssessmentReport, getStudentSiblings, AVAILABLE_EXAMS } from '@/lib/student-helper';
 import { getSchoolInitials } from '@/lib/utils';
 import { StudentAttendanceHistory } from '@/components/student-attendance-history';
-import { CounterQrScannerModal } from '@/components/counter-qr-scanner-modal';
 
 export interface MonthlyFeeItem {
   id: string;
@@ -283,7 +282,6 @@ export function DashboardStudentPortal({
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [selectedFeeFilter, setSelectedFeeFilter] = useState<string>('ALL');
   const [activeReceiptModal, setActiveReceiptModal] = useState<MonthlyFeeItem | any | null>(null);
-  const [showCounterScannerModal, setShowCounterScannerModal] = useState<boolean>(false);
 
   // ─────────────────────────────────────────────────────────────
   // 1. DYNAMIC ATTENDANCE DATA FOR LOGGED-IN STUDENT
@@ -1087,14 +1085,6 @@ export function DashboardStudentPortal({
                   ))}
                 </div>
 
-                <button
-                  onClick={() => setShowCounterScannerModal(true)}
-                  className="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-950/20 transition-all border border-emerald-400/30"
-                  title="Scan Universal Counter QR Code at Fee Desk"
-                >
-                  <QrCode className="w-4 h-4 text-emerald-200" />
-                  <span>Scan Counter QR</span>
-                </button>
 
                 <button
                   onClick={() => window.print()}
@@ -1565,15 +1555,6 @@ export function DashboardStudentPortal({
         </div>
       )}
 
-      {/* Universal Counter QR Scanner Modal for In-App Desk Payments */}
-      {showCounterScannerModal && (
-        <CounterQrScannerModal
-          isOpen={showCounterScannerModal}
-          onClose={() => setShowCounterScannerModal(false)}
-          student={student}
-          school={selectedSchool}
-        />
-      )}
     </div>
   );
 }
