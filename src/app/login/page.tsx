@@ -389,6 +389,8 @@ function LoginPageContent() {
       }
     } catch (_) {}
 
+    setScanManualInput(admOrId);
+    setIsCameraScannerOpen(false);
     handleProcessScanLookup(admOrId);
   }, [handleProcessScanLookup, scannedPerson]);
 
@@ -493,14 +495,38 @@ function LoginPageContent() {
         });
         if (code && code.data) {
           playScanBeep('success');
-          handleProcessScanLookup(code.data);
+          let admOrId = code.data.trim();
+          try {
+            if (admOrId.startsWith('{') && admOrId.endsWith('}')) {
+              const parsed = JSON.parse(admOrId);
+              admOrId = parsed.admission_no || parsed.admissionNo || parsed.staff_code || parsed.student_id || parsed.id || admOrId;
+            } else if (admOrId.includes('?')) {
+              const urlObj = new URL(admOrId, 'http://localhost');
+              admOrId = urlObj.searchParams.get('admission_no') || urlObj.searchParams.get('staff_code') || urlObj.searchParams.get('student_id') || admOrId;
+            }
+          } catch (_) {}
+          setScanManualInput(admOrId);
+          setIsCameraScannerOpen(false);
+          handleProcessScanLookup(admOrId);
         } else {
           const codeInv = jsQR(imageData.data, imageData.width, imageData.height, {
             inversionAttempts: 'onlyInvert'
           });
           if (codeInv && codeInv.data) {
             playScanBeep('success');
-            handleProcessScanLookup(codeInv.data);
+            let admOrId = codeInv.data.trim();
+            try {
+              if (admOrId.startsWith('{') && admOrId.endsWith('}')) {
+                const parsed = JSON.parse(admOrId);
+                admOrId = parsed.admission_no || parsed.admissionNo || parsed.staff_code || parsed.student_id || parsed.id || admOrId;
+              } else if (admOrId.includes('?')) {
+                const urlObj = new URL(admOrId, 'http://localhost');
+                admOrId = urlObj.searchParams.get('admission_no') || urlObj.searchParams.get('staff_code') || urlObj.searchParams.get('student_id') || admOrId;
+              }
+            } catch (_) {}
+            setScanManualInput(admOrId);
+            setIsCameraScannerOpen(false);
+            handleProcessScanLookup(admOrId);
           } else {
             setCameraError('No QR detected in the selected image. Please try another photo.');
           }
@@ -519,17 +545,15 @@ function LoginPageContent() {
   };
 
   useEffect(() => {
-    if (showQrScanner && !scannedPerson) {
+    if (showQrScanner && isCameraScannerOpen && !scannedPerson) {
       startCamera(cameraFacing);
-    } else if (scannedPerson) {
-      stopCamera();
     } else {
       stopCamera();
     }
     return () => {
       stopCamera();
     };
-  }, [showQrScanner, scannedPerson, cameraFacing, startCamera, stopCamera]);
+  }, [showQrScanner, isCameraScannerOpen, scannedPerson, cameraFacing, startCamera, stopCamera]);
 
   // Action 1: Confirm "VERIFIED AND PRESENT" / "Mark Attendance"
   const handleConfirmVerifiedPresent = async (overrideId?: string) => {
