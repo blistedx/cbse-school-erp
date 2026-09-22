@@ -38,11 +38,11 @@ export const metadata: Metadata = {
     description: 'Automate attendance roll calls, term fees, 9-point grading report cards, and transport GPS tracking for CBSE schools.',
     images: ['/giterp-logo.png']
   },
-  manifest: '/manifest.webmanifest',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Giterp',
+    title: 'Giterp ERP',
   },
   icons: {
     icon: [
@@ -50,8 +50,9 @@ export const metadata: Metadata = {
       { url: '/favicon.png', type: 'image/png' },
       { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
       { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
       { url: '/icon.png', type: 'image/png' },
-      { url: '/icons/icon.svg', type: 'image/svg+xml' },
     ],
     shortcut: '/favicon.ico',
     apple: [
@@ -63,7 +64,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#232e1a',
+  themeColor: '#122A24',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
@@ -80,7 +81,9 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon.png" type="image/png" />
         <link rel="shortcut icon" href="/favicon.ico" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

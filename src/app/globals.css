@@ -1322,4 +1322,27 @@ a {
   }
 }
 
+@keyframes giterpLogoZoom {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  75% {
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-giterp-zoom {
+  animation: giterpLogoZoom 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+
 

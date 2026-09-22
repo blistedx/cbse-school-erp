@@ -1,6 +1,6 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.1 (Build 2026.09.07.136) */
-const CACHE_NAME = 'giterp-core-v121-138';
-const API_CACHE_NAME = 'giterp-api-v121-138';
+/*! Giterp Multi-School Enterprise ERP Core v1.2.1 (Build 2026.09.22.140) */
+const CACHE_NAME = 'giterp-core-v121-140';
+const API_CACHE_NAME = 'giterp-api-v121-140';
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_ASSETS = [
@@ -8,15 +8,23 @@ const PRECACHE_ASSETS = [
   '/app',
   '/login',
   '/agency',
+  '/manifest.json',
   '/manifest.webmanifest',
   '/offline.html',
-  '/icon.png',
-  '/apple-icon.png',
+  '/favicon.ico',
+  '/favicon.png',
+  '/apple-touch-icon.png',
   '/giterp-logo.png',
-  '/giterp-192.png',
-  '/giterp-512.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/icon-maskable-192.png',
+  '/icons/icon-maskable-512.png',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/icon.png',
   '/sounds/bell-chime.mp3'
 ];
+
 
 // Install: Cache critical core assets and force activation immediately
 self.addEventListener('install', (event) => {
