@@ -843,62 +843,31 @@ function LoginPageContent() {
           </div>
 
           {/* ═════════════════════════════════════════════════════════════
-              ⚡ SMART QR SCANNER WIDGET (Exact Certificate Studio Look)
+              ⚡ COMPACT CIRCULAR QR SCANNER (Matching User Design)
               ═════════════════════════════════════════════════════════════ */}
-          <div className="mb-5 rounded-2xl bg-gradient-to-r from-[#122A24] to-[#1C443A] border border-emerald-700/50 shadow-md text-white overflow-hidden transition-all duration-300">
-            {/* Header Strip */}
-            <div className="p-3.5 sm:p-4 flex items-center justify-between gap-2.5">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 flex items-center justify-center shrink-0 shadow-inner">
-                  <ScanLine className="w-5 h-5 text-emerald-400 animate-pulse" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-display font-bold text-sm text-white tracking-tight truncate">
-                      ⚡ Smart QR Scanner
-                    </span>
-                    <span className="px-1.5 py-0.2 rounded text-[8.5px] font-mono font-bold bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 uppercase">
-                      ID GATEWAY
-                    </span>
+          {showQrScanner && (
+            <div className="mb-4 rounded-2xl bg-[#081714] border-2 border-emerald-600/70 p-3 sm:p-4 space-y-3 animate-fadeIn text-white shadow-xl">
+              <div className="flex items-center justify-between pb-2 border-b border-emerald-900/60">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-[#0d2820] border border-emerald-400 flex items-center justify-center text-emerald-400">
+                    <ScanLine className="w-4 h-4" />
                   </div>
-                  <p className="text-[11px] text-emerald-200/80 font-sans truncate -mt-0.5">
-                    Scan Student / Faculty ID Card to Verify &amp; Mark Present
-                  </p>
+                  <span className="text-xs font-mono font-bold text-emerald-300 uppercase tracking-wider">
+                    QR Attendance Scanner
+                  </span>
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
-                    setShowQrScanner(!showQrScanner);
+                    setShowQrScanner(false);
                     setScannedPerson(null);
                   }}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold font-mono transition-all flex items-center gap-1 cursor-pointer border ${
-                    showQrScanner
-                      ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-sm'
-                      : 'bg-white/10 hover:bg-white/20 text-emerald-300 border-emerald-500/40'
-                  }`}
-                  title={showQrScanner ? 'Close Scanner Viewport' : 'Open Live Camera Scanner'}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Close Scanner"
                 >
-                  <Camera className="w-3.5 h-3.5" />
-                  <span>{showQrScanner ? 'Close' : 'Scan'}</span>
+                  <X className="w-4 h-4" />
                 </button>
-
-                <Link
-                  href={`/kiosk?school=${encodeURIComponent(schoolCode || 'DPS2026')}`}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-bold font-mono bg-emerald-950/80 hover:bg-emerald-900 text-white border border-emerald-600/50 transition-all flex items-center gap-1 no-underline cursor-pointer"
-                  title="Open Dedicated Fullscreen Gate Terminal Kiosk"
-                >
-                  <span>Kiosk ↗</span>
-                </Link>
               </div>
-            </div>
-
-            {/* Expandable Live Camera Viewport & Verification Form */}
-            {showQrScanner && (
-              <div className="border-t border-emerald-800/80 bg-[#081714] p-3 sm:p-4 space-y-3 animate-fadeIn">
                 
                 {/* 1. Live Camera Stream (shown when no person is pending verification) */}
                 {!scannedPerson && (
@@ -1162,16 +1131,36 @@ function LoginPageContent() {
                 )}
               </div>
             )}
-          </div>
 
           {/* ═════════════════════════════════════════════════════════════
               LOGIN / FORGOT PASSCODE FORM
               ═════════════════════════════════════════════════════════════ */}
           {viewMode === 'LOGIN' ? (
             <>
-              <p className="kicker">Hall pass required</p>
-              <h2>Sign in</h2>
-              <p className="sub">Enter your school code, user ID and password to proceed.</p>
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <p className="kicker">Hall pass required</p>
+                  <h2>Sign in</h2>
+                  <p className="sub">Enter your school code, user ID and password to proceed.</p>
+                </div>
+
+                {/* Small Circular Smart QR Button (Exact User Request) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowQrScanner(!showQrScanner);
+                    setScannedPerson(null);
+                  }}
+                  className={`w-11 h-11 shrink-0 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer shadow-md ${
+                    showQrScanner
+                      ? 'bg-emerald-500 text-slate-950 border-2 border-emerald-400 shadow-emerald-500/30 scale-105'
+                      : 'bg-[#0a231c] hover:bg-[#0f3329] text-emerald-400 border-2 border-emerald-500/80 hover:border-emerald-400 shadow-emerald-950/40 hover:scale-105 active:scale-95'
+                  }`}
+                  title={showQrScanner ? 'Close QR Scanner' : 'Scan Attendance QR Code'}
+                >
+                  <ScanLine className="w-5 h-5 stroke-[2.2]" />
+                </button>
+              </div>
 
               <form onSubmit={handleLogin}>
                 <div className="field">
