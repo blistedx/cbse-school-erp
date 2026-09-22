@@ -328,6 +328,7 @@ function KioskContent() {
   // MODULE 2: UNIVERSAL QR FEE PAYMENT STATE
   // ═════════════════════════════════════════════════════════════
   const [feeStudent, setFeeStudent] = useState<Student | null>(null);
+  const [feeSearchQuery, setFeeSearchQuery] = useState<string>('');
   const [feeStep, setFeeStep] = useState<'LOOKUP' | 'CART' | 'UPI_QR' | 'RECEIPT'>('LOOKUP');
   const [selectedFeeItems, setSelectedFeeItems] = useState<{ id: string; title: string; amount: number; selected: boolean }[]>([]);
   const [verifiedReceipt, setVerifiedReceipt] = useState<any | null>(null);
@@ -711,21 +712,15 @@ function KioskContent() {
               )}
             </div>
 
-            {/* Bottom Quick Test Bar */}
-            <div className="px-5 py-3 bg-[#081714] border-t border-emerald-900/80 flex items-center justify-between flex-wrap gap-2 text-xs">
-              <span className="text-slate-400">Simulate Touchless I-Card Scan:</span>
-              <div className="flex items-center gap-2 overflow-x-auto">
-                {students.slice(0, 4).map((st) => (
-                  <button
-                    key={st.id}
-                    type="button"
-                    onClick={() => handlePunchAttendance(st)}
-                    className="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900 border border-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
-                  >
-                    {st.full_name} ({st.admission_no})
-                  </button>
-                ))}
-              </div>
+            {/* Bottom Live Status Bar (No Demo Students) */}
+            <div className="px-5 py-2.5 bg-[#081714] border-t border-emerald-900/80 flex items-center justify-between flex-wrap gap-2 text-xs font-mono">
+              <span className="flex items-center gap-2 text-emerald-400 font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                Live Camera Punch Active
+              </span>
+              <span className="text-slate-400">
+                Gale me latka I-Card camera ke aage aate hi auto-punch ho jayega
+              </span>
             </div>
 
           </div>
@@ -831,30 +826,51 @@ function KioskContent() {
                     </div>
                   </div>
 
-                  {/* Direct Test Student List */}
-                  <div className="bg-slate-900/90 border border-cyan-900/80 rounded-2xl p-3">
-                    <span className="text-[11px] font-bold text-slate-300 block mb-2">
-                      Or Select Student (डेमो छात्र चुनें):
+                  {/* Manual Admission No Search Box */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!feeSearchQuery.trim()) return;
+                      const query = feeSearchQuery.trim().toLowerCase();
+                      const found = students.find(
+                        (s) =>
+                          s.admission_no?.toLowerCase() === query ||
+                          s.id?.toLowerCase() === query ||
+                          s.full_name?.toLowerCase().includes(query)
+                      );
+                      if (found) {
+                        handleSelectFeeStudent(found);
+                      } else {
+                        handleSelectFeeStudent({
+                          id: `STU-${query.toUpperCase()}`,
+                          admission_no: query.toUpperCase(),
+                          full_name: 'Student Record',
+                          class_name: 'Class 9',
+                          section: 'A'
+                        } as Student);
+                      }
+                    }}
+                    className="bg-slate-900/90 border border-cyan-900/80 rounded-2xl p-3 flex flex-col gap-2"
+                  >
+                    <span className="text-[11px] font-bold text-slate-300">
+                      Or Type Admission No / Roll No:
                     </span>
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                      {students.slice(0, 5).map((st) => (
-                        <button
-                          key={st.id}
-                          type="button"
-                          onClick={() => handleSelectFeeStudent(st)}
-                          className="w-full flex items-center justify-between p-2 rounded-xl bg-slate-950 hover:bg-cyan-950/70 border border-slate-800 hover:border-cyan-400 text-left transition-all cursor-pointer"
-                        >
-                          <div>
-                            <span className="text-xs font-bold text-white block leading-tight">{st.full_name}</span>
-                            <span className="text-[10px] text-cyan-300 font-mono">
-                              Class {st.class_name}-{st.section} • {st.admission_no}
-                            </span>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-cyan-400" />
-                        </button>
-                      ))}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="e.g. 2026/0481"
+                        value={feeSearchQuery}
+                        onChange={(e) => setFeeSearchQuery(e.target.value)}
+                        className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono"
+                      />
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                      >
+                        Find Dues
+                      </button>
                     </div>
-                  </div>
+                  </form>
                 </div>
 
               </div>

@@ -550,12 +550,23 @@ function LoginPageContent() {
             </Link>
           </div>
 
-          {/* Desktop Subtle Giterp Pill Badge */}
-          <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1 mb-4 rounded-md bg-[#122A24]/[0.05] border border-[#122A24]/[0.08]">
-            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
-            <span className="text-[10.5px] font-mono font-bold tracking-wider text-[#122A24]/80 uppercase">
-              Giterp Security Portal
-            </span>
+          {/* Desktop Subtle Giterp Pill Badge & Small Chic QR Station Button */}
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#122A24]/[0.05] border border-[#122A24]/[0.08]">
+              <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
+              <span className="text-[10px] font-mono font-bold tracking-wider text-[#122A24]/80 uppercase">
+                Giterp Portal
+              </span>
+            </div>
+
+            <Link
+              href={`/kiosk?school=${encodeURIComponent(schoolCode || 'DPS2026')}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-emerald-300 hover:text-white border border-emerald-800 rounded-lg text-xs font-bold shadow-xs transition-all no-underline cursor-pointer"
+              title="Open Touchless QR Attendance & Fee Station"
+            >
+              <span>🔲</span>
+              <span>QR Station</span>
+            </Link>
           </div>
 
           {viewMode === 'LOGIN' ? (
@@ -663,33 +674,6 @@ function LoginPageContent() {
                 <button type="submit" className="submit" disabled={loading}>
                   <span className="stamp-icon">✓</span>
                   {loading ? 'Authenticating...' : 'Sign in to ERP'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const code = (schoolCode || 'DPS2026').trim().toUpperCase();
-                    executeLogin(code, '', '');
-                  }}
-                  style={{
-                    marginTop: '12px',
-                    width: '100%',
-                    padding: '12px 16px',
-                    borderRadius: '12px',
-                    background: '#EBF5EF',
-                    border: '1.5px dashed #1B4D3E',
-                    color: '#122A24',
-                    fontWeight: 700,
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                  }}
-                >
-                  <span>⚡ Open Touchless QR Station (Attendance &amp; Fees Demo)</span>
                 </button>
               </form>
             </>
