@@ -20,7 +20,14 @@ import {
   Sparkles,
   BarChart2,
   Calendar,
-  CalendarDays
+  CalendarDays,
+  Shield,
+  Bus,
+  UserCheck,
+  Award,
+  Layers,
+  GraduationCap,
+  HeartHandshake
 } from 'lucide-react';
 
 export interface DashboardReportsProps {
@@ -114,8 +121,8 @@ export function DashboardReports({
   selectedSession
 }: DashboardReportsProps) {
   const [reportSubTab, setReportSubTab] = useState<
-    'fee_analytics' | 'student_att' | 'staff_att' | 'exams' | 'transport' | 'student_dossier' | 'employee_dossier'
-  >('fee_analytics');
+    'classwise_summary' | 'student_att' | 'staff_att' | 'exams' | 'transport' | 'student_dossier' | 'employee_dossier'
+  >('classwise_summary');
 
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [searchFilter, setSearchFilter] = useState('');
@@ -146,62 +153,51 @@ export function DashboardReports({
     return cycleVal;
   };
 
-  // 1. Fee Category Analytics Calculations (Scoped by feeCycleFilter)
-  const feeMetrics = useMemo(() => {
-    let tuition = 0;
-    let admission = 0;
-    let annual = 0;
-    let transport = 0;
+  const todayDateStr = getTodayDateStr();
 
-    students.forEach(s => {
-      const sched = getStudentMonthlyFeeSchedule(s, invoices);
-      let targetMonths = sched.months;
-      if (feeCycleFilter === 'Q1' || feeCycleFilter === 'Q2' || feeCycleFilter === 'Q3' || feeCycleFilter === 'Q4') {
-        targetMonths = sched.months.filter(m => m.quarter === feeCycleFilter);
-      } else if (feeCycleFilter !== 'ALL') {
-        targetMonths = sched.months.filter(m => String(m.monthIndex) === feeCycleFilter);
-      }
-
-      targetMonths.forEach(m => {
-        const ratio = m.totalBilled > 0 ? (m.paidAmount / m.totalBilled) : 0;
-        tuition += Math.round(m.tuitionFee * ratio);
-        annual += Math.round(m.annualFee * ratio);
-        transport += Math.round(m.transportFee * ratio);
-      });
-    });
-
-    if (tuition === 0 && admission === 0 && annual === 0 && transport === 0) {
-      students.forEach(s => {
-        const sched = getStudentMonthlyFeeSchedule(s, invoices);
-        let targetMonths = sched.months;
-        if (feeCycleFilter === 'Q1' || feeCycleFilter === 'Q2' || feeCycleFilter === 'Q3' || feeCycleFilter === 'Q4') {
-          targetMonths = sched.months.filter(m => m.quarter === feeCycleFilter);
-        } else if (feeCycleFilter !== 'ALL') {
-          targetMonths = sched.months.filter(m => String(m.monthIndex) === feeCycleFilter);
-        }
-        targetMonths.forEach(m => {
-          tuition += m.tuitionFee;
-          annual += m.annualFee;
-          transport += m.transportFee;
-        });
-      });
-    }
-
-    return { tuition, admission, annual, transport };
-  }, [students, invoices, feeCycleFilter]);
-
-  // Class & Section Fee Collection Matrix (Month / Cycle filtered)
-  const classFeeMatrix = useMemo(() => {
+  // 1. Comprehensive Classwise Summary Matrix (Strength, Gender, House, Transport, RTE & Statutory Quotas)
+  const classwiseSummaryData = useMemo(() => {
     const map = new Map<string, {
       className: string;
       section: string;
+      classSectionLabel: string;
+      classTeacherName: string;
       totalStudents: number;
-      paidCount: number;
-      pendingCount: number;
-      collected: number;
-      pendingDues: number;
-      totalBilled: number;
+      maleCount: number;
+      femaleCount: number;
+      otherGenderCount: number;
+      redHouseCount: number;
+      yellowHouseCount: number;
+      blueHouseCount: number;
+      greenHouseCount: number;
+      unassignedHouseCount: number;
+      transportOptedCount: number;
+      selfTransportCount: number;
+      generalCount: number;
+      obcCount: number;
+      scCount: number;
+      stCount: number;
+      ewsCount: number;
+      rteCount: number;
+      sgcCount: number;
+      cwsnCount: number;
+      presentTodayCount: number;
     }>();
+
+    // Map class teachers from classes & teachers props
+    const teacherMap = new Map<string, string>();
+    if (Array.isArray(classes)) {
+      classes.forEach(c => {
+        const teacherIdOrName = (c as any).class_teacher_id || c.class_teacher;
+        const t = teachers.find(teach => teach.id === teacherIdOrName || (teach as any).employee_code === teacherIdOrName || teach.full_name === teacherIdOrName);
+        const key = `${c.name}-${c.section || 'A'}`;
+        if (t) {
+          teacherMap.set(key, t.full_name || (t as any).name || 'Faculty');
+        } else if (c.class_teacher) {
+          teacherMap.set(key, c.class_teacher);
+        }
+      });
+    }
 
     students.forEach(s => {
       const cName = s.class_name || 'Class I';
@@ -212,51 +208,107 @@ export function DashboardReports({
         map.set(key, {
           className: cName,
           section: sec,
+          classSectionLabel: `${cName} - ${sec}`,
+          classTeacherName: teacherMap.get(key) || 'Class Incharge',
           totalStudents: 0,
-          paidCount: 0,
-          pendingCount: 0,
-          collected: 0,
-          pendingDues: 0,
-          totalBilled: 0
+          maleCount: 0,
+          femaleCount: 0,
+          otherGenderCount: 0,
+          redHouseCount: 0,
+          yellowHouseCount: 0,
+          blueHouseCount: 0,
+          greenHouseCount: 0,
+          unassignedHouseCount: 0,
+          transportOptedCount: 0,
+          selfTransportCount: 0,
+          generalCount: 0,
+          obcCount: 0,
+          scCount: 0,
+          stCount: 0,
+          ewsCount: 0,
+          rteCount: 0,
+          sgcCount: 0,
+          cwsnCount: 0,
+          presentTodayCount: 0
         });
       }
 
       const row = map.get(key)!;
       row.totalStudents += 1;
 
-      // Get full student schedule
-      const sched = getStudentMonthlyFeeSchedule(s, invoices);
-
-      // Filter months based on feeCycleFilter
-      let targetMonths = sched.months;
-      if (feeCycleFilter === 'Q1' || feeCycleFilter === 'Q2' || feeCycleFilter === 'Q3' || feeCycleFilter === 'Q4') {
-        targetMonths = sched.months.filter(m => m.quarter === feeCycleFilter);
-      } else if (feeCycleFilter !== 'ALL') {
-        targetMonths = sched.months.filter(m => String(m.monthIndex) === feeCycleFilter);
-      }
-
-      const billed = targetMonths.reduce((acc, m) => acc + m.totalBilled, 0);
-      const paid = targetMonths.reduce((acc, m) => acc + m.paidAmount, 0);
-      const dues = targetMonths.reduce((acc, m) => acc + m.balanceDue, 0);
-
-      row.totalBilled += billed;
-      row.collected += paid;
-      row.pendingDues += dues;
-
-      if (dues <= 0 && billed > 0) {
-        row.paidCount += 1;
+      // Gender Breakdown
+      const g = (s.gender || '').toLowerCase().trim();
+      if (g === 'male' || g === 'm' || g === 'boy') {
+        row.maleCount += 1;
+      } else if (g === 'female' || g === 'f' || g === 'girl') {
+        row.femaleCount += 1;
       } else {
-        row.pendingCount += 1;
+        row.otherGenderCount += 1;
+      }
+
+      // House Breakdown (Red, Yellow, Blue, Green)
+      const h = (s.house || '').toLowerCase().trim();
+      if (h.includes('red') || h.includes('ruby')) {
+        row.redHouseCount += 1;
+      } else if (h.includes('yellow') || h.includes('topaz') || h.includes('gold')) {
+        row.yellowHouseCount += 1;
+      } else if (h.includes('blue') || h.includes('sapphire')) {
+        row.blueHouseCount += 1;
+      } else if (h.includes('green') || h.includes('emerald')) {
+        row.greenHouseCount += 1;
+      } else {
+        row.unassignedHouseCount += 1;
+      }
+
+      // Transport Breakdown
+      const isTransport = s.transport_opted === 'YES' || Boolean(s.bus_route_no && s.bus_route_no.trim() !== '');
+      if (isTransport) {
+        row.transportOptedCount += 1;
+      } else {
+        row.selfTransportCount += 1;
+      }
+
+      // Social Category Breakdown
+      const cat = (s.category || '').toUpperCase().trim();
+      if (cat.includes('OBC')) row.obcCount += 1;
+      else if (cat.includes('SC')) row.scCount += 1;
+      else if (cat.includes('ST')) row.stCount += 1;
+      else if (cat.includes('EWS') || cat.includes('MINORITY')) row.ewsCount += 1;
+      else row.generalCount += 1;
+
+      // Statutory Inclusions
+      if (s.is_rte === 'YES') row.rteCount += 1;
+      if (s.single_girl_child === 'YES') row.sgcCount += 1;
+      if (s.cwsn_status === 'YES') row.cwsnCount += 1;
+
+      // Attendance check
+      let isPresent = true;
+      attendance.forEach(rec => {
+        if (rec.date === todayDateStr && (rec as any).student_records && Array.isArray((rec as any).student_records)) {
+          const match = (rec as any).student_records.find((r: any) => r.student_id === s.id);
+          if (match && match.status === 'ABSENT') {
+            isPresent = false;
+          }
+        }
+      });
+      if (isPresent) {
+        row.presentTodayCount += 1;
       }
     });
 
-    return Array.from(map.values()).sort((a, b) => {
-      return a.className.localeCompare(b.className, undefined, { numeric: true, sensitivity: 'base' });
+    const rows = Array.from(map.values());
+    const sortedUniqueClassNames = sortClassesChronologically(Array.from(new Set(rows.map(r => r.className))));
+
+    return rows.sort((a, b) => {
+      const idxA = sortedUniqueClassNames.indexOf(a.className);
+      const idxB = sortedUniqueClassNames.indexOf(b.className);
+      if (idxA !== idxB) {
+        return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+      }
+      return a.section.localeCompare(b.section);
     });
-  }, [students, invoices, feeCycleFilter]);
+  }, [students, classes, teachers, attendance, todayDateStr]);
 
-
-  const todayDateStr = getTodayDateStr();
 
   // 2. Student Attendance Register Data (Derived from live attendance records)
   const studentAttendanceData = useMemo(() => {
@@ -403,15 +455,71 @@ export function DashboardReports({
   }, []);
 
   // Filtered Datasets for All 7 Reporting Modules
-  const filteredClassFeeMatrix = useMemo(() => {
-    return classFeeMatrix.filter(r => {
+  const filteredClassSummaryData = useMemo(() => {
+    return classwiseSummaryData.filter(r => {
       if (classFilter !== 'ALL' && r.className !== classFilter) return false;
-      if (statusFilter === 'PAID' && r.pendingCount > 0) return false;
-      if (statusFilter === 'PENDING' && r.pendingDues <= 0) return false;
-      if (searchFilter && !r.className.toLowerCase().includes(searchFilter.toLowerCase())) return false;
+      if (searchFilter) {
+        const q = searchFilter.toLowerCase();
+        return (
+          r.className.toLowerCase().includes(q) ||
+          r.section.toLowerCase().includes(q) ||
+          r.classSectionLabel.toLowerCase().includes(q) ||
+          r.classTeacherName.toLowerCase().includes(q)
+        );
+      }
       return true;
     });
-  }, [classFeeMatrix, classFilter, statusFilter, searchFilter]);
+  }, [classwiseSummaryData, classFilter, searchFilter]);
+
+  const classSummaryTotals = useMemo(() => {
+    return filteredClassSummaryData.reduce(
+      (acc, r) => {
+        acc.totalStudents += r.totalStudents;
+        acc.maleCount += r.maleCount;
+        acc.femaleCount += r.femaleCount;
+        acc.otherGenderCount += r.otherGenderCount;
+        acc.redHouseCount += r.redHouseCount;
+        acc.yellowHouseCount += r.yellowHouseCount;
+        acc.blueHouseCount += r.blueHouseCount;
+        acc.greenHouseCount += r.greenHouseCount;
+        acc.unassignedHouseCount += r.unassignedHouseCount;
+        acc.transportOptedCount += r.transportOptedCount;
+        acc.selfTransportCount += r.selfTransportCount;
+        acc.generalCount += r.generalCount;
+        acc.obcCount += r.obcCount;
+        acc.scCount += r.scCount;
+        acc.stCount += r.stCount;
+        acc.ewsCount += r.ewsCount;
+        acc.rteCount += r.rteCount;
+        acc.sgcCount += r.sgcCount;
+        acc.cwsnCount += r.cwsnCount;
+        acc.presentTodayCount += r.presentTodayCount;
+        return acc;
+      },
+      {
+        totalStudents: 0,
+        maleCount: 0,
+        femaleCount: 0,
+        otherGenderCount: 0,
+        redHouseCount: 0,
+        yellowHouseCount: 0,
+        blueHouseCount: 0,
+        greenHouseCount: 0,
+        unassignedHouseCount: 0,
+        transportOptedCount: 0,
+        selfTransportCount: 0,
+        generalCount: 0,
+        obcCount: 0,
+        scCount: 0,
+        stCount: 0,
+        ewsCount: 0,
+        rteCount: 0,
+        sgcCount: 0,
+        cwsnCount: 0,
+        presentTodayCount: 0,
+      }
+    );
+  }, [filteredClassSummaryData]);
 
   const filteredStudentAttendanceData = useMemo(() => {
     return studentAttendanceData.filter(r => {
@@ -495,51 +603,44 @@ export function DashboardReports({
     });
   }, [teachers, searchFilter, staffRoleFilter]);
 
-  const matrixTotals = useMemo(() => {
-    return filteredClassFeeMatrix.reduce(
-      (acc, r) => {
-        acc.totalStudents += r.totalStudents;
-        acc.paidCount += r.paidCount;
-        acc.pendingCount += r.pendingCount;
-        acc.collected += r.collected;
-        acc.pendingDues += r.pendingDues;
-        return acc;
-      },
-      { totalStudents: 0, paidCount: 0, pendingCount: 0, collected: 0, pendingDues: 0 }
-    );
-  }, [filteredClassFeeMatrix]);
-
   // Dynamic Official Institutional Report Document Configurator
   const modalReportConfig = useMemo(() => {
     switch (reportSubTab) {
-      case 'fee_analytics': {
+      case 'classwise_summary': {
         const columns: ReportColumn[] = [
-          { header: 'Class & Section', render: (r) => `Class ${r.className}-${r.section}`, width: '130px' },
-          { header: 'Total Students', key: 'totalStudents', align: 'center' },
-          { header: 'Paid Count', key: 'paidCount', align: 'center' },
-          { header: 'Pending Count', key: 'pendingCount', align: 'center' },
-          { header: 'Collected (₹)', align: 'right', render: (r) => `₹${Number(r.collected || 0).toLocaleString()}` },
-          { header: 'Pending Dues (₹)', align: 'right', render: (r) => `₹${Number(r.pendingDues || 0).toLocaleString()}` },
+          { header: 'Class & Section', render: (r) => `Class ${r.className} (${r.section})`, width: '130px' },
+          { header: 'Class Teacher', key: 'classTeacherName' },
+          { header: 'Total Strength', key: 'totalStudents', align: 'center' },
+          { header: 'Boys (M)', key: 'maleCount', align: 'center' },
+          { header: 'Girls (F)', key: 'femaleCount', align: 'center' },
+          { header: 'Red House', key: 'redHouseCount', align: 'center' },
+          { header: 'Yellow House', key: 'yellowHouseCount', align: 'center' },
+          { header: 'Blue House', key: 'blueHouseCount', align: 'center' },
+          { header: 'Green House', key: 'greenHouseCount', align: 'center' },
+          { header: 'Transport (Bus)', key: 'transportOptedCount', align: 'center' },
+          { header: 'Self / Walk', key: 'selfTransportCount', align: 'center' },
+          { header: 'Social Quotas (GEN/OBC/SC/ST)', render: (r) => `${r.generalCount} / ${r.obcCount} / ${r.scCount} / ${r.stCount}`, align: 'center' },
+          { header: 'RTE / SGC / CWSN', render: (r) => `RTE:${r.rteCount} | SGC:${r.sgcCount} | CWSN:${r.cwsnCount}`, align: 'center' },
+          { header: 'Present Today', key: 'presentTodayCount', align: 'right' }
         ];
         const filterSummary = [
-          { label: 'Fee Cycle / Month', value: getFeeCycleLabel(feeCycleFilter) },
+          { label: 'Academic Session', value: selectedSession || '2026-27' },
           { label: 'Class Scope', value: classFilter === 'ALL' ? 'All Classes' : classFilter },
-          { label: 'Settlement Status', value: statusFilter === 'ALL' ? 'All Invoices' : statusFilter === 'PAID' ? '100% Cleared' : 'Pending Dues' },
           ...(searchFilter ? [{ label: 'Search Query', value: `"${searchFilter}"` }] : [])
         ];
         const statsSummary = [
-          { label: 'Tuition Total', value: `₹${feeMetrics.tuition.toLocaleString()}` },
-          { label: 'Admission Total', value: `₹${feeMetrics.admission.toLocaleString()}` },
-          { label: 'Annual Session', value: `₹${feeMetrics.annual.toLocaleString()}` },
-          { label: 'Transport Total', value: `₹${feeMetrics.transport.toLocaleString()}` }
+          { label: 'Total Enrolled Scholars', value: `${classSummaryTotals.totalStudents} Students` },
+          { label: 'Gender Breakdown', value: `${classSummaryTotals.maleCount} Boys | ${classSummaryTotals.femaleCount} Girls` },
+          { label: '4-House Distribution', value: `🔴 ${classSummaryTotals.redHouseCount} | 🟡 ${classSummaryTotals.yellowHouseCount} | 🔵 ${classSummaryTotals.blueHouseCount} | 🟢 ${classSummaryTotals.greenHouseCount}` },
+          { label: 'Transport Users', value: `${classSummaryTotals.transportOptedCount} Bus Riders` }
         ];
         return {
-          title: `Fee Category & Class Collection Matrix Report`,
-          subtitle: `Official class-wise revenue collection, settlement summary, and outstanding fee ledger for ${getFeeCycleLabel(feeCycleFilter)}`,
+          title: `Class-Wise Student Strength, Gender, House & Transport Summary`,
+          subtitle: `Statutory demographic audit, house allocations, fleet enrollment, and CBSE inclusion quota roster`,
           columns,
           filterSummary,
           statsSummary,
-          data: filteredClassFeeMatrix
+          data: filteredClassSummaryData
         };
       }
 
@@ -744,12 +845,13 @@ export function DashboardReports({
     statusFilter,
     searchFilter,
     feeCycleFilter,
-    feeMetrics,
+    selectedSession,
     students,
     teachers,
     studentAttendanceData,
     transportFleetData,
-    filteredClassFeeMatrix,
+    filteredClassSummaryData,
+    classSummaryTotals,
     filteredStudentAttendanceData,
     filteredStaffAttendanceData,
     filteredExamRankingsData,
@@ -763,14 +865,13 @@ export function DashboardReports({
     let csvContent = "data:text/csv;charset=utf-8,";
     const session = selectedSession || '2026-27';
 
-    if (reportSubTab === 'fee_analytics') {
-      csvContent += `Central School ERP - Fee Category & Collection Matrix Report - Session ${session}\r\n`;
-      csvContent += `Selected Fee Cycle / Month: "${getFeeCycleLabel(feeCycleFilter)}"\r\n`;
-      csvContent += "Class & Section,Total Students,Paid Count,Pending Count,Collected Amount (INR),Pending Dues (INR)\r\n";
-      filteredClassFeeMatrix.forEach(r => {
-        csvContent += `"${r.className}-${r.section}",${r.totalStudents},${r.paidCount},${r.pendingCount},${r.collected},${r.pendingDues}\r\n`;
+    if (reportSubTab === 'classwise_summary') {
+      csvContent += `Central School ERP - Class-Wise Strength, Gender, House & Transport Summary - Session ${session}\r\n`;
+      csvContent += "Class,Section,Class Teacher,Total Strength,Boys (Male),Girls (Female),Other Gender,Red House,Yellow House,Blue House,Green House,Unassigned House,Transport (Bus),Self / Walk,General,OBC,SC,ST,EWS,RTE Quota,Single Girl Child,CWSN,Present Today\r\n";
+      filteredClassSummaryData.forEach(r => {
+        csvContent += `"${r.className}","${r.section}","${r.classTeacherName}",${r.totalStudents},${r.maleCount},${r.femaleCount},${r.otherGenderCount},${r.redHouseCount},${r.yellowHouseCount},${r.blueHouseCount},${r.greenHouseCount},${r.unassignedHouseCount},${r.transportOptedCount},${r.selfTransportCount},${r.generalCount},${r.obcCount},${r.scCount},${r.stCount},${r.ewsCount},${r.rteCount},${r.sgcCount},${r.cwsnCount},${r.presentTodayCount}\r\n`;
       });
-      csvContent += `"TOTAL",${matrixTotals.totalStudents},${matrixTotals.paidCount},${matrixTotals.pendingCount},${matrixTotals.collected},${matrixTotals.pendingDues}\r\n`;
+      csvContent += `"TOTAL","ALL SECTIONS","Consolidated",${classSummaryTotals.totalStudents},${classSummaryTotals.maleCount},${classSummaryTotals.femaleCount},${classSummaryTotals.otherGenderCount},${classSummaryTotals.redHouseCount},${classSummaryTotals.yellowHouseCount},${classSummaryTotals.blueHouseCount},${classSummaryTotals.greenHouseCount},${classSummaryTotals.unassignedHouseCount},${classSummaryTotals.transportOptedCount},${classSummaryTotals.selfTransportCount},${classSummaryTotals.generalCount},${classSummaryTotals.obcCount},${classSummaryTotals.scCount},${classSummaryTotals.stCount},${classSummaryTotals.ewsCount},${classSummaryTotals.rteCount},${classSummaryTotals.sgcCount},${classSummaryTotals.cwsnCount},${classSummaryTotals.presentTodayCount}\r\n`;
     } else if (reportSubTab === 'student_att') {
       csvContent += `Central School ERP - Student Attendance & CBSE 75% Compliance Register - Session ${session}\r\n`;
       csvContent += "Admission No,Student Name,Class,Section,Today Status,Total Working Days,Days Present,Days Absent,Attendance %,CBSE 75% Status\r\n";
@@ -861,7 +962,7 @@ export function DashboardReports({
               </span>
             </div>
             <p className="text-xs text-[#2D5A4E]">
-              Print-ready institutional dossiers, class fee collection matrices, biometric registers &amp; merit rosters.
+              Print-ready institutional dossiers, classwise strength summaries, house distributions &amp; merit rosters.
             </p>
           </div>
         </div>
@@ -895,7 +996,7 @@ export function DashboardReports({
         {/* Sub-Tab Navigation Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs">
           {[
-            { id: 'fee_analytics', label: 'Fee Collection' },
+            { id: 'classwise_summary', label: 'Classwise Summary' },
             { id: 'student_att', label: 'Student Attendance' },
             { id: 'staff_att', label: 'Faculty Attendance' },
             { id: 'exams', label: 'Marks & Rankings' },
@@ -935,40 +1036,15 @@ export function DashboardReports({
             <div className="min-w-[180px] flex-1">
               <input
                 type="text"
-                placeholder="Search across all fields, roll no, name, phone..."
+                placeholder="Search across classes, sections, names, numbers..."
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
                 className="w-full px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs text-[#122A24] focus:outline-none focus:border-emerald-600 font-mono shadow-2xs"
               />
             </div>
 
-            {/* Month / Cycle Filter for Fee Analytics */}
-            {reportSubTab === 'fee_analytics' && (
-              <select
-                value={feeCycleFilter}
-                onChange={(e) => setFeeCycleFilter(e.target.value)}
-                className="px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs text-[#122A24] focus:outline-none focus:border-emerald-600 font-semibold shadow-2xs cursor-pointer"
-                title="Select Academic Fee Month / Cycle"
-              >
-                <option value="ALL">🌟 All Cycles (Full Session 2026-27)</option>
-                <optgroup label="── Quarterly Cycles ──">
-                  <option value="Q1">Quarter 1: Q1 (Apr - Jun Consolidated)</option>
-                  <option value="Q2">Quarter 2: Q2 (Jul - Sep Consolidated)</option>
-                  <option value="Q3">Quarter 3: Q3 (Oct - Dec Consolidated)</option>
-                  <option value="Q4">Quarter 4: Q4 (Jan - Mar Consolidated)</option>
-                </optgroup>
-                <optgroup label="── Monthly Billing Cycles ──">
-                  {CBSE_ACADEMIC_MONTHS.map((m) => (
-                    <option key={m.index} value={String(m.index)}>
-                      {m.cycleName} ({m.name})
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
-            )}
-
             {/* Class Filter (Where applicable) */}
-            {(reportSubTab === 'student_att' || reportSubTab === 'exams' || reportSubTab === 'student_dossier' || reportSubTab === 'fee_analytics') && (
+            {(reportSubTab === 'classwise_summary' || reportSubTab === 'student_att' || reportSubTab === 'exams' || reportSubTab === 'student_dossier') && (
               <select
                 value={classFilter}
                 onChange={(e) => setClassFilter(e.target.value)}
@@ -1008,18 +1084,6 @@ export function DashboardReports({
               </select>
             )}
 
-            {reportSubTab === 'fee_analytics' && (
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-1.5 bg-white border border-[#DCE8E0] rounded-xl text-xs text-[#122A24] focus:outline-none focus:border-emerald-600 font-medium shadow-2xs cursor-pointer"
-              >
-                <option key="fee-opt-all" value="ALL">All Fee Statuses</option>
-                <option key="fee-opt-paid" value="PAID">100% Cleared Only</option>
-                <option key="fee-opt-pend" value="PENDING">With Pending Dues</option>
-              </select>
-            )}
-
             {reportSubTab === 'exams' && (
               <select
                 value={statusFilter}
@@ -1034,14 +1098,13 @@ export function DashboardReports({
               </select>
             )}
 
-            {(searchFilter || classFilter !== 'ALL' || statusFilter !== 'ALL' || feeCycleFilter !== 'ALL') && (
+            {(searchFilter || classFilter !== 'ALL' || statusFilter !== 'ALL') && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchFilter('');
                   setClassFilter('ALL');
                   setStatusFilter('ALL');
-                  setFeeCycleFilter('ALL');
                 }}
                 className="px-2.5 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
               >
@@ -1051,9 +1114,9 @@ export function DashboardReports({
           </div>
 
           <div className="text-[11px] font-mono text-[#2D5A4E] shrink-0 self-end md:self-center">
-            {reportSubTab === 'fee_analytics' && (
+            {reportSubTab === 'classwise_summary' && (
               <span className="font-semibold text-emerald-800">
-                Cycle: {feeCycleFilter === 'ALL' ? 'All 12 Cycles' : getFeeCycleLabel(feeCycleFilter).split(' (')[0]}
+                Showing {filteredClassSummaryData.length} Class Sections • {classSummaryTotals.totalStudents} Enrolled
               </span>
             )}
           </div>
@@ -1062,111 +1125,94 @@ export function DashboardReports({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          SUB-TAB 1: FEE CATEGORY ANALYTICS
+          SUB-TAB 1: CLASSWISE SUMMARY MATRIX
           ───────────────────────────────────────────────────────────── */}
-      {reportSubTab === 'fee_analytics' && (
+      {reportSubTab === 'classwise_summary' && (
         <div className="space-y-6 animate-fade-in">
 
-          {/* 4 KPI Cards in a row */}
+          {/* 4 Summary Stat Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-3xl border border-[#DCE8E0] p-5 space-y-1 shadow-xs">
-              <span className="text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider block">
-                TUITION COLLECTION
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider block">
+                  TOTAL ENROLLED STRENGTH
+                </span>
+                <Users className="w-4 h-4 text-emerald-700" />
+              </div>
               <div className="font-display font-bold text-2xl text-[#005A36]">
-                ₹{feeMetrics.tuition.toLocaleString()}
+                {classSummaryTotals.totalStudents.toLocaleString()} Scholars
               </div>
+              <p className="text-[11px] text-[#2D5A4E] font-medium">
+                Distributed across {filteredClassSummaryData.length} class sections
+              </p>
             </div>
 
             <div className="bg-white rounded-3xl border border-[#DCE8E0] p-5 space-y-1 shadow-xs">
-              <span className="text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider block">
-                ADMISSION FEE TOTAL
-              </span>
-              <div className="font-display font-bold text-2xl text-[#1C443A]">
-                ₹{feeMetrics.admission.toLocaleString()}
+              <div className="flex items-center justify-between">
+                <span className="text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider block">
+                  GENDER RATIO (BOYS / GIRLS)
+                </span>
+                <UserCheck className="w-4 h-4 text-teal-700" />
               </div>
+              <div className="font-display font-bold text-xl text-[#1C443A] flex items-center gap-2">
+                <span className="text-blue-700 font-bold">👦 {classSummaryTotals.maleCount}</span>
+                <span className="text-slate-300 font-normal">/</span>
+                <span className="text-rose-600 font-bold">👧 {classSummaryTotals.femaleCount}</span>
+              </div>
+              <p className="text-[11px] text-[#2D5A4E] font-medium">
+                {classSummaryTotals.totalStudents > 0 ? ((classSummaryTotals.maleCount / classSummaryTotals.totalStudents) * 100).toFixed(1) : 0}% Boys • {classSummaryTotals.totalStudents > 0 ? ((classSummaryTotals.femaleCount / classSummaryTotals.totalStudents) * 100).toFixed(1) : 0}% Girls
+              </p>
             </div>
 
             <div className="bg-white rounded-3xl border border-[#DCE8E0] p-5 space-y-1 shadow-xs">
-              <span className="text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider block">
-                ANNUAL SESSION FEE
-              </span>
-              <div className="font-display font-bold text-2xl text-[#005A36]">
-                ₹{feeMetrics.annual.toLocaleString()}
+              <div className="flex items-center justify-between">
+                <span className="text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider block">
+                  HOUSE ALLOCATIONS
+                </span>
+                <Shield className="w-4 h-4 text-amber-600" />
               </div>
+              <div className="font-mono font-bold text-sm text-[#122A24] flex items-center gap-1.5 flex-wrap pt-0.5">
+                <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-800 text-[11px] font-bold">🔴 {classSummaryTotals.redHouseCount}</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-900 text-[11px] font-bold">🟡 {classSummaryTotals.yellowHouseCount}</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[11px] font-bold">🔵 {classSummaryTotals.blueHouseCount}</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">🟢 {classSummaryTotals.greenHouseCount}</span>
+              </div>
+              <p className="text-[11px] text-[#2D5A4E] font-medium">
+                Red, Yellow, Blue &amp; Green house balances
+              </p>
             </div>
 
             <div className="bg-white rounded-3xl border border-[#DCE8E0] p-5 space-y-1 shadow-xs">
-              <span className="text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider block">
-                TRANSPORT FEE TOTAL
-              </span>
-              <div className="font-display font-bold text-2xl text-[#D97706]">
-                ₹{feeMetrics.transport.toLocaleString()}
+              <div className="flex items-center justify-between">
+                <span className="text-[10.5px] font-mono font-bold text-[#2D5A4E] uppercase tracking-wider block">
+                  TRANSPORT &amp; STATUTORY QUOTAS
+                </span>
+                <Bus className="w-4 h-4 text-blue-600" />
               </div>
+              <div className="font-display font-bold text-xl text-[#005A36]">
+                🚌 {classSummaryTotals.transportOptedCount} Bus Riders
+              </div>
+              <p className="text-[11px] text-[#2D5A4E] font-medium">
+                RTE: {classSummaryTotals.rteCount} • Single Girl: {classSummaryTotals.sgcCount} • CWSN: {classSummaryTotals.cwsnCount}
+              </p>
             </div>
           </div>
 
-          {/* Main Matrix Table */}
+          {/* Master Classwise Summary Table */}
           <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 space-y-4">
-            {/* Quick Fee Cycle Preset Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-              <span className="text-[11px] font-mono font-bold text-[#2D5A4E] shrink-0 uppercase flex items-center gap-1 mr-1">
-                <Calendar className="w-3.5 h-3.5 text-emerald-700" /> Cycle:
-              </span>
-              <button
-                type="button"
-                onClick={() => setFeeCycleFilter('ALL')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap border cursor-pointer transition-all ${
-                  feeCycleFilter === 'ALL'
-                    ? 'bg-[#122A24] text-white border-[#122A24] shadow-2xs font-bold'
-                    : 'bg-white text-[#2D5A4E] border-[#DCE8E0] hover:bg-[#F4F8F5]'
-                }`}
-              >
-                Full Session (12 Months)
-              </button>
-              {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
-                <button
-                  key={q}
-                  type="button"
-                  onClick={() => setFeeCycleFilter(q)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap border cursor-pointer transition-all ${
-                    feeCycleFilter === q
-                      ? 'bg-[#122A24] text-white border-[#122A24] shadow-2xs font-bold'
-                      : 'bg-white text-[#2D5A4E] border-[#DCE8E0] hover:bg-[#F4F8F5]'
-                  }`}
-                >
-                  {q}
-                </button>
-              ))}
-              {CBSE_ACADEMIC_MONTHS.map(m => (
-                <button
-                  key={m.index}
-                  type="button"
-                  onClick={() => setFeeCycleFilter(String(m.index))}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap border cursor-pointer transition-all ${
-                    feeCycleFilter === String(m.index)
-                      ? 'bg-[#122A24] text-white border-[#122A24] shadow-2xs font-bold'
-                      : 'bg-white text-[#2D5A4E] border-[#DCE8E0] hover:bg-[#F4F8F5]'
-                  }`}
-                >
-                  {m.short} ({m.cycleName.split(':')[0]})
-                </button>
-              ))}
-            </div>
-
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8F0EA]">
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="font-display font-bold text-base text-[#122A24]">
-                    Class &amp; Section Fee Collection Matrix
+                    Comprehensive Classwise Demographics &amp; Strength Roster
                   </h2>
                   <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-emerald-700" />
-                    <span>{getFeeCycleLabel(feeCycleFilter)}</span>
+                    <Sparkles className="w-3 h-3 text-emerald-700" />
+                    <span>Single-Row Complete Class Profile</span>
                   </span>
                 </div>
                 <p className="text-xs text-[#2D5A4E] font-mono mt-0.5">
-                  Class-wise student strength, collected revenue, and remaining dues ledger for selected billing cycle
+                  Complete class-wise student strength, gender ratio, house breakdown, transport mode, and CBSE inclusion metrics in one consolidated view.
                 </p>
               </div>
 
@@ -1177,7 +1223,7 @@ export function DashboardReports({
                   className="px-3.5 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs transition-all border-none"
                 >
                   <Printer className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Print Official Document</span>
+                  <span>Print Official Docket</span>
                 </button>
                 <button
                   type="button"
@@ -1191,60 +1237,178 @@ export function DashboardReports({
             </div>
 
             <div className="overflow-x-auto w-full rounded-2xl border border-[#DCE8E0]">
-              <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+              <table className="w-full text-left text-xs border-collapse min-w-[950px]">
                 <thead>
                   <tr className="border-b border-[#E8F0EA] text-[10.5px] font-mono text-slate-500 uppercase bg-[#F8FAF9]">
-                    <th className="py-3 px-4 font-bold">CLASS &amp; SECTION</th>
-                    <th className="py-3 px-3 text-center font-bold">TOTAL STUDENTS</th>
-                    <th className="py-3 px-3 text-center font-bold">PAID COUNT</th>
-                    <th className="py-3 px-3 text-center font-bold">PENDING COUNT</th>
-                    <th className="py-3 px-3 text-right font-bold">COLLECTED (₹)</th>
-                    <th className="py-3 px-4 text-right font-bold">PENDING DUES (₹)</th>
+                    <th className="py-3.5 px-4 font-bold">CLASS &amp; SEC</th>
+                    <th className="py-3.5 px-3 text-center font-bold">TOTAL STRENGTH</th>
+                    <th className="py-3.5 px-3 text-center font-bold">GENDER (BOYS / GIRLS)</th>
+                    <th className="py-3.5 px-3 text-center font-bold">HOUSE BREAKDOWN</th>
+                    <th className="py-3.5 px-3 text-center font-bold">TRANSPORT MODE</th>
+                    <th className="py-3.5 px-3 text-center font-bold">SOCIAL CATEGORIES</th>
+                    <th className="py-3.5 px-3 text-center font-bold">INCLUSION / RTE</th>
+                    <th className="py-3.5 px-4 text-right font-bold">ATTENDANCE TODAY</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E8F0EA] font-mono text-slate-700">
-                  {filteredClassFeeMatrix.map((row) => (
+                  {filteredClassSummaryData.map((row) => (
                     <tr key={`${row.className}-${row.section}`} className="hover:bg-[#F9FCFA] transition-colors">
                       <td className="py-3 px-4 font-sans font-bold text-[#122A24]">
-                        Class {row.className}-{row.section}
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-sm text-[#122A24]">{row.className}</span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#EBF5EF] text-[#005A36] border border-[#DCE8E0]">
+                            Sec {row.section}
+                          </span>
+                        </div>
+                        <span className="text-[10.5px] text-[#2D5A4E] font-normal font-sans block mt-0.5">
+                          Incharge: {row.classTeacherName}
+                        </span>
                       </td>
-                      <td className="py-3 px-3 text-center font-bold text-slate-700">
-                        {row.totalStudents}
+
+                      <td className="py-3 px-3 text-center">
+                        <span className="font-display font-bold text-base text-[#005A36] px-2.5 py-1 bg-emerald-50 rounded-xl border border-emerald-200 inline-block min-w-[42px]">
+                          {row.totalStudents}
+                        </span>
                       </td>
-                      <td className="py-3 px-3 text-center font-bold text-emerald-800">
-                        {row.paidCount}
+
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 font-bold text-xs border border-blue-200">
+                            👦 {row.maleCount}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 font-bold text-xs border border-rose-200">
+                            👧 {row.femaleCount}
+                          </span>
+                          {row.otherGenderCount > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-lg bg-purple-50 text-purple-700 font-bold text-xs">
+                              ⚧ {row.otherGenderCount}
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="py-3 px-3 text-center font-bold text-rose-700">
-                        {row.pendingCount}
+
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1 flex-wrap">
+                          <span className="px-1.5 py-0.5 rounded-md bg-rose-100/90 text-rose-900 text-[10.5px] font-bold border border-rose-200" title="Red House">
+                            🔴 {row.redHouseCount}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded-md bg-amber-100/90 text-amber-900 text-[10.5px] font-bold border border-amber-200" title="Yellow House">
+                            🟡 {row.yellowHouseCount}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded-md bg-blue-100/90 text-blue-900 text-[10.5px] font-bold border border-blue-200" title="Blue House">
+                            🔵 {row.blueHouseCount}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded-md bg-emerald-100/90 text-emerald-900 text-[10.5px] font-bold border border-emerald-200" title="Green House">
+                            🟢 {row.greenHouseCount}
+                          </span>
+                        </div>
                       </td>
-                      <td className="py-3 px-3 text-right font-bold text-[#005A36]">
-                        ₹{row.collected.toLocaleString()}
+
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-800 font-bold text-xs border border-indigo-200" title="Transport Opted (Bus Users)">
+                            🚌 {row.transportOptedCount}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200" title="Self Commuters / Walkers">
+                            🚶 {row.selfTransportCount}
+                          </span>
+                        </div>
                       </td>
-                      <td className="py-3 px-4 text-right font-bold text-rose-700">
-                        ₹{row.pendingDues.toLocaleString()}
+
+                      <td className="py-3 px-3 text-center text-[11px]">
+                        <div className="flex items-center justify-center gap-1 text-[10.5px] text-slate-700">
+                          <span className="bg-slate-100 px-1 py-0.5 rounded font-bold">GEN:{row.generalCount}</span>
+                          <span className="bg-slate-100 px-1 py-0.5 rounded font-bold">OBC:{row.obcCount}</span>
+                          <span className="bg-slate-100 px-1 py-0.5 rounded font-bold">SC/ST:{row.scCount + row.stCount}</span>
+                          {row.ewsCount > 0 && <span className="bg-amber-50 text-amber-800 px-1 py-0.5 rounded font-bold">EWS:{row.ewsCount}</span>}
+                        </div>
+                      </td>
+
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1 text-[10.5px]">
+                          {row.rteCount > 0 ? (
+                            <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
+                              RTE: {row.rteCount}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-normal">RTE: 0</span>
+                          )}
+                          {row.sgcCount > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-800 font-bold border border-rose-200" title="Single Girl Child">
+                              SGC: {row.sgcCount}
+                            </span>
+                          )}
+                          {row.cwsnCount > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-800 font-bold border border-purple-200" title="CWSN">
+                              CWSN: {row.cwsnCount}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-3 px-4 text-right font-bold">
+                        <div className="flex flex-col items-end">
+                          <span className="text-[#005A36] font-bold text-xs">
+                            {row.presentTodayCount} / {row.totalStudents} Present
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-normal">
+                            {row.totalStudents > 0 ? ((row.presentTodayCount / row.totalStudents) * 100).toFixed(0) : 0}% compliance
+                          </span>
+                        </div>
                       </td>
                     </tr>
                   ))}
 
-                  {filteredClassFeeMatrix.length === 0 && (
+                  {filteredClassSummaryData.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-10 text-center text-slate-400 font-mono text-xs">
+                      <td colSpan={8} className="py-10 text-center text-slate-400 font-mono text-xs">
                         No class records match the selected filter.
                       </td>
                     </tr>
                   )}
                 </tbody>
-                {filteredClassFeeMatrix.length > 0 && (
+                {filteredClassSummaryData.length > 0 && (
                   <tfoot className="bg-[#F4F8F5] font-mono border-t-2 border-[#DCE8E0] font-bold text-slate-800">
                     <tr>
-                      <td className="py-3 px-4 font-sans text-[#122A24]">
-                        TOTAL ({filteredClassFeeMatrix.length} Sections)
+                      <td className="py-3.5 px-4 font-sans text-[#122A24]">
+                        <span className="font-bold">TOTAL</span> ({filteredClassSummaryData.length} Class Sections)
                       </td>
-                      <td className="py-3 px-3 text-center">{matrixTotals.totalStudents}</td>
-                      <td className="py-3 px-3 text-center text-emerald-800">{matrixTotals.paidCount}</td>
-                      <td className="py-3 px-3 text-center text-rose-800">{matrixTotals.pendingCount}</td>
-                      <td className="py-3 px-3 text-right text-[#005A36]">₹{matrixTotals.collected.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-right text-rose-700">₹{matrixTotals.pendingDues.toLocaleString()}</td>
+                      <td className="py-3.5 px-3 text-center">
+                        <span className="font-display font-bold text-sm text-[#005A36] px-2 py-0.5 bg-emerald-100 rounded-lg">
+                          {classSummaryTotals.totalStudents}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1.5 font-bold">
+                          <span className="text-blue-700">👦 {classSummaryTotals.maleCount}</span>
+                          <span className="text-slate-300">/</span>
+                          <span className="text-rose-600">👧 {classSummaryTotals.femaleCount}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1 font-bold text-[11px]">
+                          <span className="text-rose-800">🔴{classSummaryTotals.redHouseCount}</span>
+                          <span className="text-amber-800">🟡{classSummaryTotals.yellowHouseCount}</span>
+                          <span className="text-blue-800">🔵{classSummaryTotals.blueHouseCount}</span>
+                          <span className="text-emerald-800">🟢{classSummaryTotals.greenHouseCount}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1 font-bold text-xs">
+                          <span className="text-indigo-800">🚌 {classSummaryTotals.transportOptedCount}</span>
+                          <span className="text-slate-400">/</span>
+                          <span className="text-slate-700">🚶 {classSummaryTotals.selfTransportCount}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-3 text-center text-[10.5px]">
+                        GEN:{classSummaryTotals.generalCount} • OBC:{classSummaryTotals.obcCount} • SC/ST:{classSummaryTotals.scCount + classSummaryTotals.stCount}
+                      </td>
+                      <td className="py-3.5 px-3 text-center text-[10.5px]">
+                        RTE:{classSummaryTotals.rteCount} • SGC:{classSummaryTotals.sgcCount} • CWSN:{classSummaryTotals.cwsnCount}
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-[#005A36] font-bold">
+                        {classSummaryTotals.presentTodayCount} / {classSummaryTotals.totalStudents}
+                      </td>
                     </tr>
                   </tfoot>
                 )}
