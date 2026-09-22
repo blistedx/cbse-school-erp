@@ -310,10 +310,11 @@ export function invalidateFeeOverviewMemoryCache(schoolId?: string): void {
 export async function getSchoolFeeOverviewAggregation(
   schoolId: string,
   session: string = '2026-27',
-  _studentsMap?: Map<string, any>
+  forceFreshOrStudentsMap?: boolean | Map<string, any>
 ): Promise<SchoolFeeOverviewAggregate> {
+  const forceFresh = typeof forceFreshOrStudentsMap === 'boolean' ? forceFreshOrStudentsMap : false;
   const { getSchoolFinancialStats } = await import('@/lib/stats');
-  const stats = await getSchoolFinancialStats(schoolId, session);
+  const stats = await getSchoolFinancialStats(schoolId, session, forceFresh);
   return stats;
 }
 

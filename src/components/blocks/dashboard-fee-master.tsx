@@ -239,9 +239,9 @@ export function DashboardFeeMaster({
     setIsSyncingOverview(true);
     try {
       const sId = selectedSchool?.school_code || selectedSchool?.id || 'DPS2026';
-      const res = await apiFetch(`/api/fee-master?action=overview&session=${session}&school_id=${encodeURIComponent(sId)}&_t=${Date.now()}`);
+      const res = await apiFetch(`/api/fee-master?action=overview&session=${session}&school_id=${encodeURIComponent(sId)}&force=true&_t=${Date.now()}`);
       const data = await res.json();
-      if (data.success && data.overview && data.overview.totalBilledPaise > 0) {
+      if (data.success && data.overview) {
         setOverviewData(data.overview);
         setOverviewError(null);
         try {
@@ -251,8 +251,6 @@ export function DashboardFeeMaster({
             sessionStorage.setItem(key, JSON.stringify(data.overview));
           }
         } catch (e) {}
-      } else if (data.success && data.overview) {
-        setOverviewData(prev => prev.totalBilledPaise > 0 ? prev : data.overview);
       } else {
         if (overviewData.totalBilledPaise === 0) {
           setOverviewError(data?.error || 'Failed to load fee overview metrics.');

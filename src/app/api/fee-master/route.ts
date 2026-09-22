@@ -145,7 +145,8 @@ export async function GET(req: Request) {
 
     // 8. Overview KPIs and Mini-Tables
     if (action === 'overview') {
-      const feeOverviewAgg = await getSchoolFeeOverviewAggregation(tenant, session);
+      const forceFresh = searchParams.get('force') === 'true' || searchParams.get('_t') !== null;
+      const feeOverviewAgg = await getSchoolFeeOverviewAggregation(tenant, session, forceFresh);
 
       return NextResponse.json({
         success: true,

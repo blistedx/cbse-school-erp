@@ -97,18 +97,18 @@ export class AggregatesService {
   ): Promise<SchoolAggregateDoc> {
     const cacheKey = `${schoolId}:${session}`;
     const cached = aggregatesMemoryCache.get(cacheKey);
-    if (!forceFresh && cached && Date.now() < cached.expiresAt) {
+    if (!forceFresh && cached && Date.now() < cached.expiresAt && cached.doc.financials?.thisMonthBreakdown && cached.doc.financials.thisMonthBreakdown.length > 0 && cached.doc.financials?.topPending && cached.doc.financials.topPending.length > 0) {
       return cached.doc;
     }
 
     const db = await getDatabase();
-    if (db) {
+    if (db && !forceFresh) {
       const doc = await db.collection('school_aggregates').findOne({
         school_id: schoolId,
         session
       });
 
-      if (doc) {
+      if (doc && (doc as any).financials?.thisMonthBreakdown?.length > 0 && (doc as any).financials?.topPending?.length > 0) {
         const sanitized = sanitizeDoc(doc) as unknown as SchoolAggregateDoc;
         aggregatesMemoryCache.set(cacheKey, {
           doc: sanitized,
@@ -118,7 +118,7 @@ export class AggregatesService {
       }
     }
 
-    // If not found in DB, rebuild it once
+    // If not found in DB or missing thisMonthBreakdown/topPending, rebuild it
     return this.rebuildSchoolAggregate(schoolId, session);
   }
 
