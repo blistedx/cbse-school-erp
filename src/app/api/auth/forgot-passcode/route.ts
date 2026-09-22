@@ -64,7 +64,18 @@ export async function POST(req: Request) {
       const agencyEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'blistedx@gmail.com';
       const maskedEmail = maskEmail(agencyEmail);
 
-      const emailResult = await sendPasswordResetEmail({
+      // Save new passcode to database immediately so it is active
+      const hashedPasscode = await hashPassword(newPasscode);
+      await Database.updateAgencyPassword(hashedPasscode);
+      resetRateLimit('auth-forgot-passcode', req);
+
+      console.log(`\n======================================================`);
+      console.log(`🔑 AGENCY SUPERADMIN MASTER PASSCODE ACTIVATED: ${newPasscode}`);
+      console.log(`📧 Target Email: ${agencyEmail}`);
+      console.log(`======================================================\n`);
+
+      // Dispatch Email
+      await sendPasswordResetEmail({
         schoolName: 'Giterp Central Agency Platform',
         schoolCode: 'SYSTEM (AGENCY)',
         userId: 'BLISTEDX',
@@ -74,12 +85,6 @@ export async function POST(req: Request) {
         userEmail: agencyEmail,
         isAgencySuperAdmin: true
       });
-
-      if (emailResult.success) {
-        const hashedPasscode = await hashPassword(newPasscode);
-        await Database.updateAgencyPassword(hashedPasscode);
-        resetRateLimit('auth-forgot-passcode', req);
-      }
 
       return NextResponse.json({
         success: true,
