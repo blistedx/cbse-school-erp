@@ -30,7 +30,11 @@ import {
   HelpCircle,
   Flashlight,
   Image as ImageIcon,
-  Zap
+  Zap,
+  Wifi,
+  Battery,
+  Calendar,
+  Clock
 } from 'lucide-react';
 import { APP_INFO } from '@/lib/app-info';
 
@@ -216,6 +220,47 @@ function LoginPageContent() {
 
   const [scanManualInput, setScanManualInput] = useState('');
   const [recentScanCount, setRecentScanCount] = useState(0);
+
+  // New Sign In Form states (Matching User Template & ERP Theme)
+  const [recentEntries, setRecentEntries] = useState<Array<{
+    id: string;
+    name: string;
+    role: string;
+    time: string;
+    classOrDept?: string;
+  }>>([
+    {
+      id: '2026/0481',
+      name: 'Monu Kumar',
+      role: 'Student',
+      time: '10:35 AM',
+      classOrDept: 'Class 9-A'
+    }
+  ]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
+  const [currentTimeFormatted, setCurrentTimeFormatted] = useState('');
+
+  const showAttendanceToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+      const dateStr = now.toLocaleDateString('en-IN', options);
+      let hours = now.getHours();
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const ampm = hours >= 12 ? 'in the afternoon' : 'in the morning';
+      hours = hours % 12 || 12;
+      setCurrentTimeFormatted(`${dateStr} at ${hours}:${minutes} ${ampm}`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -486,18 +531,24 @@ function LoginPageContent() {
     };
   }, [showQrScanner, scannedPerson, cameraFacing, startCamera, stopCamera]);
 
-  // Action 1: Confirm "VERIFIED AND PRESENT"
-  const handleConfirmVerifiedPresent = async () => {
-    if (!scannedPerson) return;
+  // Action 1: Confirm "VERIFIED AND PRESENT" / "Mark Attendance"
+  const handleConfirmVerifiedPresent = async (overrideId?: string) => {
+    const targetId = (overrideId || scanManualInput || (scannedPerson?.person_type === 'STUDENT' ? scannedPerson.student?.admission_no || scannedPerson.student?.id : scannedPerson?.faculty?.staff_code || scannedPerson?.faculty?.id) || '').trim();
+
+    if (!targetId) {
+      alert('⚠️ Please enter or scan Student / Staff ID first!');
+      return;
+    }
+
+    setScanLoading(true);
     playScanBeep('success');
 
-    try {
-      const cleanSchool = (schoolCode || 'DPS2026').trim().toUpperCase();
-      const targetId = scannedPerson.person_type === 'STUDENT'
-        ? scannedPerson.student?.admission_no || scannedPerson.student?.id
-        : scannedPerson.faculty?.staff_code || scannedPerson.faculty?.id;
+    const cleanSchool = (schoolCode || 'DPS2026').trim().toUpperCase();
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
-      await fetch('/api/attendance/scan', {
+    try {
+      const res = await fetch('/api/attendance/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -506,22 +557,43 @@ function LoginPageContent() {
           action: 'VERIFY_PRESENT'
         })
       });
-    } catch (_) {}
+      const data = await res.json();
+      const attendeeName = data?.student?.full_name || data?.faculty?.full_name || scannedPerson?.student?.full_name || scannedPerson?.faculty?.full_name || targetId;
+      const attendeeRole = (data?.person_type || scannedPerson?.person_type) === 'FACULTY' ? 'Faculty' : 'Student';
+      const attendeeClass = data?.student?.class_name ? `${data.student.class_name}-${data.student.section || 'A'}` : (data?.faculty?.department || 'Academics');
 
-    setScannedPerson((prev) => prev ? {
-      ...prev,
-      verifiedStatus: 'CONFIRMED',
-      message: '✓ ATTENDANCE RECORDED: PRESENT'
-    } : null);
+      setRecentEntries((prev) => [
+        {
+          id: targetId,
+          name: attendeeName,
+          role: attendeeRole,
+          time: timeStr,
+          classOrDept: attendeeClass
+        },
+        ...prev.filter(e => e.id !== targetId).slice(0, 6)
+      ]);
 
-    setRecentScanCount((c) => c + 1);
-
-    setTimeout(() => {
+      showAttendanceToast(`✓ Attendance Marked: ${attendeeName} is Present!`);
+    } catch (_) {
+      const attendeeName = scannedPerson?.student?.full_name || scannedPerson?.faculty?.full_name || targetId;
+      setRecentEntries((prev) => [
+        {
+          id: targetId,
+          name: attendeeName,
+          role: scannedPerson?.person_type === 'FACULTY' ? 'Faculty' : 'Student',
+          time: timeStr,
+          classOrDept: scannedPerson?.student?.class_name || 'Academics'
+        },
+        ...prev.filter(e => e.id !== targetId).slice(0, 6)
+      ]);
+      showAttendanceToast(`✓ Attendance Marked for ${targetId}!`);
+    } finally {
+      setScanLoading(false);
+      setScanManualInput('');
       setScannedPerson(null);
-      if (showQrScanner) {
-        startCamera(cameraFacing);
-      }
-    }, 2400);
+      setIsCameraScannerOpen(false);
+      setRecentScanCount((c) => c + 1);
+    }
   };
 
   // Action 2: Reject "WRONG PERSON"
@@ -909,15 +981,10 @@ function LoginPageContent() {
           </div>
 
           {/* ═════════════════════════════════════════════════════════════
-              ⚡ FULLSCREEN PHONE ID SCANNER MODAL (PhonePe / GooglePay Style)
-              Header: "Scan any ID Card"
-              Subtitle: "Student ID • Faculty ID • Staff Card • Visitor Pass"
-              Viewfinder: Rounded purple neon corner brackets
-              Buttons: Upload QR & Torch
-              Footer: GITERP | SMART ID GATE
+              ⚡ NEW SIGN IN ATTENDANCE MODAL (Website Emerald Theme)
               ═════════════════════════════════════════════════════════════ */}
           {showQrScanner && (
-            <div className="fixed inset-0 z-[100] bg-black text-white flex flex-col justify-between select-none overflow-hidden animate-fadeIn">
+            <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex justify-center items-center p-0 sm:p-4 select-none overflow-hidden animate-fadeIn text-white">
               {/* Hidden File Input for "Upload QR" */}
               <input
                 type="file"
@@ -927,307 +994,327 @@ function LoginPageContent() {
                 className="hidden"
               />
 
-              {/* Background Live Camera Video */}
-              <div className="absolute inset-0 z-0 bg-black">
-                <video
-                  ref={videoRef}
-                  playsInline
-                  muted
-                  autoPlay
-                  className={`w-full h-full object-cover absolute inset-0 ${cameraFacing === 'user' ? 'scale-x-[-1]' : ''}`}
-                />
-                <canvas ref={canvasRef} className="hidden" />
-                {/* Translucent overlay backdrop */}
-                <div className="absolute inset-0 bg-black/45" />
-              </div>
+              {/* Floating Success Toast */}
+              {toastMessage && (
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[110] bg-[#10B981] text-slate-950 font-bold px-6 py-3 rounded-full shadow-2xl flex items-center gap-2.5 text-xs sm:text-sm animate-bounce">
+                  <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+                  <span>{toastMessage}</span>
+                </div>
+              )}
 
-              {/* Top Navigation & Header */}
-              <div className="relative z-20 pt-6 sm:pt-8 px-5 flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowQrScanner(false);
-                      setScannedPerson(null);
-                    }}
-                    className="p-2 -ml-2 rounded-full hover:bg-white/20 active:bg-white/30 text-white transition-colors cursor-pointer"
-                    title="Back to Login"
-                  >
-                    <ArrowLeft className="w-6 h-6" />
-                  </button>
-                  <div>
-                    <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-tight font-sans">
-                      Scan any ID Card
-                    </h1>
-                    <p className="text-xs sm:text-[13px] text-white/70 font-sans mt-0.5 tracking-wide">
-                      Student ID • Faculty ID • Staff Card • Visitor Pass
-                    </p>
+              {/* Modal App Container */}
+              <div className="w-full max-w-md h-full sm:h-[88vh] sm:max-h-[740px] bg-[#0d1f1a] border sm:border-2 border-[#1C443A] sm:rounded-3xl flex flex-col overflow-hidden shadow-2xl relative">
+                
+                {/* 1. TOP HEADER (AppSheet Style with ERP Emerald Theme) */}
+                <div className="px-5 py-4 flex items-center justify-between bg-[#081714] border-b border-[#1C443A]/80 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowQrScanner(false);
+                        setScannedPerson(null);
+                        setIsCameraScannerOpen(false);
+                        stopCamera();
+                      }}
+                      className="p-1 -ml-1 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                      title="Back to Login"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    <h2 className="text-sm sm:text-base font-bold text-white tracking-wide font-sans">
+                      New Sign In
+                    </h2>
+                  </div>
+                  
+                  <div className="flex items-center gap-2.5 text-[11px] font-mono text-emerald-400/80">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">LIVE GATE</span>
+                    <Wifi className="w-3.5 h-3.5 text-emerald-400" />
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={toggleCameraFacing}
-                    className="p-2 rounded-full bg-black/40 hover:bg-black/60 border border-white/20 text-white transition-all cursor-pointer"
-                    title="Switch Camera (Front / Back)"
-                  >
-                    <SwitchCamera className="w-5 h-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      alert('Hold your Student / Faculty ID Card QR code inside the purple square viewfinder to verify attendance.');
-                    }}
-                    className="p-2 rounded-full bg-black/40 hover:bg-black/60 border border-white/20 text-white transition-all cursor-pointer"
-                    title="Help"
-                  >
-                    <HelpCircle className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
+                {/* 2. FORM AREA (With radial dotted background) */}
+                <div 
+                  className="flex-1 p-5 overflow-y-auto space-y-4"
+                  style={{
+                    backgroundColor: '#0c231d',
+                    backgroundImage: 'radial-gradient(#1f4a3d 1px, transparent 1px)',
+                    backgroundSize: '15px 15px'
+                  }}
+                >
+                  {/* ID Field with QR Scan Button inside */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-200 flex items-center justify-between">
+                      <span>ID <span className="text-rose-400">*</span></span>
+                      <span className="text-[10px] text-emerald-300 font-mono">Admission No / Staff Code</span>
+                    </label>
 
-              {/* Center Viewfinder / Scanning Area or Verification Sheet */}
-              <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-4">
-                {!scannedPerson ? (
-                  <div className="flex flex-col items-center gap-4">
-                    {/* Viewfinder Target Box with 4 Neon Purple Curved Brackets */}
-                    <div className="relative w-[270px] h-[270px] sm:w-[310px] sm:h-[310px] rounded-[32px] overflow-hidden shadow-[0_0_60px_rgba(0,0,0,0.8)] border border-white/10 bg-transparent">
-                      {/* Top-Left Corner */}
-                      <span className="absolute top-0 left-0 w-11 h-11 border-t-[4px] border-l-[4px] border-[#a855f7] rounded-tl-[26px] pointer-events-none z-20 shadow-[0_0_15px_#a855f7]" />
-                      {/* Top-Right Corner */}
-                      <span className="absolute top-0 right-0 w-11 h-11 border-t-[4px] border-r-[4px] border-[#a855f7] rounded-tr-[26px] pointer-events-none z-20 shadow-[0_0_15px_#a855f7]" />
-                      {/* Bottom-Left Corner */}
-                      <span className="absolute bottom-0 left-0 w-11 h-11 border-b-[4px] border-l-[4px] border-[#a855f7] rounded-bl-[26px] pointer-events-none z-20 shadow-[0_0_15px_#a855f7]" />
-                      {/* Bottom-Right Corner */}
-                      <span className="absolute bottom-0 right-0 w-11 h-11 border-b-[4px] border-r-[4px] border-[#a855f7] rounded-br-[26px] pointer-events-none z-20 shadow-[0_0_15px_#a855f7]" />
+                    <div className="bg-[#081714] border border-[#1C443A] focus-within:border-emerald-400 rounded-xl px-3 py-1 flex items-center justify-between transition-all shadow-inner">
+                      <input
+                        type="text"
+                        id="staffId"
+                        placeholder="Enter Staff ID or Scan QR"
+                        value={scanManualInput}
+                        onChange={(e) => setScanManualInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (scanManualInput.trim()) {
+                              handleProcessScanLookup(scanManualInput.trim());
+                            }
+                          }
+                        }}
+                        autoComplete="off"
+                        className="flex-1 bg-transparent border-none outline-none text-white text-sm py-2 font-mono placeholder:text-slate-500 placeholder:text-xs"
+                      />
 
-                      {/* Animated Laser Scanning Line */}
-                      <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#c084fc] to-transparent shadow-[0_0_15px_#c084fc] animate-pulse top-1/2 -translate-y-1/2" />
+                      {/* Scan Inside Buttons */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextState = !isCameraScannerOpen;
+                            setIsCameraScannerOpen(nextState);
+                            if (nextState) {
+                              startCamera(cameraFacing);
+                            } else {
+                              stopCamera();
+                            }
+                          }}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-bold font-mono transition-all flex items-center gap-1.5 cursor-pointer border ${
+                            isCameraScannerOpen
+                              ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                              : 'bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border-emerald-500/40'
+                          }`}
+                          title="Open Live Camera Scanner"
+                        >
+                          <QrCode className="w-3.5 h-3.5" />
+                          <span>{isCameraScannerOpen ? 'Close Cam' : 'Scan'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="p-1.5 rounded-lg bg-[#0d2820] hover:bg-[#153a2f] text-emerald-300 border border-emerald-600/40 transition-colors cursor-pointer"
+                          title="Upload QR / ID Image from Gallery"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expandable Live Camera Viewport (When user clicks Scan button) */}
+                  {isCameraScannerOpen && (
+                    <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black border-2 border-emerald-500/70 shadow-2xl animate-fadeIn">
+                      <video
+                        ref={videoRef}
+                        playsInline
+                        muted
+                        autoPlay
+                        className={`w-full h-full object-cover absolute inset-0 ${cameraFacing === 'user' ? 'scale-x-[-1]' : ''}`}
+                      />
+                      <canvas ref={canvasRef} className="hidden" />
+
+                      {/* HUD Viewfinder Overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="relative w-36 h-36 border-2 border-dashed border-emerald-400 rounded-2xl flex flex-col items-center justify-between p-2 bg-emerald-950/20 backdrop-blur-[1px]">
+                          <span className="text-[9px] font-mono text-emerald-300 bg-black/70 px-1.5 py-0.5 rounded">
+                            Align ID QR
+                          </span>
+                          <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_10px_#34d399] animate-pulse" />
+                          <span className="text-[8.5px] text-slate-300 bg-black/70 px-1.5 py-0.5 rounded">
+                            Auto-Scanning
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Camera Switch & Torch Buttons */}
+                      <div className="absolute top-2 right-2 z-20 flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={toggleCameraFacing}
+                          className="p-1.5 bg-black/70 hover:bg-black/90 text-emerald-300 rounded-lg text-xs font-mono font-bold flex items-center gap-1 border border-emerald-500/40 cursor-pointer"
+                          title="Flip Camera"
+                        >
+                          <SwitchCamera className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={toggleTorch}
+                          className={`p-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1 border border-emerald-500/40 cursor-pointer ${
+                            torchOn ? 'bg-amber-400 text-slate-950' : 'bg-black/70 text-emerald-300'
+                          }`}
+                          title="Toggle Torch"
+                        >
+                          <Flashlight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
 
                       {scanLoading && (
-                        <div className="absolute inset-0 bg-black/80 backdrop-blur-xs flex flex-col items-center justify-center gap-2 z-30 text-purple-300 font-mono text-xs">
-                          <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
-                          <span>Verifying ID Record...</span>
+                        <div className="absolute inset-0 bg-black/80 flex items-center justify-center text-emerald-300 font-mono text-xs gap-2 z-30">
+                          <div className="w-4 h-4 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+                          <span>Looking up profile...</span>
                         </div>
                       )}
                     </div>
+                  )}
 
-                    {cameraError && (
-                      <div className="px-4 py-1.5 rounded-full bg-rose-950/80 border border-rose-500/60 text-rose-200 text-xs font-mono flex items-center gap-2 mt-2">
-                        <span>{cameraError}</span>
+                  {/* Verified Profile Card (if found) */}
+                  {scannedPerson && (
+                    <div className="bg-[#081714] border-2 border-emerald-500 rounded-2xl p-4 space-y-3 animate-fadeIn text-white shadow-lg">
+                      <div className="flex items-center justify-between border-b border-emerald-900/60 pb-2">
+                        <div className="flex items-center gap-2">
+                          {scannedPerson.person_type === 'STUDENT' ? (
+                            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold">
+                              <GraduationCap className="w-4 h-4" />
+                            </div>
+                          ) : (
+                            <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold">
+                              <Briefcase className="w-4 h-4" />
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-xs font-bold text-white block">
+                              {scannedPerson.person_type === 'STUDENT' ? 'Student Verified' : 'Faculty Verified'}
+                            </span>
+                            <span className="text-[9.5px] font-mono text-emerald-300/70 uppercase">
+                              PASS VERIFICATION
+                            </span>
+                          </div>
+                        </div>
                         <button
                           type="button"
-                          onClick={() => startCamera(cameraFacing)}
-                          className="underline font-bold text-white cursor-pointer"
+                          onClick={() => setScannedPerson(null)}
+                          className="p-1 rounded-md text-slate-400 hover:text-white cursor-pointer"
+                          title="Clear"
                         >
-                          Retry
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  /* ═════════════════════════════════════════════════════════════
-                      INTERACTIVE VERIFICATION FORM SHEET (STUDENT / FACULTY)
-                      ═════════════════════════════════════════════════════════════ */
-                  <div className="w-full max-w-md bg-[#0e241e] border-2 border-emerald-500/70 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 animate-fadeIn text-white">
-                    {/* Header */}
-                    <div className="flex items-center justify-between border-b border-emerald-800/80 pb-3">
-                      <div className="flex items-center gap-2.5">
-                        {scannedPerson.person_type === 'STUDENT' ? (
-                          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 flex items-center justify-center font-bold">
-                            <GraduationCap className="w-5 h-5" />
-                          </div>
-                        ) : (
-                          <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 flex items-center justify-center font-bold">
-                            <Briefcase className="w-5 h-5" />
-                          </div>
+
+                      {/* Profile Fields */}
+                      <div className="space-y-1.5 text-xs">
+                        <div className="flex justify-between border-b border-emerald-950 pb-1">
+                          <span className="text-slate-400 font-mono uppercase">
+                            {scannedPerson.person_type === 'STUDENT' ? 'STUDENT NAME:' : 'FACULTY NAME:'}
+                          </span>
+                          <strong className="text-white font-bold uppercase">
+                            {scannedPerson.person_type === 'STUDENT' ? scannedPerson.student?.full_name : scannedPerson.faculty?.full_name}
+                          </strong>
+                        </div>
+
+                        {scannedPerson.person_type === 'STUDENT' && scannedPerson.student && (
+                          <>
+                            <div className="flex justify-between border-b border-emerald-950 pb-1">
+                              <span className="text-slate-400 font-mono uppercase">CLASS &amp; SEC:</span>
+                              <strong className="text-emerald-300 font-bold">
+                                {scannedPerson.student.class_name} - {scannedPerson.student.section || 'A'}
+                              </strong>
+                            </div>
+                            <div className="flex justify-between text-[11px] font-mono text-slate-400 pt-0.5">
+                              <span>Adm: <strong className="text-white">{scannedPerson.student.admission_no}</strong></span>
+                              <span>Roll: <strong className="text-emerald-300">{scannedPerson.student.roll_no || '14'}</strong></span>
+                            </div>
+                          </>
                         )}
-                        <div>
-                          <h4 className="font-display font-black text-sm text-white tracking-tight uppercase">
-                            {scannedPerson.person_type === 'STUDENT' ? 'Student Identity Verification' : 'Faculty / Staff Verification'}
-                          </h4>
-                          <span className="text-[9.5px] font-mono text-emerald-300/80 uppercase tracking-wider">
-                            ROLE: {scannedPerson.person_type} • REAL-TIME PASS CHECK
-                          </span>
-                        </div>
+
+                        {scannedPerson.person_type === 'FACULTY' && scannedPerson.faculty && (
+                          <>
+                            <div className="flex justify-between border-b border-emerald-950 pb-1">
+                              <span className="text-slate-400 font-mono uppercase">DESIGNATION:</span>
+                              <strong className="text-cyan-300 font-bold">
+                                {scannedPerson.faculty.designation}
+                              </strong>
+                            </div>
+                            <div className="flex justify-between text-[11px] font-mono text-slate-400 pt-0.5">
+                              <span>Staff Code: <strong className="text-white">{scannedPerson.faculty.staff_code}</strong></span>
+                              <span>Dept: <strong className="text-cyan-300">{scannedPerson.faculty.department || 'Academics'}</strong></span>
+                            </div>
+                          </>
+                        )}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setScannedPerson(null);
-                          if (showQrScanner) startCamera(cameraFacing);
-                        }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                        title="Cancel"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    {/* Student Details */}
-                    {scannedPerson.person_type === 'STUDENT' && scannedPerson.student && (
-                      <div className="space-y-2.5 bg-black/40 border border-emerald-900/60 rounded-2xl p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-emerald-900/50 pb-2">
-                          <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wide">
-                            STUDENT NAME:
-                          </span>
-                          <span className="text-base font-black text-white uppercase tracking-tight">
-                            {scannedPerson.student.full_name}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 border-b border-emerald-900/50 pb-2">
-                          <div>
-                            <span className="text-[11px] font-mono font-bold text-emerald-400 uppercase block">
-                              CLASS:
-                            </span>
-                            <span className="text-sm font-bold text-white">
-                              {scannedPerson.student.class_name}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-[11px] font-mono font-bold text-emerald-400 uppercase block">
-                              SECTION:
-                            </span>
-                            <span className="text-sm font-bold text-emerald-300">
-                              Section {scannedPerson.student.section || 'A'}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 text-xs font-mono text-slate-300 pt-0.5">
-                          <div>
-                            <span className="text-slate-500 block">Admission No:</span>
-                            <strong className="text-white">{scannedPerson.student.admission_no || '2026/0481'}</strong>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block">Roll / Session:</span>
-                            <strong className="text-emerald-300">Roll: {scannedPerson.student.roll_no || '14'} (2026-27)</strong>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Faculty Details */}
-                    {scannedPerson.person_type === 'FACULTY' && scannedPerson.faculty && (
-                      <div className="space-y-2.5 bg-black/40 border border-emerald-900/60 rounded-2xl p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-emerald-900/50 pb-2">
-                          <span className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wide">
-                            FACULTY NAME:
-                          </span>
-                          <span className="text-base font-black text-white uppercase tracking-tight">
-                            {scannedPerson.faculty.full_name}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-emerald-900/50 pb-2">
-                          <span className="text-[11px] font-mono font-bold text-cyan-400 uppercase">
-                            DESIGNATION:
-                          </span>
-                          <span className="text-sm font-bold text-white">
-                            {scannedPerson.faculty.designation} ({scannedPerson.faculty.department || 'Academics'})
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 text-xs font-mono text-slate-300 pt-0.5">
-                          <div>
-                            <span className="text-slate-500 block">Staff Code:</span>
-                            <strong className="text-white">{scannedPerson.faculty.staff_code || scannedPerson.faculty.id}</strong>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block">Department:</span>
-                            <strong className="text-cyan-300">{scannedPerson.faculty.department || 'Faculty Wing'}</strong>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Status Feedback */}
-                    {scannedPerson.verifiedStatus === 'CONFIRMED' && (
-                      <div className="p-3.5 bg-emerald-500 text-slate-950 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg animate-bounce">
-                        <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
-                        <span>{scannedPerson.message || '✓ ATTENDANCE CONFIRMED & MARKED PRESENT'}</span>
-                      </div>
-                    )}
-
-                    {scannedPerson.verifiedStatus === 'REJECTED' && (
-                      <div className="p-3.5 bg-rose-600 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg animate-pulse">
-                        <AlertTriangle className="w-5 h-5 stroke-[2.5]" />
-                        <span>{scannedPerson.message || '❌ SCAN REJECTED: Wrong Person Flagged'}</span>
-                      </div>
-                    )}
-
-                    {/* 2 Action Buttons */}
-                    {scannedPerson.verifiedStatus === 'PENDING' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {/* Two Action Options */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
                         <button
                           type="button"
-                          onClick={handleConfirmVerifiedPresent}
-                          className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-display font-black text-xs uppercase tracking-wider rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] cursor-pointer"
+                          onClick={() => handleConfirmVerifiedPresent()}
+                          className="py-2.5 px-3 bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs rounded-xl shadow flex items-center justify-center gap-1.5 cursor-pointer hover:brightness-110 active:scale-98 transition-all"
                         >
                           <Check className="w-4 h-4 stroke-[3]" />
-                          <span>VERIFIED AND PRESENT</span>
+                          <span>VERIFIED &amp; PRESENT</span>
                         </button>
-
                         <button
                           type="button"
-                          onClick={handleRejectWrongPerson}
-                          className="w-full py-3.5 px-4 bg-rose-950 hover:bg-rose-900 border-2 border-rose-600/70 text-rose-200 hover:text-white font-display font-black text-xs uppercase tracking-wider rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] cursor-pointer"
+                          onClick={() => {
+                            setScannedPerson(null);
+                            setScanManualInput('');
+                          }}
+                          className="py-2.5 px-3 bg-rose-950/80 hover:bg-rose-900 text-rose-200 border border-rose-600/60 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all"
                         >
                           <X className="w-4 h-4 stroke-[3]" />
                           <span>WRONG PERSON</span>
                         </button>
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                    </div>
+                  )}
 
-              {/* Bottom Action Controls: Upload QR & Torch (Exact Screenshot Look) */}
-              {!scannedPerson && (
-                <div className="relative z-20 pb-6 pt-2 flex flex-col items-center gap-6">
-                  <div className="flex items-center justify-center gap-12">
-                    {/* Upload QR Button */}
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex flex-col items-center gap-2 group cursor-pointer"
-                    >
-                      <div className="w-14 h-14 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/35 border border-white/20 backdrop-blur-md flex items-center justify-center text-white transition-all shadow-lg group-hover:scale-105">
-                        <ImageIcon className="w-6 h-6" />
-                      </div>
-                      <span className="text-xs font-sans font-medium text-white/90 tracking-wide">
-                        Upload QR
-                      </span>
-                    </button>
-
-                    {/* Torch Button */}
-                    <button
-                      type="button"
-                      onClick={toggleTorch}
-                      className="flex flex-col items-center gap-2 group cursor-pointer"
-                    >
-                      <div className={`w-14 h-14 rounded-full border border-white/20 backdrop-blur-md flex items-center justify-center transition-all shadow-lg group-hover:scale-105 ${
-                        torchOn ? 'bg-amber-400 text-slate-950 border-amber-300' : 'bg-white/15 hover:bg-white/25 active:bg-white/35 text-white'
-                      }`}>
-                        <Flashlight className="w-6 h-6" />
-                      </div>
-                      <span className="text-xs font-sans font-medium text-white/90 tracking-wide">
-                        Torch
-                      </span>
-                    </button>
+                  {/* Time In Field (Auto-filled read-only) */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-200">
+                      Time In
+                    </label>
+                    <div className="bg-[#081714] border border-[#1C443A] rounded-xl px-3.5 py-3 text-xs sm:text-sm text-slate-200 flex items-center justify-between shadow-inner">
+                      <span className="font-mono text-emerald-200">{currentTimeFormatted || 'Loading live time...'}</span>
+                      <Calendar className="w-4 h-4 text-emerald-400" />
+                    </div>
                   </div>
 
-                  {/* Bottom Footer Logo (Like BHIM | UPI in Screenshot) */}
-                  <div className="flex items-center gap-3 text-white/40 font-mono text-[11px] tracking-widest pb-2">
-                    <span className="font-bold tracking-widest uppercase text-white/60">GITERP</span>
-                    <span className="w-px h-3 bg-white/25" />
-                    <span className="font-semibold tracking-wider uppercase text-white/50">SMART ID GATE</span>
+                  {/* Submit Button (if not already verified or to submit manual ID) */}
+                  {!scannedPerson && (
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmVerifiedPresent()}
+                      disabled={scanLoading}
+                      className="w-full mt-2 py-3.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-display font-black text-sm uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2 cursor-pointer transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+                      <span>{scanLoading ? 'Recording...' : 'Mark Attendance'}</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* 3. RECENT ENTRIES (AppSheet Style with ERP Emerald Theme) */}
+                <div className="p-4 bg-[#081714] border-t border-[#1C443A]/80 shrink-0 max-h-[220px] overflow-y-auto">
+                  <h3 className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+                    <span>Recently Marked</span>
+                    <span className="text-emerald-400">{recentEntries.length} Recorded</span>
+                  </h3>
+
+                  <div className="space-y-2">
+                    {recentEntries.map((entry, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-[#0c231d] border border-[#1C443A] rounded-xl p-2.5 sm:px-3 flex items-center justify-between animate-fadeIn shadow-xs"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <h4 className="text-xs sm:text-[13px] font-bold text-white truncate font-sans">
+                            {entry.name} <span className="text-[10px] text-slate-400 font-normal">({entry.id})</span>
+                          </h4>
+                          <p className="text-[10px] text-emerald-300/70 font-mono">
+                            {entry.classOrDept} • Marked at {entry.time}
+                          </p>
+                        </div>
+                        <span className="px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-500/40 rounded-full shrink-0 flex items-center gap-1">
+                          <Check className="w-3 h-3 text-emerald-400" /> Present
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              )}
+
+              </div>
             </div>
           )}
 
