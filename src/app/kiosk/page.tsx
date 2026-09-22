@@ -1,9 +1,10 @@
-/*! EduSuite Smart QR Touchless Demo Kiosk v1.0.0 */
+/*! EduSuite Smart QR Touchless Demo Kiosk v2.0.0 */
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Suspense, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import jsQR from 'jsqr';
 import {
   QrCode,
   CalendarCheck,
@@ -30,11 +31,14 @@ import {
   RefreshCw,
   Award,
   Layers,
-  ChevronRight
+  ChevronRight,
+  SwitchCamera,
+  Maximize2,
+  Minimize2,
+  Camera
 } from 'lucide-react';
 import { Student, School } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
-import { DualCopyFeeReceiptModal } from '@/components/dual-copy-fee-receipt-modal';
 
 function KioskContent() {
   const searchParams = useSearchParams();
@@ -57,7 +61,18 @@ function KioskContent() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loadingStudents, setLoadingStudents] = useState<boolean>(true);
 
-  // Sound Chime Tone
+  // Camera States
+  const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('user'); // Default to Front / Selfie for chest I-Card scanning
+  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const lastScannedTimeRef = useRef<number>(0);
+
+  // Sound Synthesizer
   const playSound = (type: 'success' | 'beep') => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -113,18 +128,16 @@ function KioskContent() {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch School & Students list for rapid mock scan & lookup
+  // Fetch Students list
   useEffect(() => {
     const loadSchoolData = async () => {
       try {
         setLoadingStudents(true);
-        // Load Students
         const res = await fetch(`/api/students?school_id=${encodeURIComponent(schoolCode)}&limit=100`);
         const data = await res.json();
         if (data.success && Array.isArray(data.students) && data.students.length > 0) {
           setStudents(data.students);
         } else {
-          // Fallback Demo Students
           setStudents([
             {
               id: 'STU-001',
@@ -165,7 +178,6 @@ function KioskContent() {
           ]);
         }
       } catch {
-        // Fallback
         setStudents([
           {
             id: 'STU-001',
@@ -188,16 +200,151 @@ function KioskContent() {
   }, [schoolCode]);
 
   // ═════════════════════════════════════════════════════════════
-  // MODULE 1: QR ATTENDANCE STATE (SIGN IN / SIGN OUT)
+  // CAMERA SCANNER ENGINE WITH JSQR CONTINUOUS LOOP & FLIP CAMERA
+  // ═════════════════════════════════════════════════════════════
+  const stopCamera = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
+  }, []);
+
+  const handleQrDetected = useCallback((rawPayload: string) => {
+    if (!rawPayload || Date.now() - lastScannedTimeRef.current < 2500) return;
+    lastScannedTimeRef.current = Date.now();
+
+    let admOrId = rawPayload.trim();
+
+    // Parse URL params or JSON if present
+    try {
+      if (rawPayload.startsWith('{') && rawPayload.endsWith('}')) {
+        const parsed = JSON.parse(rawPayload);
+        admOrId = parsed.admission_no || parsed.admissionNo || parsed.student_id || parsed.id || admOrId;
+      } else if (rawPayload.includes('?')) {
+        const urlObj = new URL(rawPayload, 'http://localhost');
+        admOrId = urlObj.searchParams.get('admission_no') || urlObj.searchParams.get('student_id') || admOrId;
+      }
+    } catch {}
+
+    const matched = students.find(
+      (s) =>
+        s.id.toLowerCase() === admOrId.toLowerCase() ||
+        s.admission_no.toLowerCase() === admOrId.toLowerCase() ||
+        s.full_name.toLowerCase() === admOrId.toLowerCase()
+    ) || students[0] || {
+      id: 'STU-SCANNED',
+      admission_no: admOrId || '2026/0481',
+      full_name: 'Abhishek Shukla',
+      class_name: 'Class 9',
+      section: 'A',
+      father_name: 'Mr. Ramesh Shukla'
+    };
+
+    if (activeModule === 'ATTENDANCE') {
+      handlePunchAttendance(matched as Student);
+    } else if (activeModule === 'FEES') {
+      handleSelectFeeStudent(matched as Student);
+    }
+  }, [activeModule, students]);
+
+  const tickScanner = useCallback(() => {
+    if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (canvas) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'dontInvert'
+          });
+
+          if (code && code.data) {
+            handleQrDetected(code.data);
+          }
+        }
+      }
+    }
+    animationFrameRef.current = requestAnimationFrame(tickScanner);
+  }, [handleQrDetected]);
+
+  const startCamera = useCallback(async (facing: 'user' | 'environment' = cameraFacing) => {
+    stopCamera();
+    setCameraError(null);
+
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera device not supported or permission denied.');
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: facing,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().then(() => {
+          setIsCameraActive(true);
+          animationFrameRef.current = requestAnimationFrame(tickScanner);
+        }).catch(() => {
+          setIsCameraActive(true);
+          animationFrameRef.current = requestAnimationFrame(tickScanner);
+        });
+      }
+    } catch (err: any) {
+      console.warn('Camera start error:', err);
+      setCameraError('Camera access not allowed or unavailable. You can also tap Demo Students below.');
+    }
+  }, [cameraFacing, stopCamera, tickScanner]);
+
+  // Flip Camera between Selfie (Front) and Back
+  const toggleCameraFacing = () => {
+    const nextFacing = cameraFacing === 'user' ? 'environment' : 'user';
+    setCameraFacing(nextFacing);
+    startCamera(nextFacing);
+  };
+
+  // ═════════════════════════════════════════════════════════════
+  // MODULE 1: ATTENDANCE STATE (SIGN IN / SIGN OUT)
   // ═════════════════════════════════════════════════════════════
   const [attMode, setAttMode] = useState<'SIGN_IN' | 'SIGN_OUT'>('SIGN_IN');
-  const [attSearch, setAttSearch] = useState<string>('');
   const [attSuccessStudent, setAttSuccessStudent] = useState<any | null>(null);
-  const [isPunching, setIsPunching] = useState<boolean>(false);
 
-  // Process Attendance Punch
+  // ═════════════════════════════════════════════════════════════
+  // MODULE 2: UNIVERSAL QR FEE PAYMENT STATE
+  // ═════════════════════════════════════════════════════════════
+  const [feeStudent, setFeeStudent] = useState<Student | null>(null);
+  const [feeStep, setFeeStep] = useState<'LOOKUP' | 'CART' | 'UPI_QR' | 'RECEIPT'>('LOOKUP');
+  const [selectedFeeItems, setSelectedFeeItems] = useState<{ id: string; title: string; amount: number; selected: boolean }[]>([]);
+  const [verifiedReceipt, setVerifiedReceipt] = useState<any | null>(null);
+
+  // Start Camera whenever entering Attendance or Fees scanner module
+  useEffect(() => {
+    if (activeModule === 'ATTENDANCE' || (activeModule === 'FEES' && feeStep === 'LOOKUP')) {
+      startCamera(cameraFacing);
+    } else {
+      stopCamera();
+    }
+    return () => {
+      stopCamera();
+    };
+  }, [activeModule, feeStep, cameraFacing, startCamera, stopCamera]);
+
   const handlePunchAttendance = (st: Student) => {
-    setIsPunching(true);
     playSound('success');
     const punchTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setAttSuccessStudent({
@@ -207,29 +354,25 @@ function KioskContent() {
       date: new Date().toLocaleDateString()
     });
 
-    // Auto clear success card after 4 seconds for next student
     setTimeout(() => {
       setAttSuccessStudent(null);
-      setIsPunching(false);
-      setAttSearch('');
-    }, 4000);
+    }, 3500);
   };
 
-  // ═════════════════════════════════════════════════════════════
-  // MODULE 2: QR FEE SUBMISSION STATE
-  // ═════════════════════════════════════════════════════════════
-  const [feeStudent, setFeeStudent] = useState<Student | null>(null);
-  const [feeStudentSearch, setFeeStudentSearch] = useState<string>('');
-  const [feeStep, setFeeStep] = useState<'LOOKUP' | 'CART' | 'UPI_QR' | 'RECEIPT'>('LOOKUP');
-  const [selectedFeeItems, setSelectedFeeItems] = useState<{ id: string; title: string; amount: number; selected: boolean }[]>([]);
-  const [verifiedReceipt, setVerifiedReceipt] = useState<any | null>(null);
+  // Universal Desk QR payload (This is the static common desk QR)
+  const universalDeskQrPayload = JSON.stringify({
+    app: 'CBSE_SCHOOL_ERP',
+    type: 'COUNTER_DESK',
+    schoolId: schoolCode,
+    deskId: 'FEE_COUNTER_1',
+    deskTitle: 'Main Fee Counter 1'
+  });
+  const universalDeskQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(universalDeskQrPayload)}&margin=10&color=122a24`;
 
-  // Load Dues when Student is Selected for Fee
   const handleSelectFeeStudent = (st: Student) => {
     setFeeStudent(st);
     playSound('beep');
 
-    // Default Itemized breakdown
     const items = [
       { id: 'sep-tuition', title: 'September 2026 — Tuition Fee', amount: 2000, selected: true },
       { id: 'sep-transport', title: 'September 2026 — Transport Route', amount: 800, selected: true },
@@ -252,12 +395,10 @@ function KioskContent() {
     return selectedFeeItems.filter((i) => i.selected).reduce((sum, i) => sum + i.amount, 0);
   }, [selectedFeeItems]);
 
-  // Generate UPI Payment QR String & Image
   const schoolVpa = 'dps.accounts@icici';
   const upiPayString = `upi://pay?pa=${schoolVpa}&pn=DELHI%20PUBLIC%20SCHOOL&am=${feeTotal}&cu=INR&tn=FEES-${feeStudent?.admission_no || 'STU'}`;
   const upiQrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiPayString)}&margin=10&color=122a24`;
 
-  // Complete Payment & Generate Verified Dual Copy Receipt
   const handleCompletePayment = () => {
     if (!feeStudent || feeTotal <= 0) return;
     playSound('success');
@@ -281,106 +422,109 @@ function KioskContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a1612] text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
+    <div className="min-h-screen bg-[#06100d] text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950 overflow-x-hidden">
       
+      {/* Hidden Canvas for Live Video QR Processing */}
+      <canvas ref={canvasRef} className="hidden" />
+
       {/* ─── KIOSK TOP HIGH-TECH HEADER BAR ─── */}
-      <header className="px-6 py-4 bg-[#0d221d] border-b border-emerald-900/60 flex items-center justify-between shadow-lg sticky top-0 z-30">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-slate-950 flex items-center justify-center font-black text-xl shadow-lg shadow-emerald-950">
-            <Building2 className="w-6 h-6 text-slate-950" />
+      <header className="px-5 py-3.5 bg-[#0b1c18] border-b border-emerald-900/60 flex items-center justify-between shadow-lg sticky top-0 z-40">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 flex items-center justify-center font-black text-lg shadow-md shadow-emerald-950">
+            <Building2 className="w-5 h-5 text-slate-950" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-black text-white tracking-wide uppercase leading-none">
+              <h1 className="text-base sm:text-lg font-black text-white tracking-wide uppercase leading-tight">
                 {school.name}
               </h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-950 text-emerald-400 border border-emerald-700/60">
-                DEMO TOUCHLESS KIOSK
+              <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-950 text-emerald-400 border border-emerald-700/60">
+                TOUCHLESS KIOSK v2.0
               </span>
             </div>
-            <p className="text-xs text-emerald-400/80 font-mono mt-0.5">
+            <p className="text-[11px] text-emerald-400/80 font-mono">
               Affiliation: {school.affiliation_no} • Code: {schoolCode}
             </p>
           </div>
         </div>
 
-        {/* Real-time Clock & Exit Button */}
-        <div className="flex items-center gap-5">
-          <div className="hidden sm:flex flex-col items-end text-right">
-            <div className="text-lg font-mono font-black text-emerald-300 tracking-wider flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-emerald-400 animate-pulse" />
+        {/* Clock & Action Buttons */}
+        <div className="flex items-center gap-3 sm:gap-5">
+          <div className="flex flex-col items-end text-right">
+            <div className="text-sm sm:text-base font-mono font-black text-emerald-300 tracking-wider flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
               {currentTime || '12:00:00 PM'}
             </div>
-            <p className="text-[11px] text-slate-400 font-mono">{currentDate}</p>
+            <p className="text-[10px] text-slate-400 font-mono hidden sm:block">{currentDate}</p>
           </div>
 
           <Link
             href="/login"
-            className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-bold border border-slate-700 transition-colors shadow-sm"
+            className="flex items-center gap-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-bold border border-slate-700 transition-colors shadow-sm"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Full Admin Login</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Exit Kiosk</span>
           </Link>
         </div>
       </header>
 
-      {/* ─── KIOSK MAIN BODY ─── */}
-      <main className="flex-1 flex flex-col justify-center p-6 sm:p-10 max-w-6xl w-full mx-auto">
+      {/* ─── KIOSK MAIN CONTAINER ─── */}
+      <main className="flex-1 flex flex-col justify-center p-3 sm:p-6 w-full max-w-7xl mx-auto">
         
         {/* ═════════════════════════════════════════════════════════
-            VIEW 1: HOME (EXACTLY 2 MASSIVE CARDS: ATTENDANCE & FEES)
+            VIEW 1: HOME LANDING (2 MASSIVE TOUCH OPTIONS)
             ═════════════════════════════════════════════════════════ */}
         {activeModule === 'HOME' && (
-          <div className="flex flex-col items-center justify-center space-y-8 animate-fadeIn">
+          <div className="flex flex-col items-center justify-center space-y-8 animate-fadeIn py-6">
             <div className="text-center space-y-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-950/80 border border-emerald-700/50 rounded-full text-emerald-400 text-xs font-semibold">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-emerald-950/90 border border-emerald-700/60 rounded-full text-emerald-400 text-xs font-semibold shadow-inner">
                 <Sparkles className="w-3.5 h-3.5" />
-                Select Action on Touch Screen (स्क्रीन पर विकल्प चुनें)
+                Select Mode on Touch Screen (स्क्रीन पर स्पर्श करें)
               </div>
-              <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+              <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
                 Self-Service Smart Station
               </h2>
-              <p className="text-sm text-slate-400 max-w-md mx-auto">
-                Touch below for instant QR Attendance Punch or Universal Student Fee Payment
+              <p className="text-sm text-slate-400 max-w-lg mx-auto">
+                Touch below for Instant Fullscreen I-Card Neck QR Attendance or Universal Fee Counter
               </p>
             </div>
 
-            {/* 2 Massive Touch Cards */}
+            {/* 2 Massive Touch Option Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
               
-              {/* Card 1: QR ATTENDANCE */}
+              {/* Option 1: QR ATTENDANCE */}
               <button
                 type="button"
                 onClick={() => {
                   playSound('beep');
                   setActiveModule('ATTENDANCE');
                 }}
-                className="group relative bg-gradient-to-b from-[#133029] to-[#0e241f] hover:from-[#1b443a] hover:to-[#122e27] border-2 border-emerald-500/40 hover:border-emerald-400 rounded-3xl p-8 text-left shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer flex flex-col justify-between overflow-hidden"
+                className="group relative bg-gradient-to-b from-[#102a24] to-[#0a1c17] hover:from-[#173e35] hover:to-[#0f2821] border-2 border-emerald-500/50 hover:border-emerald-400 rounded-3xl p-8 text-left shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer flex flex-col justify-between overflow-hidden"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-400/20 transition-colors" />
+                <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-400/20 transition-colors" />
 
                 <div>
                   <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-slate-950 transition-all shadow-lg">
                     <CalendarCheck className="w-8 h-8" />
                   </div>
                   <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest block mb-1">
-                    Option 1 • Punch In / Out
+                    Option 1 • Chest / Neck I-Card Scan
                   </span>
-                  <h3 className="text-2xl font-black text-white group-hover:text-emerald-300 transition-colors mb-2">
+                  <h3 className="text-2xl sm:text-3xl font-black text-white group-hover:text-emerald-300 transition-colors mb-2">
                     QR Attendance
                   </h3>
                   <p className="text-xs text-slate-300 leading-relaxed">
-                    First choose <strong>SIGN IN</strong> (Entry) or <strong>SIGN OUT</strong> (Exit) to scan Student/Faculty ID and log punctuality.
+                    Fullscreen <strong>Selfie / Front Camera</strong>: Gale me pada hua I-Card seedhe camera ke samne aate hi attendance mark ho jayegi.
                   </p>
                 </div>
 
                 <div className="mt-8 pt-4 border-t border-emerald-900/60 flex items-center justify-between text-xs font-bold text-emerald-400 group-hover:text-white">
-                  <span>Start Attendance Punch</span>
+                  <span>Open Fullscreen Scanner</span>
                   <ChevronRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform" />
                 </div>
               </button>
 
-              {/* Card 2: QR FEE SUBMISSION */}
+              {/* Option 2: QR FEE SUBMISSION */}
               <button
                 type="button"
                 onClick={() => {
@@ -388,27 +532,27 @@ function KioskContent() {
                   setActiveModule('FEES');
                   setFeeStep('LOOKUP');
                 }}
-                className="group relative bg-gradient-to-b from-[#142838] to-[#0c1c28] hover:from-[#1b3a52] hover:to-[#122838] border-2 border-cyan-500/40 hover:border-cyan-400 rounded-3xl p-8 text-left shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer flex flex-col justify-between overflow-hidden"
+                className="group relative bg-gradient-to-b from-[#0e2230] to-[#08151f] hover:from-[#15344a] hover:to-[#0c1f2d] border-2 border-cyan-500/50 hover:border-cyan-400 rounded-3xl p-8 text-left shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer flex flex-col justify-between overflow-hidden"
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-cyan-400/20 transition-colors" />
+                <div className="absolute top-0 right-0 w-36 h-36 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-cyan-400/20 transition-colors" />
 
                 <div>
                   <div className="w-16 h-16 rounded-2xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-all shadow-lg">
                     <CreditCard className="w-8 h-8" />
                   </div>
                   <span className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-widest block mb-1">
-                    Option 2 • Universal Code Scan
+                    Option 2 • Universal Counter QR
                   </span>
-                  <h3 className="text-2xl font-black text-white group-hover:text-cyan-300 transition-colors mb-2">
+                  <h3 className="text-2xl sm:text-3xl font-black text-white group-hover:text-cyan-300 transition-colors mb-2">
                     QR Fee Submission
                   </h3>
                   <p className="text-xs text-slate-300 leading-relaxed">
-                    Scan Student Code → Select Pending Months (Tuition, Transport, etc.) → Scan Dynamic UPI QR to Pay &amp; Print Stamped Receipt.
+                    Live <strong>Universal Standee QR</strong> on screen. Parent phone se scan karein ya I-Card dikhayein → Select fees → Pay via UPI QR.
                   </p>
                 </div>
 
                 <div className="mt-8 pt-4 border-t border-cyan-900/60 flex items-center justify-between text-xs font-bold text-cyan-400 group-hover:text-white">
-                  <span>Start Fee Payment</span>
+                  <span>Open Universal Fee Desk</span>
                   <ChevronRight className="w-5 h-5 transform group-hover:translate-x-1 transition-transform" />
                 </div>
               </button>
@@ -418,151 +562,183 @@ function KioskContent() {
         )}
 
         {/* ═════════════════════════════════════════════════════════
-            VIEW 2: QR ATTENDANCE (SIGN IN / SIGN OUT)
+            VIEW 2: FULLSCREEN QR ATTENDANCE (POORE PAGE PAR + ROTATE CAMERA)
             ═════════════════════════════════════════════════════════ */}
         {activeModule === 'ATTENDANCE' && (
-          <div className="w-full max-w-2xl mx-auto bg-[#122A24] border-2 border-emerald-500/50 rounded-3xl p-6 sm:p-8 shadow-2xl animate-fadeIn">
+          <div className="w-full flex-1 flex flex-col max-w-5xl mx-auto bg-[#0d221d] border-2 border-emerald-500/60 rounded-3xl overflow-hidden shadow-2xl animate-fadeIn relative my-2 min-h-[75vh]">
             
-            {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-emerald-800/60 mb-6">
-              <button
-                type="button"
-                onClick={() => {
-                  playSound('beep');
-                  setActiveModule('HOME');
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Back to Menu</span>
-              </button>
-              <h3 className="text-base font-black text-white uppercase tracking-wider">
-                Touchless QR Attendance
-              </h3>
-            </div>
-
-            {/* STEP 1: CHOOSE SIGN IN OR SIGN OUT (As requested by user) */}
-            <div className="mb-6">
-              <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider block mb-2.5">
-                1. Select Punch Mode (उपस्थिति का प्रकार चुनें):
-              </span>
-              <div className="grid grid-cols-2 gap-3">
+            {/* Top Attendance Controls Bar */}
+            <div className="px-5 py-3 bg-[#081714] border-b border-emerald-900/80 flex items-center justify-between z-20 flex-wrap gap-2">
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => {
-                    setAttMode('SIGN_IN');
                     playSound('beep');
+                    setActiveModule('HOME');
                   }}
-                  className={`py-3.5 px-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 border-2 transition-all cursor-pointer ${
-                    attMode === 'SIGN_IN'
-                      ? 'bg-emerald-500 text-slate-950 border-emerald-300 shadow-lg shadow-emerald-950'
-                      : 'bg-emerald-950/60 text-emerald-300 border-emerald-800 hover:bg-emerald-900/60'
-                  }`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition-colors cursor-pointer"
                 >
-                  <LogIn className="w-5 h-5 stroke-[2.5]" />
-                  <span>SIGN IN (Entry / आगमन)</span>
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Menu</span>
                 </button>
 
+                {/* SIGN IN / SIGN OUT Switcher */}
+                <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-emerald-900/80">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttMode('SIGN_IN');
+                      playSound('beep');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                      attMode === 'SIGN_IN'
+                        ? 'bg-emerald-500 text-slate-950 shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span>SIGN IN (Entry)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAttMode('SIGN_OUT');
+                      playSound('beep');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                      attMode === 'SIGN_OUT'
+                        ? 'bg-amber-400 text-slate-950 shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>SIGN OUT (Exit)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 🔄 ROTATE / FLIP CAMERA BUTTON (User explicitly requested this for Selfie vs Back) */}
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setAttMode('SIGN_OUT');
-                    playSound('beep');
-                  }}
-                  className={`py-3.5 px-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 border-2 transition-all cursor-pointer ${
-                    attMode === 'SIGN_OUT'
-                      ? 'bg-amber-400 text-slate-950 border-amber-200 shadow-lg shadow-amber-950'
-                      : 'bg-emerald-950/60 text-emerald-300 border-emerald-800 hover:bg-emerald-900/60'
-                  }`}
+                  onClick={toggleCameraFacing}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-950/90 hover:bg-emerald-900 text-emerald-300 border-2 border-emerald-500/70 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer"
+                  title="Switch between Selfie (Front) Camera and Back Camera"
                 >
-                  <LogOut className="w-5 h-5 stroke-[2.5]" />
-                  <span>SIGN OUT (Exit / प्रस्थान)</span>
+                  <SwitchCamera className="w-4 h-4 text-emerald-400 animate-spin-once" />
+                  <span>
+                    Flip Camera ({cameraFacing === 'user' ? 'Front / Selfie Active' : 'Back Camera Active'})
+                  </span>
                 </button>
               </div>
             </div>
 
-            {/* STEP 2: SCANNER BOX & SUCCESS CARD */}
-            {attSuccessStudent ? (
-              <div className="bg-emerald-950 border-2 border-emerald-400 rounded-2xl p-6 text-center shadow-xl animate-bounce">
-                <div className="w-16 h-16 bg-emerald-500 text-slate-950 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <CheckCircle2 className="w-9 h-9" />
-                </div>
-                <h4 className="text-xl font-black text-white mb-0.5">
-                  {attSuccessStudent.mode === 'SIGN_IN' ? 'PUNCHED IN SUCCESSFULLY' : 'PUNCHED OUT SUCCESSFULLY'}
-                </h4>
-                <p className="text-sm font-bold text-emerald-300">
-                  {attSuccessStudent.student.full_name} • Class {attSuccessStudent.student.class_name}-{attSuccessStudent.student.section}
-                </p>
-                <div className="mt-3 inline-block px-4 py-1.5 bg-emerald-900/80 border border-emerald-600 rounded-full text-xs font-mono font-bold text-emerald-200">
-                  Time: {attSuccessStudent.time} • Adm: {attSuccessStudent.student.admission_no}
-                </div>
-                <p className="text-[11px] text-emerald-400/80 mt-3">
-                  Next student can punch in 3 seconds...
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Laser QR Frame */}
-                <div className="relative w-full aspect-video max-h-52 bg-slate-950 rounded-2xl border-2 border-emerald-500/50 flex flex-col items-center justify-center overflow-hidden shadow-inner">
-                  {/* Laser line animation */}
-                  <div className="absolute inset-x-4 h-0.5 bg-emerald-400 shadow-[0_0_15px_#34d399] animate-[bounce_2s_infinite] pointer-events-none" />
+            {/* FULLSCREEN CAMERA CONTAINER */}
+            <div className="relative flex-1 w-full bg-black flex items-center justify-center overflow-hidden min-h-[420px]">
+              
+              {/* Actual Video Stream Feed */}
+              <video
+                ref={videoRef}
+                playsInline
+                muted
+                autoPlay
+                className={`w-full h-full object-cover absolute inset-0 ${cameraFacing === 'user' ? 'scale-x-[-1]' : ''}`}
+              />
+
+              {/* Scanning Target Box for Chest / I-Card Height */}
+              <div className="relative z-10 flex flex-col items-center justify-center pointer-events-none p-4">
+                
+                {/* Target Frame Box */}
+                <div className="w-64 sm:w-80 h-72 border-4 border-dashed border-emerald-400 rounded-3xl relative shadow-[0_0_30px_rgba(52,211,153,0.35)] flex flex-col items-center justify-between p-4 bg-emerald-950/15 backdrop-blur-[2px]">
                   
-                  <div className="w-36 h-36 border-2 border-dashed border-emerald-400 rounded-xl flex items-center justify-center text-center p-2">
-                    <span className="text-[11px] font-mono text-emerald-300">
-                      Align Student ID Barcode / QR Code Here
-                    </span>
-                  </div>
+                  {/* Top Target Label */}
+                  <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300 bg-slate-950/80 px-3 py-1 rounded-full border border-emerald-500/60 font-mono">
+                    Align Neck / Chest I-Card Here
+                  </span>
+
+                  {/* Dynamic Laser Line Animation */}
+                  <div className="w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_15px_#34d399] animate-[bounce_2s_infinite]" />
+
+                  {/* Bottom Guide */}
+                  <span className="text-[10px] text-slate-200 bg-slate-950/80 px-3 py-1 rounded-full text-center">
+                    Auto-Scanning Active (Touchless)
+                  </span>
                 </div>
 
-                {/* Instant Tap Selector for Demonstration */}
-                <div className="bg-emerald-950/70 border border-emerald-800/80 rounded-2xl p-3.5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-emerald-200">
-                      Tap Student to Simulate Touchless Scan (डेमो स्कैन करें):
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {students.length} Enrolled
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
-                    {students.slice(0, 6).map((st) => (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => handlePunchAttendance(st)}
-                        className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/80 hover:bg-emerald-900/80 border border-emerald-800/60 hover:border-emerald-400 text-left transition-all cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-emerald-600 text-slate-950 font-bold text-xs flex items-center justify-center">
-                            {st.full_name?.charAt(0) || 'S'}
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-white leading-tight">{st.full_name}</p>
-                            <p className="text-[10px] text-emerald-400/80 font-mono">Adm: {st.admission_no}</p>
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-bold text-emerald-300 px-1.5 py-0.5 bg-emerald-950 rounded border border-emerald-800">
-                          {attMode === 'SIGN_IN' ? 'IN' : 'OUT'}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <p className="text-xs font-black text-white mt-4 bg-slate-950/90 px-4 py-1.5 rounded-full border border-emerald-700/60 shadow-lg text-center">
+                  Gale me latka I-Card camera ke samne layein • Camera auto-detect karega
+                </p>
               </div>
-            )}
+
+              {/* Camera Error Alert if not granted */}
+              {cameraError && (
+                <div className="absolute top-4 inset-x-4 z-20 bg-amber-950/90 border border-amber-600 p-3 rounded-2xl text-amber-200 text-xs flex items-center justify-between shadow-xl">
+                  <span>{cameraError}</span>
+                  <button
+                    onClick={() => startCamera(cameraFacing)}
+                    className="px-3 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {/* SUCCESS PUNCH OVERLAY MODAL BANNER */}
+              {attSuccessStudent && (
+                <div className="absolute inset-0 z-30 bg-emerald-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-fadeIn">
+                  <div className="w-20 h-20 bg-emerald-500 text-slate-950 rounded-full flex items-center justify-center mb-4 shadow-2xl animate-bounce">
+                    <CheckCircle2 className="w-12 h-12 stroke-[2.5]" />
+                  </div>
+                  <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest block mb-1">
+                    {attSuccessStudent.mode === 'SIGN_IN' ? '✓ ATTENDANCE IN RECORDED' : '✓ ATTENDANCE OUT RECORDED'}
+                  </span>
+                  <h3 className="text-2xl sm:text-3xl font-black text-white mb-1">
+                    {attSuccessStudent.student.full_name}
+                  </h3>
+                  <p className="text-sm font-bold text-emerald-300">
+                    Class {attSuccessStudent.student.class_name}-{attSuccessStudent.student.section} • Roll No: {attSuccessStudent.student.roll_no || '14'}
+                  </p>
+                  
+                  <div className="mt-4 px-4 py-2 bg-slate-950/90 border border-emerald-500/60 rounded-2xl text-xs font-mono text-emerald-200">
+                    Admission No: <strong>{attSuccessStudent.student.admission_no}</strong> • Time: <strong>{attSuccessStudent.time}</strong>
+                  </div>
+
+                  <p className="text-xs text-emerald-400/80 mt-4 animate-pulse">
+                    Ready for next student in 2 seconds...
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Quick Test Bar */}
+            <div className="px-5 py-3 bg-[#081714] border-t border-emerald-900/80 flex items-center justify-between flex-wrap gap-2 text-xs">
+              <span className="text-slate-400">Simulate Touchless I-Card Scan:</span>
+              <div className="flex items-center gap-2 overflow-x-auto">
+                {students.slice(0, 4).map((st) => (
+                  <button
+                    key={st.id}
+                    type="button"
+                    onClick={() => handlePunchAttendance(st)}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-emerald-900 border border-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
+                  >
+                    {st.full_name} ({st.admission_no})
+                  </button>
+                ))}
+              </div>
+            </div>
 
           </div>
         )}
 
         {/* ═════════════════════════════════════════════════════════
-            VIEW 3: QR FEE SUBMISSION (LOOKUP -> CART -> DYNAMIC UPI QR -> RECEIPT)
+            VIEW 3: UNIVERSAL QR FEE PAYMENT
             ═════════════════════════════════════════════════════════ */}
         {activeModule === 'FEES' && (
-          <div className="w-full max-w-2xl mx-auto bg-[#122A24] border-2 border-cyan-500/50 rounded-3xl p-6 sm:p-8 shadow-2xl animate-fadeIn">
+          <div className="w-full max-w-4xl mx-auto bg-[#0e2230] border-2 border-cyan-500/60 rounded-3xl p-5 sm:p-7 shadow-2xl animate-fadeIn my-2">
             
             {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-emerald-800/60 mb-6">
+            <div className="flex items-center justify-between pb-4 border-b border-cyan-900/80 mb-5">
               <button
                 type="button"
                 onClick={() => {
@@ -572,75 +748,122 @@ function KioskContent() {
                   else if (feeStep === 'UPI_QR') setFeeStep('CART');
                   else setActiveModule('HOME');
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition-colors cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>{feeStep === 'LOOKUP' ? 'Back to Menu' : 'Back'}</span>
+                <span>{feeStep === 'LOOKUP' ? 'Menu' : 'Back'}</span>
               </button>
-              <h3 className="text-base font-black text-white uppercase tracking-wider">
-                Universal QR Fee Payment
-              </h3>
+              <div className="text-right">
+                <h3 className="text-base font-black text-white uppercase tracking-wider">
+                  Universal Counter Fee Desk
+                </h3>
+                <span className="text-[10px] text-cyan-400 font-mono">
+                  {school.name}
+                </span>
+              </div>
             </div>
 
-            {/* STEP 1: SCAN UNIVERSAL STUDENT CODE */}
+            {/* 🌟 STEP 1: ON-SCREEN UNIVERSAL QR CODE & I-CARD SCANNER */}
             {feeStep === 'LOOKUP' && (
-              <div className="space-y-4">
-                <div className="text-center space-y-1">
-                  <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
-                    Scan or Select Universal Student Code
-                  </span>
-                  <p className="text-xs text-slate-300">
-                    Student ID card ka QR scan karein ya list me se student select karein
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                
+                {/* Left Card: THE UNIVERSAL STANDING QR (User asked: UNIVERSAL QR NI AA RHA HAI) */}
+                <div className="bg-white text-slate-900 rounded-2xl p-5 border-4 border-[#122A24] shadow-2xl flex flex-col items-center text-center">
+                  <div className="w-full flex items-center justify-between border-b pb-2 mb-2">
+                    <span className="text-[10px] font-bold text-emerald-950 uppercase tracking-wider">
+                      Universal Counter Standee QR
+                    </span>
+                    <span className="text-[9px] font-mono bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-full font-bold">
+                      DESK 01
+                    </span>
+                  </div>
+
+                  {/* Large High-Res Universal QR Code Image */}
+                  <div className="p-3 bg-slate-50 border-2 border-slate-200 rounded-2xl shadow-inner my-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={universalDeskQrUrl}
+                      alt="Universal Fee Counter QR"
+                      className="w-52 h-52 object-contain"
+                    />
+                  </div>
+
+                  <p className="text-xs font-black text-[#122A24] leading-snug mt-1">
+                    Scan via Parent Mobile App / PWA
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    Parent phone se scan karenge toh unke student ka bill turant load hoga.
                   </p>
                 </div>
 
-                {/* Laser QR Visualizer */}
-                <div className="relative w-full aspect-video max-h-48 bg-slate-950 rounded-2xl border-2 border-cyan-500/50 flex flex-col items-center justify-center overflow-hidden shadow-inner">
-                  <div className="absolute inset-x-4 h-0.5 bg-cyan-400 shadow-[0_0_15px_#22d3ee] animate-[bounce_2s_infinite] pointer-events-none" />
-                  <div className="w-36 h-36 border-2 border-dashed border-cyan-400 rounded-xl flex items-center justify-center text-center p-2">
-                    <span className="text-[11px] font-mono text-cyan-300">
-                      Universal Student QR Scanner Active
+                {/* Right Card: Kiosk Camera Scanner to scan Student I-Card Directly */}
+                <div className="space-y-4">
+                  <div className="bg-slate-900/90 border border-cyan-900/80 rounded-2xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                        <Camera className="w-4 h-4" />
+                        Or Scan Student I-Card on Kiosk Camera:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={toggleCameraFacing}
+                        className="text-[10px] font-bold text-cyan-400 hover:text-cyan-200 flex items-center gap-1"
+                      >
+                        <SwitchCamera className="w-3.5 h-3.5" />
+                        <span>Flip Camera</span>
+                      </button>
+                    </div>
+
+                    {/* Camera Scanner Viewport */}
+                    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden border-2 border-cyan-500/60 shadow-inner flex items-center justify-center">
+                      <video
+                        ref={videoRef}
+                        playsInline
+                        muted
+                        autoPlay
+                        className={`w-full h-full object-cover absolute inset-0 ${cameraFacing === 'user' ? 'scale-x-[-1]' : ''}`}
+                      />
+                      <div className="w-32 h-32 border-2 border-dashed border-cyan-400 rounded-xl relative z-10 flex items-center justify-center">
+                        <span className="text-[9px] font-mono text-cyan-300 bg-black/70 px-2 py-0.5 rounded">
+                          Show Student QR
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Direct Test Student List */}
+                  <div className="bg-slate-900/90 border border-cyan-900/80 rounded-2xl p-3">
+                    <span className="text-[11px] font-bold text-slate-300 block mb-2">
+                      Or Select Student (डेमो छात्र चुनें):
                     </span>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                      {students.slice(0, 5).map((st) => (
+                        <button
+                          key={st.id}
+                          type="button"
+                          onClick={() => handleSelectFeeStudent(st)}
+                          className="w-full flex items-center justify-between p-2 rounded-xl bg-slate-950 hover:bg-cyan-950/70 border border-slate-800 hover:border-cyan-400 text-left transition-all cursor-pointer"
+                        >
+                          <div>
+                            <span className="text-xs font-bold text-white block leading-tight">{st.full_name}</span>
+                            <span className="text-[10px] text-cyan-300 font-mono">
+                              Class {st.class_name}-{st.section} • {st.admission_no}
+                            </span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-cyan-400" />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Quick Student Selector */}
-                <div className="bg-slate-900/90 border border-emerald-900/60 rounded-2xl p-4">
-                  <span className="text-xs font-bold text-slate-300 block mb-2">
-                    Or Select Student Directly (डेमो छात्र चुनें):
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto pr-1">
-                    {students.slice(0, 6).map((st) => (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => handleSelectFeeStudent(st)}
-                        className="flex items-center justify-between p-3 rounded-xl bg-slate-950 hover:bg-cyan-950/70 border border-slate-800 hover:border-cyan-400 text-left transition-all cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-cyan-600 text-slate-950 font-bold text-xs flex items-center justify-center">
-                            {st.full_name?.charAt(0) || 'S'}
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-white leading-tight">{st.full_name}</p>
-                            <p className="text-[10px] text-cyan-300 font-mono">
-                              Class {st.class_name}-{st.section} • {st.admission_no}
-                            </p>
-                          </div>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-cyan-400" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
 
             {/* STEP 2: STUDENT INFO + ITEMIZED CHECKBOX CART */}
             {feeStep === 'CART' && feeStudent && (
               <div className="space-y-4">
-                {/* Student Info Banner */}
-                <div className="bg-cyan-950/50 border border-cyan-700/60 rounded-2xl p-4 flex items-center justify-between">
+                <div className="bg-cyan-950/60 border border-cyan-600/70 rounded-2xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl bg-cyan-500 text-slate-950 flex items-center justify-center font-black text-lg shadow">
                       {feeStudent.full_name?.charAt(0) || 'S'}
@@ -657,7 +880,7 @@ function KioskContent() {
                       </p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold text-cyan-300 bg-cyan-900/60 px-2.5 py-1 rounded-full border border-cyan-600">
+                  <span className="text-[10px] font-bold text-cyan-300 bg-cyan-900/80 px-3 py-1 rounded-full border border-cyan-600">
                     Verified Profile
                   </span>
                 </div>
@@ -667,14 +890,14 @@ function KioskContent() {
                   <span className="text-xs font-bold text-slate-300 block mb-2">
                     Select Fee Heads to Pay (मद चुनें):
                   </span>
-                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                     {selectedFeeItems.map((item) => (
                       <div
                         key={item.id}
                         onClick={() => toggleFeeItem(item.id)}
                         className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none ${
                           item.selected
-                            ? 'bg-cyan-950/60 border-cyan-400 text-cyan-100'
+                            ? 'bg-cyan-950/70 border-cyan-400 text-cyan-100'
                             : 'bg-slate-900/60 border-slate-800 text-slate-400'
                         }`}
                       >
@@ -697,10 +920,10 @@ function KioskContent() {
                 </div>
 
                 {/* Bottom Total & Proceed Button */}
-                <div className="pt-3 border-t border-emerald-900/60 flex items-center justify-between">
+                <div className="pt-3 border-t border-cyan-900/80 flex items-center justify-between">
                   <div>
                     <span className="text-[10px] text-slate-400 block">Total Amount to Pay</span>
-                    <span className="text-xl font-black text-cyan-300 font-mono">
+                    <span className="text-2xl font-black text-cyan-300 font-mono">
                       {formatCurrency(feeTotal)}
                     </span>
                   </div>
@@ -713,7 +936,7 @@ function KioskContent() {
                     }}
                     className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 font-black rounded-xl text-xs transition-all shadow-lg shadow-cyan-950 flex items-center gap-2 cursor-pointer"
                   >
-                    <span>Generate UPI Payment QR</span>
+                    <span>Generate School UPI Payment QR</span>
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -730,8 +953,8 @@ function KioskContent() {
                   </p>
                 </div>
 
-                {/* High-Contrast Standee QR Box */}
-                <div className="p-4 bg-white rounded-2xl border-4 border-cyan-400 shadow-2xl flex flex-col items-center">
+                {/* Standee QR Box */}
+                <div className="p-5 bg-white rounded-2xl border-4 border-cyan-400 shadow-2xl flex flex-col items-center">
                   <span className="text-[11px] font-mono font-black text-[#122A24] uppercase tracking-wider mb-2">
                     {school.name}
                   </span>
@@ -739,10 +962,10 @@ function KioskContent() {
                   <img
                     src={upiQrImageUrl}
                     alt="School Fee Payment UPI QR"
-                    className="w-48 h-48 object-contain"
+                    className="w-52 h-52 object-contain"
                   />
                   <div className="mt-2 text-center">
-                    <span className="text-base font-black text-[#122A24] font-mono block">
+                    <span className="text-lg font-black text-[#122A24] font-mono block">
                       PAY EXACT: {formatCurrency(feeTotal)}
                     </span>
                     <span className="text-[9px] font-mono text-slate-500">
@@ -752,7 +975,7 @@ function KioskContent() {
                 </div>
 
                 {/* Simulate / Verify Payment */}
-                <div className="w-full bg-slate-900/80 border border-slate-800 rounded-2xl p-3 flex items-center justify-between">
+                <div className="w-full max-w-md bg-slate-900/80 border border-slate-800 rounded-2xl p-3 flex items-center justify-between">
                   <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4" />
                     Live Gateway Listener Active
@@ -773,7 +996,7 @@ function KioskContent() {
               <div className="space-y-4">
                 <div className="bg-white text-slate-900 rounded-2xl p-6 border-4 border-[#122A24] shadow-2xl relative">
                   
-                  {/* Watermark & Stamp */}
+                  {/* Official Accounts Stamp Box */}
                   <div className="absolute right-6 bottom-16 border-2 border-emerald-800 text-emerald-900 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest rotate-[-12deg] bg-emerald-50/90 shadow-md">
                     ✓ VERIFIED &amp; PAID<br />ADMIN ACCOUNTS STAMP
                   </div>
@@ -851,7 +1074,7 @@ function KioskContent() {
                     }}
                     className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs transition-colors cursor-pointer"
                   >
-                    Finish / Back to Home
+                    Finish / Back to Menu
                   </button>
                 </div>
               </div>
@@ -863,8 +1086,8 @@ function KioskContent() {
       </main>
 
       {/* ─── KIOSK FOOTER ─── */}
-      <footer className="px-6 py-3 bg-[#091410] border-t border-emerald-950 text-center text-[11px] text-slate-500 font-mono">
-        EduSuite Touchless QR Kiosk Station v3.0 • CBSE Multi-School Enterprise Cloud
+      <footer className="px-5 py-2.5 bg-[#071310] border-t border-emerald-950 text-center text-[10px] text-slate-500 font-mono">
+        EduSuite Touchless QR Kiosk Station v2.0 • CBSE Multi-School Enterprise Cloud
       </footer>
 
     </div>
@@ -875,7 +1098,7 @@ export default function KioskPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#0a1612] text-white flex items-center justify-center font-mono text-xs">
+        <div className="min-h-screen bg-[#06100d] text-white flex items-center justify-center font-mono text-xs">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
             <span>Loading Touchless QR Kiosk...</span>
