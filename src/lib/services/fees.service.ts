@@ -431,123 +431,26 @@ export class FeesService {
     reportId: string,
     filters: Partial<FeeAggregateFilters> = {}
   ): Promise<ReportQueryResult> {
-    const session = filters.session || '2026-27';
-    const config = REPORT_CONFIGS.find(r => r.id === reportId) || {
-      id: reportId,
-      name: reportId.replace(/_/g, ' ').toUpperCase(),
-      group: 'COLLECTION_REALIZATION' as const,
-      groupLabel: 'Collection & Realization',
-      description: 'Custom Fee Report',
-      supportedFilters: ['session', 'month', 'class', 'search'],
-      exportFilenamePrefix: reportId,
-      columns: [
-        { key: 'studentName', header: 'Student Name', align: 'left' as const },
-        { key: 'admissionNo', header: 'Adm No', align: 'left' as const },
-        { key: 'classSection', header: 'Class-Sec', align: 'center' as const },
-        { key: 'amountPaise', header: 'Amount', align: 'right' as const, format: 'currency' as const },
-      ]
+    const { queryReport } = await import('@/lib/fees/fee-service');
+    const queryFilters: {
+      schoolId?: string;
+      session?: string;
+      className?: string;
+      section?: string;
+      month?: string;
+      paymentMode?: string;
+      search?: string;
+    } = {
+      schoolId,
+      session: filters.session || '2026-27',
+      className: filters.classes && filters.classes.length === 1 ? filters.classes[0] : undefined,
+      section: filters.sections && filters.sections.length === 1 ? filters.sections[0] : undefined,
+      month: filters.months && filters.months.length === 1 ? (filters.months[0] as string) : (filters as any).month,
+      paymentMode: filters.paymentModes && filters.paymentModes.length === 1 ? filters.paymentModes[0] : undefined,
+      search: filters.search,
     };
 
-    // Special Case: Annual Fee Pending Report
-    if (reportId === 'annual_fee_pending') {
-      const { items, totalDuePaise } = await this.getAnnualFeePending(schoolId, session, {
-        className: filters.classes && filters.classes.length === 1 ? filters.classes[0] : undefined,
-        section: filters.sections && filters.sections.length === 1 ? filters.sections[0] : undefined,
-        search: filters.search
-      });
-
-      const rows = items.map(item => ({
-        studentName: item.studentName,
-        admissionNo: item.admissionNo,
-        classSection: `${item.className} - ${item.section}`,
-        fatherName: item.fatherName,
-        mobile: item.mobile,
-        annualDuePaise: item.annualDuePaise,
-        status: item.status,
-      }));
-
-      return {
-        reportId: config.id,
-        reportName: config.name,
-        generatedAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-        session,
-        filtersUsed: { ...filters, session },
-        summaryKpis: [
-          { label: 'Annual Fee Pending Count', value: rows.length.toString(), color: 'text-amber-700' },
-          { label: 'Annual Fee Outstanding', value: formatCurrency(totalDuePaise), color: 'text-rose-800' },
-        ],
-        columns: config.columns,
-        rows,
-        totalRowCount: rows.length,
-        grandTotalRow: {
-          studentName: 'Grand Total',
-          admissionNo: `${rows.length} Students`,
-          classSection: '',
-          fatherName: '',
-          mobile: '',
-          annualDuePaise: totalDuePaise,
-          status: '',
-        }
-      };
-    }
-
-    // Standard Report via Fee Aggregate / Receipts
-    const receipts = await getSchoolReceipts(schoolId, session, 2000);
-    const filteredReceipts = receipts.filter(r => {
-      if (filters.classes && filters.classes.length > 0 && !filters.classes.includes(r.class_name)) return false;
-      if (filters.sections && filters.sections.length > 0 && !filters.sections.includes(r.section)) return false;
-      if (filters.paymentModes && filters.paymentModes.length > 0 && !filters.paymentModes.includes(r.payment_mode)) return false;
-      if (filters.search) {
-        const q = filters.search.toLowerCase().trim();
-        const m1 = (r.student_name || '').toLowerCase().includes(q);
-        const m2 = (r.admission_no || '').toLowerCase().includes(q);
-        const m3 = (r.receipt_no || '').toLowerCase().includes(q);
-        if (!m1 && !m2 && !m3) return false;
-      }
-      return true;
-    });
-
-    let totalCollectedPaise = 0;
-    const rows = filteredReceipts.map(r => {
-      totalCollectedPaise += r.amount_paise;
-      return {
-        receiptNo: r.receipt_no,
-        date: r.payment_date,
-        studentName: r.student_name,
-        admissionNo: r.admission_no,
-        classSection: `${r.class_name} - ${r.section}`,
-        mode: r.payment_mode,
-        amountPaise: r.amount_paise,
-        collectedBy: r.collected_by,
-        status: r.is_cancelled ? 'CANCELLED' : 'CLEARED'
-      };
-    });
-
-    return {
-      reportId: config.id,
-      reportName: config.name,
-      generatedAt: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-      session,
-      filtersUsed: { ...filters, session },
-      summaryKpis: [
-        { label: 'Total Transactions', value: rows.length.toString(), color: 'text-slate-800' },
-        { label: 'Total Realized', value: formatCurrency(totalCollectedPaise), color: 'text-emerald-700' }
-      ],
-      columns: config.columns,
-      rows,
-      totalRowCount: rows.length,
-      grandTotalRow: {
-        receiptNo: 'Grand Total',
-        date: '',
-        studentName: `${rows.length} Receipts`,
-        admissionNo: '',
-        classSection: '',
-        mode: '',
-        amountPaise: totalCollectedPaise,
-        collectedBy: '',
-        status: ''
-      }
-    };
+    return queryReport(reportId, queryFilters);
   }
 
   /**

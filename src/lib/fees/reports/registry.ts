@@ -61,10 +61,25 @@ function classComparator(a: string, b: string): number {
 export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
   // ─── 1. Month-wise Class-wise Collection ───
   month_class_collection: (ctx) => {
-    const targetMonth = (ctx.filters.month || 'SEP').toUpperCase();
-    const isGroupByClass = ctx.filters.groupBy === 'class';
+    const rawMonth = (ctx.filters.month || 'SEP').toUpperCase().trim();
+    const monthAliases: Record<string, string> = {
+      'APRIL': 'APR', 'APR': 'APR', '04': 'APR', '4': 'APR',
+      'MAY': 'MAY', '05': 'MAY', '5': 'MAY',
+      'JUNE': 'JUN', 'JUN': 'JUN', '06': 'JUN', '6': 'JUN',
+      'JULY': 'JUL', 'JUL': 'JUL', '07': 'JUL', '7': 'JUL',
+      'AUGUST': 'AUG', 'AUG': 'AUG', '08': 'AUG', '8': 'AUG',
+      'SEPTEMBER': 'SEP', 'SEP': 'SEP', '09': 'SEP', '9': 'SEP',
+      'OCTOBER': 'OCT', 'OCT': 'OCT', '10': 'OCT',
+      'NOVEMBER': 'NOV', 'NOV': 'NOV', '11': 'NOV',
+      'DECEMBER': 'DEC', 'DEC': 'DEC', '12': 'DEC',
+      'JANUARY': 'JAN', 'JAN': 'JAN', '01': 'JAN', '1': 'JAN',
+      'FEBRUARY': 'FEB', 'FEB': 'FEB', '02': 'FEB', '2': 'FEB',
+      'MARCH': 'MAR', 'MAR': 'MAR', '03': 'MAR', '3': 'MAR',
+    };
+    const targetMonth = monthAliases[rawMonth] || (rawMonth.length >= 3 ? rawMonth.slice(0, 3) : rawMonth);
+    const isGroupByClass = ctx.filters.groupBy === 'class' || !ctx.filters.groupBy || ctx.filters.groupBy === ('ALL' as any);
     
-    // Group students by Class + Section (default: 18 rows) or Class (16 rows)
+    // Group students by Class (16 rows) or Class + Section
     const classSecMap = new Map<string, {
       className: string;
       totalStudents: number;
@@ -89,9 +104,27 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
       paymentsByStudent.get(p.studentId)!.push(p);
     }
 
+    const isPeriodMatch = (p: string) => {
+      const up = String(p || '').toUpperCase().trim();
+      if (up === targetMonth) return true;
+      if (targetMonth === 'SEP' && (up.includes('SEP') || up === 'SLOT_5_SEP_FEB' || up === 'SEP_FEB')) return true;
+      if (targetMonth === 'FEB' && (up.includes('FEB') || up === 'SLOT_5_SEP_FEB' || up === 'SEP_FEB')) return true;
+      if (targetMonth === 'MAY' && (up.includes('MAY') || up === 'SLOT_2_MAY_JUN' || up === 'MAY_JUN')) return true;
+      if (targetMonth === 'JUN' && (up.includes('JUN') || up === 'SLOT_2_MAY_JUN' || up === 'MAY_JUN')) return true;
+      if (targetMonth === 'DEC' && (up.includes('DEC') || up === 'SLOT_8_DEC_MAR' || up === 'DEC_MAR')) return true;
+      if (targetMonth === 'MAR' && (up.includes('MAR') || up === 'SLOT_8_DEC_MAR' || up === 'DEC_MAR')) return true;
+      if (targetMonth === 'APR' && (up.includes('APR') || up === 'ONE_TIME' || up === 'SLOT_1_APR')) return true;
+      if (targetMonth === 'JUL' && (up.includes('JUL') || up === 'SLOT_3_JUL')) return true;
+      if (targetMonth === 'AUG' && (up.includes('AUG') || up === 'SLOT_4_AUG')) return true;
+      if (targetMonth === 'OCT' && (up.includes('OCT') || up === 'SLOT_6_OCT')) return true;
+      if (targetMonth === 'NOV' && (up.includes('NOV') || up === 'SLOT_7_NOV')) return true;
+      if (targetMonth === 'JAN' && (up.includes('JAN') || up === 'SLOT_9_JAN')) return true;
+      return false;
+    };
+
     for (const s of ctx.students) {
-      if (ctx.filters.className && s.class_name !== ctx.filters.className) continue;
-      if (ctx.filters.section && (s.section || 'A') !== ctx.filters.section) continue;
+      if (ctx.filters.className && ctx.filters.className !== 'ALL' && s.class_name !== ctx.filters.className) continue;
+      if (ctx.filters.section && ctx.filters.section !== 'ALL' && (s.section || 'A') !== ctx.filters.section) continue;
 
       const cls = s.class_name || 'Class 1';
       const sec = s.section || 'A';
@@ -112,18 +145,14 @@ export const REPORT_BUILDERS: Record<string, ReportBuilderFn> = {
       const entry = classSecMap.get(key)!;
       entry.totalStudents++;
 
-      const sDemands = (demandsByStudent.get(s.id) || []).filter(d =>
-        d.period === targetMonth ||
-        (targetMonth === 'SEP' && (d.period === 'SEP' || d.period === 'SEP_FEB')) ||
-        (targetMonth === 'APR' && (d.period === 'APR' || d.period === 'ONE_TIME')) ||
-        (targetMonth === 'MAY' && (d.period === 'MAY' || d.period === 'MAY_JUN'))
-      );
-
+      const sDemands = (demandsByStudent.get(s.id) || []).filter(d => isPeriodMatch(d.period));
       const demandPeriods = new Set(sDemands.map(d => d.period));
+
       let sPaidTotal = 0;
       for (const p of (paymentsByStudent.get(s.id) || [])) {
         for (const alloc of p.allocatedHeads || []) {
-          if (demandPeriods.has(alloc.period)) {
+          const allocPeriod = alloc.period || (alloc as any).month || '';
+          if (demandPeriods.has(alloc.period) || isPeriodMatch(allocPeriod)) {
             sPaidTotal += (alloc.amountPaise || 0);
           }
         }

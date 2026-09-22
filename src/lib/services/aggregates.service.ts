@@ -30,6 +30,22 @@ export interface SchoolAggregateDoc {
       pending: number;
       collectionRate: number;
     }>;
+    thisMonthBreakdown?: Array<{
+      className: string;
+      totalStudents: number;
+      submittedCount: number;
+      notSubmittedCount: number;
+      collectedPaise: number;
+    }>;
+    topPending?: Array<{
+      studentId: string;
+      studentName: string;
+      admissionNo: string;
+      classSection: string;
+      fatherName: string;
+      mobile: string;
+      pendingPaise: number;
+    }>;
   };
   attendance_snapshot?: SchoolAttendanceDaySummary;
   updated_at: string;
@@ -299,6 +315,138 @@ export class AggregatesService {
       };
     });
 
+    // 4. Compute Month Breakdown (September) & Top Pending Defaulters
+    const [studentsForStats, demandsForStats, receiptsForStats] = await Promise.all([
+      db.collection('students').find(
+        { $or: [{ school_id: schoolId }, { school_id: 'DPS2026' }] },
+        { projection: { id: 1, full_name: 1, first_name: 1, last_name: 1, admission_no: 1, class_name: 1, section: 1, father_name: 1, mobile: 1, phone: 1 } }
+      ).toArray(),
+      db.collection('fee_demands').find(
+        { $or: [{ schoolId }, { schoolId: 'DPS2026' }], sessionId: session },
+        { projection: { studentId: 1, period: 1, netAmount: 1 } }
+      ).toArray(),
+      db.collection('fee_receipts').find(
+        { $or: [{ school_id: schoolId }, { school_id: 'DPS2026' }], academic_session: session, is_cancelled: { $ne: true } },
+        { projection: { student_id: 1, amount_paise: 1, allocated_heads: 1 } }
+      ).toArray()
+    ]);
+
+    const demandsByStudent = new Map<string, any[]>();
+    for (const d of demandsForStats) {
+      if (!demandsByStudent.has(d.studentId)) demandsByStudent.set(d.studentId, []);
+      demandsByStudent.get(d.studentId)!.push(d);
+    }
+
+    const receiptsByStudent = new Map<string, any[]>();
+    for (const r of receiptsForStats) {
+      if (!receiptsByStudent.has(r.student_id)) receiptsByStudent.set(r.student_id, []);
+      receiptsByStudent.get(r.student_id)!.push(r);
+    }
+
+    const classMap = new Map<string, {
+      className: string;
+      totalStudents: number;
+      submittedCount: number;
+      notSubmittedCount: number;
+      collectedPaise: number;
+    }>();
+
+    const studentDues: Array<{
+      studentId: string;
+      studentName: string;
+      admissionNo: string;
+      classSection: string;
+      fatherName: string;
+      mobile: string;
+      pendingPaise: number;
+    }> = [];
+
+    const CLASS_ORDER_MAP: Record<string, number> = {
+      'playgroup': 1, 'pg': 1, 'nursery': 2, 'lkg': 3, 'ukg': 4, 'kg': 4,
+      'class 1': 5, '1': 5, 'class 2': 6, '2': 6, 'class 3': 7, '3': 7,
+      'class 4': 8, '4': 8, 'class 5': 9, '5': 9, 'class 6': 10, '6': 10,
+      'class 7': 11, '7': 11, 'class 8': 12, '8': 12, 'class 9': 13, '9': 13,
+      'class 10': 14, '10': 14, 'class 11': 15, '11': 15, 'class 12': 16, '12': 16
+    };
+
+    for (const s of studentsForStats) {
+      const sId = (s as any).id || String((s as any)._id);
+      const cls = s.class_name || 'Class 1';
+      const sec = s.section || 'A';
+      const sName = s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Scholar';
+      const sAdm = s.admission_no || '';
+      const sFather = s.father_name || '';
+      const sMobile = s.mobile || s.phone || '';
+
+      if (!classMap.has(cls)) {
+        classMap.set(cls, {
+          className: cls,
+          totalStudents: 0,
+          submittedCount: 0,
+          notSubmittedCount: 0,
+          collectedPaise: 0
+        });
+      }
+      const cData = classMap.get(cls)!;
+      cData.totalStudents++;
+
+      const sDemands = demandsByStudent.get(sId) || [];
+      const sReceipts = receiptsByStudent.get(sId) || [];
+
+      // Month calculation for September
+      const sepDemands = sDemands.filter((d: any) => {
+        const p = String(d.period || '').toUpperCase();
+        return p === 'SEP' || p.includes('SEP') || p === 'SLOT_5_SEP_FEB' || p === 'SEP_FEB';
+      });
+      const sepDemandTotal = sepDemands.reduce((sum: number, d: any) => sum + (d.netAmount || 0), 0);
+      
+      let sepPaid = 0;
+      for (const r of sReceipts) {
+        for (const h of (r.allocated_heads || [])) {
+          const hp = String(h.period || h.month || '').toUpperCase();
+          if (hp === 'SEP' || hp.includes('SEP') || hp === 'SLOT_5_SEP_FEB' || hp === 'SEP_FEB') {
+            sepPaid += (h.amount_paise || 0);
+          }
+        }
+      }
+
+      const effectiveSepPaid = Math.min(sepDemandTotal, sepPaid);
+      const sepPending = Math.max(0, sepDemandTotal - effectiveSepPaid);
+      cData.collectedPaise += effectiveSepPaid;
+
+      if (sepPending === 0 && sepDemandTotal > 0) {
+        cData.submittedCount++;
+      } else {
+        cData.notSubmittedCount++;
+      }
+
+      // Overall session pending dues
+      const totalDemandAmt = sDemands.reduce((sum: number, d: any) => sum + (d.netAmount || 0), 0);
+      const totalPaidAmt = sReceipts.reduce((sum: number, r: any) => sum + (r.amount_paise || 0), 0);
+      const netBalance = Math.max(0, totalDemandAmt - totalPaidAmt);
+
+      if (netBalance > 0) {
+        studentDues.push({
+          studentId: sId,
+          studentName: sName,
+          admissionNo: sAdm,
+          classSection: `${cls} - ${sec}`,
+          fatherName: sFather,
+          mobile: sMobile,
+          pendingPaise: netBalance
+        });
+      }
+    }
+
+    const thisMonthBreakdown = Array.from(classMap.values()).sort((a, b) => {
+      const ordA = CLASS_ORDER_MAP[a.className.toLowerCase()] || 99;
+      const ordB = CLASS_ORDER_MAP[b.className.toLowerCase()] || 99;
+      return ordA - ordB;
+    });
+
+    studentDues.sort((a, b) => b.pendingPaise - a.pendingPaise);
+    const topPending = studentDues.slice(0, 10);
+
     const aggregateDoc: SchoolAggregateDoc = {
       school_id: schoolId,
       session,
@@ -314,7 +462,9 @@ export class AggregatesService {
         collectionPercentage,
         studentsWithNothingPaid,
         receiptsCount,
-        monthWiseTrend
+        monthWiseTrend,
+        thisMonthBreakdown,
+        topPending
       },
       updated_at: now
     };

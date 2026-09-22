@@ -624,7 +624,9 @@ export async function queryReport(
     is_cancelled: { $ne: true }
   };
 
-  if (filters.month && filters.month !== 'ALL') {
+  const isDemandReport = ['defaulter_list', 'demand_vs_collection', 'month_class_collection', 'student_wise_collection', 'head_wise_collection', 'pending_fees_list', 'class_summary'].includes(reportKey);
+
+  if (!isDemandReport && filters.month && filters.month !== 'ALL') {
     const m = filters.month.toUpperCase();
     const monthNumMap: Record<string, string> = {
       'APR': '04', 'APRIL': '04', '04': '04',
@@ -662,8 +664,6 @@ export async function queryReport(
   }
 
   // 2. Fetch lightweight students, demands (if needed), and live receipts in parallel
-  const isDemandReport = ['defaulter_list', 'demand_vs_collection', 'month_class_collection', 'student_wise_collection', 'head_wise_collection'].includes(reportKey);
-
   const [studentsDocs, demandsDocs, rawReceipts] = await Promise.all([
     db.collection('students').find(
       { $or: [{ school_id: schoolId }, { school_id: 'DPS2026' }] },
@@ -736,7 +736,7 @@ export async function queryReport(
           created_at: 1
         }
       }
-    ).sort({ payment_date: -1, created_at: -1 }).limit(1000).toArray()
+    ).sort({ payment_date: -1, created_at: -1 }).toArray()
   ]);
 
   // Convert live fee_receipts into normalized FeePaymentRecord format

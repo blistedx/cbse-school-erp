@@ -140,8 +140,8 @@ export async function getSchoolFinancialStats(
     collectionPercentage: aggregate.financials.collectionPercentage,
     studentsWithNothingPaid: aggregate.financials.studentsWithNothingPaid,
     totalStudentsCount: aggregate.total_students,
-    topPending: [],
-    thisMonthBreakdown: [],
+    topPending: aggregate.financials.topPending || [],
+    thisMonthBreakdown: aggregate.financials.thisMonthBreakdown || [],
     monthWiseTrend: (aggregate.financials.monthWiseTrend || []).map(m => ({
       month: m.month as AcademicMonth,
       label: m.month,
