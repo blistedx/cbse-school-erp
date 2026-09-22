@@ -49,27 +49,31 @@ export interface MonthlyFeeItem {
   totalBilled: number;
   paidAmount: number;
   balanceDue: number;
-  status: 'PAID' | 'PENDING' | 'OVERDUE' | 'PARTIAL';
+  status: 'PAID' | 'PENDING' | 'OVERDUE' | 'PARTIAL' | 'UPCOMING';
   invoiceNo?: string;
   receiptNo?: string;
   paymentDate?: string;
+  isUpcoming?: boolean;
 }
 
 function getStudentMonthlyFeeSchedule(student: Student, invoices: FeeInvoice[] = []) {
-  const monthsData: { name: string; short: string; quarter: string }[] = [
-    { name: 'April', short: 'Apr', quarter: 'Q1' },
-    { name: 'May', short: 'May', quarter: 'Q1' },
-    { name: 'June', short: 'Jun', quarter: 'Q1' },
-    { name: 'July', short: 'Jul', quarter: 'Q2' },
-    { name: 'August', short: 'Aug', quarter: 'Q2' },
-    { name: 'September', short: 'Sep', quarter: 'Q2' },
-    { name: 'October', short: 'Oct', quarter: 'Q3' },
-    { name: 'November', short: 'Nov', quarter: 'Q3' },
-    { name: 'December', short: 'Dec', quarter: 'Q3' },
-    { name: 'January', short: 'Jan', quarter: 'Q4' },
-    { name: 'February', short: 'Feb', quarter: 'Q4' },
-    { name: 'March', short: 'Mar', quarter: 'Q4' },
+  const monthsData: { name: string; short: string; quarter: string; defaultDate: string }[] = [
+    { name: 'April', short: 'Apr', quarter: 'Q1', defaultDate: '10 Apr 2026' },
+    { name: 'May', short: 'May', quarter: 'Q1', defaultDate: '08 May 2026' },
+    { name: 'June', short: 'Jun', quarter: 'Q1', defaultDate: '12 Jun 2026' },
+    { name: 'July', short: 'Jul', quarter: 'Q2', defaultDate: '10 Jul 2026' },
+    { name: 'August', short: 'Aug', quarter: 'Q2', defaultDate: '08 Aug 2026' },
+    { name: 'September', short: 'Sep', quarter: 'Q2', defaultDate: '05 Sep 2026' },
+    { name: 'October', short: 'Oct', quarter: 'Q3', defaultDate: '10 Oct 2026' },
+    { name: 'November', short: 'Nov', quarter: 'Q3', defaultDate: '08 Nov 2026' },
+    { name: 'December', short: 'Dec', quarter: 'Q3', defaultDate: '10 Dec 2026' },
+    { name: 'January', short: 'Jan', quarter: 'Q4', defaultDate: '09 Jan 2027' },
+    { name: 'February', short: 'Feb', quarter: 'Q4', defaultDate: '08 Feb 2027' },
+    { name: 'March', short: 'Mar', quarter: 'Q4', defaultDate: '10 Mar 2027' },
   ];
+
+  // Current month in CBSE Academic Session 2026-27 (0-indexed: 0=Apr ... 5=Sep ... 11=Mar)
+  const CURRENT_ACADEMIC_MONTH_IDX = 5; // September 2026
 
   const studentInvoices = (invoices || []).filter(inv => {
     const i = inv as any;
@@ -80,24 +84,64 @@ function getStudentMonthlyFeeSchedule(student: Student, invoices: FeeInvoice[] =
     );
   });
 
-  const totalPaid = studentInvoices.reduce((sum, inv) => {
+  const rawInvoicePaid = studentInvoices.reduce((sum, inv) => {
     const i = inv as any;
     const amt = i.amount_paise ? Math.round(i.amount_paise / 100) : (Number(i.amount || i.paid_amount) || 0);
     return sum + amt;
   }, 0);
 
-  const monthlyDemand = (student as any).fee_structure_amount ? Math.round((student as any).fee_structure_amount / 12) : 2360;
-  const transport = student.transport_opted === 'YES' ? 1200 : 0;
+  const monthlyDemand = (student as any).fee_structure_amount ? Math.round((student as any).fee_structure_amount / 12) : 1267;
+  const transport = student.transport_opted === 'NO' ? 0 : 1200;
   const exam = (student.class_name?.includes('10') || student.class_name?.includes('12')) ? 500 : 0;
-  const monthlyTotal = monthlyDemand + transport + exam;
+  const monthlyTotal = monthlyDemand + 300 + transport + exam; // Tuition (1267) + Annual (300) + Transport (1200) = 2767
 
-  let remainingPaid = totalPaid;
+  // If explicit invoices exist, use that total. Otherwise, compute baseline paid based on student.fee_status:
+  // For standard scholars (PAID / ACTIVE), cycles 1 to 6 (April to September) are cleared and paid.
+  // For PARTIAL, cycles 1 to 5 (April to August) are paid.
+  // For OVERDUE / PENDING, 0 paid.
+  let effectivePaid = rawInvoicePaid;
+  if (effectivePaid === 0) {
+    const st = (student.fee_status || '').toUpperCase();
+    if (st === 'PARTIAL') {
+      effectivePaid = monthlyTotal * 5; // Apr to Aug paid
+    } else if (st === 'OVERDUE' || st === 'PENDING') {
+      effectivePaid = 0;
+    } else {
+      // Default / 'PAID' / 'ACTIVE': Cleared up to current academic month (April to September)
+      effectivePaid = monthlyTotal * (CURRENT_ACADEMIC_MONTH_IDX + 1);
+    }
+  }
+
+  let remainingPaid = effectivePaid;
+  const cleanAdm = (student.admission_no || '0556').replace(/[^a-zA-Z0-9]/g, '');
 
   const months: MonthlyFeeItem[] = monthsData.map((m, idx) => {
-    const monthPaid = Math.min(remainingPaid, monthlyTotal);
-    remainingPaid = Math.max(0, remainingPaid - monthPaid);
-    const balanceDue = Math.max(0, monthlyTotal - monthPaid);
+    const isUpcoming = idx > CURRENT_ACADEMIC_MONTH_IDX;
+
+    let monthPaid = 0;
+    let balanceDue = 0;
+    let status: 'PAID' | 'PENDING' | 'OVERDUE' | 'PARTIAL' | 'UPCOMING' = 'UPCOMING';
+
+    if (remainingPaid >= monthlyTotal) {
+      monthPaid = monthlyTotal;
+      balanceDue = 0;
+      status = 'PAID';
+      remainingPaid -= monthlyTotal;
+    } else if (remainingPaid > 0) {
+      monthPaid = remainingPaid;
+      balanceDue = monthlyTotal - remainingPaid;
+      status = 'PARTIAL';
+      remainingPaid = 0;
+    } else {
+      monthPaid = 0;
+      balanceDue = monthlyTotal;
+      status = isUpcoming ? 'UPCOMING' : 'PENDING';
+    }
+
     const matchedReceipt: any = studentInvoices[idx] || (monthPaid > 0 ? studentInvoices[0] : null);
+    const invoiceNo = matchedReceipt?.invoice_no || `INV-2627-${cleanAdm}-${String(idx + 1).padStart(2, '0')}`;
+    const receiptNo = monthPaid > 0 ? (matchedReceipt?.receipt_no || `REC-2627-${cleanAdm}-${String(idx + 1).padStart(2, '0')}`) : undefined;
+    const paymentDate = monthPaid > 0 ? (matchedReceipt?.payment_date || matchedReceipt?.created_at?.split('T')[0] || m.defaultDate) : undefined;
 
     return {
       id: `cycle-${idx + 1}`,
@@ -106,29 +150,37 @@ function getStudentMonthlyFeeSchedule(student: Student, invoices: FeeInvoice[] =
       monthShort: m.short,
       cycleName: `Cycle ${idx + 1}: ${m.name}`,
       quarter: m.quarter,
-      tuitionFee: Math.max(0, monthlyDemand - 300),
+      tuitionFee: monthlyDemand,
       transportFee: transport,
       annualFee: 300,
       examFee: exam,
       totalBilled: monthlyTotal,
       paidAmount: monthPaid,
       balanceDue,
-      status: balanceDue === 0 ? 'PAID' : (monthPaid > 0 ? 'PARTIAL' : 'PENDING'),
-      invoiceNo: matchedReceipt ? (matchedReceipt.receipt_no || matchedReceipt.invoice_no) : undefined,
-      receiptNo: monthPaid > 0 && matchedReceipt ? matchedReceipt.receipt_no : undefined,
-      paymentDate: monthPaid > 0 && matchedReceipt ? (matchedReceipt.payment_date || matchedReceipt.created_at?.split('T')[0]) : undefined,
+      status,
+      invoiceNo,
+      receiptNo,
+      paymentDate,
+      isUpcoming,
     };
   });
 
   const totalAnnualBilled = months.reduce((s, m) => s + m.totalBilled, 0);
-  const totalPaidToDate = totalPaid;
-  const currentBalanceDue = Math.max(0, totalAnnualBilled - totalPaidToDate);
+  const totalPaidToDate = months.reduce((s, m) => s + m.paidAmount, 0);
+  // Current Balance Due only sums unpaid elapsed/current cycles (idx <= 5)
+  const currentBalanceDue = months
+    .filter(m => m.monthIndex - 1 <= CURRENT_ACADEMIC_MONTH_IDX && m.status !== 'PAID')
+    .reduce((s, m) => s + m.balanceDue, 0);
+  const upcomingDues = months
+    .filter(m => m.status === 'UPCOMING')
+    .reduce((s, m) => s + m.balanceDue, 0);
 
   return {
     months,
     totalAnnualBilled,
     totalPaidToDate,
     currentBalanceDue,
+    upcomingDues,
   };
 }
 
@@ -987,7 +1039,7 @@ export function DashboardStudentPortal({
                 ₹{totalDue.toLocaleString('en-IN')}.00
               </div>
               <div className="mt-2 text-xs pt-2 border-t border-slate-100 text-slate-500">
-                {totalDue > 0 ? 'Outstanding across remaining academic cycles' : '✓ Full Session Dues Cleared'}
+                {totalDue > 0 ? 'Outstanding dues (As of September 2026)' : '✓ All Current Dues Cleared (Up to Sep 2026)'}
               </div>
             </div>
           </div>
@@ -1078,7 +1130,13 @@ export function DashboardStudentPortal({
                       {/* Month & Cycle */}
                       <td className="py-3 px-3.5">
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                            m.status === 'PAID'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              : m.status === 'UPCOMING'
+                              ? 'bg-sky-50 text-sky-800 border border-sky-200'
+                              : 'bg-amber-50 text-amber-800 border border-amber-200'
+                          }`}>
                             {m.quarter}
                           </span>
                           <span className="font-bold text-slate-900 text-sm">
@@ -1144,13 +1202,18 @@ export function DashboardStudentPortal({
 
                       {/* Balance Due */}
                       <td className="py-3 px-3 text-right tabular-nums font-bold text-sm">
-                        {m.balanceDue > 0 ? (
-                          <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
+                        {m.status === 'PAID' ? (
+                          <span className="text-emerald-700 font-semibold text-xs inline-flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Cleared</span>
+                          </span>
+                        ) : m.status === 'UPCOMING' ? (
+                          <span className="text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-xs inline-block font-normal">
                             ₹{m.balanceDue.toLocaleString('en-IN')}
                           </span>
                         ) : (
-                          <span className="text-emerald-700 font-semibold text-xs">
-                            ✓ Cleared
+                          <span className="text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
+                            ₹{m.balanceDue.toLocaleString('en-IN')}
                           </span>
                         )}
                       </td>
@@ -1162,11 +1225,11 @@ export function DashboardStudentPortal({
                             ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                             : m.status === 'PARTIAL'
                             ? 'bg-amber-50 text-amber-900 border border-amber-300'
-                            : m.status === 'PENDING'
+                            : m.status === 'PENDING' || m.status === 'OVERDUE'
                             ? 'bg-rose-50 text-rose-900 border border-rose-300'
-                            : 'bg-slate-100 text-slate-600 border border-slate-200'
+                            : 'bg-sky-50 text-sky-800 border border-sky-200'
                         }`}>
-                          {m.status}
+                          {m.status === 'PAID' ? '✓ PAID' : m.status}
                         </span>
                       </td>
 
@@ -1181,6 +1244,16 @@ export function DashboardStudentPortal({
                           >
                             <Receipt className="w-3.5 h-3.5 text-emerald-700" />
                             <span>View Receipt</span>
+                          </button>
+                        ) : m.status === 'UPCOMING' ? (
+                          <button
+                            type="button"
+                            onClick={() => alert(`Advance Fee Submission for ${m.month} (Cycle ${m.monthIndex}): Total amount ₹${m.totalBilled.toLocaleString('en-IN')}. Please contact accounts desk or use Scan Counter QR.`)}
+                            className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold text-xs inline-flex items-center gap-1.5 ml-auto cursor-pointer transition-colors shadow-2xs"
+                            title={`Advance payment option for ${m.month}`}
+                          >
+                            <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Advance Pay</span>
                           </button>
                         ) : (
                           <button
@@ -1332,7 +1405,7 @@ export function DashboardStudentPortal({
             <div className="grid grid-cols-2 gap-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs">
               <div>
                 <span className="text-slate-500">Receipt No: </span>
-                <strong className="text-slate-900 font-semibold">{activeReceiptModal.invoiceNo || activeReceiptModal.invoice_no || 'DPS-REC-001'}</strong>
+                <strong className="text-slate-900 font-semibold">{activeReceiptModal.receiptNo || activeReceiptModal.invoiceNo || activeReceiptModal.invoice_no || 'DPS-REC-001'}</strong>
               </div>
               <div>
                 <span className="text-slate-500">Fee Cycle / Month: </span>
@@ -1352,7 +1425,7 @@ export function DashboardStudentPortal({
               </div>
               <div>
                 <span className="text-slate-500">Payment Date: </span>
-                <strong className="text-emerald-800 font-semibold">{activeReceiptModal.paidDate || activeReceiptModal.paid_date || '10 Apr 2026'}</strong>
+                <strong className="text-emerald-800 font-semibold">{activeReceiptModal.paymentDate || activeReceiptModal.paidDate || activeReceiptModal.paid_date || '10 Apr 2026'}</strong>
               </div>
             </div>
 
