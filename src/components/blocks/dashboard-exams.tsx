@@ -55,6 +55,7 @@ import { getDefaultCbseSubjectsForClass, sortClassesChronologically, SubjectItem
 import { recordAudit } from '@/lib/client-audit';
 import { apiFetch } from '@/lib/api-client';
 import { getSchoolInitials } from '@/lib/utils';
+import { ReportCardBuilder } from '@/components/blocks/report-card-builder';
 
 export interface DashboardExamsProps {
   students: Student[];
@@ -144,8 +145,8 @@ export function DashboardExams({
 }: DashboardExamsProps) {
   const isTeacher = userRole === 'TEACHER' || currentUser?.role === 'TEACHER';
 
-  // Navigation View Tab: 'planner' | 'ledger' | 'student_dossier' | 'broadsheet'
-  const [activeView, setActiveView] = useState<'planner' | 'ledger' | 'student_dossier' | 'broadsheet'>(
+  // Navigation View Tab: 'planner' | 'ledger' | 'student_dossier' | 'broadsheet' | 'report_card_builder'
+  const [activeView, setActiveView] = useState<'planner' | 'ledger' | 'student_dossier' | 'broadsheet' | 'report_card_builder'>(
     userRole === 'STUDENT' ? 'student_dossier' : 'planner'
   );
 
@@ -1580,7 +1581,7 @@ export function DashboardExams({
         const cnMatch = (ex.class_name || '').toLowerCase().trim() === (currentClass?.class_name || '').toLowerCase().trim();
         const secMatch = (ex.section || 'A').toUpperCase().trim() === (currentClass?.section || 'A').toUpperCase().trim();
         const subMatch = selectedSubjectFocus === 'ALL' || (ex.subject_name || '').toLowerCase().trim() === (displayedSubjects[0]?.name || '').toLowerCase().trim();
-        return cnMatch && secMatch && subMatch && ex.status !== 'MARKS_FILLED';
+        return cnMatch && secMatch && subMatch;
       });
 
       if (matchingExams.length > 0) {
@@ -1591,7 +1592,9 @@ export function DashboardExams({
           return ex;
         });
         setScheduledExamsList(updatedList);
-        localStorage.setItem(`erp_scheduled_exams_${selectedSession}`, JSON.stringify(updatedList));
+        try {
+          localStorage.setItem(`erp_scheduled_exams_${selectedSession}`, JSON.stringify(updatedList));
+        } catch (_) {}
 
         // Sync PATCH to server in background
         matchingExams.forEach(async (m) => {
@@ -1605,7 +1608,49 @@ export function DashboardExams({
         });
       }
 
-      showToast(`Marks ledger successfully saved & locked by ${activeTeacher.full_name} (${isClassTeacherOfCurrentClass ? 'Class Teacher' : 'Subject Teacher'})!`);
+      // Persist marks to MongoDB API
+      const marksPayload: any[] = [];
+      const schoolId = selectedSchool?.id || selectedSchool?.school_code || 'DPS2026';
+      classStudents.forEach(stu => {
+        const stuRec = marksLedger[stu.id];
+        if (stuRec && stuRec.marks) {
+          displayedSubjects.forEach(sub => {
+            const sm = stuRec.marks[sub.id];
+            if (sm) {
+              marksPayload.push({
+                school_id: schoolId,
+                academic_session: selectedSession,
+                exam_id: matchingExams[0]?.id || `exam-${selectedTermId}`,
+                class_name: currentClass?.class_name || 'Class',
+                section: currentClass?.section || 'A',
+                student_id: stu.id,
+                student_name: stu.full_name,
+                roll_no: stu.roll_no,
+                subject_name: sub.name,
+                subject_code: sub.code,
+                theory_marks: sm.theory || 0,
+                practical_marks: sm.practical || 0,
+                total_marks: sm.total || 0,
+                max_marks: currentTerm.maxTotal || 100,
+                grade: sm.grade || 'E2',
+                gp: sm.gp || 0,
+                attendance_status: sm.theoryStatus === 'ABSENT' || sm.practicalStatus === 'ABSENT' ? 'ABSENT' : 'PRESENT',
+                remarks: sm.theoryRemarks || sm.practicalRemarks || stuRec.remarks || ''
+              });
+            }
+          });
+        }
+      });
+
+      if (marksPayload.length > 0) {
+        apiFetch('/api/exams/marks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ marks: marksPayload })
+        }).catch(err => console.warn('[MarksSync] Note:', err));
+      }
+
+      showToast(`Marks ledger successfully saved & locked to MongoDB by ${activeTeacher.full_name} (${isClassTeacherOfCurrentClass ? 'Class Teacher' : 'Subject Teacher'})!`);
 
       recordAudit({
         action: 'MARKS_SUBMITTED',
@@ -2108,14 +2153,24 @@ export function DashboardExams({
               CBSE Affil: {selectedSchool?.affiliation_no || '2130042'}
             </span>
             {userRole !== 'STUDENT' && (
-              <button
-                type="button"
-                onClick={() => setActiveView('broadsheet')}
-                className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 border-none cursor-pointer shadow-xs transition-all"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Annual Broadsheet</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveView('report_card_builder')}
+                  className="px-4 py-2 bg-[#0B7E58] hover:bg-[#086345] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 border-none cursor-pointer shadow-xs transition-all"
+                >
+                  <Award className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>Report Card Builder</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveView('broadsheet')}
+                  className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-full text-xs font-semibold flex items-center gap-1.5 border-none cursor-pointer shadow-xs transition-all"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Annual Broadsheet</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -2187,7 +2242,7 @@ export function DashboardExams({
         </div>
 
         {/* Navigation Tabs: Adaptive for Student vs Staff */}
-        <div className={`grid ${userRole === 'STUDENT' ? 'grid-cols-2 max-w-md' : 'grid-cols-2 lg:grid-cols-4 max-w-4xl'} gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10`}>
+        <div className={`grid ${userRole === 'STUDENT' ? 'grid-cols-2 max-w-md' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 max-w-5xl'} gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10`}>
           <button
             type="button"
             onClick={() => setActiveView('student_dossier')}
@@ -2198,7 +2253,7 @@ export function DashboardExams({
             }`}
           >
             <GraduationCap className="h-4 w-4 shrink-0" />
-            <span>{userRole === 'STUDENT' ? 'My Term Report Card' : 'Student Report Cards'}</span>
+            <span>{userRole === 'STUDENT' ? 'My Term Report Card' : 'Student Cards'}</span>
           </button>
 
           <button
@@ -2211,7 +2266,7 @@ export function DashboardExams({
             }`}
           >
             <Calendar className="h-4 w-4 shrink-0" />
-            <span>{userRole === 'STUDENT' ? 'Exam Datesheet' : 'Exam Planner & Tests'}</span>
+            <span>{userRole === 'STUDENT' ? 'Exam Datesheet' : 'Exam Planner'}</span>
           </button>
 
           {userRole !== 'STUDENT' && (
@@ -2226,7 +2281,20 @@ export function DashboardExams({
                 }`}
               >
                 <BookOpen className="h-4 w-4 shrink-0" />
-                <span>Class Marks Ledger</span>
+                <span>Marks Ledger</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveView('report_card_builder')}
+                className={`py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+                  activeView === 'report_card_builder'
+                    ? 'bg-[#122A24] text-white shadow-xs font-bold'
+                    : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-medium'
+                }`}
+              >
+                <Award className="h-4 w-4 shrink-0 text-emerald-600" />
+                <span>Report Card Builder</span>
               </button>
 
               <button
@@ -2239,7 +2307,7 @@ export function DashboardExams({
                 }`}
               >
                 <FileSpreadsheet className="h-4 w-4 shrink-0" />
-                <span>Annual Broadsheet</span>
+                <span>Broadsheet</span>
               </button>
             </>
           )}
@@ -4956,6 +5024,24 @@ export function DashboardExams({
           </div>
         </div>
       )}
+
+      {/* ═════════════════════════════════════════════════════════════════
+          VIEW 5: REPORT CARD BUILDER STUDIO (CONSOLIDATED TEMPLATES)
+          ═════════════════════════════════════════════════════════════════ */}
+      {activeView === 'report_card_builder' && (
+        <ReportCardBuilder
+          students={students}
+          classes={sortedClassesList}
+          teachers={allTeachersList}
+          selectedSchool={selectedSchool}
+          schoolName={schoolName}
+          selectedSession={selectedSession}
+          userRole={userRole}
+          currentUser={currentUser}
+          onNavigateToExams={() => setActiveView('planner')}
+        />
+      )}
+
 
       {/* ─────────────────────────────────────────────────────────────
           WHOLE-SCHOOL MASTER SCHEDULER STUDIO MODAL

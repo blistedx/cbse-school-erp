@@ -215,6 +215,64 @@ export const updateScheduledExamSchema = z.object({
   status: z.string().max(30).optional()
 }).strip();
 
+export const reportCardTemplateExamSchema = z.object({
+  exam_id: z.string().min(1, 'exam_id is required').max(100),
+  exam_title: z.string().min(1, 'exam_title is required').max(200),
+  exam_type: z.string().max(50).optional().default('SCHOOL_EXAM'),
+  max_marks: z.number().min(1).max(1000),
+  weightage_percent: z.number().min(0).max(100),
+  subject_name: z.string().max(100).optional()
+}).strip();
+
+export const createReportCardTemplateSchema = z.object({
+  id: z.string().max(80).optional(),
+  school_id: z.string().max(50).optional(),
+  academic_session: z.string().max(20).optional(),
+  class_name: z.string().min(1, 'class_name is required').max(50),
+  section: z.string().max(10).optional().default('A'),
+  template_name: z.string().min(1, 'template_name is required').max(150),
+  description: z.string().max(500).optional(),
+  selected_exams: z.array(reportCardTemplateExamSchema).min(1, 'At least one exam must be selected'),
+  is_locked: z.boolean().optional().default(false)
+}).strip();
+
+export const updateReportCardTemplateSchema = z.object({
+  id: z.string().min(1, 'Template ID is required').max(80),
+  template_name: z.string().max(150).optional(),
+  description: z.string().max(500).optional(),
+  class_name: z.string().max(50).optional(),
+  section: z.string().max(10).optional(),
+  selected_exams: z.array(reportCardTemplateExamSchema).optional(),
+  is_locked: z.boolean().optional()
+}).strip();
+
+export const examMarkItemSchema = z.object({
+  id: z.string().max(80).optional(),
+  school_id: z.string().max(50).optional(),
+  academic_session: z.string().max(20).optional(),
+  exam_id: z.string().min(1, 'exam_id is required').max(100),
+  class_name: z.string().min(1, 'class_name is required').max(50),
+  section: z.string().max(10).optional().default('A'),
+  student_id: z.string().min(1, 'student_id is required').max(80),
+  student_name: z.string().min(1, 'student_name is required').max(150),
+  roll_no: z.union([z.string(), z.number()]).optional(),
+  subject_name: z.string().min(1, 'subject_name is required').max(100),
+  subject_code: z.string().max(50).optional(),
+  theory_marks: z.number().min(0).max(1000).optional().default(0),
+  practical_marks: z.number().min(0).max(1000).optional().default(0),
+  total_marks: z.number().min(0).max(1000),
+  max_marks: z.number().min(1).max(1000),
+  grade: z.string().max(10).optional().default('E2'),
+  gp: z.number().min(0).max(10).optional().default(0),
+  attendance_status: z.enum(['PRESENT', 'ABSENT', 'MEDICAL', 'EXEMPT']).optional().default('PRESENT'),
+  remarks: z.string().max(500).optional()
+}).strip();
+
+export const batchSaveExamMarksSchema = z.object({
+  marks: z.array(examMarkItemSchema).min(1, 'At least one mark record is required')
+}).strip();
+
+
 // 8. PUBLIC DEMO REQUEST
 export const demoRequestSchema = z.object({
   schoolName: z.string().min(1, 'School name is required').max(150),

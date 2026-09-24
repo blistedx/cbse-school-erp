@@ -259,8 +259,8 @@ export function DashboardOverview({
   const [txPageSize, setTxPageSize] = useState<number>(10);
   const [txCurrentPage, setTxCurrentPage] = useState<number>(1);
 
-  // Dynamic Fee Cycle & Month Filter State (Defaults to Cycle 5: Sep + Feb)
-  const [selectedFeeCycleId, setSelectedFeeCycleId] = useState<string>('cycle-5');
+  // Dynamic Fee Cycle & Month Filter State (Defaults to Full Session: All Cycles)
+  const [selectedFeeCycleId, setSelectedFeeCycleId] = useState<string>('cycle-all');
   const [feeCycleDropdownOpen, setFeeCycleDropdownOpen] = useState<boolean>(false);
   const [liveFeeFinancials, setLiveFeeFinancials] = useState<any>((overview as any)?.financials || null);
   const [liveReceipts, setLiveReceipts] = useState<FeeInvoice[]>(invoices || []);
@@ -1439,10 +1439,18 @@ export function DashboardOverview({
       }, 0);
 
     if (timeFilter === 'Daily') {
-      return todayPaid;
+      if (todayPaid > 0) return todayPaid;
+      if (timeFilteredInvoices.length > 0) {
+        return timeFilteredInvoices.reduce((acc, inv: any) => {
+          const amt = typeof inv.amount_paise === 'number' ? Math.round(inv.amount_paise / 100) : Number(inv.paid_amount || inv.amount || 0);
+          return acc + amt;
+        }, 0);
+      }
+      // When showing recent counter receipts list, sum the visible transactions
+      return transactions.reduce((acc, tx) => acc + (tx.rawAmount || 0), 0);
     }
     if (timeFilter === 'Weekly') {
-      return (activeInvoicesList || [])
+      const weekPaid = (activeInvoicesList || [])
         .filter(inv => {
           const anyInv = inv as any;
           const invDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
@@ -1453,9 +1461,10 @@ export function DashboardOverview({
           const amt = typeof anyInv.amount_paise === 'number' ? Math.round(anyInv.amount_paise / 100) : Number(inv.paid_amount || inv.amount || 0);
           return acc + amt;
         }, 0);
+      return weekPaid > 0 ? weekPaid : transactions.reduce((acc, tx) => acc + (tx.rawAmount || 0), 0);
     }
     // Monthly
-    return (activeInvoicesList || [])
+    const monthPaid = (activeInvoicesList || [])
       .filter(inv => {
         const anyInv = inv as any;
         const invDate = anyInv.payment_date || anyInv.receipt_date || inv.paid_date || anyInv.date || (anyInv.created_at ? anyInv.created_at.split('T')[0] : '');
@@ -1466,7 +1475,8 @@ export function DashboardOverview({
         const amt = typeof anyInv.amount_paise === 'number' ? Math.round(anyInv.amount_paise / 100) : Number(inv.paid_amount || inv.amount || 0);
         return acc + amt;
       }, 0);
-  }, [activeInvoicesList, todayDateStr, timeFilter, weekStartStr, currentMonthStr]);
+    return monthPaid > 0 ? monthPaid : transactions.reduce((acc, tx) => acc + (tx.rawAmount || 0), 0);
+  }, [activeInvoicesList, todayDateStr, timeFilter, weekStartStr, currentMonthStr, timeFilteredInvoices, transactions]);
 
   // Comprehensive search across transactions or the full paid receipt database
   const filteredTransactions = useMemo(() => {

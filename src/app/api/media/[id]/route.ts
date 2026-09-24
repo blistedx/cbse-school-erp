@@ -153,7 +153,34 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       });
     }
 
-    return NextResponse.json({ error: 'Media not found' }, { status: 404 });
+    // 5. BULLETPROOF EMBEDDED SVG FALLBACK (Never return broken image 404s for school/student/teacher icons)
+    const fallbackSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+      <defs>
+        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#122A24"/>
+          <stop offset="100%" stop-color="#1C443A"/>
+        </linearGradient>
+      </defs>
+      <circle cx="100" cy="100" r="95" fill="url(#g)" stroke="#D4AF37" stroke-width="6"/>
+      <circle cx="100" cy="100" r="80" fill="none" stroke="#D4AF37" stroke-width="2" stroke-dasharray="4,4"/>
+      <path d="M100 35 L120 75 L165 75 L130 100 L145 145 L100 120 L55 145 L70 100 L35 75 L80 75 Z" fill="#D4AF37" opacity="0.25"/>
+      <text x="100" y="90" font-size="32" font-family="Georgia, serif" font-weight="bold" fill="#D4AF37" text-anchor="middle">DPS</text>
+      <text x="100" y="112" font-size="11" font-family="system-ui, sans-serif" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="1.5">SERVICE BEFORE SELF</text>
+      <text x="100" y="132" font-size="10" font-family="system-ui, sans-serif" font-weight="600" fill="#a7f3d0" text-anchor="middle">DELHI PUBLIC SCHOOL</text>
+      <circle cx="100" cy="155" r="4" fill="#D4AF37"/>
+    </svg>`;
+    const fallbackBuffer = Buffer.from(fallbackSvg, 'utf-8');
+    const uint8Array = new Uint8Array(fallbackBuffer);
+    return new Response(uint8Array, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/svg+xml',
+        'Content-Length': String(uint8Array.byteLength),
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'X-Powered-By': 'Local-Media-Vault-Fallback',
+        'X-Content-Type-Options': 'nosniff'
+      }
+    });
   } catch (error: any) {
     console.error('[API_MEDIA_GET_ERROR]', error);
     return NextResponse.json({ error: 'Failed to retrieve media file' }, { status: 500 });

@@ -868,6 +868,55 @@ export interface ScheduledExamItem {
   created_at?: string;
 }
 
+export interface ReportCardTemplateExam {
+  exam_id: string;
+  exam_title: string;
+  exam_type: 'SCHOOL_EXAM' | 'CLASS_TEST' | string;
+  max_marks: number;
+  weightage_percent: number;
+  subject_name?: string;
+}
+
+export interface ReportCardTemplate {
+  id: string;
+  school_id: string;
+  academic_session: string;
+  class_name: string;
+  section?: string;
+  template_name: string;
+  description?: string;
+  selected_exams: ReportCardTemplateExam[];
+  is_locked: boolean;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ExamMarkRecord {
+  id: string;
+  school_id: string;
+  academic_session: string;
+  exam_id: string;
+  class_name: string;
+  section: string;
+  student_id: string;
+  student_name: string;
+  roll_no?: string | number;
+  subject_name: string;
+  subject_code?: string;
+  theory_marks: number;
+  practical_marks: number;
+  total_marks: number;
+  max_marks: number;
+  grade: string;
+  gp: number;
+  attendance_status?: 'PRESENT' | 'ABSENT' | 'MEDICAL' | 'EXEMPT';
+  remarks?: string;
+  graded_by?: string;
+  updated_at?: string;
+}
+
+
 export interface BookItem {
   id: string;
   isbn: string;

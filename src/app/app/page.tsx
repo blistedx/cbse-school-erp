@@ -121,105 +121,107 @@ const ModuleThinkingFallback = () => (
 );
 
 const DashboardOverview = dynamic(
-  () => import('@/components/blocks/dashboard-overview').then((m) => m.DashboardOverview),
+  () => import('@/components/blocks/dashboard-overview').then((m) => ({ default: m.DashboardOverview || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardSubjects = dynamic(
-  () => import('@/components/blocks/dashboard-subjects').then((m) => m.DashboardSubjects),
+  () => import('@/components/blocks/dashboard-subjects').then((m) => ({ default: m.DashboardSubjects || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardAttendance = dynamic(
-  () => import('@/components/blocks/dashboard-attendance').then((m) => m.DashboardAttendance),
+  () => import('@/components/blocks/dashboard-attendance').then((m) => ({ default: m.DashboardAttendance || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardTransport = dynamic(
-  () => import('@/components/blocks/dashboard-transport').then((m) => m.DashboardTransport),
+  () => import('@/components/blocks/dashboard-transport').then((m) => ({ default: m.DashboardTransport || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardExams = dynamic(
-  () => import('@/components/blocks/dashboard-exams').then((m) => m.DashboardExams),
+  () => import('@/components/blocks/dashboard-exams').then((m) => ({ default: m.DashboardExams || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardHomework = dynamic(
-  () => import('@/components/blocks/dashboard-homework').then((m) => m.DashboardHomework),
+  () => import('@/components/blocks/dashboard-homework').then((m) => ({ default: m.DashboardHomework || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardApprovals = dynamic(
-  () => import('@/components/blocks/dashboard-approvals').then((m) => m.DashboardApprovals),
+  () => import('@/components/blocks/dashboard-approvals').then((m) => ({ default: m.DashboardApprovals || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardBroadcast = dynamic(
-  () => import('@/components/blocks/dashboard-broadcast').then((m) => m.DashboardBroadcast),
+  () => import('@/components/blocks/dashboard-broadcast').then((m) => ({ default: m.DashboardBroadcast || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardCertificates = dynamic(
-  () => import('@/components/blocks/dashboard-certificates').then((m) => m.DashboardCertificates),
+  () => import('@/components/blocks/dashboard-certificates').then((m) => ({ default: m.DashboardCertificates || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardFeeMaster = dynamic(
   () => import('@/components/blocks/dashboard-fee-master')
-    .then((m) => m.DashboardFeeMaster || m.default)
+    .then((m) => ({ default: m.DashboardFeeMaster || m.default }))
     .catch((err) => {
       console.error('[DashboardFeeMaster dynamic load error]', err);
-      return () => (
-        <div className="p-8 text-center bg-white rounded-3xl border border-rose-200 shadow-sm max-w-lg mx-auto my-12 space-y-4">
-          <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto text-xl font-bold">⚠️</div>
-          <h3 className="font-bold text-[#122A24]">Fee Master Module Ready</h3>
-          <p className="text-xs text-slate-500">The module chunk was updated. Please click below to refresh the workspace.</p>
-          <button onClick={() => window.location.reload()} className="px-5 py-2 bg-[#122A24] text-white rounded-xl text-xs font-bold hover:bg-[#1C443A] cursor-pointer">
-            Refresh Workspace
-          </button>
-        </div>
-      );
+      return {
+        default: () => (
+          <div className="p-8 text-center bg-white rounded-3xl border border-rose-200 shadow-sm max-w-lg mx-auto my-12 space-y-4">
+            <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto text-xl font-bold">⚠️</div>
+            <h3 className="font-bold text-[#122A24]">Fee Master Module Ready</h3>
+            <p className="text-xs text-slate-500">The module chunk was updated. Please click below to refresh the workspace.</p>
+            <button onClick={() => window.location.reload()} className="px-5 py-2 bg-[#122A24] text-white rounded-xl text-xs font-bold hover:bg-[#1C443A] cursor-pointer">
+              Refresh Workspace
+            </button>
+          </div>
+        )
+      };
     }),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardReports = dynamic(
-  () => import('@/components/blocks/dashboard-reports').then((m) => m.DashboardReports),
+  () => import('@/components/blocks/dashboard-reports').then((m) => ({ default: m.DashboardReports || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardAuditLogs = dynamic(
-  () => import('@/components/blocks/dashboard-audit-logs').then((m) => m.DashboardAuditLogs),
+  () => import('@/components/blocks/dashboard-audit-logs').then((m) => ({ default: m.DashboardAuditLogs || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardDataHub = dynamic(
-  () => import('@/components/blocks/dashboard-data-hub').then((m) => m.DashboardDataHub),
+  () => import('@/components/blocks/dashboard-data-hub').then((m) => ({ default: m.DashboardDataHub || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardSiblings = dynamic(
-  () => import('@/components/blocks/dashboard-siblings').then((m) => m.DashboardSiblings),
+  () => import('@/components/blocks/dashboard-siblings').then((m) => ({ default: m.DashboardSiblings || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardStudentPortal = dynamic(
-  () => import('@/components/blocks/dashboard-student-portal').then((m) => m.DashboardStudentPortal),
+  () => import('@/components/blocks/dashboard-student-portal').then((m) => ({ default: m.DashboardStudentPortal || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const OmniSearchModal = dynamic(
-  () => import('@/components/omni-search-modal').then((m) => m.OmniSearchModal),
+  () => import('@/components/omni-search-modal').then((m) => ({ default: m.OmniSearchModal || m.default })),
   { ssr: false }
 );
 const StudentSummaryModal = dynamic(
-  () => import('@/components/student-summary-modal').then((m) => m.StudentSummaryModal),
+  () => import('@/components/student-summary-modal').then((m) => ({ default: m.StudentSummaryModal || m.default })),
   { ssr: false }
 );
 const DualCopyFeeReceiptModal = dynamic(
-  () => import('@/components/dual-copy-fee-receipt-modal').then((m) => m.DualCopyFeeReceiptModal),
+  () => import('@/components/dual-copy-fee-receipt-modal').then((m) => ({ default: m.DualCopyFeeReceiptModal || m.default })),
   { ssr: false }
 );
 const DashboardPermissions = dynamic(
-  () => import('@/components/blocks/dashboard-permissions').then((m) => m.DashboardPermissions),
+  () => import('@/components/blocks/dashboard-permissions').then((m) => ({ default: m.DashboardPermissions || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardLibrary = dynamic(
-  () => import('@/components/blocks/dashboard-library').then((m) => m.DashboardLibrary),
+  () => import('@/components/blocks/dashboard-library').then((m) => ({ default: m.DashboardLibrary || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardVisitorGate = dynamic(
-  () => import('@/components/blocks/dashboard-visitor-gate').then((m) => m.DashboardVisitorGate),
+  () => import('@/components/blocks/dashboard-visitor-gate').then((m) => ({ default: m.DashboardVisitorGate || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 const DashboardHostel = dynamic(
-  () => import('@/components/blocks/dashboard-hostel').then((m) => m.DashboardHostel),
+  () => import('@/components/blocks/dashboard-hostel').then((m) => ({ default: m.DashboardHostel || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 import { sendTestNotification, getNotificationPermissionStatus } from '@/lib/push-notifications';
@@ -4775,6 +4777,9 @@ function ERPWorkspaceContent() {
                   src={selectedSchool.logo || selectedSchool.logo_url}
                   alt="School Logo"
                   className="w-full h-full object-contain rounded"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = '/giterp-logo.png';
+                  }}
                 />
               </div>
             )}
@@ -4797,6 +4802,9 @@ function ERPWorkspaceContent() {
                   src={selectedSchool.logo || selectedSchool.logo_url}
                   alt="School Logo"
                   className="w-full h-full object-contain rounded-xs"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = '/giterp-logo.png';
+                  }}
                 />
               </div>
             )}
@@ -5121,6 +5129,9 @@ function ERPWorkspaceContent() {
                       src={selectedSchool.logo || selectedSchool.logo_url}
                       alt={selectedSchool.school_name || 'School Logo'}
                       className="w-full h-full object-contain rounded-lg"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = '/giterp-logo.png';
+                      }}
                     />
                   ) : (
                     <div className="grid grid-cols-2 gap-1 w-3.5 h-3.5">
@@ -5502,6 +5513,9 @@ function ERPWorkspaceContent() {
                   src={selectedSchool.logo || selectedSchool.logo_url}
                   alt={selectedSchool.school_name || 'School Logo'}
                   className="w-full h-full object-contain rounded-lg"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = '/giterp-logo.png';
+                  }}
                 />
               ) : (
                 <div className="grid grid-cols-2 gap-1 w-4 h-4">

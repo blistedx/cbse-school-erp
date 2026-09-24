@@ -19,6 +19,8 @@ import {
   Holiday,
   SchoolOverview,
   ScheduledExamItem,
+  ReportCardTemplate,
+  ExamMarkRecord,
   resolveTeacherRole
 } from './types';
 import { getDefaultCbseSubjectsForClass, sortClassesChronologically } from './cbse-subjects';
@@ -84,6 +86,8 @@ interface MemoryStore {
   fee_invoices: FeeInvoice[];
   holidays: Holiday[];
   exams: ScheduledExamItem[];
+  report_card_templates: ReportCardTemplate[];
+  exam_marks: ExamMarkRecord[];
   agency_settings?: {
     admin_password?: string;
     recent_passcodes?: string[];
@@ -104,7 +108,9 @@ const memoryStore: MemoryStore = {
   attendance: [],
   fee_invoices: [],
   holidays: [],
-  exams: []
+  exams: [],
+  report_card_templates: [],
+  exam_marks: []
 };
 
 // High-speed in-memory TTL caching engine with SingleFlight promise coalescing
@@ -258,6 +264,18 @@ function loadLocalStore() {
           academic_session: e.academic_session || '2026-27'
         }));
       }
+      if (Array.isArray(data.report_card_templates)) {
+        memoryStore.report_card_templates = data.report_card_templates.map((t: any) => ({
+          ...t,
+          academic_session: t.academic_session || '2026-27'
+        }));
+      }
+      if (Array.isArray(data.exam_marks)) {
+        memoryStore.exam_marks = data.exam_marks.map((m: any) => ({
+          ...m,
+          academic_session: m.academic_session || '2026-27'
+        }));
+      }
       if (data.agency_settings) {
         memoryStore.agency_settings = data.agency_settings;
       }
@@ -308,6 +326,8 @@ async function ensureIndexes() {
       db.collection('school_aggregates').createIndex({ school_id: 1, session: 1 }, { unique: true }),
       db.collection('holidays').createIndex({ school_id: 1, academic_session: 1, start_date: 1, end_date: 1 }),
       db.collection('exams').createIndex({ school_id: 1, academic_session: 1, date: -1 }),
+      db.collection('report_card_templates').createIndex({ school_id: 1, academic_session: 1, class_name: 1 }),
+      db.collection('exam_marks').createIndex({ school_id: 1, academic_session: 1, class_name: 1, exam_id: 1, student_id: 1 }),
       db.collection('media_metadata').createIndex({ id: 1 }),
       // Time-To-Live (TTL) Automatic Rolling Expiry Indexes:
       db.collection('transport_telemetry').createIndex({ created_at: 1 }, { expireAfterSeconds: 2592000, sparse: true }), // 30-day auto-purge
@@ -3147,6 +3167,218 @@ export const Database = {
     }
     return true;
   },
+
+  // ==========================================
+  // REPORT CARD BUILDER & TEMPLATE ENGINE
+  // ==========================================
+  async getReportCardTemplates(schoolId?: string, session?: string, className?: string): Promise<ReportCardTemplate[]> {
+    await ensureIndexes();
+    try {
+      const db = await getDatabase();
+      if (db) {
+        const query: any = {};
+        if (schoolId) query.school_id = schoolId;
+        if (session) query.academic_session = session;
+        if (className) query.class_name = className;
+        const docs = await db.collection('report_card_templates').find(query).sort({ updated_at: -1, created_at: -1 }).toArray();
+        if (docs && docs.length > 0) {
+          return docs.map((d: any) => {
+            const { _id, ...rest } = d;
+            return {
+              ...rest,
+              id: rest.id || _id?.toString()
+            } as ReportCardTemplate;
+          });
+        }
+      }
+    } catch (e) {}
+
+    let res = [...(memoryStore.report_card_templates || [])];
+    if (schoolId) res = res.filter(t => !t.school_id || t.school_id === schoolId);
+    if (session) res = res.filter(t => !t.academic_session || t.academic_session === session);
+    if (className) res = res.filter(t => t.class_name.toLowerCase() === className.toLowerCase());
+    return res;
+  },
+
+  async getReportCardTemplateById(id: string): Promise<ReportCardTemplate | null> {
+    await ensureIndexes();
+    try {
+      const db = await getDatabase();
+      if (db) {
+        let objectId: any = null;
+        try {
+          const { ObjectId } = require('mongodb');
+          if (ObjectId.isValid(id)) objectId = new ObjectId(id);
+        } catch (_) {}
+
+        const filter = objectId ? { $or: [{ id }, { _id: objectId }] } : { id };
+        const doc = await db.collection('report_card_templates').findOne(filter);
+        if (doc) {
+          const { _id, ...rest } = doc;
+          return { ...rest, id: rest.id || _id?.toString() } as ReportCardTemplate;
+        }
+      }
+    } catch (e) {}
+
+    const found = (memoryStore.report_card_templates || []).find(t => t.id === id);
+    return found || null;
+  },
+
+  async saveReportCardTemplate(template: Partial<ReportCardTemplate> & { id?: string; school_id: string; template_name: string; class_name: string }): Promise<ReportCardTemplate> {
+    await ensureIndexes();
+    const id = template.id || `rct-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    const now = new Date().toISOString();
+
+    const fullTemplate: ReportCardTemplate = {
+      id,
+      school_id: template.school_id || 'DPS2026',
+      academic_session: template.academic_session || '2026-27',
+      class_name: template.class_name,
+      section: template.section || 'A',
+      template_name: template.template_name,
+      description: template.description || '',
+      selected_exams: Array.isArray(template.selected_exams) ? template.selected_exams : [],
+      is_locked: template.is_locked ?? false,
+      created_by: template.created_by || 'ADMIN',
+      created_at: template.created_at || now,
+      updated_at: now
+    };
+
+    try {
+      const db = await getDatabase();
+      if (db) {
+        await db.collection('report_card_templates').updateOne(
+          { id },
+          { $set: fullTemplate },
+          { upsert: true }
+        );
+      }
+    } catch (e) {}
+
+    if (!memoryStore.report_card_templates) memoryStore.report_card_templates = [];
+    const idx = memoryStore.report_card_templates.findIndex(t => t.id === id);
+    if (idx >= 0) {
+      memoryStore.report_card_templates[idx] = fullTemplate;
+    } else {
+      memoryStore.report_card_templates.unshift(fullTemplate);
+    }
+    saveLocalStore();
+    return fullTemplate;
+  },
+
+  async deleteReportCardTemplate(id: string): Promise<boolean> {
+    await ensureIndexes();
+    try {
+      const db = await getDatabase();
+      if (db) {
+        let objectId: any = null;
+        try {
+          const { ObjectId } = require('mongodb');
+          if (ObjectId.isValid(id)) objectId = new ObjectId(id);
+        } catch (_) {}
+
+        const filter = objectId ? { $or: [{ id }, { _id: objectId }] } : { id };
+        await db.collection('report_card_templates').deleteOne(filter);
+      }
+    } catch (e) {}
+
+    if (!memoryStore.report_card_templates) memoryStore.report_card_templates = [];
+    const idx = memoryStore.report_card_templates.findIndex(t => t.id === id);
+    if (idx >= 0) {
+      memoryStore.report_card_templates.splice(idx, 1);
+      saveLocalStore();
+      return true;
+    }
+    return true;
+  },
+
+  // ==========================================
+  // UNIFIED EXAM MARKS ENGINE
+  // ==========================================
+  async getExamMarks(schoolId?: string, session?: string, examId?: string, className?: string, studentId?: string): Promise<ExamMarkRecord[]> {
+    await ensureIndexes();
+    try {
+      const db = await getDatabase();
+      if (db) {
+        const query: any = {};
+        if (schoolId) query.school_id = schoolId;
+        if (session) query.academic_session = session;
+        if (examId) query.exam_id = examId;
+        if (className) query.class_name = className;
+        if (studentId) query.student_id = studentId;
+
+        const docs = await db.collection('exam_marks').find(query).toArray();
+        if (docs && docs.length > 0) {
+          return docs.map((d: any) => {
+            const { _id, ...rest } = d;
+            return {
+              ...rest,
+              id: rest.id || _id?.toString()
+            } as ExamMarkRecord;
+          });
+        }
+      }
+    } catch (e) {}
+
+    let res = [...(memoryStore.exam_marks || [])];
+    if (schoolId) res = res.filter(m => !m.school_id || m.school_id === schoolId);
+    if (session) res = res.filter(m => !m.academic_session || m.academic_session === session);
+    if (examId) res = res.filter(m => m.exam_id === examId);
+    if (className) res = res.filter(m => m.class_name.toLowerCase() === className.toLowerCase());
+    if (studentId) res = res.filter(m => m.student_id === studentId);
+    return res;
+  },
+
+  async saveExamMarks(marks: ExamMarkRecord[]): Promise<ExamMarkRecord[]> {
+    await ensureIndexes();
+    if (!marks || !marks.length) return [];
+
+    const now = new Date().toISOString();
+    const normalizedMarks: ExamMarkRecord[] = marks.map(m => ({
+      ...m,
+      id: m.id || `emk-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      updated_at: now
+    }));
+
+    try {
+      const db = await getDatabase();
+      if (db) {
+        const bulkOps = normalizedMarks.map(m => ({
+          updateOne: {
+            filter: {
+              school_id: m.school_id,
+              academic_session: m.academic_session,
+              exam_id: m.exam_id,
+              student_id: m.student_id,
+              subject_name: m.subject_name
+            },
+            update: { $set: m },
+            upsert: true
+          }
+        }));
+        await db.collection('exam_marks').bulkWrite(bulkOps);
+      }
+    } catch (e) {}
+
+    if (!memoryStore.exam_marks) memoryStore.exam_marks = [];
+    normalizedMarks.forEach(m => {
+      const idx = memoryStore.exam_marks.findIndex(ex =>
+        ex.school_id === m.school_id &&
+        ex.academic_session === m.academic_session &&
+        ex.exam_id === m.exam_id &&
+        ex.student_id === m.student_id &&
+        ex.subject_name === m.subject_name
+      );
+      if (idx >= 0) {
+        memoryStore.exam_marks[idx] = m;
+      } else {
+        memoryStore.exam_marks.push(m);
+      }
+    });
+    saveLocalStore();
+    return normalizedMarks;
+  },
+
 
   async getDatabaseStats() {
     const schools = await this.getSchools();

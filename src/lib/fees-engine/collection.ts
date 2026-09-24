@@ -1,5 +1,5 @@
-/*! EduSuite Fee Master — POS Collection & Receipts Engine v3.0.0 */
-
+import fs from 'fs';
+import path from 'path';
 import { Student } from '../types';
 import { getDatabase, sanitizeDocNoBinary } from '../mongodb';
 import {
@@ -506,8 +506,28 @@ export async function getSchoolReceipts(
       return combined.slice(0, limit);
     }
   } catch (e) {
-    console.error('[fees-engine/collection] Error fetching school receipts:', e);
+    console.error('[fees-engine/collection] Error fetching school receipts from DB:', e);
   }
+
+  // Fallback to local store file (Offline & Localhost Standalone mode)
+  try {
+    const localStorePath = path.join(process.cwd(), 'data', 'erp_store.json');
+    if (fs.existsSync(localStorePath)) {
+      const raw = fs.readFileSync(localStorePath, 'utf8');
+      const data = JSON.parse(raw);
+      const receipts: ReceiptRecord[] = (data.fee_receipts || []).filter((r: any) =>
+        (!r.school_id || r.school_id === schoolId || schoolId.includes(r.school_id)) &&
+        (!session || r.academic_session === session || !r.academic_session)
+      );
+      receipts.sort((a: any, b: any) => {
+        const tA = new Date(a.created_at || a.payment_date || 0).getTime();
+        const tB = new Date(b.created_at || b.payment_date || 0).getTime();
+        return tB - tA;
+      });
+      return receipts.slice(0, limit);
+    }
+  } catch (_) {}
+
   return [];
 }
 
