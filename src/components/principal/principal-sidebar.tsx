@@ -87,7 +87,7 @@ export function PrincipalSidebar({
       <div className="p-6 border-b border-[#1C443A]/80">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-linear-to-br from-[#10B981] to-[#059669] flex items-center justify-center text-white font-bold shadow-md shadow-emerald-900/40">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center text-white font-bold shadow-md shadow-emerald-900/40">
               <School className="w-5 h-5 text-white" />
             </div>
             <div>

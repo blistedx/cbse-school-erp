@@ -107,26 +107,26 @@ export default function PrincipalOverviewPage() {
       {/* ─────────────────────────────────────────────────────────────
           1. EXECUTIVE GREETING & INSTITUTIONAL HEALTH BANNER
           ───────────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl bg-linear-to-r from-[#122A24] via-[#16382F] to-[#122A24] text-white p-6 sm:p-8 border border-[#1C443A] shadow-lg shadow-emerald-950/20">
+      <div className="relative overflow-hidden rounded-3xl bg-[#122A24] bg-gradient-to-r from-[#122A24] via-[#16382F] to-[#122A24] text-white p-6 sm:p-8 border border-[#1C443A] shadow-xl shadow-emerald-950/30">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="flex items-center gap-2 text-emerald-400 font-mono text-xs uppercase tracking-wider">
+            <div className="flex items-center gap-2 text-emerald-400 font-mono text-xs uppercase tracking-wider font-semibold">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
               <span>Office of the Principal • Official Oversight</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1">
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1.5 drop-shadow-sm">
               Welcome, Dr. Abhishek Shukla
             </h1>
-            <p className="text-xs sm:text-sm text-emerald-100/80 mt-1.5 max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-emerald-100/90 mt-1.5 max-w-2xl leading-relaxed font-sans">
               Real-time daily attendance verification, fee collection metrics, and pending statutory authorizations for{' '}
-              <strong className="text-white font-semibold">{data.school_name}</strong> (Academic Session {data.academic_session}).
+              <strong className="text-white font-semibold underline decoration-emerald-400/50 underline-offset-2">{data.school_name}</strong> (Academic Session {data.academic_session}).
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/principal/approvals"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-[#122A24] font-bold text-xs shadow-md transition transform active:scale-95"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#C4432B] hover:bg-[#b03a24] text-white font-bold text-xs shadow-md shadow-rose-950/40 transition transform active:scale-95 no-underline"
             >
               <CheckSquare className="w-4 h-4" />
               <span>Review Approvals ({kpis.pending_approvals_count})</span>
@@ -134,7 +134,7 @@ export default function PrincipalOverviewPage() {
 
             <Link
               href="/principal/reports"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/20 transition"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/20 transition backdrop-blur-xs no-underline"
             >
               <FileText className="w-4 h-4 text-emerald-300" />
               <span>Institutional Reports</span>
@@ -143,7 +143,7 @@ export default function PrincipalOverviewPage() {
         </div>
 
         {/* Subtle decorative chalkboard ledger elements */}
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-linear-to-l from-emerald-500/10 to-transparent pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-emerald-500/10 to-transparent pointer-events-none" />
       </div>
 
       {/* ─────────────────────────────────────────────────────────────

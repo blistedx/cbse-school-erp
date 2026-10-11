@@ -58,7 +58,7 @@ export interface User {
   id: string;
   school_id: string;
   username: string;
-  role: 'SUPERADMIN' | 'AGENCY_SUPERADMIN' | 'GOD_ACCESS' | 'PRINCIPAL' | 'TEACHER' | 'ACCOUNTANT' | 'DRIVER' | 'LIBRARIAN' | 'SECURITY_GUARD' | 'STUDENT' | 'PARENT';
+  role: 'SUPERADMIN' | 'AGENCY_SUPERADMIN' | 'GOD_ACCESS' | 'ADMIN' | 'PRINCIPAL' | 'TEACHER' | 'ACCOUNTANT' | 'DRIVER' | 'LIBRARIAN' | 'SECURITY_GUARD' | 'STUDENT' | 'PARENT';
   full_name: string;
   email?: string;
   phone?: string;

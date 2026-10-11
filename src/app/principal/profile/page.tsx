@@ -64,7 +64,7 @@ export default function PrincipalProfilePage() {
           ───────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs overflow-hidden">
         {/* Banner */}
-        <div className="h-32 bg-linear-to-r from-[#122A24] via-[#1C443A] to-[#122A24] p-6 flex items-end">
+        <div className="h-32 bg-[#122A24] bg-gradient-to-r from-[#122A24] via-[#1C443A] to-[#122A24] p-6 flex items-end">
           <div className="text-xs font-mono font-bold text-emerald-300 uppercase tracking-wider">
             CBSE Statutory Institutional Head
           </div>

@@ -1557,6 +1557,110 @@ function LoginPageContent() {
                   {loading ? 'Authenticating...' : 'Sign in to ERP'}
                 </button>
               </form>
+
+              {/* Quick Demo Access / Role Credentials Badges */}
+              <div className="mt-5 pt-4 border-t border-[#E8F0EA]">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-[11px] font-mono font-bold tracking-wider uppercase text-[#2D5A4E]">
+                    Role Credentials &amp; Quick Sign-In
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    Click to Auto-Fill
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {/* 1. Principal Role */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSchoolCode('DPS2026');
+                      setUserId('PRINCIPAL');
+                      setPassword('dps@2026');
+                      setError('');
+                      setSuccess('Principal credentials loaded (Office of Principal)');
+                    }}
+                    className="p-2.5 rounded-xl border border-[#DCE8E0] bg-[#F4F8F5] hover:border-[#122A24] hover:bg-white text-left transition group shadow-2xs cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-[#122A24] font-display flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Principal</span>
+                      </span>
+                      <span className="text-[9px] font-mono font-bold bg-[#122A24] text-white px-1.5 py-0.5 rounded">
+                        EXEC
+                      </span>
+                    </div>
+                    <div className="text-[10.5px] font-mono text-[#2D5A4E] space-y-0.5 leading-tight">
+                      <div>ID: <strong className="text-[#122A24]">PRINCIPAL</strong></div>
+                      <div>PIN: <strong className="text-[#122A24]">dps@2026</strong></div>
+                    </div>
+                    <div className="mt-1.5 text-[9.5px] text-emerald-700 font-semibold flex items-center gap-1 font-mono">
+                      <span>→ Principal Desk</span>
+                    </div>
+                  </button>
+
+                  {/* 2. Teacher Role */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSchoolCode('DPS2026');
+                      setUserId('TEACHER');
+                      setPassword('123456');
+                      setError('');
+                      setSuccess('Teacher credentials loaded (Class 10 Faculty)');
+                    }}
+                    className="p-2.5 rounded-xl border border-[#DCE8E0] bg-[#F4F8F5] hover:border-[#122A24] hover:bg-white text-left transition group shadow-2xs cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-[#122A24] font-display flex items-center gap-1.5">
+                        <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Teacher</span>
+                      </span>
+                      <span className="text-[9px] font-mono font-bold bg-emerald-700 text-white px-1.5 py-0.5 rounded">
+                        FACULTY
+                      </span>
+                    </div>
+                    <div className="text-[10.5px] font-mono text-[#2D5A4E] space-y-0.5 leading-tight">
+                      <div>ID: <strong className="text-[#122A24]">TEACHER</strong></div>
+                      <div>PIN: <strong className="text-[#122A24]">123456</strong></div>
+                    </div>
+                    <div className="mt-1.5 text-[9.5px] text-emerald-700 font-semibold flex items-center gap-1 font-mono">
+                      <span>→ Teacher Portal</span>
+                    </div>
+                  </button>
+
+                  {/* 3. School Admin Role */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSchoolCode('DPS2026');
+                      setUserId('ADMIN');
+                      setPassword('dps@2026');
+                      setError('');
+                      setSuccess('Admin credentials loaded (School Administrator)');
+                    }}
+                    className="p-2.5 rounded-xl border border-[#DCE8E0] bg-[#F4F8F5] hover:border-[#122A24] hover:bg-white text-left transition group shadow-2xs cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-[#122A24] font-display flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>School Admin</span>
+                      </span>
+                      <span className="text-[9px] font-mono font-bold bg-[#C4432B] text-white px-1.5 py-0.5 rounded">
+                        ADMIN
+                      </span>
+                    </div>
+                    <div className="text-[10.5px] font-mono text-[#2D5A4E] space-y-0.5 leading-tight">
+                      <div>ID: <strong className="text-[#122A24]">ADMIN</strong></div>
+                      <div>PIN: <strong className="text-[#122A24]">dps@2026</strong></div>
+                    </div>
+                    <div className="mt-1.5 text-[9.5px] text-[#C4432B] font-semibold flex items-center gap-1 font-mono">
+                      <span>→ Core Admin ERP</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </>
           ) : (
             <>
