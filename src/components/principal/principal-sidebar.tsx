@@ -14,7 +14,9 @@ import {
   ShieldCheck,
   ChevronRight,
   School,
-  X
+  X,
+  Users,
+  Briefcase
 } from 'lucide-react';
 
 interface PrincipalSidebarProps {
@@ -48,6 +50,16 @@ export function PrincipalSidebar({
       icon: CheckSquare,
       badge: pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined,
       badgeColor: 'bg-amber-400 text-[#122A24]'
+    },
+    {
+      label: 'Scholars & Students',
+      href: '/principal/students',
+      icon: Users
+    },
+    {
+      label: 'Faculty & Staff',
+      href: '/principal/faculty',
+      icon: Briefcase
     },
     {
       label: 'Reports & Audits',

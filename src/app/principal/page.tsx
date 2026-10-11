@@ -18,7 +18,8 @@ import {
   Sparkles,
   ChevronRight,
   ShieldCheck,
-  FileText
+  FileText,
+  Briefcase
 } from 'lucide-react';
 import { PrincipalOverviewData } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
@@ -142,21 +143,37 @@ export default function PrincipalOverviewPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Link
               href="/principal/approvals"
-              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs shadow-sm bg-[#C4432B] hover:bg-[#b03a24] text-white transition transform active:scale-95 no-underline"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs shadow-sm bg-[#C4432B] hover:bg-[#b03a24] text-white transition transform active:scale-95 no-underline"
             >
               <CheckSquare className="w-4 h-4" />
               <span>Review Approvals ({kpis.pending_approvals_count})</span>
             </Link>
 
             <Link
+              href="/principal/students"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl font-semibold text-xs border border-[#DCE8E0] bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] shadow-2xs transition no-underline"
+            >
+              <Users className="w-4 h-4 text-emerald-700" />
+              <span>Scholars Directory</span>
+            </Link>
+
+            <Link
+              href="/principal/faculty"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl font-semibold text-xs border border-[#DCE8E0] bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] shadow-2xs transition no-underline"
+            >
+              <Briefcase className="w-4 h-4 text-emerald-700" />
+              <span>Faculty Roster</span>
+            </Link>
+
+            <Link
               href="/principal/reports"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl font-semibold text-xs border border-[#DCE8E0] bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] shadow-2xs transition no-underline"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl font-semibold text-xs border border-[#DCE8E0] bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] shadow-2xs transition no-underline"
             >
               <FileText className="w-4 h-4 text-emerald-700" />
-              <span>Institutional Reports</span>
+              <span>Reports</span>
             </Link>
           </div>
         </div>
