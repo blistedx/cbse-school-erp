@@ -105,7 +105,7 @@ export async function checkMongoStatus(): Promise<{ connected: boolean; error: s
  * or raw binary Buffers from MongoDB documents.
  * Strictly guarantees that MongoDB stores only URL references and lightweight metadata.
  */
-export function sanitizeDocNoBinary<T>(doc: T): T {
+export function sanitizeDocNoBinary<T = any>(doc: any): T {
   if (!doc || typeof doc !== 'object') return doc;
   if (Buffer.isBuffer(doc)) {
     console.warn('[SECURITY VIOLATION PREVENTED]: Attempted to write raw Buffer to MongoDB. Stripped.');

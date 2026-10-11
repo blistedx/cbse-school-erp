@@ -458,11 +458,11 @@ export function OmniSearchModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 px-3.5 bg-black/60 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-12 sm:pt-20 px-3.5 bg-black/60 backdrop-blur-xs animate-fade-in"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-[#DCE8E0] overflow-hidden flex flex-col max-h-[85vh]"
+        className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-[#DCE8E0] overflow-hidden flex flex-col max-h-[85vh] animate-scale-in"
         onClick={e => e.stopPropagation()}
       >
         {/* Top Search Bar Input */}
@@ -483,14 +483,14 @@ export function OmniSearchModal({
           {query && (
             <button
               onClick={() => setQuery('')}
-              className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200 border-none bg-transparent cursor-pointer"
+              className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200 border-none bg-transparent cursor-pointer press-scale"
             >
               <X className="w-4 h-4" />
             </button>
           )}
           <button
             onClick={onClose}
-            className="px-2.5 py-1 text-xs font-mono font-bold bg-white border border-[#DCE8E0] rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-50 cursor-pointer"
+            className="px-2.5 py-1 text-xs font-mono font-bold bg-white border border-[#DCE8E0] rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-50 cursor-pointer press-scale"
           >
             ESC
           </button>
@@ -510,7 +510,7 @@ export function OmniSearchModal({
             <button
               key={cat.id}
               onClick={() => setActiveCategory(cat.id as SearchCategory)}
-              className={`px-3 py-1 text-xs font-semibold rounded-full border cursor-pointer whitespace-nowrap transition-colors ${
+              className={`px-3 py-1 text-xs font-semibold rounded-full border cursor-pointer whitespace-nowrap transition-colors press-scale ${
                 activeCategory === cat.id
                   ? 'bg-[#122A24] text-white border-[#122A24]'
                   : 'bg-white text-slate-600 border-[#DCE8E0] hover:bg-slate-50'

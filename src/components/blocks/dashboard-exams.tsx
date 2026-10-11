@@ -4365,7 +4365,7 @@ export function DashboardExams({
                             const overall = computeStudentOverall(stu.id);
 
                             return (
-                              <tr key={stu.id} className="hover:bg-[#F9FCFA] transition-colors group">
+                              <tr key={stu.id} className="hover:bg-[#F9FCFA] table-row-hover transition-colors group">
                                 {/* Roll No */}
                                 <td className="py-3 px-2.5 text-center font-bold text-[#122A24] sticky left-0 bg-white group-hover:bg-[#F9FCFA] border-r border-[#E8F0EA]">
                                   #{stu.roll_no || sIdx + 1}
@@ -4440,7 +4440,7 @@ export function DashboardExams({
                                   <button
                                     type="button"
                                     onClick={() => handleOpenReportCard(stu)}
-                                    className="px-3.5 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 mx-auto cursor-pointer transition-all whitespace-nowrap"
+                                    className="px-3.5 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 mx-auto cursor-pointer transition-all whitespace-nowrap press-scale"
                                   >
                                     <FileText className="h-3.5 w-3.5" />
                                     <span>Marksheet</span>
@@ -5352,8 +5352,8 @@ export function DashboardExams({
           FACULTY IDENTITY AUTHENTICATION & MARKS ASSESSOR LOGIN MODAL
           ───────────────────────────────────────────────────────────── */}
       {showTeacherLoginModal && (
-        <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-[#DCE8E0] max-w-3xl w-full shadow-2xl space-y-4 my-auto max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl border border-[#DCE8E0] max-w-3xl w-full shadow-2xl space-y-4 my-auto max-h-[92vh] overflow-y-auto animate-scale-in">
             
             {/* Modal Header */}
             <div className="flex justify-between items-center p-5 pb-3 border-b border-[#E8F0EA] sticky top-0 bg-white z-20">
@@ -5650,8 +5650,8 @@ export function DashboardExams({
           OFFICIAL CBSE REPORT CARD / MARKSHEET VOUCHER MODAL
           ───────────────────────────────────────────────────────────── */}
       {reportCardStudent && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-[#DCE8E0] max-w-3xl w-full shadow-2xl space-y-4 my-auto max-h-[95vh] overflow-y-auto animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl border border-[#DCE8E0] max-w-3xl w-full shadow-2xl space-y-4 my-auto max-h-[95vh] overflow-y-auto animate-scale-in">
             
             {/* Modal Header */}
             <div className="flex justify-between items-center p-5 pb-3 border-b border-[#E8F0EA] sticky top-0 bg-white z-20">

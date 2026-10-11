@@ -70,14 +70,42 @@ module.exports = {
         soft: "0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04)",
         pop: "0 12px 40px -12px rgba(16, 24, 40, 0.25)",
       },
+      transitionDuration: {
+        fast: "100ms",
+        base: "150ms",
+        slow: "250ms",
+      },
+      transitionTimingFunction: {
+        smooth: "cubic-bezier(0.4, 0, 0.2, 1)",
+      },
       keyframes: {
         "fade-up": {
           "0%": { opacity: "0", transform: "translateY(6px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        fadeIn: {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        slideUp: {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        slideInRight: {
+          "0%": { opacity: "0", transform: "translateX(12px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        scaleIn: {
+          "0%": { opacity: "0", transform: "scale(0.96)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
       },
       animation: {
         "fade-up": "fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both",
+        "fade-in": "fadeIn 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "slide-up": "slideUp 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "slide-in-right": "slideInRight 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "scale-in": "scaleIn 150ms cubic-bezier(0.4, 0, 0.2, 1)",
       },
     },
   },

@@ -1141,7 +1141,7 @@ export function ReportCardBuilder({
                     return (
                       <div
                         key={tpl.id}
-                        className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                        className={`p-3.5 rounded-2xl border hover-lift transition-all cursor-pointer ${
                           isActive
                             ? 'bg-emerald-50/80 border-emerald-500 shadow-xs'
                             : 'bg-white border-[#DCE8E0] hover:border-emerald-600/40 hover:bg-[#F9FCFA]'
@@ -1173,7 +1173,7 @@ export function ReportCardBuilder({
                                 e.stopPropagation();
                                 handleDeleteTemplate(tpl.id);
                               }}
-                              className="p-1 text-slate-300 hover:text-rose-600 rounded-lg hover:bg-rose-50 border-none bg-transparent cursor-pointer"
+                              className="p-1 text-slate-300 hover:text-rose-600 rounded-lg hover:bg-rose-50 border-none bg-transparent cursor-pointer press-scale"
                               title="Delete template"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -1329,7 +1329,7 @@ export function ReportCardBuilder({
                       </tr>
                     ) : (
                       filteredConsolidatedStudents.map((item, idx) => (
-                        <tr key={item.student.id} className="hover:bg-[#F9FCFA] transition-colors group">
+                        <tr key={item.student.id} className="hover:bg-[#F9FCFA] table-row-hover transition-colors group">
                           {/* Roll */}
                           <td className="py-3 px-2.5 text-center font-bold text-[#122A24] sticky left-0 bg-white group-hover:bg-[#F9FCFA] border-r border-[#E8F0EA]">
                             #{item.rollNo}
@@ -1392,7 +1392,7 @@ export function ReportCardBuilder({
                                 setSelectedStudentForReport(item.student);
                                 setActiveTab('preview');
                               }}
-                              className="px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-1 mx-auto cursor-pointer transition-all border-none"
+                              className="px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-1 mx-auto cursor-pointer transition-all border-none press-scale"
                             >
                               <Eye className="h-3.5 w-3.5" />
                               <span>View Card</span>

@@ -313,3 +313,5 @@ export function getVapidPublicKey() {
   return VAPID_PUBLIC_KEY;
 }
 
+export const dispatchWebPushToAudience = sendWebPushNotification;
+

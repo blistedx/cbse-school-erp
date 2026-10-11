@@ -1714,7 +1714,7 @@ export function DashboardOverview({
           {/* Row 1, Col 1: Total students */}
           <div 
             onClick={() => setActiveTab('students')}
-            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
+            className="cursor-pointer group select-none hover-lift press-scale flex flex-col justify-between p-2 rounded-xl"
           >
             <div>
               <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
@@ -1730,7 +1730,7 @@ export function DashboardOverview({
           {/* Row 1, Col 2: Teachers/staff */}
           <div 
             onClick={() => setActiveTab('teachers')}
-            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
+            className="cursor-pointer group select-none hover-lift press-scale flex flex-col justify-between p-2 rounded-xl"
           >
             <div>
               <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
@@ -1749,7 +1749,7 @@ export function DashboardOverview({
           {/* Row 1, Col 3: Attendance (Daily / Weekly / Monthly) */}
           <div 
             onClick={() => setActiveTab('attendance')}
-            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
+            className="cursor-pointer group select-none hover-lift press-scale flex flex-col justify-between p-2 rounded-xl"
           >
             <div>
               <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
@@ -1774,7 +1774,7 @@ export function DashboardOverview({
 
           {/* Row 1, Col 4: Fees collected (Dynamic Fee Cycle) */}
           <div 
-            className="select-none flex flex-col justify-between"
+            className="select-none flex flex-col justify-between hover-lift p-2 rounded-xl"
           >
             <div>
               <div className="flex items-center gap-2 text-emerald-300">
@@ -1798,7 +1798,7 @@ export function DashboardOverview({
 
           {/* Row 2, Col 1: Fees pending (Dynamic Fee Cycle) */}
           <div 
-            className="select-none flex flex-col justify-between"
+            className="select-none flex flex-col justify-between hover-lift p-2 rounded-xl"
           >
             <div>
               <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
@@ -1820,7 +1820,7 @@ export function DashboardOverview({
           {/* Row 2, Col 2: Classes/sections */}
           <div 
             onClick={() => setActiveTab('classes')}
-            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
+            className="cursor-pointer group select-none hover-lift press-scale flex flex-col justify-between p-2 rounded-xl"
           >
             <div>
               <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
@@ -1836,7 +1836,7 @@ export function DashboardOverview({
           {/* Row 2, Col 3: Upcoming exams */}
           <div 
             onClick={() => setActiveTab('notices')}
-            className="cursor-pointer group select-none transition-transform active:scale-95 flex flex-col justify-between"
+            className="cursor-pointer group select-none hover-lift press-scale flex flex-col justify-between p-2 rounded-xl"
           >
             <div>
               <div className="flex items-center gap-2 text-emerald-300 group-hover:text-emerald-100 transition-colors">
@@ -2558,7 +2558,7 @@ export function DashboardOverview({
                 return (
                   <tr 
                     key={tx.id} 
-                    className={`hover:bg-emerald-50/40 transition-colors ${isSelected ? 'bg-emerald-50/60' : ''}`}
+                    className={`hover:bg-emerald-50/40 table-row-hover transition-colors ${isSelected ? 'bg-emerald-50/60' : ''}`}
                   >
                     <td className="py-3 px-3">
                       <input
@@ -2619,7 +2619,7 @@ export function DashboardOverview({
                             setViewInvoice(tx.raw);
                           }
                         }}
-                        className="p-1 rounded-md text-emerald-800 hover:text-[#122A24] hover:bg-emerald-100/60 transition-colors border-none bg-transparent cursor-pointer"
+                        className="p-1 rounded-md text-emerald-800 hover:text-[#122A24] hover:bg-emerald-100/60 transition-colors border-none bg-transparent cursor-pointer press-scale"
                         title="View details"
                       >
                         <MoreHorizontal className="w-4 h-4" />

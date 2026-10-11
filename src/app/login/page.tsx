@@ -816,7 +816,13 @@ function LoginPageContent() {
           localStorage.setItem('erp_session_token', data.session_token);
         }
         setTimeout(() => {
-          window.location.href = `/app?school=${encodeURIComponent(data.school?.school_code || effectiveSchoolCode || 'DPS2026')}`;
+          const userRole = (data.user?.role || '').toUpperCase();
+          const targetUrl = userRole === 'PRINCIPAL'
+            ? `/principal?school=${encodeURIComponent(data.school?.school_code || effectiveSchoolCode || 'DPS2026')}`
+            : userRole === 'TEACHER'
+            ? `/teacher?school=${encodeURIComponent(data.school?.school_code || effectiveSchoolCode || 'DPS2026')}`
+            : `/app?school=${encodeURIComponent(data.school?.school_code || effectiveSchoolCode || 'DPS2026')}`;
+          window.location.href = targetUrl;
         }, 150);
       } else {
         setError(data?.error || `Login failed (${res.status}). Please check your School Code, ID, and Passcode.`);
