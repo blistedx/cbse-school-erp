@@ -10,6 +10,7 @@ import {
   Mail,
   GraduationCap,
   Calendar,
+  CalendarCheck,
   CheckCircle2,
   Clock,
   BookOpen,
