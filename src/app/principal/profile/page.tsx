@@ -64,8 +64,15 @@ export default function PrincipalProfilePage() {
           ───────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs overflow-hidden">
         {/* Banner */}
-        <div className="h-32 bg-[#122A24] bg-gradient-to-r from-[#122A24] via-[#1C443A] to-[#122A24] p-6 flex items-end">
-          <div className="text-xs font-mono font-bold text-emerald-300 uppercase tracking-wider">
+        <div
+          className="h-32 p-6 flex items-end"
+          style={{
+            backgroundColor: '#122A24',
+            backgroundImage: 'radial-gradient(ellipse at 20% -10%, #1C443A 0%, #122A24 70%)',
+            color: '#FFFFFF'
+          }}
+        >
+          <div className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: '#34D399' }}>
             CBSE Statutory Institutional Head
           </div>
         </div>

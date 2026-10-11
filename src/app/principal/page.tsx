@@ -107,26 +107,46 @@ export default function PrincipalOverviewPage() {
       {/* ─────────────────────────────────────────────────────────────
           1. EXECUTIVE GREETING & INSTITUTIONAL HEALTH BANNER
           ───────────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl bg-[#122A24] bg-gradient-to-r from-[#122A24] via-[#16382F] to-[#122A24] text-white p-6 sm:p-8 border border-[#1C443A] shadow-xl shadow-emerald-950/30">
+      <div
+        className="relative overflow-hidden rounded-3xl text-white p-6 sm:p-8 border border-[#1C443A] shadow-xl shadow-emerald-950/30"
+        style={{
+          backgroundColor: '#122A24',
+          backgroundImage: 'radial-gradient(ellipse at 20% -10%, #1C443A 0%, #122A24 70%)',
+          color: '#FFFFFF'
+        }}
+      >
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="flex items-center gap-2 text-emerald-400 font-mono text-xs uppercase tracking-wider font-semibold">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider font-semibold" style={{ color: '#34D399' }}>
+              <ShieldCheck className="w-4 h-4" style={{ color: '#34D399' }} />
               <span>Office of the Principal • Official Oversight</span>
             </div>
-            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1.5 drop-shadow-sm">
+            <h1
+              className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight mt-1.5 drop-shadow-sm"
+              style={{ color: '#FFFFFF' }}
+            >
               Welcome, Dr. Abhishek Shukla
             </h1>
-            <p className="text-xs sm:text-sm text-emerald-100/90 mt-1.5 max-w-2xl leading-relaxed font-sans">
+            <p
+              className="text-xs sm:text-sm mt-1.5 max-w-2xl leading-relaxed font-sans"
+              style={{ color: '#E2EBE5' }}
+            >
               Real-time daily attendance verification, fee collection metrics, and pending statutory authorizations for{' '}
-              <strong className="text-white font-semibold underline decoration-emerald-400/50 underline-offset-2">{data.school_name}</strong> (Academic Session {data.academic_session}).
+              <strong style={{ color: '#FFFFFF', textDecoration: 'underline', textDecorationColor: '#34D399', textUnderlineOffset: '3px' }}>
+                {data.school_name}
+              </strong>{' '}
+              (Academic Session {data.academic_session}).
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/principal/approvals"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#C4432B] hover:bg-[#b03a24] text-white font-bold text-xs shadow-md shadow-rose-950/40 transition transform active:scale-95 no-underline"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs shadow-md shadow-rose-950/40 transition transform active:scale-95 no-underline"
+              style={{
+                backgroundColor: '#C4432B',
+                color: '#FFFFFF'
+              }}
             >
               <CheckSquare className="w-4 h-4" />
               <span>Review Approvals ({kpis.pending_approvals_count})</span>
@@ -134,16 +154,24 @@ export default function PrincipalOverviewPage() {
 
             <Link
               href="/principal/reports"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/20 transition backdrop-blur-xs no-underline"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl font-semibold text-xs border transition backdrop-blur-xs no-underline"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                color: '#FFFFFF',
+                borderColor: 'rgba(255, 255, 255, 0.25)'
+              }}
             >
-              <FileText className="w-4 h-4 text-emerald-300" />
+              <FileText className="w-4 h-4" style={{ color: '#34D399' }} />
               <span>Institutional Reports</span>
             </Link>
           </div>
         </div>
 
         {/* Subtle decorative chalkboard ledger elements */}
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-emerald-500/10 to-transparent pointer-events-none" />
+        <div
+          className="absolute right-0 top-0 bottom-0 w-1/3 pointer-events-none"
+          style={{ background: 'linear-gradient(to left, rgba(16, 185, 129, 0.1), transparent)' }}
+        />
       </div>
 
       {/* ─────────────────────────────────────────────────────────────

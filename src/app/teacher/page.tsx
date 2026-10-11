@@ -96,7 +96,14 @@ export default function TeacherDashboardPage() {
   return (
     <div className="space-y-6">
       {/* 1. WELCOME BANNER & CLASS TEACHER BADGE */}
-      <div className="p-6 bg-gradient-to-r from-[#122A24] via-[#16382F] to-[#1E4B3E] rounded-3xl text-white shadow-xl relative overflow-hidden border border-emerald-800/40">
+      <div
+        className="p-6 rounded-3xl text-white shadow-xl relative overflow-hidden border border-emerald-800/40"
+        style={{
+          backgroundColor: '#122A24',
+          backgroundImage: 'radial-gradient(ellipse at 20% -10%, #1C443A 0%, #122A24 70%)',
+          color: '#FFFFFF'
+        }}
+      >
         <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-radial from-emerald-500/10 to-transparent pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
