@@ -353,7 +353,15 @@ export interface AttendanceRecord {
     teacher_id: string;
     staff_code?: string;
     full_name: string;
-    status: 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE';
+    status: 'PRESENT' | 'ABSENT' | 'HOLIDAY' | 'LEAVE' | 'LATE' | 'ON_LEAVE' | string;
+    in_time?: string;
+    out_time?: string;
+    is_late?: boolean;
+    late_minutes?: number;
+    working_hours?: string;
+    is_regularized?: boolean;
+    regularization_remark?: string;
+    punch_type?: string;
   }>;
   created_at?: string;
 }
@@ -1553,6 +1561,9 @@ export interface PrincipalOverviewData {
       student_total: number;
       faculty_present: number;
       faculty_total: number;
+      faculty_on_time?: number;
+      faculty_late?: number;
+      faculty_leave?: number;
     };
   };
   charts: {
@@ -1589,6 +1600,39 @@ export interface PrincipalOverviewData {
     total_count: number;
     marked_time?: string;
   }>;
+  faculty_turnout?: {
+    date: string;
+    total_faculty: number;
+    present_count: number;
+    on_time_count: number;
+    late_count: number;
+    on_leave_count: number;
+    absent_count: number;
+    punctuality_rate: number;
+    faculty_records: Array<{
+      id: string;
+      staff_code: string;
+      full_name: string;
+      photo?: string;
+      avatar?: string;
+      designation: string;
+      department: string;
+      assigned_class: string;
+      shift: string;
+      in_time: string | null;
+      out_time: string | null;
+      status: string;
+      is_late: boolean;
+      late_minutes: number;
+      working_hours: string;
+      remarks: string;
+      leave_ledger: {
+        total_quota: number;
+        taken_days: number;
+        remaining_quota: number;
+      };
+    }>;
+  };
   students?: Student[];
   teachers?: Teacher[];
   classes?: ClassRoom[];

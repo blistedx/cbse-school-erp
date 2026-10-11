@@ -29,8 +29,47 @@ import {
   FileText,
   BadgeCheck,
   Building2,
-  Receipt
+  Receipt,
+  RefreshCw,
+  Palmtree,
+  AlertTriangle,
+  LogIn,
+  LogOut,
+  Fingerprint,
+  ChevronRight,
+  ArrowRight
 } from 'lucide-react';
+
+interface FacultyAttendanceKPIs {
+  total_faculty: number;
+  present_count: number;
+  on_time_count: number;
+  late_count: number;
+  on_leave_count: number;
+  absent_count: number;
+  punctuality_rate: number;
+}
+
+interface FacultyAttendanceRecord {
+  teacher_id: string;
+  staff_code: string;
+  teacher_name: string;
+  department: string;
+  designation: string;
+  assigned_class?: string;
+  photo?: string;
+  shift: string;
+  in_time: string;
+  out_time: string;
+  status: 'PRESENT' | 'ON_LEAVE' | 'ABSENT';
+  is_late: boolean;
+  late_minutes: number;
+  working_hours: string;
+  punch_type: string;
+  leave_quota: number;
+  leaves_taken: number;
+  leave_balance: number;
+}
 
 interface TeacherItem {
   id: string;
@@ -108,7 +147,19 @@ export default function PrincipalFacultyPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters
+  // Top Tabs: Roster Directory vs Live Attendance & Punctuality Desk
+  const [primaryTab, setPrimaryTab] = useState<'roster' | 'attendance'>('roster');
+
+  // Attendance Ledger Desk State
+  const [attendanceDate, setAttendanceDate] = useState<string>(() => {
+    return new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+  });
+  const [attendanceData, setAttendanceData] = useState<{ kpis: FacultyAttendanceKPIs; roster: FacultyAttendanceRecord[] } | null>(null);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'ON_TIME' | 'LATE' | 'ON_LEAVE' | 'ABSENT'>('ALL');
+  const [attendanceSearch, setAttendanceSearch] = useState('');
+
+  // Filters for Directory
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
@@ -117,6 +168,36 @@ export default function PrincipalFacultyPage() {
   // Faculty Detail 360° Modal
   const [selectedTeacher, setSelectedTeacher] = useState<TeacherItem | null>(null);
   const [activeModalTab, setActiveModalTab] = useState<'academics' | 'attendance' | 'payroll' | 'service'>('academics');
+
+  const fetchFacultyAttendance = useCallback(async (targetDate: string) => {
+    try {
+      setAttendanceLoading(true);
+      const headers = getAuthHeaders();
+      const res = await fetch(`/api/principal/faculty/attendance?date=${targetDate}`, { headers });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success) {
+        setAttendanceData({ kpis: json.kpis, roster: json.roster || [] });
+      }
+    } catch (err) {
+      console.error('Failed to fetch faculty attendance ledger', err);
+    } finally {
+      setAttendanceLoading(false);
+    }
+  }, []);
+
+  // Listen to ?tab=attendance in URL query
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const tabParam = new URLSearchParams(window.location.search).get('tab');
+      if (tabParam === 'attendance') {
+        setPrimaryTab('attendance');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFacultyAttendance(attendanceDate);
+  }, [attendanceDate, fetchFacultyAttendance]);
 
   const fetchFaculty = useCallback(async () => {
     try {
@@ -264,6 +345,59 @@ export default function PrincipalFacultyPage() {
     };
   }, [selectedTeacher]);
 
+  // Filtered Attendance Roster
+  const filteredAttendanceRoster = useMemo(() => {
+    if (!attendanceData?.roster) return [];
+    return attendanceData.roster.filter(rec => {
+      if (attendanceFilter === 'ON_TIME' && (!rec.in_time || rec.is_late || rec.status !== 'PRESENT')) return false;
+      if (attendanceFilter === 'LATE' && (!rec.is_late || rec.status !== 'PRESENT')) return false;
+      if (attendanceFilter === 'ON_LEAVE' && rec.status !== 'ON_LEAVE') return false;
+      if (attendanceFilter === 'ABSENT' && rec.status !== 'ABSENT') return false;
+
+      if (attendanceSearch.trim()) {
+        const q = attendanceSearch.toLowerCase().trim();
+        const matchName = (rec.teacher_name || '').toLowerCase().includes(q);
+        const matchCode = (rec.staff_code || '').toLowerCase().includes(q);
+        const matchDept = (rec.department || '').toLowerCase().includes(q);
+        if (!matchName && !matchCode && !matchDept) return false;
+      }
+      return true;
+    });
+  }, [attendanceData, attendanceFilter, attendanceSearch]);
+
+  // Export Attendance CSV
+  const handleExportAttendanceCSV = () => {
+    if (!attendanceData?.roster || attendanceData.roster.length === 0) return;
+    const headers = ['Staff Code', 'Faculty Name', 'Department', 'Shift', 'Clock IN', 'Clock OUT', 'Duration', 'Late Minutes', 'Status', 'Leaves Taken', 'Leave Balance (12 CL)'];
+    let csv = '\uFEFF' + headers.join(',') + '\r\n';
+    attendanceData.roster.forEach(r => {
+      const row = [
+        `"${r.staff_code || ''}"`,
+        `"${r.teacher_name || ''}"`,
+        `"${r.department || ''}"`,
+        `"${r.shift || ''}"`,
+        `"${r.in_time || ''}"`,
+        `"${r.out_time || ''}"`,
+        `"${r.working_hours || ''}"`,
+        `"${r.late_minutes || 0}"`,
+        `"${r.status || ''}"`,
+        `"${r.leaves_taken || 0}"`,
+        `"${r.leave_balance || 12}"`
+      ];
+      csv += row.join(',') + '\r\n';
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Faculty_Attendance_${attendanceDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Export CSV
   const handleExportCSV = () => {
     if (filteredFaculty.length === 0) return;
@@ -354,8 +488,379 @@ export default function PrincipalFacultyPage() {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          2. SUMMARY KPI TILES
+          PRIMARY TAB SWITCHER: ROSTER DIRECTORY vs LIVE ATTENDANCE DESK
           ───────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#DCE8E0] pb-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPrimaryTab('roster')}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+              primaryTab === 'roster'
+                ? 'bg-[#122A24] text-white shadow-xs'
+                : 'bg-white text-[#2D5A4E] border border-[#DCE8E0] hover:bg-[#F4F8F5]'
+            }`}
+          >
+            <Users className="w-4 h-4 text-emerald-400" />
+            <span>Faculty Roster &amp; 360° Directory</span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/20 text-white font-bold">
+              {stats.total}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setPrimaryTab('attendance')}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+              primaryTab === 'attendance'
+                ? 'bg-[#122A24] text-white shadow-xs'
+                : 'bg-white text-[#2D5A4E] border border-[#DCE8E0] hover:bg-[#F4F8F5]'
+            }`}
+          >
+            <Clock className="w-4 h-4 text-emerald-400" />
+            <span>Live Attendance &amp; Punctuality Desk</span>
+            {attendanceData?.kpis?.late_count ? (
+              <span className="px-2 py-0.5 bg-amber-400 text-[#122A24] text-[10px] font-mono rounded-full font-black">
+                {attendanceData.kpis.late_count} Late
+              </span>
+            ) : null}
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {primaryTab === 'attendance' ? (
+            <button
+              onClick={handleExportAttendanceCSV}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F4F8F5] border border-[#DCE8E0] text-xs font-semibold text-[#122A24] transition shadow-2xs cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Export Attendance CSV</span>
+            </button>
+          ) : (
+            <span className="text-xs text-[#2D5A4E] font-mono">
+              33 Teaching Faculty • CBSE Staff Registry
+            </span>
+          )}
+        </div>
+      </div>
+
+      {primaryTab === 'attendance' ? (
+        <div className="space-y-6">
+          {/* 1. TOP KPI STRIP (Punctuality & Turnout) */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs">
+              <div className="text-[11px] font-mono uppercase text-[#2D5A4E] font-semibold">Total Faculty</div>
+              <div className="text-2xl font-black text-[#122A24] mt-1">
+                {attendanceData?.kpis?.total_faculty ?? 33}
+              </div>
+              <div className="text-[10px] text-slate-500 font-medium mt-0.5">Sanctioned Roster</div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs">
+              <div className="text-[11px] font-mono uppercase text-emerald-800 font-semibold flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                <span>On Time Today</span>
+              </div>
+              <div className="text-2xl font-black text-emerald-700 mt-1">
+                {attendanceData?.kpis?.on_time_count ?? 0}
+              </div>
+              <div className="text-[10px] text-emerald-600 font-medium mt-0.5">Arrived &le; 08:05 AM</div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs">
+              <div className="text-[11px] font-mono uppercase text-amber-800 font-semibold flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3 text-amber-600" />
+                <span>Late Arrivals</span>
+              </div>
+              <div className="text-2xl font-black text-amber-600 mt-1">
+                {attendanceData?.kpis?.late_count ?? 0}
+              </div>
+              <div className="text-[10px] text-amber-700 font-medium mt-0.5">Arrived &gt; 08:05 AM</div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs">
+              <div className="text-[11px] font-mono uppercase text-blue-800 font-semibold flex items-center gap-1">
+                <Palmtree className="w-3 h-3 text-blue-600" />
+                <span>On Leave (CL)</span>
+              </div>
+              <div className="text-2xl font-black text-blue-700 mt-1">
+                {attendanceData?.kpis?.on_leave_count ?? 0}
+              </div>
+              <div className="text-[10px] text-blue-600 font-medium mt-0.5">Approved Sanction</div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs col-span-2 sm:col-span-1">
+              <div className="text-[11px] font-mono uppercase text-[#2D5A4E] font-semibold">Punctuality Rate</div>
+              <div className="text-2xl font-black text-[#122A24] mt-1">
+                {attendanceData?.kpis?.punctuality_rate ?? 0}%
+              </div>
+              <div className="text-[10px] text-emerald-700 font-medium mt-0.5">Morning Turnout</div>
+            </div>
+          </div>
+
+          {/* 2. LIVE CONTROLS: DATE PICKER, STATUS FILTER, SEARCH */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-[#DCE8E0] shadow-xs space-y-3">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2 bg-[#F4F8F5] border border-[#DCE8E0] px-3 py-1.5 rounded-xl text-xs font-mono">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-700" />
+                  <span className="font-bold text-[#122A24]">Ledger Date:</span>
+                  <input
+                    type="date"
+                    value={attendanceDate}
+                    onChange={(e) => setAttendanceDate(e.target.value)}
+                    className="bg-transparent font-bold text-[#122A24] focus:outline-hidden cursor-pointer"
+                  />
+                </div>
+
+                <button
+                  onClick={() => fetchFacultyAttendance(attendanceDate)}
+                  disabled={attendanceLoading}
+                  className="p-2 rounded-xl border border-[#DCE8E0] hover:bg-[#F4F8F5] text-[#2D5A4E] transition cursor-pointer"
+                  title="Refresh Live Biometrics"
+                >
+                  <RefreshCw className={`w-4 h-4 ${attendanceLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+
+              {/* Status Filter Buttons */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { key: 'ALL', label: 'All Faculty' },
+                  { key: 'ON_TIME', label: 'On Time' },
+                  { key: 'LATE', label: 'Late Only' },
+                  { key: 'ON_LEAVE', label: 'On Leave' },
+                  { key: 'ABSENT', label: 'Absent / Pending' }
+                ].map(f => (
+                  <button
+                    key={f.key}
+                    onClick={() => setAttendanceFilter(f.key as any)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      attendanceFilter === f.key
+                        ? 'bg-[#122A24] text-white shadow-2xs'
+                        : 'bg-[#F4F8F5] text-[#2D5A4E] hover:bg-[#EBF5EF]'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-[#2D5A4E]/60 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search faculty by name, staff ID (e.g. TCH001), or department..."
+                value={attendanceSearch}
+                onChange={e => setAttendanceSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#DCE8E0] bg-[#F4F8F5] text-xs text-[#122A24] focus:outline-hidden focus:ring-2 focus:ring-emerald-700 font-medium"
+              />
+            </div>
+          </div>
+
+          {/* 3. LIVE ATTENDANCE, PUNCTUALITY & LEAVE LEDGER TABLE */}
+          <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-[#DCE8E0] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-emerald-700" />
+                <h3 className="text-sm font-bold text-[#122A24]">
+                  Live Biometric Check-In &amp; Punctuality Register
+                </h3>
+              </div>
+              <div className="text-xs font-mono text-[#2D5A4E]">
+                Showing {filteredAttendanceRoster.length} of {attendanceData?.roster?.length ?? 33} Faculty Records
+              </div>
+            </div>
+
+            {attendanceLoading ? (
+              <div className="p-12 text-center text-slate-400 font-mono text-xs animate-pulse">
+                Synchronizing live biometric sensor feeds and leave ledgers...
+              </div>
+            ) : filteredAttendanceRoster.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 font-mono text-xs">
+                No faculty records matching filter criteria.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#F8FAF9] border-b border-[#DCE8E0] text-[#2D5A4E] font-bold font-mono text-[11px]">
+                    <tr>
+                      <th className="py-3 px-4">Faculty Member</th>
+                      <th className="py-3 px-4">Reporting Shift</th>
+                      <th className="py-3 px-4">Clock IN &amp; Punctuality</th>
+                      <th className="py-3 px-4">Clock OUT</th>
+                      <th className="py-3 px-4">Duration</th>
+                      <th className="py-3 px-4">Today&apos;s Status</th>
+                      <th className="py-3 px-4">Leave Ledger (12 CL Quota)</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E2EBE5]">
+                    {filteredAttendanceRoster.map(row => {
+                      const matchedTeacher = teachers.find(t => 
+                        (t.staff_code && t.staff_code === row.staff_code) ||
+                        (t.employee_code && t.employee_code === row.staff_code) ||
+                        (t.id && t.id === row.teacher_id)
+                      );
+
+                      return (
+                        <tr key={row.teacher_id} className="hover:bg-[#F8FAF9] transition">
+                          {/* Faculty Member */}
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-3">
+                              {row.photo ? (
+                                <img
+                                  src={row.photo}
+                                  alt={row.teacher_name}
+                                  className="w-10 h-10 rounded-xl object-cover border border-[#DCE8E0] shrink-0"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLElement).style.display = 'none';
+                                    const fb = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement;
+                                    if (fb) fb.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div
+                                style={{ display: row.photo ? 'none' : 'flex' }}
+                                className="w-10 h-10 rounded-xl bg-[#E9F2EC] text-[#122A24] border border-[#DCE8E0] items-center justify-center font-bold text-xs shrink-0"
+                              >
+                                {(row.teacher_name || 'T').charAt(0)}
+                              </div>
+                              <div>
+                                <div className="font-bold text-[#122A24] flex items-center gap-1.5">
+                                  <span>{row.teacher_name}</span>
+                                  {row.assigned_class && row.assigned_class !== 'None' && (
+                                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-bold border border-amber-200">
+                                      CT {row.assigned_class}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] font-mono text-[#2D5A4E]/80">
+                                  {row.staff_code} • {row.department}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Reporting Shift */}
+                          <td className="py-3 px-4 font-mono text-[11px]">
+                            <span className="text-[#122A24] font-semibold">{row.shift}</span>
+                            <span className="text-[10px] text-slate-400 block">Grace: 08:05 AM</span>
+                          </td>
+
+                          {/* Clock IN & Punctuality */}
+                          <td className="py-3 px-4 font-mono">
+                            {row.in_time ? (
+                              <div className="space-y-0.5">
+                                <span className="font-bold text-[#122A24] block">{row.in_time}</span>
+                                {row.is_late ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                    <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
+                                    <span>Late by {row.late_minutes}m</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                                    <span>On Time</span>
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 font-mono">--:--</span>
+                            )}
+                          </td>
+
+                          {/* Clock OUT */}
+                          <td className="py-3 px-4 font-mono font-medium text-slate-700">
+                            {row.out_time || '--:--'}
+                          </td>
+
+                          {/* Logged Duration */}
+                          <td className="py-3 px-4 font-mono text-slate-600">
+                            {row.working_hours || '--'}
+                          </td>
+
+                          {/* Today's Status */}
+                          <td className="py-3 px-4">
+                            {row.status === 'PRESENT' ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-lg">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>Present</span>
+                              </span>
+                            ) : row.status === 'ON_LEAVE' ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-800 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-lg">
+                                <Palmtree className="w-3 h-3 text-blue-600" />
+                                <span>On Leave</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-lg">
+                                <X className="w-3 h-3 text-rose-600" />
+                                <span>Not Punched</span>
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Leave Ledger ("kiski kitni leave hai") */}
+                          <td className="py-3 px-4">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-md border ${
+                                  row.leave_balance > 4
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                    : row.leave_balance > 0
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                    : 'bg-rose-50 text-rose-800 border-rose-200'
+                                }`}>
+                                  {row.leave_balance} CL Left
+                                </span>
+                                <span className="text-[10px] font-mono text-slate-500">
+                                  ({row.leaves_taken} taken / 12)
+                                </span>
+                              </div>
+                              <div className="w-28 bg-[#E2EBE5] rounded-full h-1.5 overflow-hidden">
+                                <div
+                                  className={`h-1.5 rounded-full ${
+                                    row.leave_balance > 4 ? 'bg-emerald-500' : row.leave_balance > 0 ? 'bg-amber-500' : 'bg-rose-500'
+                                  }`}
+                                  style={{
+                                    width: `${Math.min(100, Math.max(0, (row.leave_balance / 12) * 100))}%`
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-3 px-4 text-right">
+                            {matchedTeacher ? (
+                              <button
+                                onClick={() => {
+                                  setSelectedTeacher(matchedTeacher);
+                                  setActiveModalTab('attendance');
+                                }}
+                                className="px-3 py-1.5 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-semibold inline-flex items-center gap-1 transition shadow-2xs cursor-pointer active:scale-95"
+                              >
+                                <Award className="w-3 h-3 text-emerald-400" />
+                                <span>360° File</span>
+                              </button>
+                            ) : (
+                              <span className="text-slate-400 font-mono">--</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* ─────────────────────────────────────────────────────────────
+              2. SUMMARY KPI TILES
+              ───────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white p-4 rounded-2xl border border-[#DCE8E0] shadow-xs">
           <div className="text-[11px] font-mono uppercase text-[#2D5A4E] font-semibold">Total Faculty</div>
@@ -724,6 +1229,8 @@ export default function PrincipalFacultyPage() {
             );
           })}
         </div>
+      )}
+        </>
       )}
 
       {/* ─────────────────────────────────────────────────────────────

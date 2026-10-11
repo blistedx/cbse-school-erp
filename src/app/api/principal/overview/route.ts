@@ -152,6 +152,12 @@ export async function GET(req: Request) {
     const activeStudents = (students || []).filter(s => s.status !== 'INACTIVE' && s.status !== 'ALUMNI');
     const enquiriesCount = (students || []).filter(s => s.status === 'INACTIVE' || /enquiry|provisional/i.test(s.admission_no || '')).length;
 
+    // 6. Live Faculty & Staff Turnout, Punctuality & Leave Ledger
+    const facultyTurnout = await AttendanceService.getFacultyAttendanceLedger(tenant, session, today);
+    const facultySubLabel = facultyTurnout.present_count > 0
+      ? `${facultyTurnout.on_time_count} On Time • ${facultyTurnout.late_count} Late • ${facultyTurnout.on_leave_count} On Leave`
+      : (attSummary.isFacultyMarked ? `${attSummary.facultyPresent}/${attSummary.facultyTotal} on duty` : 'Staff turnout pending');
+
     // Sanitized students and teachers
     const sanitizedStudents = (students || []).map((s: any) => {
       const { passcode, password, password_hash, salt, ...safe } = s;
@@ -168,7 +174,9 @@ export async function GET(req: Request) {
       academic_session: session,
       kpis: {
         student_attendance_percent: attSummary.studentPercent,
-        staff_attendance_percent: attSummary.facultyPercent,
+        staff_attendance_percent: facultyTurnout.total_faculty > 0 
+          ? Math.round((facultyTurnout.present_count / facultyTurnout.total_faculty) * 100)
+          : attSummary.facultyPercent,
         total_students: activeStudents.length || aggregate.total_students || 513,
         total_staff: (teachers || []).length || aggregate.total_teachers || 33,
         fees_collected_this_month: thisMonthCollected,
@@ -185,12 +193,15 @@ export async function GET(req: Request) {
           is_student_marked: attSummary.isStudentMarked,
           student_display: attSummary.isStudentMarked && attSummary.studentPercent > 0 ? `${attSummary.studentPercent}%` : 'Not Marked',
           student_sublabel: attSummary.isStudentMarked ? `${attSummary.studentPresent}/${attSummary.studentTotal} scholars present` : 'Roll call pending',
-          is_faculty_marked: attSummary.isFacultyMarked,
-          faculty_sublabel: attSummary.isFacultyMarked ? `${attSummary.facultyPresent}/${attSummary.facultyTotal} faculty on duty` : 'Roll call pending',
+          is_faculty_marked: facultyTurnout.present_count > 0 || attSummary.isFacultyMarked,
+          faculty_sublabel: facultySubLabel,
           student_present: attSummary.studentPresent,
           student_total: attSummary.studentTotal,
-          faculty_present: attSummary.facultyPresent,
-          faculty_total: attSummary.facultyTotal
+          faculty_present: facultyTurnout.present_count || attSummary.facultyPresent,
+          faculty_total: facultyTurnout.total_faculty || attSummary.facultyTotal,
+          faculty_on_time: facultyTurnout.on_time_count,
+          faculty_late: facultyTurnout.late_count,
+          faculty_leave: facultyTurnout.on_leave_count
         }
       },
       charts: {
@@ -208,6 +219,7 @@ export async function GET(req: Request) {
       },
       pending_requests: pendingList,
       class_roll_calls: classRollCalls,
+      faculty_turnout: facultyTurnout,
       students: sanitizedStudents,
       teachers: sanitizedTeachers,
       classes: classes || [],

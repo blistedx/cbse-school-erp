@@ -14,7 +14,12 @@ import {
   X,
   FileCheck2,
   ShieldCheck,
-  ArrowRight
+  ArrowRight,
+  Fingerprint,
+  LogIn,
+  LogOut,
+  Palmtree,
+  Sparkles
 } from 'lucide-react';
 import { BiometricMissedType } from '@/lib/types';
 
@@ -23,6 +28,20 @@ export default function TeacherAttendancePage() {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-08');
+
+  // Live IST Clock
+  const [currentTime, setCurrentTime] = useState<string>('');
+  const [punching, setPunching] = useState(false);
+  const [punchFeedback, setPunchFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    const updateTime = () => {
+      setCurrentTime(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Missed Punch Regularization Modal State
   const [requestModal, setRequestModal] = useState<{
@@ -75,6 +94,32 @@ export default function TeacherAttendancePage() {
   useEffect(() => {
     loadAttendance();
   }, [loadAttendance]);
+
+  const handlePunchAction = async (action: 'PUNCH_IN' | 'PUNCH_OUT') => {
+    try {
+      setPunching(true);
+      setPunchFeedback(null);
+      const res = await fetch('/api/teacher/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+      const json = await res.json();
+      if (json.success) {
+        setPunchFeedback({
+          type: 'success',
+          message: json.message || (action === 'PUNCH_IN' ? 'Successfully Clocked In!' : 'Successfully Clocked Out!')
+        });
+        await loadAttendance();
+      } else {
+        setPunchFeedback({ type: 'error', message: json.error || 'Failed to record punch' });
+      }
+    } catch (err: any) {
+      setPunchFeedback({ type: 'error', message: err.message || 'Network error punching attendance.' });
+    } finally {
+      setPunching(false);
+    }
+  };
 
   const handleOpenRequestModal = (date: string) => {
     setRequestModal({
@@ -134,16 +179,18 @@ export default function TeacherAttendancePage() {
     }
   };
 
+  const todayPunch = data?.today_punch;
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-[#122A24] tracking-tight">
-            My Biometric Attendance Ledger
+            My Biometric Attendance &amp; Self-Punch Desk
           </h1>
           <p className="text-xs text-[#2D5A4E]/80 font-mono mt-0.5">
-            Synchronized directly with central institutional biometric machines • Read-Only
+            Instant synchronization with Principal Desk • Normal reporting 08:00 AM (Grace till 08:05 AM)
           </p>
         </div>
 
@@ -167,6 +214,177 @@ export default function TeacherAttendancePage() {
             <span>My Petitions</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
+        </div>
+      </div>
+
+      {/* TODAY'S LIVE ATTENDANCE PUNCH & LEAVE QUOTA DESK */}
+      <div className="bg-[#122A24] text-white rounded-3xl p-6 sm:p-7 shadow-xl relative overflow-hidden border border-emerald-800/50">
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-radial from-emerald-500/10 to-transparent pointer-events-none" />
+
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          {/* Col 1: Live Clock & Shift Info (5 Cols) */}
+          <div className="lg:col-span-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+              <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-300 font-bold">
+                Live Campus Time (IST)
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-3">
+              <span className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-white">
+                {currentTime || '08:00:00 AM'}
+              </span>
+              <span className="text-xs text-emerald-200/80 font-mono">
+                {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+              </span>
+            </div>
+
+            <div className="p-3 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between text-xs font-mono">
+              <div>
+                <span className="text-[10px] text-emerald-300 block uppercase">Reporting Shift</span>
+                <span className="font-bold text-white">08:00 AM – 02:30 PM</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-amber-300 block uppercase">Grace Threshold</span>
+                <span className="font-bold text-amber-200">Up to 08:05 AM</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Col 2: Punch Status & Actions (4 Cols) */}
+          <div className="lg:col-span-4 bg-white/10 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono text-emerald-200 uppercase font-bold flex items-center gap-1.5">
+                <Fingerprint className="w-4 h-4 text-emerald-400" />
+                <span>Today&apos;s Biometric Status</span>
+              </span>
+
+              {todayPunch?.is_punched_in ? (
+                todayPunch.is_late ? (
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono text-[10px] font-bold">
+                    LATE (+{todayPunch.late_minutes}m)
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono text-[10px] font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    ON TIME
+                  </span>
+                )
+              ) : todayPunch?.status === 'ON_LEAVE' ? (
+                <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40 font-mono text-[10px] font-bold">
+                  ON LEAVE
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 font-mono text-[10px] font-bold">
+                  NOT PUNCHED YET
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-1 font-mono text-xs">
+              <div className="flex justify-between text-white/80">
+                <span>Clock IN:</span>
+                <span className="font-bold text-white">{todayPunch?.in_time || '--:--'}</span>
+              </div>
+              <div className="flex justify-between text-white/80">
+                <span>Clock OUT:</span>
+                <span className="font-bold text-white">{todayPunch?.out_time || '--:--'}</span>
+              </div>
+              {todayPunch?.working_hours && (
+                <div className="flex justify-between text-emerald-300 font-bold pt-1 border-t border-white/10">
+                  <span>Logged Duration:</span>
+                  <span>{todayPunch.working_hours}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Interactive Punch Buttons */}
+            <div className="pt-2 flex items-center gap-2">
+              {!todayPunch?.is_punched_in ? (
+                <button
+                  onClick={() => handlePunchAction('PUNCH_IN')}
+                  disabled={punching}
+                  className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-[#122A24] font-black rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>{punching ? 'Recording Punch...' : 'Clock In / Punch Attendance'}</span>
+                </button>
+              ) : !todayPunch?.is_punched_out ? (
+                <button
+                  onClick={() => handlePunchAction('PUNCH_OUT')}
+                  disabled={punching}
+                  className="w-full py-2.5 bg-amber-400 hover:bg-amber-300 active:scale-95 text-[#122A24] font-black rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>{punching ? 'Recording Departure...' : 'Clock Out / Departure Punch'}</span>
+                </button>
+              ) : (
+                <div className="w-full py-2 bg-white/10 text-emerald-200 text-center rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>Shift Completed for Today</span>
+                </div>
+              )}
+            </div>
+
+            {punchFeedback && (
+              <div className={`p-2 rounded-xl text-[11px] font-mono text-center font-bold ${
+                punchFeedback.type === 'success' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+              }`}>
+                {punchFeedback.message}
+              </div>
+            )}
+          </div>
+
+          {/* Col 3: Leave Quota & Balance (3 Cols - "kiski kitni leave hai") */}
+          <div className="lg:col-span-3 bg-white/5 rounded-2xl p-4 sm:p-5 border border-white/10 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono text-emerald-300 uppercase font-bold flex items-center gap-1.5">
+                <Palmtree className="w-4 h-4 text-emerald-400" />
+                <span>My Leave Ledger</span>
+              </span>
+              <span className="text-[10px] text-emerald-200/70 font-mono">Session 2026-27</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-center">
+              <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
+                <span className="text-[10px] font-mono text-white/70 block uppercase">Leaves Taken</span>
+                <span className="text-xl font-black font-mono text-amber-300">
+                  {todayPunch?.leaves_taken ?? 0} <span className="text-xs text-white/60">Days</span>
+                </span>
+              </div>
+
+              <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
+                <span className="text-[10px] font-mono text-emerald-300 block uppercase">CL Balance</span>
+                <span className="text-xl font-black font-mono text-emerald-400">
+                  {todayPunch?.leave_balance ?? 12} <span className="text-xs text-emerald-200/60">CL</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] font-mono text-white/70">
+                <span>Annual CBSE Quota</span>
+                <span className="font-bold text-white">{todayPunch?.total_quota ?? 12} Total CL</span>
+              </div>
+              <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-emerald-400 h-2 rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, Math.max(0, (((todayPunch?.leave_balance ?? 12) / (todayPunch?.total_quota ?? 12)) * 100)))}%`
+                  }}
+                />
+              </div>
+            </div>
+
+            <Link
+              href="/teacher/requests"
+              className="text-[11px] text-emerald-300 hover:text-emerald-100 font-mono font-bold flex items-center justify-center gap-1 pt-1"
+            >
+              <span>Apply for Leave</span>
+              <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
         </div>
       </div>
 

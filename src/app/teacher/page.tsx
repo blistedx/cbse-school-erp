@@ -17,36 +17,62 @@ import {
   ArrowRight,
   ShieldCheck,
   CalendarCheck,
-  Send,
-  AlertCircle
+  AlertCircle,
+  Fingerprint,
+  LogIn,
+  LogOut,
+  Send
 } from 'lucide-react';
 
 export default function TeacherDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [punching, setPunching] = useState(false);
+
+  const loadDashboard = async () => {
+    try {
+      const res = await fetch('/api/teacher/dashboard');
+      if (!res.ok) {
+        throw new Error(`Failed to load dashboard (${res.status})`);
+      }
+      const json = await res.json();
+      if (json.success) {
+        setData(json);
+      } else {
+        setError(json.error || 'Failed to load dashboard metrics.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error communicating with ERP server.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadDashboard() {
-      try {
-        const res = await fetch('/api/teacher/dashboard');
-        if (!res.ok) {
-          throw new Error(`Failed to load dashboard (${res.status})`);
-        }
-        const json = await res.json();
-        if (json.success) {
-          setData(json);
-        } else {
-          setError(json.error || 'Failed to load dashboard metrics.');
-        }
-      } catch (err: any) {
-        setError(err.message || 'Error communicating with ERP server.');
-      } finally {
-        setLoading(false);
-      }
-    }
     loadDashboard();
   }, []);
+
+  const handlePunch = async (action: 'PUNCH_IN' | 'PUNCH_OUT') => {
+    try {
+      setPunching(true);
+      const res = await fetch('/api/teacher/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+      const json = await res.json();
+      if (json.success) {
+        await loadDashboard();
+      } else {
+        alert(json.error || 'Failed to punch attendance');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Network error');
+    } finally {
+      setPunching(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -254,18 +280,53 @@ export default function TeacherDashboardPage() {
             </div>
           </div>
           <div>
-            <p className="text-2xl font-black text-[#122A24] tracking-tight">
-              {biometric_today.status === 'PRESENT' ? 'PUNCHED IN' : biometric_today.status === 'REGULARIZED' ? 'REGULARIZED' : 'PENDING'}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-2xl font-black text-[#122A24] tracking-tight">
+                {biometric_today.status === 'PRESENT' ? 'PUNCHED IN' : biometric_today.status === 'REGULARIZED' ? 'REGULARIZED' : 'NOT PUNCHED'}
+              </p>
+              {biometric_today.is_late && (
+                <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-md font-mono">
+                  LATE
+                </span>
+              )}
+            </div>
             <p className="text-xs text-slate-500 font-mono mt-0.5">
               IN: {biometric_today.in_time || '--:--'} • OUT: {biometric_today.out_time || '--:--'}
             </p>
           </div>
+
+          {/* Quick 1-click Punch In / Out Button */}
+          <div className="pt-1">
+            {biometric_today.status !== 'PRESENT' ? (
+              <button
+                onClick={() => handlePunch('PUNCH_IN')}
+                disabled={punching}
+                className="w-full py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>{punching ? 'Recording...' : 'Punch In Now'}</span>
+              </button>
+            ) : !biometric_today.out_time ? (
+              <button
+                onClick={() => handlePunch('PUNCH_OUT')}
+                disabled={punching}
+                className="w-full py-1.5 px-3 bg-amber-500 hover:bg-amber-600 text-[#122A24] font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>{punching ? 'Recording...' : 'Punch Out'}</span>
+              </button>
+            ) : (
+              <div className="text-[11px] text-emerald-700 font-mono font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Shift Completed
+              </div>
+            )}
+          </div>
+
           <Link
             href="/teacher/attendance"
-            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 font-mono transition"
+            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 font-mono transition pt-1 border-t border-[#DCE8E0]"
           >
-            Monthly Biometrics <ArrowRight className="w-3.5 h-3.5" />
+            Full Attendance Desk <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 

@@ -106,6 +106,37 @@ export async function GET(req: Request) {
     const regularizedDays = dayLedger.filter(d => d.is_regularized).length;
     const punctualityPercent = totalRecordedDays > 0 ? Number(((presentDays / totalRecordedDays) * 100).toFixed(1)) : 0;
 
+    // Today's live punch status & leave ledger
+    const todayStr = getTodayDateStr();
+    const todayFacultyRecord = facultyRecords.find(r => r.date === todayStr);
+    const myTodayRecord = todayFacultyRecord?.teacher_records?.find(tr => 
+      tr.teacher_id === teacher.id || 
+      (teacher.staff_code && tr.staff_code === teacher.staff_code)
+    );
+
+    const leaveApprovals = await Database.getApprovals(tenant, session, 'STAFF_LEAVE');
+    const myLeaves = (leaveApprovals || []).filter(al => 
+      al.status === 'APPROVED' && 
+      (al.details?.staff_id === teacher.id || al.details?.staff_code === teacher.staff_code)
+    );
+    const takenLeaves = myLeaves.reduce((acc, curr) => acc + (Number(curr.details?.days) || 1), 0);
+    const leaveBalance = Math.max(0, 12 - takenLeaves);
+
+    const todayPunch = {
+      date: todayStr,
+      status: myTodayRecord?.status || 'NOT_PUNCHED',
+      in_time: myTodayRecord?.in_time || null,
+      out_time: myTodayRecord?.out_time || null,
+      is_late: !!myTodayRecord?.is_late,
+      late_minutes: myTodayRecord?.late_minutes || 0,
+      working_hours: myTodayRecord?.working_hours || (myTodayRecord?.in_time ? 'In Progress' : '0h 0m'),
+      is_punched_in: !!myTodayRecord?.in_time,
+      is_punched_out: !!myTodayRecord?.out_time,
+      leave_balance: leaveBalance,
+      leaves_taken: takenLeaves,
+      total_quota: 12
+    };
+
     return NextResponse.json({
       success: true,
       school_id: tenant,
@@ -114,6 +145,7 @@ export async function GET(req: Request) {
         staff_code: teacher.staff_code,
         full_name: teacher.full_name
       },
+      today_punch: todayPunch,
       summary: {
         total_working_days: totalRecordedDays,
         present_days: presentDays,
@@ -144,7 +176,38 @@ export async function POST(req: Request) {
     const tenant = resolveTenantSchoolId(auth, body.school_id || body.schoolId);
     if (tenant instanceof NextResponse) return tenant;
 
-    // Strict validation
+    const session = body.academic_session || '2026-27';
+
+    // Resolve teacher
+    const teachers = await Database.getTeachers(tenant);
+    const teacher = teachers.find(t => 
+      t.id === auth.userId || 
+      (t.staff_code && t.staff_code === auth.userId) ||
+      (t.email && t.email === auth.username)
+    );
+
+    if (!teacher) {
+      return NextResponse.json({ success: false, error: 'Teacher profile not found.' }, { status: 404 });
+    }
+
+    // 1. Live Self Clock-In / Punch-Out / Leave Action
+    if (body.action === 'PUNCH_IN' || body.action === 'PUNCH_OUT' || body.action === 'LEAVE') {
+      const punchResult = await AttendanceService.punchTeacherAttendance({
+        schoolId: tenant,
+        session,
+        teacherId: teacher.id,
+        staffCode: teacher.staff_code,
+        teacherName: teacher.full_name,
+        action: body.action,
+        timeStr: body.time,
+        leaveType: body.leave_type,
+        remarks: body.remarks
+      });
+
+      return NextResponse.json(punchResult);
+    }
+
+    // 2. Otherwise: Regularization Request for Past Dates
     const { date, request_type, expected_in, expected_out, reason, attachment_url } = body;
     const todayStr = getTodayDateStr();
 
@@ -160,18 +223,6 @@ export async function POST(req: Request) {
         success: false,
         error: 'A mandatory justification reason of at least 15 characters is required.'
       }, { status: 400 });
-    }
-
-    // Resolve teacher
-    const teachers = await Database.getTeachers(tenant);
-    const teacher = teachers.find(t => 
-      t.id === auth.userId || 
-      (t.staff_code && t.staff_code === auth.userId) ||
-      (t.email && t.email === auth.username)
-    );
-
-    if (!teacher) {
-      return NextResponse.json({ success: false, error: 'Teacher profile not found.' }, { status: 404 });
     }
 
     // Check no duplicate pending request for same date

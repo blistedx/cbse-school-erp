@@ -98,16 +98,24 @@ export class AttendanceService {
     let leaveCount = 0;
     let holidayCount = 0;
 
-    if (Array.isArray(data.student_records) && data.student_records.length > 0) {
-      data.student_records.forEach(s => {
+    const studentRecords = (Array.isArray(data.student_records) && data.student_records.length > 0)
+      ? data.student_records
+      : (Array.isArray((data as any).records) && (data as any).records.length > 0)
+      ? (data as any).records
+      : [];
+
+    const teacherRecords = Array.isArray(data.teacher_records) ? data.teacher_records : [];
+
+    if (studentRecords.length > 0) {
+      studentRecords.forEach((s: any) => {
         const st = (s.status || 'PRESENT').toUpperCase();
         if (st === 'PRESENT' || st === 'LATE') presentCount++;
         else if (st === 'ABSENT') absentCount++;
         else if (st === 'LEAVE') leaveCount++;
         else if (st === 'HOLIDAY') holidayCount++;
       });
-    } else if (Array.isArray(data.teacher_records) && data.teacher_records.length > 0) {
-      data.teacher_records.forEach(t => {
+    } else if (teacherRecords.length > 0) {
+      teacherRecords.forEach((t: any) => {
         const st = (t.status || 'PRESENT').toUpperCase();
         if (st === 'PRESENT' || st === 'LATE') presentCount++;
         else if (st === 'ABSENT') absentCount++;
@@ -121,7 +129,7 @@ export class AttendanceService {
       holidayCount = Number(data.holiday_count) || 0;
     }
 
-    const totalCount = Number(data.total_students) || (presentCount + absentCount + leaveCount + holidayCount);
+    const totalCount = Number(data.total_students) || (studentRecords.length > 0 ? studentRecords.length : (teacherRecords.length > 0 ? teacherRecords.length : (presentCount + absentCount + leaveCount + holidayCount)));
 
     const record: AttendanceRecord = {
       id: data.id || `ATT-${targetSchoolId}-${targetSession}-${date}-${normalizeClassName(rawClassName)}-${rawSection}`.replace(/[^A-Za-z0-9_-]/g, '_'),
@@ -136,8 +144,8 @@ export class AttendanceService {
       leave_count: leaveCount,
       holiday_count: holidayCount,
       marked_by: data.marked_by || 'Class Teacher',
-      student_records: data.student_records,
-      teacher_records: data.teacher_records,
+      student_records: studentRecords.length > 0 ? studentRecords : undefined,
+      teacher_records: teacherRecords.length > 0 ? teacherRecords : undefined,
       created_at: new Date().toISOString()
     };
 
@@ -163,6 +171,7 @@ export class AttendanceService {
     // Invalidate caches
     invalidateServerCache('attendance');
     invalidateServerCache('overview');
+    invalidateServerCache('students');
     AggregatesService.invalidateMemoryCache(targetSchoolId, targetSession);
 
     // Update pre-aggregated attendance snapshot immediately
@@ -170,6 +179,26 @@ export class AttendanceService {
       const summary = await this.getSchoolSummary(targetSchoolId, targetSession, date);
       await AggregatesService.updateAttendanceSnapshot(targetSchoolId, targetSession, summary);
     } catch (_) {}
+
+    // Synchronize individual scholar attendance percentages in background
+    if (studentRecords.length > 0) {
+      Promise.resolve().then(async () => {
+        try {
+          const db = await getDatabase();
+          if (!db) return;
+          for (const s of studentRecords) {
+            const sid = s.student_id || s.id;
+            if (sid) {
+              const summary = await this.getStudentAttendance(targetSchoolId, sid, targetSession);
+              await db.collection('students').updateOne(
+                { id: sid },
+                { $set: { attendance_percent: summary.attendancePercent } }
+              );
+            }
+          }
+        } catch (_) {}
+      });
+    }
 
     return record;
   }
@@ -562,17 +591,295 @@ export class AttendanceService {
   }
 
   /**
-   * Ensure database indexes for Attendance collection
+   * Parse 12-hour or 24-hour time string into minutes from midnight (0..1439)
    */
-  static async ensureAttendanceIndexes(): Promise<void> {
-    const db = await getDatabase();
-    if (!db) return;
-    try {
-      await db.collection('attendance').createIndex({ school_id: 1, session: 1, date: -1 });
-      await db.collection('attendance').createIndex({ school_id: 1, class_name: 1, section: 1, date: 1 });
-      await db.collection('attendance').createIndex({ id: 1 }, { unique: true });
-    } catch (err: any) {
-      console.warn('[AttendanceService] Index creation non-fatal error:', err?.message);
+  static parseTimeToMinutes(timeStr?: string): number {
+    if (!timeStr) return 0;
+    const match = timeStr.trim().match(/(\d+):(\d+)\s*(AM|PM)?/i);
+    if (!match) return 0;
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const modifier = (match[3] || '').toUpperCase();
+    if (modifier === 'PM' && hours < 12) hours += 12;
+    if (modifier === 'AM' && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+  }
+
+  /**
+   * Direct Teacher Punch In / Clock Out / Leave Mark from Teacher Portal
+   */
+  static async punchTeacherAttendance(params: {
+    schoolId: string;
+    session?: string;
+    teacherId: string;
+    staffCode?: string;
+    teacherName?: string;
+    date?: string;
+    action: 'PUNCH_IN' | 'PUNCH_OUT' | 'LEAVE';
+    timeStr?: string;
+    leaveType?: string;
+    remarks?: string;
+  }): Promise<{
+    success: boolean;
+    status: string;
+    in_time?: string;
+    out_time?: string;
+    is_late?: boolean;
+    late_minutes?: number;
+    working_hours?: string;
+    message: string;
+  }> {
+    const { schoolId, session = '2026-27', teacherId, staffCode, teacherName, action, leaveType, remarks } = params;
+    const date = params.date || getTodayDateStr();
+
+    // Default time to Indian Standard Time
+    const nowTimeStr = params.timeStr || new Date().toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    const [teachers, allAttendance] = await Promise.all([
+      Database.getTeachers(schoolId, session),
+      this.getAllAttendanceRecords(schoolId, session)
+    ]);
+
+    const targetTeacher = teachers.find(t => 
+      t.id === teacherId || 
+      (staffCode && t.staff_code === staffCode) ||
+      (teacherName && t.full_name?.toLowerCase() === teacherName.toLowerCase())
+    );
+
+    const actualStaffCode = targetTeacher?.staff_code || staffCode || 'EMP-01';
+    const actualName = targetTeacher?.full_name || teacherName || 'Faculty Member';
+    const actualId = targetTeacher?.id || teacherId;
+
+    // Reporting threshold: 08:00 AM. Grace period ends at 08:05 AM (485 minutes).
+    const punchMinutes = this.parseTimeToMinutes(nowTimeStr);
+    const isLate = action === 'PUNCH_IN' && punchMinutes > 485;
+    const lateMinutes = isLate ? Math.max(0, punchMinutes - 480) : 0;
+
+    // Locate or initialize today's faculty attendance record
+    let facultyRecord = allAttendance.find(a => 
+      a.date === date && 
+      (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || '') || (Array.isArray(a.teacher_records) && a.teacher_records.length > 0))
+    );
+
+    let tRecords: any[] = [];
+    if (facultyRecord && Array.isArray(facultyRecord.teacher_records)) {
+      tRecords = [...facultyRecord.teacher_records];
+    } else {
+      // Seed with all teachers if first punch of the day
+      tRecords = teachers.map(t => ({
+        teacher_id: t.id,
+        staff_code: t.staff_code,
+        full_name: t.full_name,
+        status: 'ABSENT',
+        in_time: undefined,
+        out_time: undefined,
+        is_late: false,
+        late_minutes: 0,
+        working_hours: '0h 0m',
+        punch_type: 'PENDING'
+      }));
     }
+
+    const idx = tRecords.findIndex(tr => tr.teacher_id === actualId || tr.staff_code === actualStaffCode);
+    const existingEntry = idx >= 0 ? tRecords[idx] : null;
+
+    let finalStatus = 'PRESENT';
+    let inTime = existingEntry?.in_time;
+    let outTime = existingEntry?.out_time;
+    let workingHours = existingEntry?.working_hours || 'In Progress';
+
+    if (action === 'PUNCH_IN') {
+      inTime = nowTimeStr;
+      finalStatus = isLate ? 'LATE' : 'PRESENT';
+      workingHours = 'In Progress';
+    } else if (action === 'PUNCH_OUT') {
+      outTime = nowTimeStr;
+      finalStatus = existingEntry?.status || 'PRESENT';
+      if (inTime) {
+        const inMins = this.parseTimeToMinutes(inTime);
+        const outMins = this.parseTimeToMinutes(outTime);
+        const diffMins = Math.max(0, outMins - inMins);
+        const h = Math.floor(diffMins / 60);
+        const m = diffMins % 60;
+        workingHours = `${h}h ${m}m`;
+      }
+    } else if (action === 'LEAVE') {
+      finalStatus = 'ON_LEAVE';
+      inTime = undefined;
+      outTime = undefined;
+      workingHours = '0h 0m';
+    }
+
+    const updatedEntry = {
+      teacher_id: actualId,
+      staff_code: actualStaffCode,
+      full_name: actualName,
+      status: finalStatus,
+      in_time: inTime,
+      out_time: outTime,
+      is_late: finalStatus === 'LATE' || isLate,
+      late_minutes: isLate ? lateMinutes : (existingEntry?.late_minutes || 0),
+      working_hours: workingHours,
+      punch_type: action,
+      remarks: remarks || (isLate ? `Late by ${lateMinutes}m` : (finalStatus === 'ON_LEAVE' ? (leaveType || 'Casual Leave') : 'On Time'))
+    };
+
+    if (idx >= 0) {
+      tRecords[idx] = updatedEntry;
+    } else {
+      tRecords.push(updatedEntry);
+    }
+
+    const presentCount = tRecords.filter(t => t.status === 'PRESENT' || t.status === 'LATE').length;
+    const absentCount = tRecords.filter(t => t.status === 'ABSENT').length;
+    const leaveCount = tRecords.filter(t => t.status === 'ON_LEAVE' || t.status === 'LEAVE').length;
+
+    const payload: Partial<AttendanceRecord> = {
+      id: facultyRecord?.id || `ATT-${schoolId}-${session}-${date}-Faculty_Staff`.replace(/[^A-Za-z0-9_-]/g, '_'),
+      school_id: schoolId,
+      academic_session: session,
+      date,
+      class_name: 'Faculty',
+      section: 'Staff',
+      total_students: teachers.length > 0 ? teachers.length : tRecords.length,
+      present_count: presentCount,
+      absent_count: absentCount,
+      leave_count: leaveCount,
+      marked_by: `Live Biometric Engine (${actualName})`,
+      teacher_records: tRecords
+    };
+
+    await this.markAttendance(schoolId, session, payload);
+
+    return {
+      success: true,
+      status: finalStatus,
+      in_time: inTime,
+      out_time: outTime,
+      is_late: isLate,
+      late_minutes: lateMinutes,
+      working_hours: workingHours,
+      message: action === 'PUNCH_IN' 
+        ? (isLate ? `Checked in late at ${nowTimeStr} (${lateMinutes} mins late). Recorded in Institutional Ledger.` : `Checked in on time at ${nowTimeStr}. Recorded in Institutional Ledger.`)
+        : action === 'PUNCH_OUT'
+        ? `Checked out at ${nowTimeStr}. Total time logged: ${workingHours}.`
+        : `Marked on leave for ${date}.`
+    };
+  }
+
+  /**
+   * Principal & Admin: Comprehensive Faculty Attendance & Punctuality Ledger
+   */
+  static async getFacultyAttendanceLedger(
+    schoolId: string,
+    session: string = '2026-27',
+    date: string = getTodayDateStr()
+  ) {
+    const [teachers, allAttendance, leaveApprovals] = await Promise.all([
+      Database.getTeachers(schoolId, session),
+      this.getAllAttendanceRecords(schoolId, session),
+      Database.getApprovals(schoolId, session, 'STAFF_LEAVE')
+    ]);
+
+    const approvedLeaves = (leaveApprovals || []).filter(a => a.status === 'APPROVED');
+
+    // Find attendance record for requested date
+    const facultyRecord = allAttendance.find(a => 
+      a.date === date && 
+      (/faculty|staff/i.test(a.class_name || '') || /faculty|staff/i.test(a.section || '') || (Array.isArray(a.teacher_records) && a.teacher_records.length > 0))
+    );
+
+    const loggedMap = new Map<string, any>();
+    if (facultyRecord && Array.isArray(facultyRecord.teacher_records)) {
+      facultyRecord.teacher_records.forEach((tr: any) => {
+        if (tr.teacher_id) loggedMap.set(tr.teacher_id, tr);
+        if (tr.staff_code) loggedMap.set(tr.staff_code, tr);
+      });
+    }
+
+    const rows = teachers.map(t => {
+      const entry = loggedMap.get(t.id) || (t.staff_code ? loggedMap.get(t.staff_code) : null);
+      
+      // Calculate approved leave quota
+      const teacherLeaves = approvedLeaves.filter(al => 
+        al.details?.staff_id === t.id || 
+        al.details?.staff_code === t.staff_code ||
+        al.requested_by?.id === t.id
+      );
+      const takenDays = teacherLeaves.reduce((acc, curr) => acc + (Number(curr.details?.days) || 1), 0);
+      const totalQuota = 12;
+      const remainingQuota = Math.max(0, totalQuota - takenDays);
+
+      // Check if on leave on this specific date
+      const isOnLeaveToday = (t.status || '').toUpperCase() === 'ON_LEAVE' || teacherLeaves.some(al => {
+        const start = al.details?.start_date;
+        const end = al.details?.end_date;
+        return (start && end && date >= start && date <= end) || (al.details?.date === date);
+      });
+
+      let status = 'ABSENT';
+      let inTime = entry?.in_time || null;
+      let outTime = entry?.out_time || null;
+      let isLate = false;
+      let lateMinutes = 0;
+      let workingHours = entry?.working_hours || (inTime ? 'In Progress' : '0h 0m');
+
+      if (entry) {
+        status = entry.status;
+        isLate = !!entry.is_late || entry.status === 'LATE';
+        lateMinutes = entry.late_minutes || 0;
+      } else if (isOnLeaveToday) {
+        status = 'ON_LEAVE';
+      }
+
+      return {
+        id: t.id,
+        staff_code: t.staff_code || t.employee_code || 'EMP',
+        full_name: t.full_name,
+        photo: t.photo || t.avatar || '',
+        avatar: t.avatar || t.photo || '',
+        designation: t.designation || 'Faculty',
+        department: t.department || 'Academics',
+        assigned_class: t.assigned_class || 'None',
+        shift: '08:00 AM - 02:30 PM',
+        in_time: inTime,
+        out_time: outTime,
+        status, // 'PRESENT' | 'LATE' | 'ON_LEAVE' | 'ABSENT'
+        is_late: isLate,
+        late_minutes: lateMinutes,
+        working_hours: workingHours,
+        remarks: entry?.remarks || (isLate ? `Late by ${lateMinutes}m` : (status === 'ON_LEAVE' ? 'Approved Leave' : (status === 'PRESENT' ? 'On Time' : 'Not Punched'))),
+        leave_ledger: {
+          total_quota: totalQuota,
+          taken_days: takenDays,
+          remaining_quota: remainingQuota
+        }
+      };
+    });
+
+    const totalFaculty = rows.length;
+    const presentCount = rows.filter(r => r.status === 'PRESENT' || r.status === 'LATE').length;
+    const onTimeCount = rows.filter(r => r.status === 'PRESENT' && !r.is_late).length;
+    const lateCount = rows.filter(r => r.status === 'LATE' || r.is_late).length;
+    const onLeaveCount = rows.filter(r => r.status === 'ON_LEAVE').length;
+    const absentCount = rows.filter(r => r.status === 'ABSENT').length;
+    const punctualityRate = presentCount > 0 ? Math.round((onTimeCount / presentCount) * 100) : 0;
+
+    return {
+      date,
+      total_faculty: totalFaculty,
+      present_count: presentCount,
+      on_time_count: onTimeCount,
+      late_count: lateCount,
+      on_leave_count: onLeaveCount,
+      absent_count: absentCount,
+      punctuality_rate: punctualityRate,
+      faculty_records: rows
+    };
   }
 }

@@ -36,7 +36,8 @@ import {
   Eye,
   AlertTriangle,
   RotateCcw,
-  BadgeCheck
+  BadgeCheck,
+  Palmtree
 } from 'lucide-react';
 import { PrincipalOverviewData, PrincipalApprovalRequest, PrincipalApprovalType } from '@/lib/types';
 import { DASHBOARD_FEE_CYCLES, DashboardFeeCycleItem } from '@/components/blocks/dashboard-overview';
@@ -565,7 +566,7 @@ export default function PrincipalOverviewPage() {
 
           {/* Row 1, Col 2: Teachers/staff */}
           <Link 
-            href="/principal/faculty"
+            href="/principal/faculty?tab=attendance"
             className="cursor-pointer group select-none flex flex-col justify-between p-2 rounded-xl no-underline hover:bg-white/[0.04] transition"
           >
             <div>
@@ -989,6 +990,107 @@ export default function PrincipalOverviewPage() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          4B. FACULTY BIOMETRIC & PUNCTUALITY LIVE TURNOUT STRIP
+          (Live Teacher Punching & Leave status: kaun time pe aa rha hai, kaun late hai, kiski leave hai)
+          ───────────────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 sm:p-7 relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-emerald-700" />
+              <h3 className="text-base font-bold text-[#122A24]">
+                Faculty Biometric Punctuality &amp; Live Attendance Desk
+              </h3>
+            </div>
+            <p className="text-xs text-[#2D5A4E] mt-0.5 font-mono">
+              Live tracking across 33 educators: On-time check-ins (&le; 08:05 AM), late arrivals, and casual leave quotas.
+            </p>
+          </div>
+
+          <Link
+            href="/principal/faculty?tab=attendance"
+            className="px-4 py-2 bg-[#122A24] hover:bg-[#1C443A] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs shrink-0 no-underline cursor-pointer"
+          >
+            <span>Open Attendance Desk</span>
+            <ArrowRight className="w-3.5 h-3.5 text-emerald-400" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* On Time Tile */}
+          <Link
+            href="/principal/faculty?tab=attendance"
+            className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 hover:bg-emerald-50 transition no-underline flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono font-bold text-emerald-800 uppercase">On Time Today</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            </div>
+            <div className="text-2xl font-black text-emerald-900 mt-2 font-mono">
+              {data?.faculty_turnout?.on_time_count ?? 0}
+              <span className="text-xs font-normal text-emerald-700 font-sans ml-1">Educators</span>
+            </div>
+            <div className="text-[10px] text-emerald-700 font-mono mt-1">
+              Checked in by 08:05 AM
+            </div>
+          </Link>
+
+          {/* Late Arrivals Tile */}
+          <Link
+            href="/principal/faculty?tab=attendance"
+            className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 hover:bg-amber-50 transition no-underline flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono font-bold text-amber-800 uppercase">Late Arrivals</span>
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            </div>
+            <div className="text-2xl font-black text-amber-900 mt-2 font-mono">
+              {data?.faculty_turnout?.late_count ?? 0}
+              <span className="text-xs font-normal text-amber-700 font-sans ml-1">Flagged</span>
+            </div>
+            <div className="text-[10px] text-amber-700 font-mono mt-1">
+              Reported past 08:05 AM
+            </div>
+          </Link>
+
+          {/* On Leave Tile */}
+          <Link
+            href="/principal/faculty?tab=attendance"
+            className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/80 hover:bg-blue-50 transition no-underline flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono font-bold text-blue-800 uppercase">On Approved Leave</span>
+              <Palmtree className="w-3.5 h-3.5 text-blue-600" />
+            </div>
+            <div className="text-2xl font-black text-blue-900 mt-2 font-mono">
+              {data?.faculty_turnout?.on_leave_count ?? 0}
+              <span className="text-xs font-normal text-blue-700 font-sans ml-1">Staff</span>
+            </div>
+            <div className="text-[10px] text-blue-700 font-mono mt-1">
+              Casual leave quota deducted
+            </div>
+          </Link>
+
+          {/* Punctuality Index Tile */}
+          <Link
+            href="/principal/faculty?tab=attendance"
+            className="p-4 rounded-2xl bg-[#F8FAF9] border border-[#DCE8E0] hover:bg-[#EFF5F1] transition no-underline flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono font-bold text-[#122A24] uppercase">Punctuality Index</span>
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            </div>
+            <div className="text-2xl font-black text-[#122A24] mt-2 font-mono">
+              {data?.faculty_turnout?.punctuality_rate ?? 0}%
+            </div>
+            <div className="text-[10px] text-[#2D5A4E] font-mono mt-1">
+              {data?.faculty_turnout?.present_count ?? 0} of {data?.faculty_turnout?.total_faculty ?? 33} present
+            </div>
+          </Link>
         </div>
       </div>
 
