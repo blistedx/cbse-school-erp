@@ -24,6 +24,8 @@ export function PrincipalHeader({
   const getBreadcrumbTitle = () => {
     if (pathname === '/principal') return 'Executive Dashboard Overview';
     if (pathname.startsWith('/principal/approvals')) return 'Approvals & Statutory Petitions';
+    if (pathname.startsWith('/principal/students')) return 'Scholars & Students Master';
+    if (pathname.startsWith('/principal/faculty')) return 'Faculty & Staff Roster';
     if (pathname.startsWith('/principal/reports')) return 'Institutional Reports & Analytics';
     if (pathname.startsWith('/principal/notices')) return 'Circulars & Official Broadcasts';
     if (pathname.startsWith('/principal/profile')) return 'Principal Credentials & Office';

@@ -48,6 +48,18 @@ interface StudentItem {
   category?: string;
 }
 
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('erp_session_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      headers['x-session-token'] = token;
+    }
+  }
+  return headers;
+}
+
 export default function PrincipalStudentsPage() {
   const [students, setStudents] = useState<StudentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,17 +88,24 @@ export default function PrincipalStudentsPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/students');
-      if (!res.ok) throw new Error('Failed to load scholars directory');
-      const json = await res.json();
-      if (json.success && Array.isArray(json.students)) {
+      const headers = getAuthHeaders();
+      const res = await fetch('/api/students', { headers });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success && Array.isArray(json.students)) {
         setStudents(json.students);
       } else {
-        setStudents([]);
+        // Fallback to reports api if /api/students returns 401 or unexpected format
+        const fallbackRes = await fetch('/api/principal/reports?category=students&sub_report=student_dossier', { headers });
+        const fallbackJson = await fallbackRes.json().catch(() => ({}));
+        if (fallbackRes.ok && fallbackJson.success && Array.isArray(fallbackJson.students)) {
+          setStudents(fallbackJson.students);
+        } else {
+          setStudents([]);
+        }
       }
     } catch (err: any) {
       console.error('Fetch students error:', err);
-      setError(err.message || 'Unable to load student directory.');
+      setError(err?.message || 'Unable to load student directory.');
     } finally {
       setLoading(false);
     }
@@ -96,18 +115,21 @@ export default function PrincipalStudentsPage() {
     fetchStudents();
   }, [fetchStudents]);
 
-  // Unique Classes & Sections
+  // Unique Classes & Sections safely computed
   const availableClasses = useMemo(() => {
+    if (!Array.isArray(students)) return [];
     const set = new Set<string>();
     students.forEach(s => {
-      if (s.class_name) set.add(s.class_name);
+      if (s?.class_name) set.add(String(s.class_name));
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [students]);
 
-  // Filtered Students
+  // Filtered Students safely computed
   const filteredStudents = useMemo(() => {
+    if (!Array.isArray(students)) return [];
     return students.filter(s => {
+      if (!s) return false;
       if (selectedClass !== 'ALL' && s.class_name !== selectedClass) return false;
       if (selectedSection !== 'ALL' && (s.section || 'A').toUpperCase() !== selectedSection.toUpperCase()) return false;
       if (selectedGender !== 'ALL' && (s.gender || '').toUpperCase() !== selectedGender.toUpperCase()) return false;
@@ -116,7 +138,7 @@ export default function PrincipalStudentsPage() {
         const q = searchQuery.toLowerCase().trim();
         const matchName = (s.full_name || '').toLowerCase().includes(q);
         const matchAdm = (s.admission_no || '').toLowerCase().includes(q);
-        const matchFather = (s.father_name || s.guardian_name || '').toLowerCase().includes(q);
+        const matchFather = (s.father_name || s.guardian_name || s.mother_name || '').toLowerCase().includes(q);
         const matchPhone = (s.phone || s.guardian_phone || '').includes(q);
         if (!matchName && !matchAdm && !matchFather && !matchPhone) return false;
       }
@@ -124,29 +146,32 @@ export default function PrincipalStudentsPage() {
     });
   }, [students, selectedClass, selectedSection, selectedGender, searchQuery]);
 
-  // Overall Statistics
+  // Overall Statistics safely computed
   const stats = useMemo(() => {
+    if (!Array.isArray(students)) return { total: 0, boys: 0, girls: 0, rte: 0, transport: 0 };
     const total = students.length;
-    const boys = students.filter(s => (s.gender || '').toUpperCase() === 'MALE').length;
-    const girls = students.filter(s => (s.gender || '').toUpperCase() === 'FEMALE').length;
-    const rte = students.filter(s => String(s.is_rte || '').toUpperCase() === 'YES' || s.is_rte === true).length;
-    const transport = students.filter(s => String(s.transport_opted || '').toUpperCase() === 'YES' || s.transport_opted === true).length;
+    const boys = students.filter(s => (s?.gender || '').toUpperCase() === 'MALE').length;
+    const girls = students.filter(s => (s?.gender || '').toUpperCase() === 'FEMALE').length;
+    const rte = students.filter(s => String(s?.is_rte || '').toUpperCase() === 'YES' || s?.is_rte === true).length;
+    const transport = students.filter(s => String(s?.transport_opted || '').toUpperCase() === 'YES' || s?.transport_opted === true).length;
     return { total, boys, girls, rte, transport };
   }, [students]);
 
   // Open 360° Dossier
   const handleOpenDossier = async (studentId: string) => {
+    if (!studentId) return;
     setDossierModal({ isOpen: true, dossier: null, loading: true });
     try {
-      const res = await fetch(`/api/principal/reports?category=students&sub_report=student_dossier&student_id=${encodeURIComponent(studentId)}`);
-      const data = await res.json();
+      const headers = getAuthHeaders();
+      const res = await fetch(`/api/principal/reports?category=students&sub_report=student_dossier&student_id=${encodeURIComponent(studentId)}`, { headers });
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.success && data.dossier) {
         setDossierModal({ isOpen: true, dossier: data.dossier, loading: false });
       } else {
         setDossierModal({ isOpen: true, dossier: null, loading: false, error: data.error || 'Failed to fetch student dossier.' });
       }
     } catch (err: any) {
-      setDossierModal({ isOpen: true, dossier: null, loading: false, error: err.message || 'Network error fetching dossier.' });
+      setDossierModal({ isOpen: true, dossier: null, loading: false, error: err?.message || 'Network error fetching dossier.' });
     }
   };
 
@@ -403,153 +428,171 @@ export default function PrincipalStudentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2EBE5]">
-                {filteredStudents.map(student => (
-                  <tr key={student.id} className="hover:bg-[#F8FAF9] transition">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-xs shrink-0">
-                          {student.full_name.charAt(0)}
-                        </div>
-                        <div>
-                          <div className="font-bold text-[#122A24] hover:text-emerald-800 transition">
-                            {student.full_name}
+                {filteredStudents.map(student => {
+                  const initial = (student?.full_name || student?.admission_no || 'S').charAt(0);
+                  const fullName = student?.full_name || 'Scholar';
+                  const admNo = student?.admission_no || '—';
+                  const classSec = `${student?.class_name || 'Class'} - ${student?.section || 'A'}`;
+                  const parentName = student?.father_name || student?.guardian_name || student?.mother_name || 'Guardian';
+                  const contactPhone = student?.phone || student?.guardian_phone || '';
+
+                  return (
+                    <tr key={student.id || admNo} className="hover:bg-[#F8FAF9] transition">
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                            {initial}
                           </div>
-                          <div className="text-[11px] text-[#2D5A4E] font-mono">
-                            Roll No: {student.roll_no || '—'} • {student.gender || 'Scholar'}
+                          <div>
+                            <div className="font-bold text-[#122A24] hover:text-emerald-800 transition">
+                              {fullName}
+                            </div>
+                            <div className="text-[11px] text-[#2D5A4E] font-mono">
+                              Roll No: {student?.roll_no || '—'} • {student?.gender || 'Scholar'}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="p-4">
-                      <span className="font-mono font-bold text-emerald-900 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                        {student.class_name} - {student.section || 'A'}
-                      </span>
-                    </td>
+                      <td className="p-4">
+                        <span className="font-mono font-bold text-emerald-900 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                          {classSec}
+                        </span>
+                      </td>
 
-                    <td className="p-4 font-mono font-bold text-[#122A24]">
-                      {student.admission_no}
-                    </td>
+                      <td className="p-4 font-mono font-bold text-[#122A24]">
+                        {admNo}
+                      </td>
 
-                    <td className="p-4">
-                      <div className="font-medium text-[#122A24]">
-                        {student.father_name || student.guardian_name || student.mother_name || 'Guardian'}
-                      </div>
-                    </td>
+                      <td className="p-4">
+                        <div className="font-medium text-[#122A24]">
+                          {parentName}
+                        </div>
+                      </td>
 
-                    <td className="p-4">
-                      {(student.phone || student.guardian_phone) ? (
-                        <a
-                          href={`tel:${student.phone || student.guardian_phone}`}
-                          className="font-mono text-emerald-700 hover:underline flex items-center gap-1"
+                      <td className="p-4">
+                        {contactPhone ? (
+                          <a
+                            href={`tel:${contactPhone}`}
+                            className="font-mono text-emerald-700 hover:underline flex items-center gap-1"
+                          >
+                            <Phone className="w-3 h-3 text-emerald-600" />
+                            <span>{contactPhone}</span>
+                          </a>
+                        ) : (
+                          <span className="text-[#2D5A4E]/50 font-mono">—</span>
+                        )}
+                      </td>
+
+                      <td className="p-4">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {String(student?.is_rte || '').toUpperCase() === 'YES' && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                              RTE
+                            </span>
+                          )}
+                          {String(student?.transport_opted || '').toUpperCase() === 'YES' && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-900 border border-sky-300 flex items-center gap-1">
+                              <Bus className="w-2.5 h-2.5" /> Bus
+                            </span>
+                          )}
+                          {!student?.is_rte && !student?.transport_opted && (
+                            <span className="text-[11px] text-[#2D5A4E]/60">Standard</span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="p-4 text-right">
+                        <button
+                          onClick={() => handleOpenDossier(student.id || student.admission_no)}
+                          className="px-3 py-1.5 rounded-xl bg-[#122A24] text-white hover:bg-[#1C443A] text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95"
                         >
-                          <Phone className="w-3 h-3 text-emerald-600" />
-                          <span>{student.phone || student.guardian_phone}</span>
-                        </a>
-                      ) : (
-                        <span className="text-[#2D5A4E]/50 font-mono">—</span>
-                      )}
-                    </td>
-
-                    <td className="p-4">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {String(student.is_rte || '').toUpperCase() === 'YES' && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                            RTE
-                          </span>
-                        )}
-                        {String(student.transport_opted || '').toUpperCase() === 'YES' && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-900 border border-sky-300 flex items-center gap-1">
-                            <Bus className="w-2.5 h-2.5" /> Bus
-                          </span>
-                        )}
-                        {!student.is_rte && !student.transport_opted && (
-                          <span className="text-[11px] text-[#2D5A4E]/60">Standard</span>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() => handleOpenDossier(student.id || student.admission_no)}
-                        className="px-3 py-1.5 rounded-xl bg-[#122A24] text-white hover:bg-[#1C443A] text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>View Dossier</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                          <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>View Dossier</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredStudents.map(student => (
-            <div
-              key={student.id}
-              className="bg-white rounded-3xl border border-[#DCE8E0] p-5 shadow-xs hover:shadow-md transition space-y-4 flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-sm">
-                      {student.full_name.charAt(0)}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-[#122A24] text-sm">{student.full_name}</h4>
-                      <p className="text-[11px] text-[#2D5A4E] font-mono">
-                        Adm: <strong>{student.admission_no}</strong> • Roll: {student.roll_no || '1'}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="font-mono text-xs font-bold text-emerald-900 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
-                    {student.class_name} - {student.section || 'A'}
-                  </span>
-                </div>
+          {filteredStudents.map(student => {
+            const initial = (student?.full_name || student?.admission_no || 'S').charAt(0);
+            const fullName = student?.full_name || 'Scholar';
+            const admNo = student?.admission_no || '—';
+            const classSec = `${student?.class_name || 'Class'} - ${student?.section || 'A'}`;
+            const parentName = student?.father_name || student?.guardian_name || student?.mother_name || 'Guardian';
+            const contactPhone = student?.phone || student?.guardian_phone || '';
 
-                <div className="mt-4 pt-3 border-t border-[#DCE8E0] space-y-2 text-xs">
-                  <div className="flex items-center justify-between text-[#2D5A4E]">
-                    <span>Parent:</span>
-                    <strong className="text-[#122A24]">{student.father_name || student.guardian_name || 'Guardian'}</strong>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[#2D5A4E]">
-                    <span>Contact:</span>
-                    {(student.phone || student.guardian_phone) ? (
-                      <a href={`tel:${student.phone || student.guardian_phone}`} className="font-mono font-bold text-emerald-700 hover:underline">
-                        {student.phone || student.guardian_phone}
-                      </a>
-                    ) : (
-                      <span className="text-[#2D5A4E]/50">—</span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between text-[#2D5A4E]">
-                    <span>Quota &amp; Fleet:</span>
-                    <div className="flex items-center gap-1">
-                      {String(student.is_rte || '').toUpperCase() === 'YES' && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900">RTE</span>
-                      )}
-                      {String(student.transport_opted || '').toUpperCase() === 'YES' && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-900">BUS</span>
-                      )}
-                      {!student.is_rte && !student.transport_opted && <span>Standard</span>}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => handleOpenDossier(student.id || student.admission_no)}
-                className="w-full py-2.5 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer active:scale-95"
+            return (
+              <div
+                key={student.id || admNo}
+                className="bg-white rounded-3xl border border-[#DCE8E0] p-5 shadow-xs hover:shadow-md transition space-y-4 flex flex-col justify-between"
               >
-                <Eye className="w-4 h-4 text-emerald-400" />
-                <span>Open 360° Academic Dossier</span>
-              </button>
-            </div>
-          ))}
+                <div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-sm">
+                        {initial}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-[#122A24] text-sm">{fullName}</h4>
+                        <p className="text-[11px] text-[#2D5A4E] font-mono">
+                          Adm: <strong>{admNo}</strong> • Roll: {student?.roll_no || '1'}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="font-mono text-xs font-bold text-emerald-900 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
+                      {classSec}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-[#DCE8E0] space-y-2 text-xs">
+                    <div className="flex items-center justify-between text-[#2D5A4E]">
+                      <span>Parent:</span>
+                      <strong className="text-[#122A24]">{parentName}</strong>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[#2D5A4E]">
+                      <span>Contact:</span>
+                      {contactPhone ? (
+                        <a href={`tel:${contactPhone}`} className="font-mono font-bold text-emerald-700 hover:underline">
+                          {contactPhone}
+                        </a>
+                      ) : (
+                        <span className="text-[#2D5A4E]/50">—</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[#2D5A4E]">
+                      <span>Quota &amp; Fleet:</span>
+                      <div className="flex items-center gap-1">
+                        {String(student?.is_rte || '').toUpperCase() === 'YES' && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900">RTE</span>
+                        )}
+                        {String(student?.transport_opted || '').toUpperCase() === 'YES' && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-900">BUS</span>
+                        )}
+                        {!student?.is_rte && !student?.transport_opted && <span>Standard</span>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => handleOpenDossier(student.id || student.admission_no)}
+                  className="w-full py-2.5 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer active:scale-95"
+                >
+                  <Eye className="w-4 h-4 text-emerald-400" />
+                  <span>Open 360° Academic Dossier</span>
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -567,14 +610,14 @@ export default function PrincipalStudentsPage() {
             <div className="flex items-center justify-between border-b border-[#DCE8E0] pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-base">
-                  {dossierModal.dossier?.student.full_name.charAt(0) || 'S'}
+                  {(dossierModal.dossier?.student?.full_name || 'S').charAt(0)}
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-[#122A24]">
-                    {dossierModal.dossier?.student.full_name}
+                    {dossierModal.dossier?.student?.full_name || 'Scholar Dossier'}
                   </h3>
                   <div className="text-xs text-[#2D5A4E] font-mono">
-                    Adm No: {dossierModal.dossier?.student.admission_no} • {dossierModal.dossier?.student.class_name} - {dossierModal.dossier?.student.section}
+                    Adm No: {dossierModal.dossier?.student?.admission_no || '—'} • {dossierModal.dossier?.student?.class_name || 'Class'} - {dossierModal.dossier?.student?.section || 'A'}
                   </div>
                 </div>
               </div>
@@ -601,17 +644,17 @@ export default function PrincipalStudentsPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div>
                       <span className="text-[#2D5A4E] block">Father / Guardian:</span>
-                      <strong className="text-[#122A24]">{dossierModal.dossier.student.father_name || dossierModal.dossier.student.guardian_name || 'Parent'}</strong>
+                      <strong className="text-[#122A24]">{dossierModal.dossier.student?.father_name || dossierModal.dossier.student?.guardian_name || 'Parent'}</strong>
                     </div>
                     <div>
                       <span className="text-[#2D5A4E] block">Contact Phone:</span>
-                      <a href={`tel:${dossierModal.dossier.student.guardian_phone || dossierModal.dossier.student.phone}`} className="font-mono text-emerald-700 font-bold hover:underline">
-                        {dossierModal.dossier.student.guardian_phone || dossierModal.dossier.student.phone || 'N/A'}
+                      <a href={`tel:${dossierModal.dossier.student?.guardian_phone || dossierModal.dossier.student?.phone}`} className="font-mono text-emerald-700 font-bold hover:underline">
+                        {dossierModal.dossier.student?.guardian_phone || dossierModal.dossier.student?.phone || 'N/A'}
                       </a>
                     </div>
                     <div>
                       <span className="text-[#2D5A4E] block">DOB / Admission Date:</span>
-                      <span className="text-[#122A24] font-mono">{dossierModal.dossier.student.dob || '—'}</span>
+                      <span className="text-[#122A24] font-mono">{dossierModal.dossier.student?.dob || '—'}</span>
                     </div>
                   </div>
                 </div>
@@ -624,25 +667,25 @@ export default function PrincipalStudentsPage() {
                       <span>Biometric Roll-Call &amp; Attendance Rate</span>
                     </div>
                     <span className="text-xs font-mono font-bold text-emerald-900 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                      {dossierModal.dossier.attendance.attendancePercent}% Cumulative
+                      {dossierModal.dossier.attendance?.attendancePercent ?? 0}% Cumulative
                     </span>
                   </div>
                   <div className="grid grid-cols-4 gap-2 text-center text-xs">
                     <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
                       <div className="text-[10px] text-[#2D5A4E]">Working Days</div>
-                      <div className="font-black text-[#122A24]">{dossierModal.dossier.attendance.totalWorkingDays}</div>
+                      <div className="font-black text-[#122A24]">{dossierModal.dossier.attendance?.totalWorkingDays ?? 0}</div>
                     </div>
                     <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
                       <div className="text-[10px] text-emerald-700">Present</div>
-                      <div className="font-black text-emerald-800">{dossierModal.dossier.attendance.presentDays}</div>
+                      <div className="font-black text-emerald-800">{dossierModal.dossier.attendance?.presentDays ?? 0}</div>
                     </div>
                     <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
                       <div className="text-[10px] text-rose-700">Absent</div>
-                      <div className="font-black text-rose-800">{dossierModal.dossier.attendance.absentDays}</div>
+                      <div className="font-black text-rose-800">{dossierModal.dossier.attendance?.absentDays ?? 0}</div>
                     </div>
                     <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
                       <div className="text-[10px] text-amber-700">Leaves</div>
-                      <div className="font-black text-amber-800">{dossierModal.dossier.attendance.leaveDays}</div>
+                      <div className="font-black text-amber-800">{dossierModal.dossier.attendance?.leaveDays ?? 0}</div>
                     </div>
                   </div>
                 </div>
@@ -655,23 +698,23 @@ export default function PrincipalStudentsPage() {
                       <span>Fee Master &amp; Clearance Overview</span>
                     </div>
                     <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                      dossierModal.dossier.fees.status === 'CLEARED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                      dossierModal.dossier.fees?.status === 'CLEARED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                     }`}>
-                      {dossierModal.dossier.fees.status}
+                      {dossierModal.dossier.fees?.status || 'PENDING'}
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-center text-xs">
                     <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
                       <div className="text-[10px] text-[#2D5A4E]">Billed</div>
-                      <div className="font-black font-mono text-[#122A24]">₹{dossierModal.dossier.fees.totalBilled.toLocaleString('en-IN')}</div>
+                      <div className="font-black font-mono text-[#122A24]">₹{(dossierModal.dossier.fees?.totalBilled ?? 0).toLocaleString('en-IN')}</div>
                     </div>
                     <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
                       <div className="text-[10px] text-emerald-700">Paid</div>
-                      <div className="font-black font-mono text-emerald-800">₹{dossierModal.dossier.fees.totalPaid.toLocaleString('en-IN')}</div>
+                      <div className="font-black font-mono text-emerald-800">₹{(dossierModal.dossier.fees?.totalPaid ?? 0).toLocaleString('en-IN')}</div>
                     </div>
                     <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
                       <div className="text-[10px] text-rose-700">Pending Dues</div>
-                      <div className="font-black font-mono text-rose-800">₹{dossierModal.dossier.fees.totalPending.toLocaleString('en-IN')}</div>
+                      <div className="font-black font-mono text-rose-800">₹{(dossierModal.dossier.fees?.totalPending ?? 0).toLocaleString('en-IN')}</div>
                     </div>
                   </div>
                 </div>
@@ -682,7 +725,7 @@ export default function PrincipalStudentsPage() {
                     <Award className="w-4 h-4 text-emerald-600" />
                     <span>Assessments &amp; CBSE Examination Broadsheet</span>
                   </div>
-                  {dossierModal.dossier.marks.length > 0 ? (
+                  {dossierModal.dossier.marks && dossierModal.dossier.marks.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs bg-white rounded-xl border border-[#DCE8E0] overflow-hidden">
                         <thead className="bg-[#E9F2EC] text-[#2D5A4E] text-[10px] font-mono uppercase">

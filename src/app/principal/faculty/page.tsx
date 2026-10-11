@@ -43,6 +43,18 @@ interface TeacherItem {
   gender?: string;
 }
 
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('erp_session_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      headers['x-session-token'] = token;
+    }
+  }
+  return headers;
+}
+
 export default function PrincipalFacultyPage() {
   const [teachers, setTeachers] = useState<TeacherItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,17 +73,24 @@ export default function PrincipalFacultyPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/teachers');
-      if (!res.ok) throw new Error('Failed to load faculty directory');
-      const json = await res.json();
-      if (json.success && Array.isArray(json.teachers)) {
+      const headers = getAuthHeaders();
+      const res = await fetch('/api/teachers', { headers });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success && Array.isArray(json.teachers)) {
         setTeachers(json.teachers);
       } else {
-        setTeachers([]);
+        // Fallback to reports api if /api/teachers returns 401 or unexpected format
+        const fallbackRes = await fetch('/api/principal/reports?category=staff&sub_report=staff_list', { headers });
+        const fallbackJson = await fallbackRes.json().catch(() => ({}));
+        if (fallbackRes.ok && fallbackJson.success && Array.isArray(fallbackJson.data)) {
+          setTeachers(fallbackJson.data);
+        } else {
+          setTeachers([]);
+        }
       }
     } catch (err: any) {
       console.error('Fetch faculty error:', err);
-      setError(err.message || 'Unable to load faculty roster.');
+      setError(err?.message || 'Unable to load faculty roster.');
     } finally {
       setLoading(false);
     }
@@ -81,18 +100,21 @@ export default function PrincipalFacultyPage() {
     fetchFaculty();
   }, [fetchFaculty]);
 
-  // Unique Departments
+  // Unique Departments safely computed
   const departments = useMemo(() => {
+    if (!Array.isArray(teachers)) return [];
     const set = new Set<string>();
     teachers.forEach(t => {
-      if (t.department) set.add(t.department);
+      if (t?.department) set.add(String(t.department));
     });
     return Array.from(set).sort();
   }, [teachers]);
 
-  // Filtered Faculty
+  // Filtered Faculty safely computed
   const filteredFaculty = useMemo(() => {
+    if (!Array.isArray(teachers)) return [];
     return teachers.filter(t => {
+      if (!t) return false;
       if (selectedDept !== 'ALL' && t.department !== selectedDept) return false;
       if (selectedStatus !== 'ALL') {
         const isLeave = (t.status || '').toUpperCase() === 'ON_LEAVE';
@@ -107,7 +129,7 @@ export default function PrincipalFacultyPage() {
         const matchDept = (t.department || '').toLowerCase().includes(q);
         const matchDesig = (t.designation || '').toLowerCase().includes(q);
         const matchSubj = Array.isArray(t.subjects)
-          ? t.subjects.some(s => s.toLowerCase().includes(q))
+          ? t.subjects.some(s => s && s.toLowerCase().includes(q))
           : String(t.subjects || '').toLowerCase().includes(q);
         if (!matchName && !matchCode && !matchDept && !matchDesig && !matchSubj) return false;
       }
@@ -115,12 +137,13 @@ export default function PrincipalFacultyPage() {
     });
   }, [teachers, selectedDept, selectedStatus, searchQuery]);
 
-  // Stats
+  // Stats safely computed
   const stats = useMemo(() => {
+    if (!Array.isArray(teachers)) return { total: 0, active: 0, onLeave: 0, classTeachers: 0 };
     const total = teachers.length;
-    const active = teachers.filter(t => (t.status || '').toUpperCase() !== 'ON_LEAVE').length;
-    const onLeave = teachers.filter(t => (t.status || '').toUpperCase() === 'ON_LEAVE').length;
-    const classTeachers = teachers.filter(t => Boolean(t.assigned_class && t.assigned_class !== 'None')).length;
+    const active = teachers.filter(t => (t?.status || '').toUpperCase() !== 'ON_LEAVE').length;
+    const onLeave = teachers.filter(t => (t?.status || '').toUpperCase() === 'ON_LEAVE').length;
+    const classTeachers = teachers.filter(t => Boolean(t?.assigned_class && t.assigned_class !== 'None')).length;
     return { total, active, onLeave, classTeachers };
   }, [teachers]);
 
@@ -359,42 +382,46 @@ export default function PrincipalFacultyPage() {
               </thead>
               <tbody className="divide-y divide-[#E2EBE5]">
                 {filteredFaculty.map(teacher => {
-                  const isOnLeave = (teacher.status || '').toUpperCase() === 'ON_LEAVE';
+                  const initial = (teacher?.full_name || teacher?.staff_code || 'T').charAt(0);
+                  const fullName = teacher?.full_name || 'Faculty Member';
+                  const staffCode = teacher?.staff_code || teacher?.employee_code || 'EMP';
+                  const isOnLeave = (teacher?.status || '').toUpperCase() === 'ON_LEAVE';
+
                   return (
-                    <tr key={teacher.id} className="hover:bg-[#F8FAF9] transition">
+                    <tr key={teacher.id || staffCode} className="hover:bg-[#F8FAF9] transition">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-xs shrink-0">
-                            {teacher.full_name.charAt(0)}
+                            {initial}
                           </div>
                           <div>
                             <div className="font-bold text-[#122A24] hover:text-emerald-800 transition">
-                              {teacher.full_name}
+                              {fullName}
                             </div>
                             <div className="text-[11px] text-[#2D5A4E]">
-                              {teacher.employment_type || 'Permanent Faculty'}
+                              {teacher?.employment_type || 'Permanent Faculty'}
                             </div>
                           </div>
                         </div>
                       </td>
 
                       <td className="p-4 font-mono font-bold text-[#122A24]">
-                        {teacher.staff_code || teacher.employee_code || 'EMP'}
+                        {staffCode}
                       </td>
 
                       <td className="p-4">
-                        <div className="font-semibold text-[#122A24]">{teacher.designation || 'Faculty'}</div>
-                        <div className="text-[11px] text-[#2D5A4E] font-mono">{teacher.department || 'Academics'}</div>
+                        <div className="font-semibold text-[#122A24]">{teacher?.designation || 'Faculty'}</div>
+                        <div className="text-[11px] text-[#2D5A4E] font-mono">{teacher?.department || 'Academics'}</div>
                       </td>
 
                       <td className="p-4">
                         <span className="font-mono text-[11px] bg-[#E9F2EC] px-2 py-0.5 rounded text-[#122A24] font-medium border border-[#DCE8E0]">
-                          {teacher.qualification || 'M.A., B.Ed'}
+                          {teacher?.qualification || 'M.A., B.Ed'}
                         </span>
                       </td>
 
                       <td className="p-4">
-                        {teacher.assigned_class && teacher.assigned_class !== 'None' ? (
+                        {teacher?.assigned_class && teacher.assigned_class !== 'None' ? (
                           <span className="px-2 py-0.5 rounded-lg text-xs font-bold font-mono bg-emerald-100 text-emerald-900 border border-emerald-300">
                             {teacher.assigned_class}
                           </span>
@@ -405,13 +432,13 @@ export default function PrincipalFacultyPage() {
 
                       <td className="p-4">
                         <div className="space-y-0.5">
-                          {teacher.phone && (
+                          {teacher?.phone && (
                             <a href={`tel:${teacher.phone}`} className="font-mono text-emerald-700 hover:underline flex items-center gap-1">
                               <Phone className="w-3 h-3 text-emerald-600" />
                               <span>{teacher.phone}</span>
                             </a>
                           )}
-                          {teacher.email && (
+                          {teacher?.email && (
                             <a href={`mailto:${teacher.email}`} className="font-mono text-xs text-[#2D5A4E] hover:underline flex items-center gap-1">
                               <Mail className="w-3 h-3 text-[#2D5A4E]/70" />
                               <span className="truncate max-w-[140px]">{teacher.email}</span>
@@ -446,22 +473,26 @@ export default function PrincipalFacultyPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredFaculty.map(teacher => {
-            const isOnLeave = (teacher.status || '').toUpperCase() === 'ON_LEAVE';
+            const initial = (teacher?.full_name || teacher?.staff_code || 'T').charAt(0);
+            const fullName = teacher?.full_name || 'Faculty Member';
+            const staffCode = teacher?.staff_code || teacher?.employee_code || 'EMP';
+            const isOnLeave = (teacher?.status || '').toUpperCase() === 'ON_LEAVE';
+
             return (
               <div
-                key={teacher.id}
+                key={teacher.id || staffCode}
                 className="bg-white rounded-3xl border border-[#DCE8E0] p-5 shadow-xs hover:shadow-md transition space-y-4 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-base">
-                        {teacher.full_name.charAt(0)}
+                        {initial}
                       </div>
                       <div>
-                        <h4 className="font-bold text-[#122A24] text-sm">{teacher.full_name}</h4>
+                        <h4 className="font-bold text-[#122A24] text-sm">{fullName}</h4>
                         <p className="text-[11px] text-[#2D5A4E] font-mono">
-                          Code: <strong>{teacher.staff_code || teacher.employee_code || 'EMP'}</strong>
+                          Code: <strong>{staffCode}</strong>
                         </p>
                       </div>
                     </div>
@@ -475,22 +506,22 @@ export default function PrincipalFacultyPage() {
                   <div className="mt-4 pt-3 border-t border-[#DCE8E0] space-y-2 text-xs">
                     <div className="flex items-center justify-between text-[#2D5A4E]">
                       <span>Role &amp; Department:</span>
-                      <strong className="text-[#122A24]">{teacher.designation || 'Faculty'} ({teacher.department || 'Academics'})</strong>
+                      <strong className="text-[#122A24]">{teacher?.designation || 'Faculty'} ({teacher?.department || 'Academics'})</strong>
                     </div>
 
                     <div className="flex items-center justify-between text-[#2D5A4E]">
                       <span>Qualification:</span>
-                      <span className="font-mono text-[#122A24]">{teacher.qualification || 'M.A., B.Ed'}</span>
+                      <span className="font-mono text-[#122A24]">{teacher?.qualification || 'M.A., B.Ed'}</span>
                     </div>
 
                     <div className="flex items-center justify-between text-[#2D5A4E]">
                       <span>Class In-Charge:</span>
-                      <strong className="font-mono text-emerald-800">{teacher.assigned_class || 'None'}</strong>
+                      <strong className="font-mono text-emerald-800">{teacher?.assigned_class || 'None'}</strong>
                     </div>
 
                     <div className="flex items-center justify-between text-[#2D5A4E]">
                       <span>Phone:</span>
-                      {teacher.phone ? (
+                      {teacher?.phone ? (
                         <a href={`tel:${teacher.phone}`} className="font-mono font-bold text-emerald-700 hover:underline">
                           {teacher.phone}
                         </a>
@@ -528,11 +559,11 @@ export default function PrincipalFacultyPage() {
             <div className="flex items-center justify-between border-b border-[#DCE8E0] pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-lg">
-                  {selectedTeacher.full_name.charAt(0)}
+                  {(selectedTeacher.full_name || 'T').charAt(0)}
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-[#122A24]">
-                    {selectedTeacher.full_name}
+                    {selectedTeacher.full_name || 'Faculty Member'}
                   </h3>
                   <div className="text-xs text-[#2D5A4E] font-mono">
                     Staff Code: {selectedTeacher.staff_code || selectedTeacher.employee_code || 'EMP'}
