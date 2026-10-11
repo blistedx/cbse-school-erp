@@ -60,6 +60,8 @@ interface TeacherItem {
   father_or_spouse_name?: string;
   address?: string;
   emergency_contact_phone?: string;
+  photo?: string;
+  avatar?: string;
 }
 
 interface SyllabusRow {
@@ -513,7 +515,22 @@ export default function PrincipalFacultyPage() {
                     >
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                          {teacher.photo || teacher.avatar ? (
+                            <img
+                              src={teacher.photo || teacher.avatar}
+                              alt={fullName}
+                              className="w-9 h-9 rounded-2xl object-cover border border-[#DCE8E0] shadow-2xs shrink-0"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLElement).style.display = 'none';
+                                const fallback = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            style={{ display: teacher.photo || teacher.avatar ? 'none' : 'flex' }}
+                            className="w-9 h-9 rounded-2xl bg-[#122A24] text-white items-center justify-center font-bold text-xs shrink-0 shadow-2xs"
+                          >
                             {initial}
                           </div>
                           <div>
@@ -626,7 +643,22 @@ export default function PrincipalFacultyPage() {
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-base shadow-2xs">
+                      {teacher.photo || teacher.avatar ? (
+                        <img
+                          src={teacher.photo || teacher.avatar}
+                          alt={fullName}
+                          className="w-12 h-12 rounded-2xl object-cover border border-[#DCE8E0] shadow-2xs shrink-0"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = 'none';
+                            const fallback = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        style={{ display: teacher.photo || teacher.avatar ? 'none' : 'flex' }}
+                        className="w-12 h-12 rounded-2xl bg-[#122A24] text-white items-center justify-center font-bold text-base shadow-2xs shrink-0"
+                      >
                         {initial}
                       </div>
                       <div>
@@ -716,9 +748,17 @@ export default function PrincipalFacultyPage() {
 
               <div className="relative z-10 flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-14 h-14 rounded-2xl bg-white/10 text-white border border-white/20 flex items-center justify-center font-bold text-xl shadow-md">
-                    {(selectedTeacher.full_name || 'T').charAt(0)}
-                  </div>
+                  {selectedTeacher.photo || selectedTeacher.avatar ? (
+                    <img
+                      src={selectedTeacher.photo || selectedTeacher.avatar}
+                      alt={selectedTeacher.full_name || 'Faculty'}
+                      className="w-14 h-14 rounded-2xl object-cover border-2 border-white/30 shadow-md shrink-0"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-2xl bg-white/10 text-white border border-white/20 flex items-center justify-center font-bold text-xl shadow-md">
+                      {(selectedTeacher.full_name || 'T').charAt(0)}
+                    </div>
+                  )}
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-xl font-bold text-white tracking-tight">

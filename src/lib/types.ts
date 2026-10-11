@@ -1536,6 +1536,24 @@ export interface PrincipalOverviewData {
     fees_collected_this_month: number; // in Rupees
     fees_pending: number; // in Rupees
     pending_approvals_count: number;
+    classes_count?: number;
+    upcoming_exams_count?: number;
+    new_enquiries_count?: number;
+    fees_collected_annual?: number;
+    fees_demand_annual?: number;
+    paid_students_count?: number;
+    pending_students_count?: number;
+    attendance_today?: {
+      is_student_marked: boolean;
+      student_display: string;
+      student_sublabel: string;
+      is_faculty_marked: boolean;
+      faculty_sublabel: string;
+      student_present: number;
+      student_total: number;
+      faculty_present: number;
+      faculty_total: number;
+    };
   };
   charts: {
     attendance_trend_7_days: Array<{
@@ -1556,9 +1574,25 @@ export interface PrincipalOverviewData {
     certificate_tc: number;
     fee_concession: number;
     staff_leave: number;
+    biometric_regularization?: number;
     admission: number;
     total_pending: number;
   };
+  pending_requests?: PrincipalApprovalRequest[];
+  class_roll_calls?: Array<{
+    class_id?: string;
+    class_name: string;
+    section: string;
+    class_teacher_name?: string;
+    is_marked: boolean;
+    present_count: number;
+    total_count: number;
+    marked_time?: string;
+  }>;
+  students?: Student[];
+  teachers?: Teacher[];
+  classes?: ClassRoom[];
+  receipts?: any[];
 }
 
 export interface PrincipalStudentDossier {

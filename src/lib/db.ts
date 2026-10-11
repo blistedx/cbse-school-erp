@@ -1763,8 +1763,8 @@ export const Database = {
             gender: 'Male',
             date_of_joining: '2018-04-01',
             status: 'ACTIVE',
-            photo: (sch as any)?.principal_avatar || '',
-            avatar: (sch as any)?.principal_avatar || '',
+            photo: (sch as any)?.principal_avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
+            avatar: (sch as any)?.principal_avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
             passcode: prinPin,
             role: 'PRINCIPAL'
           };

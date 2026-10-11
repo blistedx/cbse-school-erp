@@ -42,6 +42,7 @@ export default function PrincipalProfilePage() {
   };
 
   const principalName = user?.full_name || school?.principal_name || 'Dr. Abhishek Shukla';
+  const principalAvatar = user?.photo || user?.avatar || school?.principal_avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80';
   const schoolName = school?.school_name || school?.name || 'Delhi Public School';
   const schoolCode = school?.school_code || school?.id || 'DPS2026';
 
@@ -97,8 +98,25 @@ export default function PrincipalProfilePage() {
         <div className="px-6 sm:px-8 pb-8 pt-0 relative space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-12">
             <div className="flex items-end gap-4">
-              <div className="w-24 h-24 rounded-3xl bg-[#122A24] text-white border-4 border-white shadow-md flex items-center justify-center text-3xl font-black">
-                {principalName.charAt(0)}
+              <div className="w-24 h-24 rounded-3xl bg-[#122A24] text-white border-4 border-white shadow-md overflow-hidden relative shrink-0">
+                {principalAvatar ? (
+                  <img
+                    src={principalAvatar}
+                    alt={principalName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = 'none';
+                      const fallback = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div
+                  style={{ display: principalAvatar ? 'none' : 'flex' }}
+                  className="w-full h-full items-center justify-center text-3xl font-black bg-[#122A24] text-white"
+                >
+                  {principalName.charAt(0)}
+                </div>
               </div>
               <div className="mb-2">
                 <div className="flex items-center gap-2">

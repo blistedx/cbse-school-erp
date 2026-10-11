@@ -33,7 +33,40 @@ export async function GET(req: Request) {
     const type = (searchParams.get('type') || undefined) as PrincipalApprovalType | undefined;
     const status = (searchParams.get('status') || undefined) as PrincipalApprovalStatus | undefined;
 
-    const requests = await Database.getApprovals(tenant, session, type, status);
+    const [rawRequests, students, teachers] = await Promise.all([
+      Database.getApprovals(tenant, session, type, status),
+      Database.getStudents(tenant, session),
+      Database.getTeachers(tenant, session)
+    ]);
+
+    const requests = rawRequests.map(req => {
+      let studentPhoto = (req.details as any)?.student_photo;
+      if (!studentPhoto && req.details?.student_name) {
+        const matched = (students || []).find(s => 
+          (req.details?.admission_no && s.admission_no === req.details.admission_no) ||
+          s.full_name?.toLowerCase() === req.details.student_name?.toLowerCase()
+        );
+        if (matched) studentPhoto = matched.photo || matched.avatar;
+      }
+      let teacherPhoto = (req.details as any)?.staff_photo;
+      if (!teacherPhoto && (req.details?.staff_name || req.details?.teacher_name)) {
+        const nameToMatch = req.details?.staff_name || req.details?.teacher_name;
+        const matched = (teachers || []).find(t => 
+          (req.details?.staff_code && t.staff_code === req.details.staff_code) ||
+          t.full_name?.toLowerCase() === nameToMatch?.toLowerCase()
+        );
+        if (matched) teacherPhoto = matched.photo || matched.avatar;
+      }
+      return {
+        ...req,
+        details: {
+          ...req.details,
+          student_photo: studentPhoto,
+          staff_photo: teacherPhoto,
+          photo: studentPhoto || teacherPhoto
+        }
+      };
+    });
 
     const counts = {
       all: requests.length,

@@ -326,9 +326,43 @@ export default function PrincipalApprovalsPage() {
                     </span>
                   </div>
 
-                  <h3 className="text-base font-bold text-[#122A24] tracking-tight">
-                    {req.title}
-                  </h3>
+                  <div className="flex items-center gap-3">
+                    {(() => {
+                      const photo = (req.details as any)?.student_photo || (req.details as any)?.staff_photo || (req.details as any)?.photo || (req.details as any)?.avatar;
+                      const name = req.details?.student_name || req.details?.staff_name || req.details?.applicant_name || req.requested_by?.name || req.title;
+                      const initial = (name || 'A').charAt(0);
+                      return (
+                        <>
+                          {photo ? (
+                            <img
+                              src={photo}
+                              alt={name}
+                              className="w-10 h-10 rounded-2xl object-cover border border-[#DCE8E0] shadow-2xs shrink-0"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLElement).style.display = 'none';
+                                const fallback = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            style={{ display: photo ? 'none' : 'flex' }}
+                            className="w-10 h-10 rounded-2xl bg-[#122A24] text-white items-center justify-center font-bold text-sm shrink-0 shadow-2xs"
+                          >
+                            {initial}
+                          </div>
+                        </>
+                      );
+                    })()}
+                    <div>
+                      <h3 className="text-base font-bold text-[#122A24] tracking-tight">
+                        {req.title}
+                      </h3>
+                      <p className="text-[11px] text-[#2D5A4E] font-medium font-mono">
+                        Petitioner: {req.requested_by?.name} ({req.requested_by?.role || 'Staff'})
+                      </p>
+                    </div>
+                  </div>
 
                   {/* Detailed Spec by Tab Type */}
                   <div className="text-xs text-[#2D5A4E] bg-[#F8FAF9] p-3 rounded-2xl border border-[#E2EBE5] space-y-1">

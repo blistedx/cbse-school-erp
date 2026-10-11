@@ -141,8 +141,8 @@ export default function PrincipalStudentsPage() {
     const total = students.length;
     const boys = students.filter(s => (s?.gender || '').toUpperCase() === 'MALE').length;
     const girls = students.filter(s => (s?.gender || '').toUpperCase() === 'FEMALE').length;
-    const rte = students.filter(s => String(s?.is_rte || '').toUpperCase() === 'YES' || s?.is_rte === true).length;
-    const transport = students.filter(s => String(s?.transport_opted || '').toUpperCase() === 'YES' || s?.transport_opted === true).length;
+    const rte = students.filter(s => String(s?.is_rte || '').toUpperCase() === 'YES' || (s?.is_rte as any) === true).length;
+    const transport = students.filter(s => String(s?.transport_opted || '').toUpperCase() === 'YES' || (s?.transport_opted as any) === true).length;
     return { total, boys, girls, rte, transport };
   }, [students]);
 
@@ -417,7 +417,22 @@ export default function PrincipalStudentsPage() {
                     >
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                          {student.photo || student.avatar ? (
+                            <img
+                              src={student.photo || student.avatar}
+                              alt={fullName}
+                              className="w-9 h-9 rounded-2xl object-cover border border-[#DCE8E0] shadow-2xs shrink-0"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLElement).style.display = 'none';
+                                const fallback = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            style={{ display: student.photo || student.avatar ? 'none' : 'flex' }}
+                            className="w-9 h-9 rounded-2xl bg-[#122A24] text-white items-center justify-center font-bold text-xs shrink-0 shadow-2xs"
+                          >
                             {initial}
                           </div>
                           <div>
@@ -532,7 +547,22 @@ export default function PrincipalStudentsPage() {
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-sm shadow-2xs">
+                      {student.photo || student.avatar ? (
+                        <img
+                          src={student.photo || student.avatar}
+                          alt={fullName}
+                          className="w-11 h-11 rounded-2xl object-cover border border-[#DCE8E0] shadow-2xs shrink-0"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = 'none';
+                            const fallback = (e.currentTarget as HTMLElement).nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        style={{ display: student.photo || student.avatar ? 'none' : 'flex' }}
+                        className="w-11 h-11 rounded-2xl bg-[#122A24] text-white items-center justify-center font-bold text-sm shadow-2xs shrink-0"
+                      >
                         {initial}
                       </div>
                       <div>

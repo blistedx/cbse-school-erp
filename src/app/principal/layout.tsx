@@ -15,6 +15,7 @@ export default function PrincipalLayout({
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [schoolName, setSchoolName] = useState<string>('Delhi Public School');
   const [principalName, setPrincipalName] = useState<string>('Abhishek Shukla');
+  const [principalAvatar, setPrincipalAvatar] = useState<string>('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80');
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -50,11 +51,17 @@ export default function PrincipalLayout({
       }
 
       const storedSchool = localStorage.getItem('current_school');
+      let parsedSchool: any = null;
       if (storedSchool) {
         try {
-          const s = JSON.parse(storedSchool);
-          if (s?.name || s?.school_name) setSchoolName(s.name || s.school_name);
+          parsedSchool = JSON.parse(storedSchool);
+          if (parsedSchool?.name || parsedSchool?.school_name) setSchoolName(parsedSchool.name || parsedSchool.school_name);
         } catch (_) {}
+      }
+
+      const avatar = parsedUser?.photo || parsedUser?.avatar || parsedSchool?.principal_avatar;
+      if (avatar) {
+        setPrincipalAvatar(avatar);
       }
 
       setIsAuthorized(true);
@@ -111,6 +118,7 @@ export default function PrincipalLayout({
       <PrincipalSidebar
         schoolName={schoolName}
         principalName={principalName}
+        principalAvatar={principalAvatar}
         pendingApprovalsCount={pendingApprovalsCount}
         isOpenMobile={isMobileOpen}
         onCloseMobile={() => setIsMobileOpen(false)}
