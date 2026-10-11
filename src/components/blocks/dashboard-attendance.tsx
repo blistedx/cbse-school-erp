@@ -62,6 +62,7 @@ import { apiFetch } from '@/lib/api-client';
 import { getSchoolInitials, getTodayDateStr } from '@/lib/utils';
 import { InstitutionalReportModal, ReportColumn } from '@/components/institutional-report-modal';
 import { StudentAttendanceHistoryModal } from '@/components/student-attendance-history';
+import { DashboardAdminMyAttendance } from './dashboard-admin-my-attendance';
 
 export function normalizeClassName(name?: string): string {
   if (!name) return '';
@@ -134,6 +135,7 @@ interface DashboardAttendanceProps {
   selectedSession: string;
   userRole?: string;
   currentUser?: any;
+  initialSubTab?: 'mark_attendance' | 'monthly_sheet' | 'attendance_summary' | 'my_attendance' | 'holiday_calendar' | 'smart_scanner';
   onRefresh: () => void;
   showAdminToast: (msg: string) => void;
 }
@@ -147,12 +149,19 @@ export function DashboardAttendance({
   selectedSession,
   userRole,
   currentUser,
+  initialSubTab,
   onRefresh,
   showAdminToast
 }: DashboardAttendanceProps) {
   const isTeacher = userRole === 'TEACHER' || currentUser?.role === 'TEACHER';
-  // Primary Tabs (Daily Mark, Monthly Register, Summary Analytics, Holiday Studio, Smart QR Scanner)
-  const [attendanceTab, setAttendanceTab] = useState<'mark_attendance' | 'monthly_sheet' | 'attendance_summary' | 'holiday_calendar' | 'smart_scanner'>('mark_attendance');
+  // Primary Tabs (Daily Mark, Monthly Register, Summary Analytics, My Attendance, Holiday Studio, Smart QR Scanner)
+  const [attendanceTab, setAttendanceTab] = useState<'mark_attendance' | 'monthly_sheet' | 'attendance_summary' | 'my_attendance' | 'holiday_calendar' | 'smart_scanner'>(initialSubTab || 'mark_attendance');
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setAttendanceTab(initialSubTab);
+    }
+  }, [initialSubTab]);
   
   // ── SMART QR GATE SCANNER STATE & LOGIC ──
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -1683,6 +1692,20 @@ export function DashboardAttendance({
           >
             <BarChart3 className="h-4 w-4 stroke-[1.75] shrink-0" />
             <span className="whitespace-nowrap">Attendance Summary</span>
+          </button>
+
+          {/* Tab 3.5: My Biometric Attendance (Self) */}
+          <button
+            type="button"
+            onClick={() => setAttendanceTab('my_attendance')}
+            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+              attendanceTab === 'my_attendance'
+                ? 'bg-[#122A24] text-white shadow-xs font-bold ring-2 ring-emerald-400'
+                : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
+            }`}
+          >
+            <Clock className="h-4 w-4 stroke-[1.75] shrink-0" />
+            <span className="whitespace-nowrap">My Attendance (Self)</span>
           </button>
 
           {/* Tab 4: Declare Holidays & Calendar */}
@@ -3816,6 +3839,21 @@ export function DashboardAttendance({
               </div>
 
             </div>
+          </div>
+        )}
+
+        {/* ─────────────────────────────────────────────────────────────
+            PANEL 6: MY BIOMETRIC ATTENDANCE & REGULARIZATION PETITIONS
+            ───────────────────────────────────────────────────────────── */}
+        {attendanceTab === 'my_attendance' && (
+          <div className="space-y-6 animate-fade-in">
+            <DashboardAdminMyAttendance
+              selectedSchool={selectedSchool}
+              currentUser={currentUser}
+              userRole={userRole}
+              selectedSession={selectedSession}
+              showAdminToast={showAdminToast}
+            />
           </div>
         )}
 

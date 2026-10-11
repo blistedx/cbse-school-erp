@@ -1380,6 +1380,22 @@ a {
   }
 }
 
+/* Mobile App Bottom Sheet Slide-up Animation */
+@keyframes slideUpBottomSheet {
+  from {
+    transform: translateY(100%);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up-bottom-sheet {
+  animation: slideUpBottomSheet 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 
 
 

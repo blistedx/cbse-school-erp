@@ -502,6 +502,7 @@ function ERPWorkspaceContent() {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [studentSubTab, setStudentSubTab] = useState<'directory' | 'siblings'>('directory');
+  const [attendanceSubTab, setAttendanceSubTab] = useState<'mark_attendance' | 'monthly_sheet' | 'attendance_summary' | 'my_attendance' | 'holiday_calendar' | 'smart_scanner' | undefined>(undefined);
   const [summaryStudent, setSummaryStudent] = useState<Student | null>(null);
   const [availableSchools, setAvailableSchools] = useState<School[]>([]);
   const [showExportMenu, setShowExportMenu] = useState<string | null>(null);
@@ -5083,8 +5084,24 @@ function ERPWorkspaceContent() {
                     </div>
                   </div>
 
-                  {/* Actions: View Profile & Sign Out */}
+                  {/* Actions: View Profile, My Attendance & Sign Out */}
                   <div className="pt-2 border-t border-[#E8F0EA] space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAttendanceSubTab('my_attendance');
+                        setActiveTab('attendance');
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-[#122A24] hover:bg-[#EBF5EF] transition-colors cursor-pointer border-none bg-transparent text-left"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Clock className="h-3.5 w-3.5 text-[#1C443A]" />
+                        My Attendance &amp; Regularization
+                      </span>
+                      <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => {
@@ -5328,7 +5345,7 @@ function ERPWorkspaceContent() {
 
             {allowedTabs.includes('attendance') && (
               <button
-                onClick={() => { setActiveTab('attendance'); setMobileMenuOpen(false); }}
+                onClick={() => { setActiveTab('attendance'); setAttendanceSubTab(undefined); setMobileMenuOpen(false); }}
                 className={getNavClass('attendance')}
               >
                 <CalendarCheck className={getNavIconClass('attendance')} />
@@ -5705,7 +5722,7 @@ function ERPWorkspaceContent() {
 
           {allowedTabs.includes('attendance') && (
             <button
-              onClick={() => setActiveTab('attendance')}
+              onClick={() => { setActiveTab('attendance'); setAttendanceSubTab(undefined); }}
               className={getNavClass('attendance')}
             >
               <CalendarCheck className={getNavIconClass('attendance')} />
@@ -9134,6 +9151,7 @@ function ERPWorkspaceContent() {
                 selectedSession={selectedSession}
                 userRole={effectiveRole}
                 currentUser={currentUser}
+                initialSubTab={attendanceSubTab}
                 onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.school_code || selectedSchool.id, selectedSession)}
                 showAdminToast={showAdminToast}
               />

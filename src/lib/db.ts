@@ -3754,6 +3754,17 @@ export const Database = {
             in_time: '08:30 AM',
             out_time: '03:30 PM'
           } as any);
+        } else {
+          tRecords.push({
+            teacher_id: staffId || 'admin',
+            staff_code: staffCode || 'ADM01',
+            full_name: staffId === 'admin' ? 'School Administrator' : 'Staff Member',
+            status: 'PRESENT',
+            is_regularized: true,
+            regularization_remark: `Regularized by ${regularizedBy}: ${remarks}`,
+            in_time: '08:30 AM',
+            out_time: '03:30 PM'
+          } as any);
         }
 
         const presentCount = tRecords.filter(tr => tr.status === 'PRESENT').length;
@@ -3958,7 +3969,9 @@ export const Database = {
       const db = await getDatabase();
       if (db) {
         const query: any = { school_id: schoolId };
-        if (teacherId) query.teacher_id = teacherId;
+        if (teacherId) {
+          query.$or = [{ teacher_id: teacherId }, { teacher_code: teacherId }];
+        }
         if (status) query.status = status;
         const docs = await db.collection('biometric_requests').find(query).sort({ created_at: -1 }).toArray();
         if (docs && docs.length > 0) return docs.map(sanitizeDocNoBinary<BiometricRequest>);
@@ -3967,7 +3980,7 @@ export const Database = {
 
     let list = memoryStore.biometric_requests || [];
     if (schoolId) list = list.filter(r => r.school_id === schoolId);
-    if (teacherId) list = list.filter(r => r.teacher_id === teacherId);
+    if (teacherId) list = list.filter(r => r.teacher_id === teacherId || r.teacher_code === teacherId);
     if (status) list = list.filter(r => r.status === status);
     return list;
   },
@@ -4003,6 +4016,7 @@ export const Database = {
     memoryStore.biometric_requests.unshift(newReq);
 
     // Also mirror to Principal Approvals collection so Principal sees it under Approvals tab!
+    const applicantRole = ((data as any)?.applicant_role || (data as any)?.role || 'STAFF') as any;
     await this.createApproval({
       school_id: newReq.school_id,
       academic_session: newReq.academic_session || '2026-27',
@@ -4012,13 +4026,17 @@ export const Database = {
       requested_by: {
         id: newReq.teacher_id,
         name: newReq.teacher_name,
-        role: 'TEACHER'
+        role: applicantRole
       },
       details: {
         biometric_request_id: newReq.id,
         teacher_id: newReq.teacher_id,
         teacher_code: newReq.teacher_code,
         teacher_name: newReq.teacher_name,
+        staff_id: newReq.teacher_id,
+        staff_code: newReq.teacher_code,
+        staff_name: newReq.teacher_name,
+        role: applicantRole,
         date: newReq.date,
         punch_date: newReq.date,
         regularization_type: newReq.request_type,
