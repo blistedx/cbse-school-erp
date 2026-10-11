@@ -25,28 +25,8 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
-import { PrincipalStudentDossier } from '@/lib/types';
-
-interface StudentItem {
-  id: string;
-  admission_no: string;
-  full_name: string;
-  class_name: string;
-  section: string;
-  roll_no?: string;
-  gender?: string;
-  father_name?: string;
-  mother_name?: string;
-  guardian_name?: string;
-  guardian_phone?: string;
-  phone?: string;
-  is_rte?: string | boolean;
-  transport_opted?: string | boolean;
-  status?: string;
-  dob?: string;
-  address?: string;
-  category?: string;
-}
+import { Student, FeeInvoice, AttendanceRecord } from '@/lib/types';
+import { StudentSummaryModal } from '@/components/student-summary-modal';
 
 function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
@@ -61,9 +41,14 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 export default function PrincipalStudentsPage() {
-  const [students, setStudents] = useState<StudentItem[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [invoices, setInvoices] = useState<FeeInvoice[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Active 360° Student Summary Modal
+  const [summaryStudent, setSummaryStudent] = useState<Student | null>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,18 +56,6 @@ export default function PrincipalStudentsPage() {
   const [selectedSection, setSelectedSection] = useState('ALL');
   const [selectedGender, setSelectedGender] = useState('ALL');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
-
-  // 360° Student Dossier Modal
-  const [dossierModal, setDossierModal] = useState<{
-    isOpen: boolean;
-    dossier: PrincipalStudentDossier | null;
-    loading: boolean;
-    error?: string;
-  }>({
-    isOpen: false,
-    dossier: null,
-    loading: false
-  });
 
   const fetchStudents = useCallback(async () => {
     try {
@@ -113,6 +86,22 @@ export default function PrincipalStudentsPage() {
 
   useEffect(() => {
     fetchStudents();
+
+    // Also fetch invoices and attendance for complete 360 degree dossier
+    const headers = getAuthHeaders();
+    fetch('/api/fees', { headers })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && Array.isArray(d.invoices)) setInvoices(d.invoices);
+      })
+      .catch(() => {});
+
+    fetch('/api/attendance', { headers })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && Array.isArray(d.records)) setAttendanceRecords(d.records);
+      })
+      .catch(() => {});
   }, [fetchStudents]);
 
   // Unique Classes & Sections safely computed
@@ -156,24 +145,6 @@ export default function PrincipalStudentsPage() {
     const transport = students.filter(s => String(s?.transport_opted || '').toUpperCase() === 'YES' || s?.transport_opted === true).length;
     return { total, boys, girls, rte, transport };
   }, [students]);
-
-  // Open 360° Dossier
-  const handleOpenDossier = async (studentId: string) => {
-    if (!studentId) return;
-    setDossierModal({ isOpen: true, dossier: null, loading: true });
-    try {
-      const headers = getAuthHeaders();
-      const res = await fetch(`/api/principal/reports?category=students&sub_report=student_dossier&student_id=${encodeURIComponent(studentId)}`, { headers });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success && data.dossier) {
-        setDossierModal({ isOpen: true, dossier: data.dossier, loading: false });
-      } else {
-        setDossierModal({ isOpen: true, dossier: null, loading: false, error: data.error || 'Failed to fetch student dossier.' });
-      }
-    } catch (err: any) {
-      setDossierModal({ isOpen: true, dossier: null, loading: false, error: err?.message || 'Network error fetching dossier.' });
-    }
-  };
 
   // Export CSV
   const handleExportCSV = () => {
@@ -239,7 +210,7 @@ export default function PrincipalStudentsPage() {
               Scholars &amp; Students Master Directory
             </h1>
             <p className="text-xs sm:text-sm text-[#2D5A4E] mt-1 max-w-2xl leading-relaxed">
-              Executive access to student records, parent contacts, academic trajectories, fee clearance, and comprehensive 360° dossiers.
+              Executive 360° oversight of students: parent records, academic report cards, attendance ledger, 12-month fee schedule &amp; statutory certificates.
             </p>
           </div>
 
@@ -356,7 +327,7 @@ export default function PrincipalStudentsPage() {
           <div className="flex items-center gap-1 bg-[#E9F2EC] p-1 rounded-xl shrink-0">
             <button
               onClick={() => setViewMode('table')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 viewMode === 'table' ? 'bg-[#122A24] text-white' : 'text-[#2D5A4E] hover:text-[#122A24]'
               }`}
             >
@@ -364,7 +335,7 @@ export default function PrincipalStudentsPage() {
             </button>
             <button
               onClick={() => setViewMode('cards')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 viewMode === 'cards' ? 'bg-[#122A24] text-white' : 'text-[#2D5A4E] hover:text-[#122A24]'
               }`}
             >
@@ -423,6 +394,7 @@ export default function PrincipalStudentsPage() {
                   <th className="p-4">Admission No</th>
                   <th className="p-4">Parent / Guardian</th>
                   <th className="p-4">Contact Phone</th>
+                  <th className="p-4">Fee Status</th>
                   <th className="p-4">Flags</th>
                   <th className="p-4 text-right">360° Dossier</th>
                 </tr>
@@ -435,12 +407,17 @@ export default function PrincipalStudentsPage() {
                   const classSec = `${student?.class_name || 'Class'} - ${student?.section || 'A'}`;
                   const parentName = student?.father_name || student?.guardian_name || student?.mother_name || 'Guardian';
                   const contactPhone = student?.phone || student?.guardian_phone || '';
+                  const feeStatus = student?.fee_status || 'PENDING';
 
                   return (
-                    <tr key={student.id || admNo} className="hover:bg-[#F8FAF9] transition">
+                    <tr
+                      key={student.id || admNo}
+                      className="hover:bg-[#F8FAF9] transition cursor-pointer"
+                      onClick={() => setSummaryStudent(student)}
+                    >
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                          <div className="w-9 h-9 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
                             {initial}
                           </div>
                           <div>
@@ -448,7 +425,7 @@ export default function PrincipalStudentsPage() {
                               {fullName}
                             </div>
                             <div className="text-[11px] text-[#2D5A4E] font-mono">
-                              Roll No: {student?.roll_no || '—'} • {student?.gender || 'Scholar'}
+                              Roll: #{student?.roll_no || '—'} • {student?.gender || 'Scholar'}
                             </div>
                           </div>
                         </div>
@@ -474,6 +451,7 @@ export default function PrincipalStudentsPage() {
                         {contactPhone ? (
                           <a
                             href={`tel:${contactPhone}`}
+                            onClick={e => e.stopPropagation()}
                             className="font-mono text-emerald-700 hover:underline flex items-center gap-1"
                           >
                             <Phone className="w-3 h-3 text-emerald-600" />
@@ -482,6 +460,18 @@ export default function PrincipalStudentsPage() {
                         ) : (
                           <span className="text-[#2D5A4E]/50 font-mono">—</span>
                         )}
+                      </td>
+
+                      <td className="p-4">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                          feeStatus === 'PAID'
+                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                            : feeStatus === 'PARTIAL'
+                            ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                            : 'bg-rose-100 text-rose-900 border border-rose-300'
+                        }`}>
+                          {feeStatus}
+                        </span>
                       </td>
 
                       <td className="p-4">
@@ -497,18 +487,22 @@ export default function PrincipalStudentsPage() {
                             </span>
                           )}
                           {!student?.is_rte && !student?.transport_opted && (
-                            <span className="text-[11px] text-[#2D5A4E]/60">Standard</span>
+                            <span className="text-[11px] text-[#2D5A4E]/60">General</span>
                           )}
                         </div>
                       </td>
 
                       <td className="p-4 text-right">
                         <button
-                          onClick={() => handleOpenDossier(student.id || student.admission_no)}
-                          className="px-3 py-1.5 rounded-xl bg-[#122A24] text-white hover:bg-[#1C443A] text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSummaryStudent(student);
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl bg-[#122A24] text-white hover:bg-[#1C443A] text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-2xs cursor-pointer active:scale-95"
                         >
                           <Eye className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>View Dossier</span>
+                          <span>Full 360° Dossier</span>
                         </button>
                       </td>
                     </tr>
@@ -527,22 +521,24 @@ export default function PrincipalStudentsPage() {
             const classSec = `${student?.class_name || 'Class'} - ${student?.section || 'A'}`;
             const parentName = student?.father_name || student?.guardian_name || student?.mother_name || 'Guardian';
             const contactPhone = student?.phone || student?.guardian_phone || '';
+            const feeStatus = student?.fee_status || 'PENDING';
 
             return (
               <div
                 key={student.id || admNo}
-                className="bg-white rounded-3xl border border-[#DCE8E0] p-5 shadow-xs hover:shadow-md transition space-y-4 flex flex-col justify-between"
+                onClick={() => setSummaryStudent(student)}
+                className="bg-white rounded-3xl border border-[#DCE8E0] p-5 shadow-xs hover:shadow-md transition space-y-4 flex flex-col justify-between cursor-pointer group"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-sm">
+                      <div className="w-11 h-11 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-sm shadow-2xs">
                         {initial}
                       </div>
                       <div>
-                        <h4 className="font-bold text-[#122A24] text-sm">{fullName}</h4>
+                        <h4 className="font-bold text-[#122A24] text-sm group-hover:text-emerald-800 transition">{fullName}</h4>
                         <p className="text-[11px] text-[#2D5A4E] font-mono">
-                          Adm: <strong>{admNo}</strong> • Roll: {student?.roll_no || '1'}
+                          Adm: <strong>{admNo}</strong> • Roll: #{student?.roll_no || '1'}
                         </p>
                       </div>
                     </div>
@@ -560,12 +556,29 @@ export default function PrincipalStudentsPage() {
                     <div className="flex items-center justify-between text-[#2D5A4E]">
                       <span>Contact:</span>
                       {contactPhone ? (
-                        <a href={`tel:${contactPhone}`} className="font-mono font-bold text-emerald-700 hover:underline">
+                        <a
+                          href={`tel:${contactPhone}`}
+                          onClick={e => e.stopPropagation()}
+                          className="font-mono font-bold text-emerald-700 hover:underline"
+                        >
                           {contactPhone}
                         </a>
                       ) : (
                         <span className="text-[#2D5A4E]/50">—</span>
                       )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[#2D5A4E]">
+                      <span>Fee Account:</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                        feeStatus === 'PAID'
+                          ? 'bg-emerald-100 text-emerald-900'
+                          : feeStatus === 'PARTIAL'
+                          ? 'bg-amber-100 text-amber-900'
+                          : 'bg-rose-100 text-rose-900'
+                      }`}>
+                        {feeStatus}
+                      </span>
                     </div>
 
                     <div className="flex items-center justify-between text-[#2D5A4E]">
@@ -577,18 +590,22 @@ export default function PrincipalStudentsPage() {
                         {String(student?.transport_opted || '').toUpperCase() === 'YES' && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-900">BUS</span>
                         )}
-                        {!student?.is_rte && !student?.transport_opted && <span>Standard</span>}
+                        {!student?.is_rte && !student?.transport_opted && <span>General</span>}
                       </div>
                     </div>
                   </div>
                 </div>
 
                 <button
-                  onClick={() => handleOpenDossier(student.id || student.admission_no)}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSummaryStudent(student);
+                  }}
                   className="w-full py-2.5 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer active:scale-95"
                 >
                   <Eye className="w-4 h-4 text-emerald-400" />
-                  <span>Open 360° Academic Dossier</span>
+                  <span>Open 360° Comprehensive Dossier</span>
                 </button>
               </div>
             );
@@ -597,170 +614,17 @@ export default function PrincipalStudentsPage() {
       )}
 
       {/* ─────────────────────────────────────────────────────────────
-          5. COMPLETE 360° STUDENT DOSSIER MODAL
+          5. COMPLETE BATTLE-TESTED STUDENT 360° SUMMARY & SIBLINGS MODAL
           ───────────────────────────────────────────────────────────── */}
-      {dossierModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs animate-fade-in"
-            onClick={() => setDossierModal({ isOpen: false, dossier: null, loading: false })}
-          />
-
-          <div className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-[#DCE8E0] z-10 overflow-y-auto space-y-6">
-            <div className="flex items-center justify-between border-b border-[#DCE8E0] pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-[#122A24] text-white flex items-center justify-center font-bold text-base">
-                  {(dossierModal.dossier?.student?.full_name || 'S').charAt(0)}
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-[#122A24]">
-                    {dossierModal.dossier?.student?.full_name || 'Scholar Dossier'}
-                  </h3>
-                  <div className="text-xs text-[#2D5A4E] font-mono">
-                    Adm No: {dossierModal.dossier?.student?.admission_no || '—'} • {dossierModal.dossier?.student?.class_name || 'Class'} - {dossierModal.dossier?.student?.section || 'A'}
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setDossierModal({ isOpen: false, dossier: null, loading: false })}
-                className="p-1.5 rounded-xl text-[#2D5A4E] hover:bg-[#F4F8F5] cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {dossierModal.loading || !dossierModal.dossier ? (
-              <div className="p-8 text-center text-xs text-[#2D5A4E]">
-                {dossierModal.error || 'Loading complete scholar dossier records...'}
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* 1. Profile & Guardian Contact */}
-                <div className="bg-[#F8FAF9] p-4 rounded-2xl border border-[#DCE8E0] space-y-2">
-                  <div className="text-xs uppercase font-bold text-emerald-800 font-mono">
-                    Student Information &amp; Parent Contact
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                    <div>
-                      <span className="text-[#2D5A4E] block">Father / Guardian:</span>
-                      <strong className="text-[#122A24]">{dossierModal.dossier.student?.father_name || dossierModal.dossier.student?.guardian_name || 'Parent'}</strong>
-                    </div>
-                    <div>
-                      <span className="text-[#2D5A4E] block">Contact Phone:</span>
-                      <a href={`tel:${dossierModal.dossier.student?.guardian_phone || dossierModal.dossier.student?.phone}`} className="font-mono text-emerald-700 font-bold hover:underline">
-                        {dossierModal.dossier.student?.guardian_phone || dossierModal.dossier.student?.phone || 'N/A'}
-                      </a>
-                    </div>
-                    <div>
-                      <span className="text-[#2D5A4E] block">DOB / Admission Date:</span>
-                      <span className="text-[#122A24] font-mono">{dossierModal.dossier.student?.dob || '—'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. Attendance Stats */}
-                <div className="bg-[#F8FAF9] p-4 rounded-2xl border border-[#DCE8E0] space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs uppercase font-bold text-emerald-800 font-mono flex items-center gap-1.5">
-                      <CalendarCheck className="w-4 h-4 text-emerald-600" />
-                      <span>Biometric Roll-Call &amp; Attendance Rate</span>
-                    </div>
-                    <span className="text-xs font-mono font-bold text-emerald-900 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                      {dossierModal.dossier.attendance?.attendancePercent ?? 0}% Cumulative
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                    <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
-                      <div className="text-[10px] text-[#2D5A4E]">Working Days</div>
-                      <div className="font-black text-[#122A24]">{dossierModal.dossier.attendance?.totalWorkingDays ?? 0}</div>
-                    </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
-                      <div className="text-[10px] text-emerald-700">Present</div>
-                      <div className="font-black text-emerald-800">{dossierModal.dossier.attendance?.presentDays ?? 0}</div>
-                    </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
-                      <div className="text-[10px] text-rose-700">Absent</div>
-                      <div className="font-black text-rose-800">{dossierModal.dossier.attendance?.absentDays ?? 0}</div>
-                    </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
-                      <div className="text-[10px] text-amber-700">Leaves</div>
-                      <div className="font-black text-amber-800">{dossierModal.dossier.attendance?.leaveDays ?? 0}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Fee Master Clearance */}
-                <div className="bg-[#F8FAF9] p-4 rounded-2xl border border-[#DCE8E0] space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs uppercase font-bold text-emerald-800 font-mono flex items-center gap-1.5">
-                      <DollarSign className="w-4 h-4 text-emerald-600" />
-                      <span>Fee Master &amp; Clearance Overview</span>
-                    </div>
-                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                      dossierModal.dossier.fees?.status === 'CLEARED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                    }`}>
-                      {dossierModal.dossier.fees?.status || 'PENDING'}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                    <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
-                      <div className="text-[10px] text-[#2D5A4E]">Billed</div>
-                      <div className="font-black font-mono text-[#122A24]">₹{(dossierModal.dossier.fees?.totalBilled ?? 0).toLocaleString('en-IN')}</div>
-                    </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
-                      <div className="text-[10px] text-emerald-700">Paid</div>
-                      <div className="font-black font-mono text-emerald-800">₹{(dossierModal.dossier.fees?.totalPaid ?? 0).toLocaleString('en-IN')}</div>
-                    </div>
-                    <div className="bg-white p-2.5 rounded-xl border border-[#DCE8E0]">
-                      <div className="text-[10px] text-rose-700">Pending Dues</div>
-                      <div className="font-black font-mono text-rose-800">₹{(dossierModal.dossier.fees?.totalPending ?? 0).toLocaleString('en-IN')}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. Academic Marks & Broadsheet */}
-                <div className="bg-[#F8FAF9] p-4 rounded-2xl border border-[#DCE8E0] space-y-3">
-                  <div className="text-xs uppercase font-bold text-emerald-800 font-mono flex items-center gap-1.5">
-                    <Award className="w-4 h-4 text-emerald-600" />
-                    <span>Assessments &amp; CBSE Examination Broadsheet</span>
-                  </div>
-                  {dossierModal.dossier.marks && dossierModal.dossier.marks.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs bg-white rounded-xl border border-[#DCE8E0] overflow-hidden">
-                        <thead className="bg-[#E9F2EC] text-[#2D5A4E] text-[10px] font-mono uppercase">
-                          <tr>
-                            <th className="p-2.5">Assessment</th>
-                            <th className="p-2.5">Subject</th>
-                            <th className="p-2.5 text-center">Marks Obtained</th>
-                            <th className="p-2.5 text-center">Max Marks</th>
-                            <th className="p-2.5 text-right">CBSE Grade</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#E2EBE5]">
-                          {dossierModal.dossier.marks.map((m, mIdx) => (
-                            <tr key={mIdx}>
-                              <td className="p-2.5 font-bold text-[#122A24]">{m.exam_name}</td>
-                              <td className="p-2.5">{m.subject}</td>
-                              <td className="p-2.5 text-center font-mono font-bold">{m.marks_obtained}</td>
-                              <td className="p-2.5 text-center font-mono text-[#2D5A4E]">{m.max_marks}</td>
-                              <td className="p-2.5 text-right font-mono font-bold text-emerald-800">{m.grade || 'A'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center text-xs text-[#2D5A4E] bg-white rounded-xl border border-[#DCE8E0]">
-                      No published assessment records found for current term.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <StudentSummaryModal
+        isOpen={Boolean(summaryStudent)}
+        onClose={() => setSummaryStudent(null)}
+        student={summaryStudent}
+        allStudents={students}
+        invoices={invoices}
+        attendanceRecords={attendanceRecords}
+        onSelectSibling={(sib) => setSummaryStudent(sib)}
+      />
     </div>
   );
 }

@@ -4235,9 +4235,9 @@ export const Database = {
     if (schoolId) list = list.filter(p => p.school_id === schoolId);
     if (targetSession) list = list.filter(p => p.academic_session === targetSession);
     if (className) list = list.filter(p => isSameClass(p.class_name, className));
-    if (subjectName) list = list.filter(p => p.subject_name.toLowerCase().trim() === subjectName.toLowerCase().trim());
-    if (month) list = list.filter(p => p.month.toLowerCase().trim() === month.toLowerCase().trim());
-    return list.sort((a, b) => a.month_order - b.month_order);
+    if (subjectName) list = list.filter(p => (p?.subject_name || '').toLowerCase().trim() === (subjectName || '').toLowerCase().trim());
+    if (month) list = list.filter(p => (p?.month || '').toLowerCase().trim() === (month || '').toLowerCase().trim());
+    return list.sort((a, b) => (a.month_order || 0) - (b.month_order || 0));
   },
 
   async saveSyllabusPlan(plan: SyllabusPlan): Promise<SyllabusPlan> {
