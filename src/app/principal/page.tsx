@@ -107,32 +107,35 @@ export default function PrincipalOverviewPage() {
       {/* ─────────────────────────────────────────────────────────────
           1. EXECUTIVE GREETING & INSTITUTIONAL HEALTH BANNER
           ───────────────────────────────────────────────────────────── */}
-      <div
-        className="relative overflow-hidden rounded-3xl text-white p-6 sm:p-8 border border-[#1C443A] shadow-xl shadow-emerald-950/30"
-        style={{
-          backgroundColor: '#122A24',
-          backgroundImage: 'radial-gradient(ellipse at 20% -10%, #1C443A 0%, #122A24 70%)',
-          color: '#FFFFFF'
-        }}
-      >
+      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 sm:p-8 relative overflow-hidden">
+        {/* Editorial Watermark Typography - Signature Heritage Aesthetic */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none select-none">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
+          >
+            Principal
+          </div>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+          >
+            Executive
+          </div>
+        </div>
+
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider font-semibold" style={{ color: '#34D399' }}>
-              <ShieldCheck className="w-4 h-4" style={{ color: '#34D399' }} />
+            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider font-semibold text-emerald-800">
+              <ShieldCheck className="w-4 h-4 text-emerald-700" />
               <span>Office of the Principal • Official Oversight</span>
             </div>
-            <h1
-              className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight mt-1.5 drop-shadow-sm"
-              style={{ color: '#FFFFFF' }}
-            >
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight mt-1.5 text-[#122A24]">
               Welcome, Dr. Abhishek Shukla
             </h1>
-            <p
-              className="text-xs sm:text-sm mt-1.5 max-w-2xl leading-relaxed font-sans"
-              style={{ color: '#E2EBE5' }}
-            >
+            <p className="text-xs sm:text-sm mt-1.5 max-w-2xl leading-relaxed font-sans text-[#2D5A4E]">
               Real-time daily attendance verification, fee collection metrics, and pending statutory authorizations for{' '}
-              <strong style={{ color: '#FFFFFF', textDecoration: 'underline', textDecorationColor: '#34D399', textUnderlineOffset: '3px' }}>
+              <strong className="text-[#122A24] font-semibold underline decoration-emerald-600/40 underline-offset-2">
                 {data.school_name}
               </strong>{' '}
               (Academic Session {data.academic_session}).
@@ -142,11 +145,7 @@ export default function PrincipalOverviewPage() {
           <div className="flex flex-wrap items-center gap-3">
             <Link
               href="/principal/approvals"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs shadow-md shadow-rose-950/40 transition transform active:scale-95 no-underline"
-              style={{
-                backgroundColor: '#C4432B',
-                color: '#FFFFFF'
-              }}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-xs shadow-sm bg-[#C4432B] hover:bg-[#b03a24] text-white transition transform active:scale-95 no-underline"
             >
               <CheckSquare className="w-4 h-4" />
               <span>Review Approvals ({kpis.pending_approvals_count})</span>
@@ -154,24 +153,13 @@ export default function PrincipalOverviewPage() {
 
             <Link
               href="/principal/reports"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl font-semibold text-xs border transition backdrop-blur-xs no-underline"
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                color: '#FFFFFF',
-                borderColor: 'rgba(255, 255, 255, 0.25)'
-              }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl font-semibold text-xs border border-[#DCE8E0] bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] shadow-2xs transition no-underline"
             >
-              <FileText className="w-4 h-4" style={{ color: '#34D399' }} />
+              <FileText className="w-4 h-4 text-emerald-700" />
               <span>Institutional Reports</span>
             </Link>
           </div>
         </div>
-
-        {/* Subtle decorative chalkboard ledger elements */}
-        <div
-          className="absolute right-0 top-0 bottom-0 w-1/3 pointer-events-none"
-          style={{ background: 'linear-gradient(to left, rgba(16, 185, 129, 0.1), transparent)' }}
-        />
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
@@ -453,8 +441,18 @@ export default function PrincipalOverviewPage() {
           ───────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left: Pending Approvals Breakdown (5 cols) */}
-        <div className="lg:col-span-5 bg-white p-6 rounded-3xl border border-[#DCE8E0] shadow-xs">
-          <div className="flex items-center justify-between mb-4">
+        <div className="lg:col-span-5 bg-white p-6 rounded-3xl border border-[#DCE8E0] shadow-xs relative overflow-hidden">
+          {/* Background Watermark Typography */}
+          <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none select-none">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none select-none absolute -top-3 -right-2 font-watermark font-normal text-[#122A24]/[0.045] text-[60px] sm:text-[90px] leading-none tracking-tight z-0 transform rotate-1 origin-top-right"
+            >
+              Petitions
+            </div>
+          </div>
+
+          <div className="relative z-10 flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-bold text-[#122A24]">
                 Authorizations Pending Review
@@ -472,7 +470,7 @@ export default function PrincipalOverviewPage() {
             </Link>
           </div>
 
-          <div className="space-y-3">
+          <div className="relative z-10 space-y-3">
             <Link
               href="/principal/approvals?type=CERTIFICATE_TC"
               className="flex items-center justify-between p-3.5 rounded-2xl bg-[#F4F8F5] hover:bg-[#EBF5EF] border border-[#DCE8E0] transition group"
@@ -538,34 +536,22 @@ export default function PrincipalOverviewPage() {
                 {approval_breakdown.staff_leave} Pending
               </span>
             </Link>
-
-            <Link
-              href="/principal/approvals?type=ADMISSION"
-              className="flex items-center justify-between p-3.5 rounded-2xl bg-[#F4F8F5] hover:bg-[#EBF5EF] border border-[#DCE8E0] transition group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-indigo-900 text-white flex items-center justify-center font-bold text-xs">
-                  ADM
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-[#122A24] group-hover:text-emerald-800">
-                    New Scholar Admissions
-                  </div>
-                  <div className="text-[11px] text-[#2D5A4E] font-mono">
-                    Enrollment verification
-                  </div>
-                </div>
-              </div>
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                {approval_breakdown.admission} Pending
-              </span>
-            </Link>
           </div>
         </div>
 
         {/* Right: Recent Circulars & Broadcast Notices (7 cols) */}
-        <div className="lg:col-span-7 bg-white p-6 rounded-3xl border border-[#DCE8E0] shadow-xs">
-          <div className="flex items-center justify-between mb-4">
+        <div className="lg:col-span-7 bg-white p-6 rounded-3xl border border-[#DCE8E0] shadow-xs relative overflow-hidden">
+          {/* Background Watermark Typography */}
+          <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none select-none">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none select-none absolute -top-3 -right-2 font-watermark font-normal text-[#122A24]/[0.045] text-[65px] sm:text-[100px] leading-none tracking-tight z-0 transform rotate-1 origin-top-right"
+            >
+              Gazette
+            </div>
+          </div>
+
+          <div className="relative z-10 flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-bold text-[#122A24] flex items-center gap-2">
                 <Megaphone className="w-4 h-4 text-emerald-600" />

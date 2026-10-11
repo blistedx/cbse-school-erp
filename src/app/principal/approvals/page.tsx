@@ -7,7 +7,6 @@ import {
   FileCheck,
   DollarSign,
   Calendar,
-  UserPlus,
   Clock,
   CheckCircle2,
   XCircle,
@@ -80,13 +79,12 @@ export default function PrincipalApprovalsPage() {
     fetchApprovals();
   }, [fetchApprovals]);
 
-  // Tab definitions
+  // Tab definitions (4 statutory categories)
   const tabs: Array<{ id: PrincipalApprovalType; label: string; icon: any }> = [
     { id: 'CERTIFICATE_TC', label: 'TC / Character Certificate', icon: FileCheck },
     { id: 'BIOMETRIC_REGULARIZATION', label: 'Biometric Regularization', icon: Clock },
     { id: 'STAFF_LEAVE', label: 'Staff Leave Applications', icon: Calendar },
-    { id: 'FEE_CONCESSION', label: 'Fee Concession / Waiver', icon: DollarSign },
-    { id: 'ADMISSION', label: 'New Scholar Admissions', icon: UserPlus }
+    { id: 'FEE_CONCESSION', label: 'Fee Concession / Waiver', icon: DollarSign }
   ];
 
   // Tab counts
@@ -96,7 +94,6 @@ export default function PrincipalApprovalsPage() {
       BIOMETRIC_REGULARIZATION: requests.filter(r => r.type === 'BIOMETRIC_REGULARIZATION' && r.status === 'PENDING').length,
       STAFF_LEAVE: requests.filter(r => r.type === 'STAFF_LEAVE' && r.status === 'PENDING').length,
       FEE_CONCESSION: requests.filter(r => r.type === 'FEE_CONCESSION' && r.status === 'PENDING').length,
-      ADMISSION: requests.filter(r => r.type === 'ADMISSION' && r.status === 'PENDING').length,
     };
   }, [requests]);
 
@@ -166,22 +163,44 @@ export default function PrincipalApprovalsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* ─────────────────────────────────────────────────────────────
-          1. HEADER & SUMMARY
+          1. HEADER & SUMMARY WITH SIGNATURE WATERMARK TYPOGRAPHY
           ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#122A24] tracking-tight">
-            Principal Authorizations &amp; Petitions
-          </h1>
-          <p className="text-xs sm:text-sm text-[#2D5A4E] mt-0.5">
-            Single authority oversight: approve or reject statutory petitions with mandatory CBSE audit remarks.
-          </p>
+      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 sm:p-8 relative overflow-hidden">
+        {/* Signature watermark typography */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none select-none">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
+          >
+            Approvals
+          </div>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+          >
+            Statutory
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono font-bold text-amber-900 bg-amber-100 px-3 py-1.5 rounded-xl border border-amber-300 shadow-2xs">
-            Pending Action: {Object.values(tabCounts).reduce((a, b) => a + b, 0)}
-          </span>
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E9F2EC] text-[#122A24] text-xs font-semibold mb-2 border border-[#DCE8E0]">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Mandatory CBSE Oversight &amp; Authorizations</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-[#122A24] tracking-tight">
+              Principal Authorizations &amp; Petitions
+            </h1>
+            <p className="text-xs sm:text-sm text-[#2D5A4E] mt-1 max-w-2xl leading-relaxed">
+              Single authority oversight: approve or reject statutory petitions with mandatory CBSE audit remarks and digital signature verification.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs font-mono font-bold text-amber-900 bg-amber-100 px-3.5 py-2 rounded-2xl border border-amber-300 shadow-2xs">
+              Pending Action: {Object.values(tabCounts).reduce((a, b) => a + b, 0)}
+            </span>
+          </div>
         </div>
       </div>
 

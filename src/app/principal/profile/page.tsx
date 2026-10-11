@@ -65,14 +65,30 @@ export default function PrincipalProfilePage() {
       <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs overflow-hidden">
         {/* Banner */}
         <div
-          className="h-32 p-6 flex items-end"
+          className="h-36 p-6 flex items-end relative overflow-hidden"
           style={{
             backgroundColor: '#122A24',
             backgroundImage: 'radial-gradient(ellipse at 20% -10%, #1C443A 0%, #122A24 70%)',
             color: '#FFFFFF'
           }}
         >
-          <div className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: '#34D399' }}>
+          {/* Watermark typography in banner */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none select-none absolute -top-4 -left-2 font-watermark font-normal text-white/[0.08] text-[80px] sm:text-[110px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
+            >
+              Principal
+            </div>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none select-none absolute -bottom-3 right-4 font-watermark font-normal text-white/[0.06] text-[70px] sm:text-[95px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+            >
+              Governance
+            </div>
+          </div>
+
+          <div className="relative z-10 text-xs font-mono font-bold uppercase tracking-wider text-emerald-400">
             CBSE Statutory Institutional Head
           </div>
         </div>

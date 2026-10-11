@@ -221,36 +221,58 @@ export default function PrincipalReportsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* ─────────────────────────────────────────────────────────────
-          1. HEADER & EXPORT ACTIONS
+          1. HEADER & EXPORT ACTIONS WITH SIGNATURE WATERMARK TYPOGRAPHY
           ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#122A24] tracking-tight">
-            Institutional Reports &amp; Broad-Sheets
-          </h1>
-          <p className="text-xs sm:text-sm text-[#2D5A4E] mt-0.5">
-            Verified read-only registers across attendance, fees, academic assessments, students and staff.
-          </p>
+      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 sm:p-8 relative overflow-hidden">
+        {/* Signature watermark typography */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none select-none">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
+          >
+            Reports
+          </div>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+          >
+            Registers
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={handleDownloadExcel}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-[#F4F8F5] border border-[#DCE8E0] text-xs font-semibold text-[#122A24] transition shadow-2xs cursor-pointer"
-            title="Download formatted spreadsheet"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>Download Excel</span>
-          </button>
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E9F2EC] text-[#122A24] text-xs font-semibold mb-2 border border-[#DCE8E0]">
+              <FileBarChart2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Statutory CBSE Broadsheets &amp; Dossiers</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-[#122A24] tracking-tight">
+              Institutional Reports &amp; Broad-Sheets
+            </h1>
+            <p className="text-xs sm:text-sm text-[#2D5A4E] mt-1 max-w-2xl leading-relaxed">
+              Verified read-only registers across daily roll-call attendance, fee master collections, CBSE assessments, and faculty files.
+            </p>
+          </div>
 
-          <button
-            onClick={handleDownloadPDF}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold transition shadow-xs cursor-pointer"
-            title="Print or Save PDF document"
-          >
-            <Printer className="w-4 h-4 text-emerald-400" />
-            <span>Download PDF</span>
-          </button>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button
+              onClick={handleDownloadExcel}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white hover:bg-[#F4F8F5] border border-[#DCE8E0] text-xs font-semibold text-[#122A24] transition shadow-2xs cursor-pointer active:scale-95"
+              title="Download formatted spreadsheet"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+              <span>Download Excel</span>
+            </button>
+
+            <button
+              onClick={handleDownloadPDF}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
+              title="Print or Save PDF document"
+            >
+              <Printer className="w-4 h-4 text-emerald-400" />
+              <span>Download PDF</span>
+            </button>
+          </div>
         </div>
       </div>
 

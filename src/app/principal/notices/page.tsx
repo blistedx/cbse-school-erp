@@ -126,28 +126,50 @@ export default function PrincipalNoticesPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* ─────────────────────────────────────────────────────────────
-          1. HEADER & BROADCAST ACTION
+          1. HEADER & BROADCAST ACTION WITH SIGNATURE WATERMARK TYPOGRAPHY
           ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#122A24] tracking-tight">
-            Official Circulars &amp; Broadcasts
-          </h1>
-          <p className="text-xs sm:text-sm text-[#2D5A4E] mt-0.5">
-            Issue authorized school circulars to the whole school, staff and faculty, or specific classes.
-          </p>
+      <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs p-6 sm:p-8 relative overflow-hidden">
+        {/* Signature watermark typography */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none select-none">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none select-none absolute -top-4 sm:-top-8 md:-top-12 -left-2 sm:-left-6 font-watermark font-normal text-[#122A24]/[0.055] sm:text-[#122A24]/[0.07] text-[80px] sm:text-[130px] md:text-[170px] lg:text-[210px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
+          >
+            Circulars
+          </div>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-8 -right-2 sm:-right-6 font-watermark font-normal text-[#122A24]/[0.045] sm:text-[#122A24]/[0.06] text-[70px] sm:text-[110px] md:text-[140px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+          >
+            Broadcast
+          </div>
         </div>
 
-        <button
-          onClick={() => {
-            setIsModalOpen(true);
-            setFormError('');
-          }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-xs shadow-md transition transform active:scale-95 cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4 text-emerald-400" />
-          <span>Broadcast Official Circular</span>
-        </button>
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E9F2EC] text-[#122A24] text-xs font-semibold mb-2 border border-[#DCE8E0]">
+              <Megaphone className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Institutional Gazette &amp; Directives</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-[#122A24] tracking-tight">
+              Official Circulars &amp; Broadcasts
+            </h1>
+            <p className="text-xs sm:text-sm text-[#2D5A4E] mt-1 max-w-2xl leading-relaxed">
+              Issue authorized school circulars and statutory directives to the whole school, staff and faculty, or specific classes.
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              setIsModalOpen(true);
+              setFormError('');
+            }}
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white font-bold text-xs shadow-md transition transform active:scale-95 cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4 text-emerald-400" />
+            <span>Broadcast Official Circular</span>
+          </button>
+        </div>
       </div>
 
       {successToast && (

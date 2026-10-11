@@ -97,13 +97,29 @@ export default function TeacherDashboardPage() {
     <div className="space-y-6">
       {/* 1. WELCOME BANNER & CLASS TEACHER BADGE */}
       <div
-        className="p-6 rounded-3xl text-white shadow-xl relative overflow-hidden border border-emerald-800/40"
+        className="p-6 sm:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden border border-emerald-800/40"
         style={{
           backgroundColor: '#122A24',
           backgroundImage: 'radial-gradient(ellipse at 20% -10%, #1C443A 0%, #122A24 70%)',
           color: '#FFFFFF'
         }}
       >
+        {/* Signature watermark typography */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none select-none">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none select-none absolute -top-4 sm:-top-8 -left-2 sm:-left-4 font-watermark font-normal text-white/[0.07] sm:text-white/[0.09] text-[75px] sm:text-[120px] leading-none tracking-tight z-0 transform -rotate-1 origin-top-left"
+          >
+            Faculty
+          </div>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none select-none absolute -bottom-4 sm:-bottom-6 -right-2 sm:-right-4 font-watermark font-normal text-white/[0.05] sm:text-white/[0.07] text-[65px] sm:text-[100px] leading-none tracking-tight z-0 transform rotate-1 origin-bottom-right"
+          >
+            Workstation
+          </div>
+        </div>
+
         <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-radial from-emerald-500/10 to-transparent pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
