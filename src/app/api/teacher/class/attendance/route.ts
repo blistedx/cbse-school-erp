@@ -26,7 +26,19 @@ export async function GET(req: Request) {
     const date = searchParams.get('date') || getTodayDateStr();
 
     // 1. Strict Security: Verify Class Teacher Assignment
-    const assignments = await Database.getTeacherAssignments(tenant, auth.userId);
+    let assignments = await Database.getTeacherAssignments(tenant, auth.userId);
+    if (!assignments) {
+      const teachers = await Database.getTeachers(tenant);
+      const matched = teachers.find(t => 
+        (t.staff_code && t.staff_code.toUpperCase() === (auth.username || '').toUpperCase()) ||
+        (t.id && t.id.toUpperCase() === (auth.username || '').toUpperCase()) ||
+        (t.full_name && t.full_name.toLowerCase() === (auth.name || '').toLowerCase())
+      );
+      if (matched) {
+        assignments = await Database.getTeacherAssignments(tenant, matched.id);
+      }
+    }
+
     if (!assignments || !assignments.isClassTeacher || !assignments.classTeacherSection) {
       return NextResponse.json({
         success: false,
@@ -164,7 +176,19 @@ export async function POST(req: Request) {
     }
 
     // 1. Strict Security: Server verifies logged in teacher is assigned Class Teacher of this class-section
-    const assignments = await Database.getTeacherAssignments(tenant, auth.userId);
+    let assignments = await Database.getTeacherAssignments(tenant, auth.userId);
+    if (!assignments) {
+      const teachers = await Database.getTeachers(tenant);
+      const matched = teachers.find(t => 
+        (t.staff_code && t.staff_code.toUpperCase() === (auth.username || '').toUpperCase()) ||
+        (t.id && t.id.toUpperCase() === (auth.username || '').toUpperCase()) ||
+        (t.full_name && t.full_name.toLowerCase() === (auth.name || '').toLowerCase())
+      );
+      if (matched) {
+        assignments = await Database.getTeacherAssignments(tenant, matched.id);
+      }
+    }
+
     if (!assignments || !assignments.isClassTeacher || !assignments.classTeacherSection) {
       return NextResponse.json({
         success: false,

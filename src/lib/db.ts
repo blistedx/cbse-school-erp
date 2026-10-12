@@ -2352,7 +2352,7 @@ export const Database = {
           const filter = buildSessionFilter(ids as string[], targetSession);
           const results = await db.collection('attendance')
             .find(filter)
-            .sort({ date: -1 })
+            .sort({ date: -1, created_at: -1 })
             .toArray();
           if (results && results.length > 0) {
             const sanitized = results.map(sanitizeDoc<AttendanceRecord>);
@@ -2360,8 +2360,21 @@ export const Database = {
             sanitized.forEach(item => {
               const normC = normalizeClassName(item.class_name);
               const key = `${item.date}_${normC}_${(item.section || '').toLowerCase().trim()}`;
-              if (!dedupMap.has(key)) {
+              const existing = dedupMap.get(key);
+              if (!existing) {
                 dedupMap.set(key, item);
+              } else {
+                const existingCount = existing.student_records?.length || 0;
+                const currentCount = item.student_records?.length || 0;
+                if (currentCount > existingCount) {
+                  dedupMap.set(key, item);
+                } else if (currentCount === existingCount) {
+                  const existingTime = new Date(existing.created_at || 0).getTime();
+                  const currentTime = new Date(item.created_at || 0).getTime();
+                  if (currentTime > existingTime) {
+                    dedupMap.set(key, item);
+                  }
+                }
               }
             });
             const list = Array.from(dedupMap.values());
@@ -2378,8 +2391,21 @@ export const Database = {
       rawList.forEach(item => {
         const normC = normalizeClassName(item.class_name);
         const key = `${item.date}_${normC}_${(item.section || '').toLowerCase().trim()}`;
-        if (!memDedupMap.has(key)) {
+        const existing = memDedupMap.get(key);
+        if (!existing) {
           memDedupMap.set(key, item);
+        } else {
+          const existingCount = existing.student_records?.length || 0;
+          const currentCount = item.student_records?.length || 0;
+          if (currentCount > existingCount) {
+            memDedupMap.set(key, item);
+          } else if (currentCount === existingCount) {
+            const existingTime = new Date(existing.created_at || 0).getTime();
+            const currentTime = new Date(item.created_at || 0).getTime();
+            if (currentTime > existingTime) {
+              memDedupMap.set(key, item);
+            }
+          }
         }
       });
       const memList = Array.from(memDedupMap.values());

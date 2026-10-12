@@ -5,8 +5,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard,
-  CalendarCheck,
+  Home,
+  ClipboardList,
   BookOpen,
   Clock,
   User
@@ -109,7 +109,7 @@ export default function TeacherLayout({
           }`}
         >
           <div className={`p-1 rounded-lg ${pathname === '/teacher' ? 'bg-emerald-100 text-emerald-800' : ''}`}>
-            <LayoutDashboard className="w-4 h-4" />
+            <Home className="w-4 h-4" />
           </div>
           <span className="text-[10px] font-medium tracking-tight">Home</span>
         </Link>
@@ -123,7 +123,7 @@ export default function TeacherLayout({
           }`}
         >
           <div className={`p-1 rounded-lg ${pathname.includes('/my-class/attendance') || pathname.includes('/student-attendance') ? 'bg-emerald-100 text-emerald-800' : ''}`}>
-            <CalendarCheck className="w-4 h-4" />
+            <ClipboardList className="w-4 h-4" />
           </div>
           <span className="text-[10px] font-medium tracking-tight">Roll Call</span>
         </Link>

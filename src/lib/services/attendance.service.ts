@@ -131,7 +131,8 @@ export class AttendanceService {
 
     const totalCount = Number(data.total_students) || (studentRecords.length > 0 ? studentRecords.length : (teacherRecords.length > 0 ? teacherRecords.length : (presentCount + absentCount + leaveCount + holidayCount)));
 
-    const record: AttendanceRecord = {
+    const recordPayload: Partial<AttendanceRecord> = {
+      ...data,
       id: data.id || `ATT-${targetSchoolId}-${targetSession}-${date}-${normalizeClassName(rawClassName)}-${rawSection}`.replace(/[^A-Za-z0-9_-]/g, '_'),
       school_id: targetSchoolId,
       academic_session: targetSession,
@@ -149,24 +150,7 @@ export class AttendanceService {
       created_at: new Date().toISOString()
     };
 
-    try {
-      const db = await getDatabase();
-      if (db) {
-        await db.collection('attendance').updateOne(
-          {
-            school_id: targetSchoolId,
-            academic_session: targetSession,
-            date,
-            class_name: rawClassName,
-            section: rawSection
-          },
-          { $set: record },
-          { upsert: true }
-        );
-      }
-    } catch (err) {
-      console.error('[AttendanceService.markAttendance DB Error]', err);
-    }
+    const record = await Database.recordAttendance(recordPayload);
 
     // Invalidate caches
     invalidateServerCache('attendance');

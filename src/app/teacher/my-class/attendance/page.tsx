@@ -146,6 +146,7 @@ export default function ClassTeacherAttendancePage() {
       if (data.success) {
         setMessage({ type: 'success', text: `Attendance saved successfully for Class ${className}-${section} on ${selectedDate}!` });
         setIsMarked(true);
+        await fetchClassAttendance();
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to record attendance' });
       }
