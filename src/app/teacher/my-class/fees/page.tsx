@@ -52,7 +52,10 @@ export default function ClassFeeStatusPage() {
       if (data.success) {
         setClassName(data.class_name);
         setSection(data.section);
-        setDefaulters(data.defaulters || []);
+        const sorted = (data.defaulters || []).slice().sort((a: any, b: any) =>
+          (a.student_name || '').localeCompare(b.student_name || '')
+        );
+        setDefaulters(sorted);
         setTotalPending(data.total_pending_amount || 0);
       }
     } catch (err) {

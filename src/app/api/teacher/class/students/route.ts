@@ -116,7 +116,7 @@ export async function GET(req: Request) {
       isSameClass(s.class_name, class_name) &&
       (s.section || 'A').toUpperCase().trim() === section.toUpperCase().trim() &&
       s.status === 'ACTIVE'
-    ).sort((a, b) => Number(a.roll_no || 999) - Number(b.roll_no || 999));
+    ).sort((a: any, b: any) => (a.full_name || a.name || '').localeCompare(b.full_name || b.name || ''));
 
     // If single student dossier requested:
     if (studentId) {

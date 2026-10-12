@@ -179,11 +179,13 @@ export default function ClassTeacherAttendancePage() {
     document.body.removeChild(link);
   };
 
-  const filteredStudents = students.filter(s => 
-    s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (s.roll_no && s.roll_no.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (s.admission_no && s.admission_no.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredStudents = [...students]
+    .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+    .filter(s => 
+      s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.roll_no && s.roll_no.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (s.admission_no && s.admission_no.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
 
   const presentCount = students.filter(s => s.status === 'PRESENT').length;
   const absentCount = students.filter(s => s.status === 'ABSENT').length;

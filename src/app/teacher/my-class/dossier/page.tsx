@@ -117,7 +117,10 @@ export default function ClassStudentDossierPage() {
       if (data.success) {
         setClassName(data.class_name);
         setSection(data.section);
-        setStudents(data.students || []);
+        const sorted = (data.students || []).slice().sort((a: any, b: any) =>
+          (a.full_name || a.name || '').localeCompare(b.full_name || b.name || '')
+        );
+        setStudents(sorted);
         if (Array.isArray(data.available_classes)) {
           setAvailableClasses(data.available_classes);
         }

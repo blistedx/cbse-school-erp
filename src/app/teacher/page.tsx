@@ -55,6 +55,27 @@ const ACADEMIC_MONTHS = [
   { key: 'MAR', label: 'March' },
 ];
 
+function parseClockInSeconds(timeStr?: string): number | null {
+  if (!timeStr) return null;
+  if (timeStr.includes('T')) {
+    const d = new Date(timeStr);
+    if (!isNaN(d.getTime())) {
+      return d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+    }
+  }
+  const match = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+  if (!match) return null;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const seconds = match[3] ? parseInt(match[3], 10) : 0;
+  const meridiem = match[4]?.toUpperCase();
+
+  if (meridiem === 'PM' && hours < 12) hours += 12;
+  if (meridiem === 'AM' && hours === 12) hours = 0;
+
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
 export default function TeacherDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
@@ -66,6 +87,10 @@ export default function TeacherDashboardPage() {
   const [showFeeStudentsModal, setShowFeeStudentsModal] = useState(false);
   const [feeStudentFilter, setFeeStudentFilter] = useState<'ALL' | 'PENDING' | 'PAID'>('ALL');
   const [feeSearchQuery, setFeeSearchQuery] = useState('');
+
+  // 8-Hour Reverse Duty Shift Countdown Timer
+  const [dutyCountdownStr, setDutyCountdownStr] = useState<string>('08h 00m 00s');
+  const [isDutyCompleted, setIsDutyCompleted] = useState<boolean>(false);
 
   // Live IST Clock
   const [currentTime, setCurrentTime] = useState('');
@@ -84,6 +109,44 @@ export default function TeacherDashboardPage() {
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Live 8-Hour Countdown Effect
+  useEffect(() => {
+    const updateCountdown = () => {
+      const bioIn = data?.biometric_today;
+      if (!bioIn || bioIn.status !== 'PRESENT' || !bioIn.in_time) {
+        setDutyCountdownStr('08h 00m 00s');
+        setIsDutyCompleted(false);
+        return;
+      }
+
+      const inSec = parseClockInSeconds(bioIn.in_time);
+      if (inSec === null) {
+        setDutyCountdownStr('08h 00m 00s');
+        setIsDutyCompleted(false);
+        return;
+      }
+
+      const now = new Date();
+      const nowSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      const elapsed = Math.max(0, nowSec - inSec);
+      const shiftTotal = 8 * 3600; // 8 Hours = 28,800 seconds
+      const remaining = Math.max(0, shiftTotal - elapsed);
+
+      const remH = Math.floor(remaining / 3600);
+      const remM = Math.floor((remaining % 3600) / 60);
+      const remS = remaining % 60;
+
+      setDutyCountdownStr(
+        `${String(remH).padStart(2, '0')}h ${String(remM).padStart(2, '0')}m ${String(remS).padStart(2, '0')}s`
+      );
+      setIsDutyCompleted(elapsed >= shiftTotal);
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [data?.biometric_today]);
 
   // ── AUTOMATIC BOTTOM SHEET ATTENDANCE POPUP STATE ──
   const [showAttendanceSheet, setShowAttendanceSheet] = useState(false);
@@ -156,8 +219,11 @@ export default function TeacherDashboardPage() {
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.students)) {
+          const sortedStudents = [...json.students].sort((a: any, b: any) =>
+            (a.full_name || a.name || '').localeCompare(b.full_name || b.name || '')
+          );
           setSheetStudents(
-            json.students.map((s: any) => {
+            sortedStudents.map((s: any) => {
               let status: 'PRESENT' | 'ABSENT' | 'HOLIDAY' = 'PRESENT';
               const raw = String(s.status || 'PRESENT').toUpperCase();
               if (raw === 'HOLIDAY') status = 'HOLIDAY';
@@ -348,8 +414,10 @@ export default function TeacherDashboardPage() {
   const activeMonthData = month_fees || class_teacher_stats?.month_fees;
   const activeMonthLabel = ACADEMIC_MONTHS.find(m => m.key === selectedMonth)?.label || 'October';
 
-  // Filtered fee scholars for modal
-  const feeStudentsList: Array<any> = activeMonthData?.students_breakdown || [];
+  // Filtered fee scholars for modal (strictly sorted alphabetically A to Z)
+  const feeStudentsList: Array<any> = ((activeMonthData?.students_breakdown || []) as any[])
+    .slice()
+    .sort((a: any, b: any) => (a.student_name || '').localeCompare(b.student_name || ''));
   const filteredFeeStudents = feeStudentsList.filter((s: any) => {
     const matchesFilter = feeStudentFilter === 'ALL' 
       ? true 
@@ -468,21 +536,46 @@ export default function TeacherDashboardPage() {
           </div>
         </div>
 
-        {/* Biometrics Quick Action Bar inside Hero Card */}
-        <div className="relative z-10 pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
-          <div className="flex items-center gap-2.5 bg-black/20 sm:bg-transparent p-2 sm:p-0 rounded-xl sm:rounded-none">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-500/30">
-              <Fingerprint className="w-4 h-4" />
+        {/* Biometrics & Live 8-Hour Reverse Duty Shift Timer */}
+        <div className="relative z-10 pt-3 border-t border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs font-mono">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2.5 bg-black/25 px-3 py-2 rounded-2xl border border-white/10">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                <Fingerprint className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] text-emerald-300/70 block uppercase leading-none font-bold">Biometric Punch</span>
+                <span className="text-xs font-bold text-emerald-100 leading-tight">
+                  {biometric_today.status === 'PRESENT'
+                    ? `In: ${biometric_today.in_time || '08:00 AM'}`
+                    : biometric_today.status === 'REGULARIZED'
+                    ? 'Regularized by Principal'
+                    : 'Not Clocked In'}
+                </span>
+              </div>
             </div>
-            <div className="min-w-0">
-              <span className="text-[10px] text-emerald-300/70 block uppercase leading-none font-bold">Biometric Attendance</span>
-              <span className="text-xs font-bold text-emerald-100 leading-tight">
-                {biometric_today.status === 'PRESENT'
-                  ? `Clocked In at ${biometric_today.in_time || '08:15 AM'}`
-                  : biometric_today.status === 'REGULARIZED'
-                  ? 'Regularized by Principal'
-                  : 'Not Clocked In Yet'}
-              </span>
+
+            {/* Live 8-Hour Shift Reverse Countdown Timer */}
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-2xl border ${
+              biometric_today.status === 'PRESENT'
+                ? isDutyCompleted
+                  ? 'bg-emerald-950/70 border-emerald-400/50 text-emerald-300'
+                  : 'bg-emerald-950/80 border-amber-400/50 text-amber-300 shadow-md'
+                : 'bg-black/25 border-white/10 text-emerald-300/60'
+            }`}>
+              <Clock className={`w-4 h-4 shrink-0 ${biometric_today.status === 'PRESENT' && !isDutyCompleted ? 'animate-spin text-amber-400' : 'text-emerald-400'}`} style={biometric_today.status === 'PRESENT' && !isDutyCompleted ? { animationDuration: '6s' } : undefined} />
+              <div>
+                <span className="text-[9.5px] uppercase tracking-wider block font-bold text-emerald-300/80 leading-none">
+                  8-Hour Duty Countdown
+                </span>
+                <span className="font-mono text-xs sm:text-sm font-black tracking-wider">
+                  {biometric_today.status === 'PRESENT'
+                    ? isDutyCompleted
+                      ? '✓ 00h 00m 00s (Shift Complete)'
+                      : `⏳ ${dutyCountdownStr} Remaining`
+                    : '8h 00m 00s (Clock In To Start)'}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -492,23 +585,23 @@ export default function TeacherDashboardPage() {
                 type="button"
                 onClick={() => handlePunch('PUNCH_IN')}
                 disabled={punching}
-                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-400 hover:bg-emerald-300 active:scale-95 text-[#0F2620] font-black rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
+                className="w-full md:w-auto px-5 py-2.5 bg-emerald-400 hover:bg-emerald-300 active:scale-95 text-[#0F2620] font-black rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
               >
                 <LogIn className="w-3.5 h-3.5 stroke-[2.5]" />
-                <span>{punching ? 'Recording...' : 'Clock In Now'}</span>
+                <span>{punching ? 'Recording...' : 'Clock In & Start Shift'}</span>
               </button>
             ) : !biometric_today.out_time ? (
               <button
                 type="button"
                 onClick={() => handlePunch('PUNCH_OUT')}
                 disabled={punching}
-                className="w-full sm:w-auto px-5 py-2.5 bg-amber-400 hover:bg-amber-300 active:scale-95 text-[#0F2620] font-black rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
+                className="w-full md:w-auto px-5 py-2.5 bg-amber-400 hover:bg-amber-300 active:scale-95 text-[#0F2620] font-black rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>{punching ? 'Recording...' : 'Clock Out Departure'}</span>
               </button>
             ) : (
-              <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold flex items-center gap-1 text-xs">
+              <span className="px-3.5 py-2 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold flex items-center gap-1.5 text-xs">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Shift Completed
               </span>
             )}
@@ -516,49 +609,85 @@ export default function TeacherDashboardPage() {
         </div>
       </div>
 
-      {/* ── 2. EXECUTIVE KPI DASHBOARD (STRENGTH, ATTENDANCE & MONTHWISE FEES) ── */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-emerald-700" />
-            <h2 className="text-xs sm:text-sm font-black text-[#122A24] uppercase tracking-wider">
-              Class {displayClassCode} Core KPIs
-            </h2>
-          </div>
-          <span className="text-[11px] font-mono text-slate-500">
-            Real-Time Class Ledger
-          </span>
-        </div>
+      {/* ── 2. UNIFIED COCKPIT MASTER TILE (STRENGTH, ATTENDANCE & MONTHWISE FEES) ── */}
+      <div className="bg-[#122A24] rounded-3xl p-4 sm:p-7 border border-[#1C443A] shadow-xl text-white relative overflow-hidden space-y-6">
+        {/* Subtle Ambient Glow */}
+        <div className="absolute -right-16 -top-16 w-64 h-64 bg-radial from-emerald-500/10 via-transparent to-transparent pointer-events-none rounded-full blur-2xl" />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          {/* ── KPI CARD 1: STUDENTS STRENGTH ── */}
-          <div className="p-4 sm:p-5 bg-white rounded-3xl border border-[#DCE8E0] shadow-xs flex flex-col justify-between space-y-3 hover:border-emerald-400 transition">
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold">
-                <Users className="w-5 h-5 text-emerald-700" />
-              </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold font-mono bg-emerald-100 text-emerald-800">
-                Class {displayClassCode}
-              </span>
+        {/* Master Tile Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-white/10 relative z-10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-400/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
             </div>
-
             <div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl sm:text-4xl font-black text-[#122A24] font-mono">
-                  {class_teacher_stats?.total_students || 38}
+              <h2 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-2">
+                <span>Class {displayClassCode} Unified Cockpit</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                  Live Operations
                 </span>
-                <span className="text-xs font-bold text-slate-500">Scholars Enrolled</span>
-              </div>
-              <p className="text-[11px] text-slate-400 font-mono mt-1">
-                Active strength assigned to your class section
+              </h2>
+              <p className="text-[11px] font-mono text-emerald-200/70">
+                Integrated Strength, Roll Call & Monthwise Fee Desk
               </p>
             </div>
+          </div>
 
-            <div className="pt-2 border-t border-[#F0F5F2] flex items-center justify-between text-[11px] font-mono">
-              <span className="text-slate-500">Section Directory:</span>
+          {/* Month Selector for Fee View */}
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+            <span className="text-[11px] font-mono text-emerald-300/80 font-semibold">
+              Fee Cycle:
+            </span>
+            <select
+              value={selectedMonth}
+              onChange={(e) => handleMonthChange(e.target.value)}
+              className="text-xs font-bold font-mono bg-[#0c1e19] text-emerald-200 border border-emerald-500/40 rounded-xl px-3 py-1.5 outline-none cursor-pointer hover:border-emerald-400 transition"
+            >
+              {ACADEMIC_MONTHS.map(m => (
+                <option key={m.key} value={m.key}>{m.label} ({m.key})</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Unified 3-Column Grid inside the single tile */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 relative z-10">
+          
+          {/* Sub-Section 1: Scholars Strength */}
+          <div className="flex flex-col justify-between bg-white/[0.04] hover:bg-white/[0.06] border border-white/10 rounded-2xl p-4 sm:p-5 transition">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-400/20 text-emerald-300 flex items-center justify-center font-bold">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-200/90">
+                    Scholars Strength
+                  </span>
+                </div>
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-white/10 text-emerald-200">
+                  Section {displayClassCode}
+                </span>
+              </div>
+
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-4xl font-black text-white font-mono tracking-tight">
+                    {class_teacher_stats?.total_students || 38}
+                  </span>
+                  <span className="text-xs font-bold text-emerald-200/70">Enrolled Scholars</span>
+                </div>
+                <p className="text-[11px] text-emerald-300/60 font-mono mt-1">
+                  Active strength in alphabetical order
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between text-[11px] font-mono">
+              <span className="text-emerald-300/70">Class Roster:</span>
               <Link 
                 href="/teacher/my-class/dossier" 
-                className="text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1"
+                className="text-emerald-300 hover:text-white font-bold flex items-center gap-1 transition-colors"
               >
                 <span>View Dossier</span>
                 <ChevronRight className="w-3 h-3" />
@@ -566,163 +695,159 @@ export default function TeacherDashboardPage() {
             </div>
           </div>
 
-          {/* ── KPI CARD 2: TODAY'S ATTENDANCE (PRESENT / ABSENT / HOLIDAY) ── */}
-          <div className="p-4 sm:p-5 bg-white rounded-3xl border border-[#DCE8E0] shadow-xs flex flex-col justify-between space-y-3 hover:border-emerald-400 transition">
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-800 flex items-center justify-center font-bold">
-                <CalendarCheck className="w-5 h-5 text-blue-700" />
+          {/* Sub-Section 2: Daily Attendance Roll Call */}
+          <div className="flex flex-col justify-between bg-white/[0.04] hover:bg-white/[0.06] border border-white/10 rounded-2xl p-4 sm:p-5 transition">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-400/20 text-emerald-300 flex items-center justify-center font-bold">
+                    <CalendarCheck className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-200/90">
+                    Daily Roll Call
+                  </span>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-mono font-bold tracking-wider ${
+                  class_teacher_stats?.is_marked_today
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
+                }`}>
+                  {class_teacher_stats?.is_marked_today ? '✓ MARKED' : '⚠️ PENDING'}
+                </span>
               </div>
-              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold font-mono ${
-                class_teacher_stats?.is_marked_today
-                  ? 'bg-emerald-100 text-emerald-800'
-                  : 'bg-amber-100 text-amber-800 animate-pulse'
-              }`}>
-                {class_teacher_stats?.is_marked_today ? '✓ ROLL CALL MARKED' : '⚠️ PENDING ROLL CALL'}
-              </span>
-            </div>
 
-            <div>
-              <div className="grid grid-cols-3 gap-1.5 text-center my-1">
-                <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-200/60">
-                  <span className="text-[9.5px] font-mono text-emerald-800 font-bold uppercase block">Present</span>
-                  <span className="text-xl font-black text-emerald-700 font-mono">
+              {/* 3 Metrics: Present, Absent, Holiday */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2 bg-emerald-950/60 rounded-xl border border-emerald-500/30">
+                  <span className="text-[9px] font-mono text-emerald-300 font-bold uppercase block">Present</span>
+                  <span className="text-lg sm:text-xl font-black text-emerald-300 font-mono">
                     {class_teacher_stats?.present_count ?? 0}
                   </span>
                 </div>
-                <div className="p-2 bg-rose-50 rounded-xl border border-rose-200/60">
-                  <span className="text-[9.5px] font-mono text-rose-800 font-bold uppercase block">Absent</span>
-                  <span className="text-xl font-black text-rose-600 font-mono">
+                <div className="p-2 bg-rose-950/60 rounded-xl border border-rose-500/30">
+                  <span className="text-[9px] font-mono text-rose-300 font-bold uppercase block">Absent</span>
+                  <span className="text-lg sm:text-xl font-black text-rose-400 font-mono">
                     {class_teacher_stats?.absent_count ?? 0}
                   </span>
                 </div>
-                <div className="p-2 bg-amber-50 rounded-xl border border-amber-200/60">
-                  <span className="text-[9.5px] font-mono text-amber-800 font-bold uppercase block">Holiday</span>
-                  <span className="text-xl font-black text-amber-700 font-mono">
+                <div className="p-2 bg-amber-950/60 rounded-xl border border-amber-500/30">
+                  <span className="text-[9px] font-mono text-amber-300 font-bold uppercase block">Holiday</span>
+                  <span className="text-lg sm:text-xl font-black text-amber-400 font-mono">
                     {class_teacher_stats?.holiday_count ?? 0}
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-[11px] font-mono mt-2">
-                <span className="text-slate-500">Today&apos;s Turnout:</span>
-                <span className="font-bold text-[#122A24]">
-                  {class_teacher_stats?.attendance_percent || 0}% Present
+              <div className="flex items-center justify-between text-[11px] font-mono">
+                <span className="text-emerald-300/70">Turnout Ratio:</span>
+                <span className="font-bold text-emerald-200">
+                  {class_teacher_stats?.attendance_percent || 0}% Present Today
                 </span>
               </div>
             </div>
 
-            <div className="pt-2 border-t border-[#F0F5F2] flex items-center justify-between text-[11px] font-mono">
+            <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between text-[11px] font-mono">
               <button
                 type="button"
                 onClick={() => setShowAttendanceSheet(true)}
-                className="text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 cursor-pointer"
+                className="text-amber-300 hover:text-amber-200 font-bold flex items-center gap-1 cursor-pointer transition-colors"
               >
                 <span>{class_teacher_stats?.is_marked_today ? 'Review / Edit Roster' : 'Mark Roll Call Now'}</span>
                 <ArrowRight className="w-3 h-3" />
               </button>
               <Link 
                 href="/teacher/my-class/attendance" 
-                className="text-slate-400 hover:text-slate-600 font-mono"
+                className="text-emerald-300/60 hover:text-emerald-200 font-mono"
               >
-                Full Ledger →
+                Ledger →
               </Link>
             </div>
           </div>
 
-          {/* ── KPI CARD 3: MONTHWISE FEES CLEARANCE & FILTER ── */}
-          <div className="p-4 sm:p-5 bg-white rounded-3xl border border-[#DCE8E0] shadow-xs flex flex-col justify-between space-y-3 hover:border-emerald-400 transition sm:col-span-2 lg:col-span-1">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-800 flex items-center justify-center font-bold">
-                  <CreditCard className="w-5 h-5 text-amber-700" />
+          {/* Sub-Section 3: Monthwise Fees Ledger */}
+          <div className="flex flex-col justify-between bg-white/[0.04] hover:bg-white/[0.06] border border-white/10 rounded-2xl p-4 sm:p-5 transition">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-400/20 text-emerald-300 flex items-center justify-center font-bold">
+                    <CreditCard className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-200/90">
+                    Fee Status ({activeMonthLabel})
+                  </span>
                 </div>
-                <div>
-                  <h3 className="text-xs font-bold text-[#122A24]">Class Fee Ledger</h3>
-                  <p className="text-[10px] text-slate-400 font-mono">Monthwise Status</p>
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-white/10 text-emerald-200">
+                  {activeMonthData?.collection_percentage || 0}% Collected
+                </span>
+              </div>
+
+              <div>
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <div>
+                    <span className="text-[9.5px] font-mono text-emerald-300/70 uppercase block">Collected</span>
+                    <span className="text-lg sm:text-xl font-black text-emerald-300 font-mono">
+                      ₹{Number(activeMonthData?.total_collected || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9.5px] font-mono text-rose-300/80 uppercase block">Pending Due</span>
+                    <span className="text-lg sm:text-xl font-black text-rose-400 font-mono">
+                      ₹{Number(activeMonthData?.total_pending || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-black/40 h-2 rounded-full overflow-hidden border border-white/5">
+                  <div 
+                    className="bg-emerald-400 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${Math.min(100, activeMonthData?.collection_percentage || 0)}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[10.5px] font-mono mt-2 text-emerald-200/80">
+                  <span className="font-semibold">{activeMonthData?.paid_students_count || 0} Paid</span>
+                  <span className="font-semibold text-rose-300">{activeMonthData?.pending_students_count || 0} Due</span>
                 </div>
               </div>
 
-              {/* Month Change Selector */}
-              <select
-                value={selectedMonth}
-                onChange={(e) => handleMonthChange(e.target.value)}
-                className="text-xs font-bold font-mono bg-emerald-50 text-emerald-900 border border-emerald-300 rounded-xl px-2.5 py-1.5 outline-none cursor-pointer hover:bg-emerald-100 transition"
-              >
+              {/* Touch friendly horizontal month pills */}
+              <div className="flex items-center gap-1 overflow-x-auto pb-0.5 custom-scrollbar text-[9.5px] font-mono font-bold">
                 {ACADEMIC_MONTHS.map(m => (
-                  <option key={m.key} value={m.key}>{m.label}</option>
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => handleMonthChange(m.key)}
+                    className={`px-1.5 py-0.5 rounded transition cursor-pointer whitespace-nowrap ${
+                      selectedMonth === m.key
+                        ? 'bg-emerald-400 text-[#0F2620] font-black'
+                        : 'bg-white/10 text-emerald-200/70 hover:bg-white/20'
+                    }`}
+                  >
+                    {m.key}
+                  </button>
                 ))}
-              </select>
-            </div>
-
-            {/* Quick Horizontal Month Pills (Touch-Friendly for Mobile) */}
-            <div className="flex items-center gap-1 overflow-x-auto pb-1 custom-scrollbar text-[10px] font-mono font-bold">
-              {ACADEMIC_MONTHS.map(m => (
-                <button
-                  key={m.key}
-                  type="button"
-                  onClick={() => handleMonthChange(m.key)}
-                  className={`px-2 py-0.5 rounded-lg whitespace-nowrap transition cursor-pointer ${
-                    selectedMonth === m.key
-                      ? 'bg-[#122A24] text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {m.key}
-                </button>
-              ))}
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <div>
-                  <span className="text-[10px] font-mono text-slate-500 uppercase block">Submitted ({activeMonthLabel})</span>
-                  <span className="text-xl sm:text-2xl font-black text-emerald-700 font-mono">
-                    ₹{Number(activeMonthData?.total_collected || 0).toLocaleString('en-IN')}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-mono text-slate-500 uppercase block">Pending Due</span>
-                  <span className="text-lg sm:text-xl font-black text-rose-600 font-mono">
-                    ₹{Number(activeMonthData?.total_pending || 0).toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
-
-              {/* Progress Bar for Fee Collection */}
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div 
-                  className="bg-emerald-600 h-full rounded-full transition-all duration-500" 
-                  style={{ width: `${Math.min(100, activeMonthData?.collection_percentage || 0)}%` }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between text-[10.5px] font-mono mt-2">
-                <span className="text-slate-500 font-bold">
-                  {activeMonthData?.collection_percentage || 0}% Remitted
-                </span>
-                <span className="text-[#122A24] font-bold">
-                  {activeMonthData?.paid_students_count || 0} Paid • {activeMonthData?.pending_students_count || 0} Due
-                </span>
               </div>
             </div>
 
-            <div className="pt-2 border-t border-[#F0F5F2] flex items-center justify-between text-[11px] font-mono">
+            <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between text-[11px] font-mono">
               <button
                 type="button"
                 onClick={() => setShowFeeStudentsModal(true)}
-                className="text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 cursor-pointer"
+                className="text-emerald-300 hover:text-white font-bold flex items-center gap-1 cursor-pointer transition-colors"
               >
                 <span>View Scholars List</span>
                 <ChevronRight className="w-3 h-3" />
               </button>
               <Link 
                 href="/teacher/my-class/fees" 
-                className="text-slate-400 hover:text-slate-600 font-mono"
+                className="text-emerald-300/60 hover:text-emerald-200 font-mono"
               >
-                Defaulters Desk →
+                Defaulters →
               </Link>
             </div>
           </div>
+
         </div>
       </div>
 

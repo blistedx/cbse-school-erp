@@ -1,10 +1,11 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { requireAuth, resolveTenantSchoolId } from '@/lib/auth-guard';
-import { Database } from '@/lib/db';
-import { getTodayDateStr, isSameClass } from '@/lib/utils';
+import { Database, expandSchoolIds } from '@/lib/db';
+import { getTodayDateStr, isSameClass, normalizeClassName } from '@/lib/utils';
 import { AttendanceService } from '@/lib/services/attendance.service';
 import { getSchoolLedgerLines } from '@/lib/fees-engine';
+import { getDatabase } from '@/lib/mongodb';
 
 export const dynamic = 'force-dynamic';
 
@@ -233,27 +234,67 @@ export async function GET(req: Request) {
       isSameClass(s.class_name, targetClass) &&
       (!targetSec || (s.section || 'A').toUpperCase().trim() === targetSec) &&
       s.status !== 'INACTIVE' && s.status !== 'ALUMNI'
-    ).sort((a, b) => Number(a.roll_no || 999) - Number(b.roll_no || 999));
+    ).sort((a: any, b: any) => (a.full_name || a.name || '').localeCompare(b.full_name || b.name || ''));
 
-    // Today's attendance record
-    const classRecord = (allAttendance || []).find((a: any) => 
-      a &&
-      a.date === todayStr &&
-      isSameClass(a.class_name, targetClass) &&
-      (a.section || 'A').toUpperCase().trim() === targetSec
-    );
+    // Today's attendance record lookup with fallbacks
+    let classRecord: any = null;
+    try {
+      classRecord = await AttendanceService.getClassAttendance(tenant, targetClass, targetSec, todayStr, session);
+    } catch (_) {}
 
+    if (!classRecord) {
+      classRecord = (allAttendance || []).find((a: any) => 
+        a &&
+        a.date === todayStr &&
+        isSameClass(a.class_name, targetClass) &&
+        (a.section || 'A').toUpperCase().trim() === targetSec
+      );
+    }
+
+    if (!classRecord) {
+      try {
+        const db = await getDatabase();
+        if (db) {
+          classRecord = await db.collection('attendance').findOne({
+            school_id: { $in: expandSchoolIds([tenant]) },
+            academic_session: session,
+            date: todayStr,
+            $or: [
+              { class_name: targetClass, section: targetSec },
+              { class_name: normalizeClassName(targetClass), section: targetSec }
+            ]
+          });
+        }
+      } catch (_) {}
+    }
+
+    let presentCount = 0;
+    let absentCount = 0;
+    let holidayCount = 0;
     const isMarked = !!classRecord;
-    const presentCount = classRecord ? Number(classRecord.present_count) || 0 : (isMarked ? 0 : 0);
-    const absentCount = classRecord ? Number(classRecord.absent_count) || 0 : 0;
-    const holidayCount = classRecord ? Number(classRecord.holiday_count) || 0 : 0;
+
+    if (classRecord) {
+      if (Array.isArray(classRecord.student_records) && classRecord.student_records.length > 0) {
+        classRecord.student_records.forEach((sr: any) => {
+          const st = String(sr.status || 'PRESENT').toUpperCase();
+          if (st === 'PRESENT' || st === 'LATE') presentCount++;
+          else if (st === 'ABSENT' || st === 'LEAVE') absentCount++;
+          else if (st === 'HOLIDAY') holidayCount++;
+        });
+      } else {
+        presentCount = Number(classRecord.present_count) || 0;
+        absentCount = Number(classRecord.absent_count) || 0;
+        holidayCount = Number(classRecord.holiday_count) || 0;
+      }
+    }
+
     const totalStudents = myStudents.length || (classRecord ? Number(classRecord.total_students) || 0 : 0);
     const attPercent = isMarked && totalStudents > 0 ? Number(((presentCount / totalStudents) * 100).toFixed(1)) : 0;
     const isHolidayToday = holidayCount === totalStudents && totalStudents > 0;
 
     const absentStudents: any[] = [];
     const studentRoster = myStudents.map(s => {
-      const rec = classRecord?.student_records?.find((r: any) => r.student_id === s.id);
+      const rec = classRecord?.student_records?.find((r: any) => (r.student_id || r.id) === s.id);
       let status: 'PRESENT' | 'ABSENT' | 'HOLIDAY' = 'PRESENT';
       if (rec && rec.status) {
         const raw = String(rec.status).toUpperCase();
