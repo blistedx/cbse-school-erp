@@ -286,6 +286,11 @@ export default function TeacherDashboardPage() {
   );
   const displayClassCode = classDisplay.code || statsClassDisplay.code || 'X-A';
 
+  const cleanDesignation = (teacher.designation || 'Faculty Member')
+    .replace(/\s*&\s*class\s*incharge/i, '')
+    .replace(/,\s*class\s*incharge/i, '')
+    .trim();
+
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in relative">
       {/* ── PERSISTENT ATTENDANCE ALERT PILL (If Attendance is pending today) ── */}
@@ -295,7 +300,10 @@ export default function TeacherDashboardPage() {
           className="bg-amber-500/15 border-2 border-amber-500/50 p-3 sm:p-3.5 rounded-2xl flex items-center justify-between gap-3 cursor-pointer hover:bg-amber-500/20 transition shadow-xs group"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping shrink-0" />
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+            </span>
             <div className="min-w-0">
               <span className="text-xs font-bold text-amber-950 block truncate">
                 🚨 Class {displayClassCode} Roll Call Pending!
@@ -316,7 +324,7 @@ export default function TeacherDashboardPage() {
       )}
 
       {/* ── 1. HERO TEACHER APP CARD (EXECUTIVE WORKSTATION) ── */}
-      <div className="p-4.5 sm:p-6 rounded-3xl text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] border border-emerald-700/50 space-y-4 sm:space-y-5">
+      <div className="p-5 sm:p-6 rounded-3xl text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] border border-emerald-700/50 space-y-4 sm:space-y-5">
         <div className="absolute -right-12 -top-12 w-64 h-64 bg-radial from-emerald-400/20 via-teal-500/5 to-transparent pointer-events-none rounded-full blur-2xl" />
         <div className="absolute right-0 bottom-0 w-1/2 h-1/2 bg-radial from-amber-400/10 to-transparent pointer-events-none rounded-full blur-xl" />
 
@@ -336,29 +344,18 @@ export default function TeacherDashboardPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-emerald-200 border border-white/10 text-[11px] font-mono font-medium">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-emerald-200 border border-white/10 text-[10px] sm:text-[11px] font-mono font-medium">
               <CalendarCheck className="w-3 h-3 text-emerald-300" />
-              Session 2026-27
+              <span>Session 2026-27</span>
             </span>
-            {is_class_teacher ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[10px] sm:text-[11px] font-bold font-mono">
-                <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" />
-                Class Incharge
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] sm:text-[11px] font-bold font-mono">
-                <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                Subject Faculty
-              </span>
-            )}
           </div>
         </div>
 
         {/* Teacher Identity & BADA BADA Class Incharge Showcase */}
-        <div className="relative z-10 flex items-center justify-between gap-3 sm:gap-6">
+        <div className="relative z-10 flex items-center justify-between gap-3 sm:gap-4">
           {/* Left: Avatar & Identity */}
-          <div className="flex items-center gap-3 sm:gap-4.5 min-w-0 flex-1">
-            <div className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-emerald-400 via-teal-300 to-emerald-200 text-[#0F2620] font-black text-xl sm:text-2xl flex items-center justify-center shadow-lg shrink-0 ring-2 ring-emerald-300/40 ring-offset-2 ring-offset-[#14352B]">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-emerald-400 via-teal-300 to-emerald-200 text-[#0F2620] font-black text-xl sm:text-2xl flex items-center justify-center shadow-lg shrink-0 ring-2 ring-emerald-300/40 ring-offset-2 ring-offset-[#14352B]">
               {(teacher.full_name || 'T')[0]}
             </div>
             <div className="min-w-0 flex-1">
@@ -366,7 +363,7 @@ export default function TeacherDashboardPage() {
                 {teacher.full_name}
               </h1>
               <p className="text-xs sm:text-sm text-emerald-200/90 font-medium truncate mt-0.5">
-                {teacher.designation || 'Faculty Member'}
+                {cleanDesignation}
               </p>
               <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                 <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-white/10 text-emerald-200 text-[10px] sm:text-[11px] font-mono font-bold tracking-wide border border-white/10">
@@ -384,8 +381,8 @@ export default function TeacherDashboardPage() {
           {/* Right: X-A BADA BADA SHOWCASE */}
           {is_class_teacher && (
             <div className="relative shrink-0 group">
-              <div className="absolute -inset-1 bg-gradient-to-r from-amber-400/40 via-amber-300/30 to-emerald-400/30 rounded-2xl blur-xs group-hover:opacity-100 transition duration-300" />
-              <div className="relative bg-gradient-to-b from-[#183d32] to-[#0e251f] border-2 border-amber-400/60 rounded-2xl px-3 py-2 sm:px-5 sm:py-2.5 flex flex-col items-center justify-center text-center shadow-xl backdrop-blur-md min-w-[92px] sm:min-w-[125px]">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-400/40 via-amber-300/30 to-emerald-400/30 rounded-2xl blur-xs group-hover:opacity-100 transition duration-300" />
+              <div className="relative bg-gradient-to-b from-[#183d32] to-[#0e251f] border-2 border-amber-400/60 rounded-2xl px-3.5 py-2 sm:px-5 sm:py-2.5 flex flex-col items-center justify-center text-center shadow-xl backdrop-blur-md min-w-[95px] sm:min-w-[125px]">
                 <div className="flex items-center gap-1 text-[8.5px] sm:text-[10px] font-mono font-black uppercase tracking-wider text-amber-300/90">
                   <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400 animate-pulse shrink-0" />
                   <span>Class Incharge</span>
@@ -427,7 +424,7 @@ export default function TeacherDashboardPage() {
                 type="button"
                 onClick={() => handlePunch('PUNCH_IN')}
                 disabled={punching}
-                className="w-full sm:w-auto px-4 py-2 bg-emerald-400 hover:bg-emerald-300 active:scale-95 text-[#0F2620] font-black rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-400 hover:bg-emerald-300 active:scale-95 text-[#0F2620] font-black rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
               >
                 <LogIn className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>{punching ? 'Recording...' : 'Clock In Now'}</span>
@@ -437,7 +434,7 @@ export default function TeacherDashboardPage() {
                 type="button"
                 onClick={() => handlePunch('PUNCH_OUT')}
                 disabled={punching}
-                className="w-full sm:w-auto px-4 py-2 bg-amber-400 hover:bg-amber-300 active:scale-95 text-[#0F2620] font-black rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 bg-amber-400 hover:bg-amber-300 active:scale-95 text-[#0F2620] font-black rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>{punching ? 'Recording...' : 'Clock Out Departure'}</span>
