@@ -109,11 +109,10 @@ export async function POST(req: Request) {
     // Trigger web push notifications asynchronously
     try {
       dispatchWebPushToAudience({
-        schoolId: tenant,
         audience: audience as any,
         title: `📢 ${title.trim()}`,
         body: content.trim().substring(0, 140),
-        data: { noticeId: newNotice.id, url: '/principal/notices' },
+        url: '/principal/notices',
         senderRole: 'PRINCIPAL'
       }).catch(() => {});
     } catch (_) {}

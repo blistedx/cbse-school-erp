@@ -2,12 +2,13 @@
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
 import { ScheduledExamItem } from '@/lib/types';
-import { requireAuth, requireRole, STAFF_ROLES, ADMIN_ROLES, resolveTenantSchoolId } from '@/lib/auth-guard';
+import { requireAuth, requireRole, requirePermission, STAFF_ROLES, ADMIN_ROLES, resolveTenantSchoolId } from '@/lib/auth-guard';
 import { validateBody, createScheduledExamItemSchema, batchScheduledExamSchema, updateScheduledExamSchema } from '@/lib/validation-schemas';
+import { logAuditEvent } from '@/lib/audit-logger';
 
 export async function GET(req: Request) {
   try {
-    const auth = requireAuth(req);
+    const auth = await requirePermission(req, 'exams', 'view');
     if (auth instanceof NextResponse) return auth;
     const { searchParams } = new URL(req.url);
     const requestedSchoolId = searchParams.get('school_id') || searchParams.get('schoolId') || undefined;
@@ -28,7 +29,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const auth = requireRole(req, STAFF_ROLES);
+    const auth = await requirePermission(req, 'exams', 'add');
     if (auth instanceof NextResponse) return auth;
     const rawBody = await req.json();
 
@@ -51,9 +52,11 @@ export async function POST(req: Request) {
 
       // Force tenant isolation
       const tenantExams: ScheduledExamItem[] = [];
+      let resolvedSchool = 'DPS2026';
       for (const e of exams) {
         const school_id = resolveTenantSchoolId(auth, e.school_id);
         if (school_id instanceof NextResponse) return school_id;
+        resolvedSchool = school_id || resolvedSchool;
         tenantExams.push({
           id: e.id || `ex-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           school_id: school_id || 'DPS2026',
@@ -74,6 +77,19 @@ export async function POST(req: Request) {
       }
 
       const inserted = await Database.createScheduledExams(tenantExams);
+
+      logAuditEvent({
+        schoolId: resolvedSchool,
+        userId: auth.userId,
+        role: auth.role,
+        module: 'EXAMS',
+        action: 'BATCH_CREATE',
+        severity: 'INFO',
+        summary: `Batch scheduled ${inserted.length} examination slots`,
+        before: null,
+        after: inserted
+      });
+
       return NextResponse.json({ success: true, count: inserted.length, exams: inserted });
     }
 
@@ -112,6 +128,21 @@ export async function POST(req: Request) {
     };
 
     const inserted = await Database.createScheduledExams([newExam]);
+
+    logAuditEvent({
+      schoolId: school_id || 'DPS2026',
+      userId: auth.userId,
+      role: auth.role,
+      module: 'EXAMS',
+      action: 'CREATE',
+      severity: 'INFO',
+      summary: `Scheduled exam "${newExam.title}" (${newExam.class_name}-${newExam.section} ${newExam.subject_name})`,
+      targetId: newExam.id,
+      targetName: newExam.title,
+      before: null,
+      after: newExam
+    });
+
     return NextResponse.json({ success: true, exam: inserted[0] });
   } catch (error: any) {
     console.error('[API_EXAMS_POST_ERROR]', error);
@@ -121,7 +152,7 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const auth = requireRole(req, ADMIN_ROLES);
+    const auth = await requirePermission(req, 'exams', 'edit');
     if (auth instanceof NextResponse) return auth;
     const rawBody = await req.json();
     const validation = validateBody(updateScheduledExamSchema, rawBody);
@@ -129,6 +160,20 @@ export async function PATCH(req: Request) {
 
     const { id, ...updates } = validation.data;
     const updated = await Database.updateScheduledExam(id, updates);
+
+    logAuditEvent({
+      schoolId: auth.schoolId || 'DPS2026',
+      userId: auth.userId,
+      role: auth.role,
+      module: 'EXAMS',
+      action: 'UPDATE',
+      severity: 'INFO',
+      summary: `Updated scheduled exam ID ${id}`,
+      targetId: id,
+      before: { id },
+      after: updates
+    });
+
     return NextResponse.json({ success: updated });
   } catch (error: any) {
     console.error('[API_EXAMS_PATCH_ERROR]', error);
@@ -138,7 +183,7 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const auth = requireRole(req, ADMIN_ROLES);
+    const auth = await requirePermission(req, 'exams', 'delete');
     if (auth instanceof NextResponse) return auth;
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
@@ -147,6 +192,20 @@ export async function DELETE(req: Request) {
     }
 
     const deleted = await Database.deleteScheduledExam(id);
+
+    logAuditEvent({
+      schoolId: auth.schoolId || 'DPS2026',
+      userId: auth.userId,
+      role: auth.role,
+      module: 'EXAMS',
+      action: 'DELETE',
+      severity: 'WARNING',
+      summary: `Deleted exam schedule ID ${id}`,
+      targetId: id,
+      before: { id },
+      after: null
+    });
+
     return NextResponse.json({ success: deleted });
   } catch (error: any) {
     console.error('[API_EXAMS_DELETE_ERROR]', error);

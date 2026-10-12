@@ -147,9 +147,9 @@ export async function GET(req: Request) {
           attendance_percent: attSummary?.attendancePercent || targetStudent.attendance_percent || 0,
           attendance_summary: attSummary,
           fee_summary: {
-            total_receivable: feeSummary?.total_receivable || 0,
-            total_collected: feeSummary?.total_collected || 0,
-            total_pending: feeSummary?.total_pending || 0,
+            total_receivable: (feeSummary as any)?.total_receivable ?? Math.round((feeSummary?.totalDemand || 0) / 100),
+            total_collected: (feeSummary as any)?.total_collected ?? Math.round((feeSummary?.totalPaid || 0) / 100),
+            total_pending: (feeSummary as any)?.total_pending ?? Math.round((feeSummary?.balance || 0) / 100),
             fee_status: feeSummary?.status || targetStudent.fee_status || 'PAID'
           },
           marks: marksRecords,
@@ -168,7 +168,7 @@ export async function GET(req: Request) {
         try {
           const fee = await FeesService.getStudentFeeSummary(tenant, s.id, session);
           if (fee) {
-            feePending = fee.total_pending || 0;
+            feePending = (fee as any).total_pending ?? Math.round((fee.balance || 0) / 100);
             feeStatus = fee.status || 'PAID';
           }
         } catch {}

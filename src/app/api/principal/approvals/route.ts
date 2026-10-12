@@ -179,6 +179,7 @@ export async function POST(req: Request) {
             ]);
             invalidateFeeOverviewMemoryCache(tenant);
             AggregatesService.recordFeeDelta(tenant, updated.academic_session || '2026-27', {
+              collectedPaiseDelta: 0,
               pendingPaiseDelta: -discountAmt
             }).catch(() => {});
           }
@@ -194,7 +195,7 @@ export async function POST(req: Request) {
           const t = teachers.find(item => item.id === updated.details.staff_id);
           if (t) {
             t.status = 'ON_LEAVE';
-            await Database.saveTeacher(t);
+            await Database.updateTeacher(t.id, { status: 'ON_LEAVE' });
           }
         } catch (leaveErr) {
           console.warn('[APPROVAL_STAFF_LEAVE_SYNC_WARN]', leaveErr);
@@ -208,7 +209,7 @@ export async function POST(req: Request) {
           const s = students.find(item => item.id === updated.details.student_id);
           if (s) {
             s.transfer_certificate_no = updated.details.serial_no;
-            await Database.saveStudent(s);
+            await Database.updateStudent(s.id, { transfer_certificate_no: updated.details.serial_no });
           }
         } catch (tcErr) {
           console.warn('[APPROVAL_TC_SYNC_WARN]', tcErr);
@@ -222,7 +223,7 @@ export async function POST(req: Request) {
           const s = students.find(item => item.id === updated.details.student_id);
           if (s) {
             s.status = 'ACTIVE';
-            await Database.saveStudent(s);
+            await Database.updateStudent(s.id, { status: 'ACTIVE' });
           }
         } catch (admErr) {
           console.warn('[APPROVAL_ADMISSION_SYNC_WARN]', admErr);

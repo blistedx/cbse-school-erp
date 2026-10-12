@@ -120,45 +120,45 @@ const ModuleThinkingFallback = () => (
   </div>
 );
 
-const DashboardOverview = dynamic(
-  () => import('@/components/blocks/dashboard-overview').then((m) => ({ default: m.DashboardOverview || m.default })),
+const DashboardOverview = dynamic<any>(
+  () => import('@/components/blocks/dashboard-overview').then((m: any) => ({ default: m.DashboardOverview || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardSubjects = dynamic(
-  () => import('@/components/blocks/dashboard-subjects').then((m) => ({ default: m.DashboardSubjects || m.default })),
+const DashboardSubjects = dynamic<any>(
+  () => import('@/components/blocks/dashboard-subjects').then((m: any) => ({ default: m.DashboardSubjects || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardAttendance = dynamic(
-  () => import('@/components/blocks/dashboard-attendance').then((m) => ({ default: m.DashboardAttendance || m.default })),
+const DashboardAttendance = dynamic<any>(
+  () => import('@/components/blocks/dashboard-attendance').then((m: any) => ({ default: m.DashboardAttendance || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardTransport = dynamic(
-  () => import('@/components/blocks/dashboard-transport').then((m) => ({ default: m.DashboardTransport || m.default })),
+const DashboardTransport = dynamic<any>(
+  () => import('@/components/blocks/dashboard-transport').then((m: any) => ({ default: m.DashboardTransport || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardExams = dynamic(
-  () => import('@/components/blocks/dashboard-exams').then((m) => ({ default: m.DashboardExams || m.default })),
+const DashboardExams = dynamic<any>(
+  () => import('@/components/blocks/dashboard-exams').then((m: any) => ({ default: m.DashboardExams || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardHomework = dynamic(
-  () => import('@/components/blocks/dashboard-homework').then((m) => ({ default: m.DashboardHomework || m.default })),
+const DashboardHomework = dynamic<any>(
+  () => import('@/components/blocks/dashboard-homework').then((m: any) => ({ default: m.DashboardHomework || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardApprovals = dynamic(
-  () => import('@/components/blocks/dashboard-approvals').then((m) => ({ default: m.DashboardApprovals || m.default })),
+const DashboardApprovals = dynamic<any>(
+  () => import('@/components/blocks/dashboard-approvals').then((m: any) => ({ default: m.DashboardApprovals || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardBroadcast = dynamic(
-  () => import('@/components/blocks/dashboard-broadcast').then((m) => ({ default: m.DashboardBroadcast || m.default })),
+const DashboardBroadcast = dynamic<any>(
+  () => import('@/components/blocks/dashboard-broadcast').then((m: any) => ({ default: m.DashboardBroadcast || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardCertificates = dynamic(
-  () => import('@/components/blocks/dashboard-certificates').then((m) => ({ default: m.DashboardCertificates || m.default })),
+const DashboardCertificates = dynamic<any>(
+  () => import('@/components/blocks/dashboard-certificates').then((m: any) => ({ default: m.DashboardCertificates || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardFeeMaster = dynamic(
+const DashboardFeeMaster = dynamic<any>(
   () => import('@/components/blocks/dashboard-fee-master')
-    .then((m) => ({ default: m.DashboardFeeMaster || m.default }))
+    .then((m: any) => ({ default: m.DashboardFeeMaster || m.default }))
     .catch((err) => {
       console.error('[DashboardFeeMaster dynamic load error]', err);
       return {
@@ -176,52 +176,52 @@ const DashboardFeeMaster = dynamic(
     }),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardReports = dynamic(
-  () => import('@/components/blocks/dashboard-reports').then((m) => ({ default: m.DashboardReports || m.default })),
+const DashboardReports = dynamic<any>(
+  () => import('@/components/blocks/dashboard-reports').then((m: any) => ({ default: m.DashboardReports || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardAuditLogs = dynamic(
-  () => import('@/components/blocks/dashboard-audit-logs').then((m) => ({ default: m.DashboardAuditLogs || m.default })),
+const DashboardAuditLogs = dynamic<any>(
+  () => import('@/components/blocks/dashboard-audit-logs').then((m: any) => ({ default: m.DashboardAuditLogs || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardDataHub = dynamic(
-  () => import('@/components/blocks/dashboard-data-hub').then((m) => ({ default: m.DashboardDataHub || m.default })),
+const DashboardDataHub = dynamic<any>(
+  () => import('@/components/blocks/dashboard-data-hub').then((m: any) => ({ default: m.DashboardDataHub || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardSiblings = dynamic(
-  () => import('@/components/blocks/dashboard-siblings').then((m) => ({ default: m.DashboardSiblings || m.default })),
+const DashboardSiblings = dynamic<any>(
+  () => import('@/components/blocks/dashboard-siblings').then((m: any) => ({ default: m.DashboardSiblings || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardStudentPortal = dynamic(
-  () => import('@/components/blocks/dashboard-student-portal').then((m) => ({ default: m.DashboardStudentPortal || m.default })),
+const DashboardStudentPortal = dynamic<any>(
+  () => import('@/components/blocks/dashboard-student-portal').then((m: any) => ({ default: m.DashboardStudentPortal || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const OmniSearchModal = dynamic(
-  () => import('@/components/omni-search-modal').then((m) => ({ default: m.OmniSearchModal || m.default })),
+const OmniSearchModal = dynamic<any>(
+  () => import('@/components/omni-search-modal').then((m: any) => ({ default: m.OmniSearchModal || m.default })),
   { ssr: false }
 );
-const StudentSummaryModal = dynamic(
-  () => import('@/components/student-summary-modal').then((m) => ({ default: m.StudentSummaryModal || m.default })),
+const StudentSummaryModal = dynamic<any>(
+  () => import('@/components/student-summary-modal').then((m: any) => ({ default: m.StudentSummaryModal || m.default })),
   { ssr: false }
 );
-const DualCopyFeeReceiptModal = dynamic(
-  () => import('@/components/dual-copy-fee-receipt-modal').then((m) => ({ default: m.DualCopyFeeReceiptModal || m.default })),
+const DualCopyFeeReceiptModal = dynamic<any>(
+  () => import('@/components/dual-copy-fee-receipt-modal').then((m: any) => ({ default: m.DualCopyFeeReceiptModal || m.default })),
   { ssr: false }
 );
-const DashboardPermissions = dynamic(
-  () => import('@/components/blocks/dashboard-permissions').then((m) => ({ default: m.DashboardPermissions || m.default })),
+const DashboardPermissions = dynamic<any>(
+  () => import('@/components/blocks/dashboard-permissions').then((m: any) => ({ default: m.DashboardPermissions || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardLibrary = dynamic(
-  () => import('@/components/blocks/dashboard-library').then((m) => ({ default: m.DashboardLibrary || m.default })),
+const DashboardLibrary = dynamic<any>(
+  () => import('@/components/blocks/dashboard-library').then((m: any) => ({ default: m.DashboardLibrary || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardVisitorGate = dynamic(
-  () => import('@/components/blocks/dashboard-visitor-gate').then((m) => ({ default: m.DashboardVisitorGate || m.default })),
+const DashboardVisitorGate = dynamic<any>(
+  () => import('@/components/blocks/dashboard-visitor-gate').then((m: any) => ({ default: m.DashboardVisitorGate || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
-const DashboardHostel = dynamic(
-  () => import('@/components/blocks/dashboard-hostel').then((m) => ({ default: m.DashboardHostel || m.default })),
+const DashboardHostel = dynamic<any>(
+  () => import('@/components/blocks/dashboard-hostel').then((m: any) => ({ default: m.DashboardHostel || m.default })),
   { ssr: false, loading: () => <ModuleThinkingFallback /> }
 );
 import { sendTestNotification, getNotificationPermissionStatus } from '@/lib/push-notifications';

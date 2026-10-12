@@ -4,6 +4,7 @@ import { Database } from '@/lib/db';
 import { DEFAULT_ROLE_PERMISSIONS, RolePermissionMatrix } from '@/lib/types';
 import { requireRole, ADMIN_ROLES, resolveTenantSchoolId } from '@/lib/auth-guard';
 import { validateBody, updateSchoolPermissionsSchema } from '@/lib/validation-schemas';
+import { logAuditEvent } from '@/lib/audit-logger';
 
 export async function GET(req: Request) {
   try {
@@ -62,8 +63,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'School ID is required' }, { status: 400 });
     }
 
+    const currentSchool = await Database.getSchoolById(school_id);
     const updated = await Database.updateSchoolSettings(school_id, {
       role_permissions: body.permissions as RolePermissionMatrix
+    });
+
+    logAuditEvent({
+      schoolId: school_id,
+      userId: auth.userId,
+      role: auth.role,
+      module: 'SECURITY',
+      action: 'UPDATE_PERMISSIONS',
+      severity: 'WARNING',
+      summary: `RBAC permissions matrix updated for school "${currentSchool?.name || school_id}"`,
+      targetId: school_id,
+      targetName: currentSchool?.name || school_id,
+      before: currentSchool?.role_permissions,
+      after: body.permissions
     });
 
     return NextResponse.json({

@@ -118,7 +118,7 @@ export default function AdminSyllabusPage() {
 
   const handleOpenEditTopic = (t: SyllabusTopic) => {
     setEditingTopicId(t.id);
-    setChapterNo(t.chapter_no);
+    setChapterNo(Number(t.chapter_no) || 1);
     setChapterTitle(t.chapter_title);
     setTopicTitle(t.topic_title);
     setDescription(t.description || '');

@@ -110,6 +110,14 @@ export class FeesService {
     return { summary, ledgerView, receipts };
   }
 
+  static async getStudentFeeSummary(
+    schoolId: string,
+    studentId: string,
+    session: string = '2026-27'
+  ): Promise<StudentFeeSummary> {
+    return getStudentFeeSummary(schoolId, studentId, session);
+  }
+
   /**
    * 2. Collect fee payment and record receipt & credit ledger lines
    */

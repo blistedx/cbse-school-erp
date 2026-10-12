@@ -4,6 +4,7 @@ import { Database } from '@/lib/db';
 import { createSessionToken, canonicalizeSchoolId } from '@/lib/auth-guard';
 import { checkRateLimit, checkAccountLockout, resetRateLimit } from '@/lib/rate-limiter';
 import { validateBody, authLoginSchema, sanitizeNoSqlInput } from '@/lib/validation-schemas';
+import { logAuditEvent } from '@/lib/audit-logger';
 
 export async function POST(req: Request) {
   try {
@@ -26,6 +27,9 @@ export async function POST(req: Request) {
     const cleanUsername = username.trim();
     const shouldRemember = remember !== false; // Default to true unless explicitly false
 
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || '127.0.0.1';
+    const userAgent = req.headers.get('user-agent') || 'Unknown';
+
     // 1. Check IP-based rate limiting (Max 60 attempts / 15 mins)
     const ipRate = checkRateLimit(req, {
       bucketName: 'auth-login-ip',
@@ -33,11 +37,37 @@ export async function POST(req: Request) {
       windowMs: 15 * 60 * 1000,
       skipLocalhost: true
     });
-    if (!ipRate.allowed) return ipRate.response!;
+    if (!ipRate.allowed) {
+      logAuditEvent({
+        schoolId: cleanSchoolCode || 'DPS2026',
+        userId: cleanUsername || 'anonymous',
+        role: role || 'UNKNOWN',
+        module: 'AUDIT_LOGS',
+        action: 'BRUTE_FORCE_BLOCKED',
+        severity: 'SECURITY',
+        summary: `Brute force attack blocked: IP rate limit exceeded for ${clientIp}`,
+        details: { ip: clientIp, userAgent, username: cleanUsername, school_code: cleanSchoolCode },
+        ip: clientIp,
+        userAgent
+      });
+      return ipRate.response!;
+    }
 
     // 2. Check Account-based lockout (Max 20 attempts per account / 15 mins)
     const accountLock = checkAccountLockout(cleanSchoolCode || 'SYSTEM', cleanUsername, 20, 15 * 60 * 1000);
     if (accountLock.locked) {
+      logAuditEvent({
+        schoolId: cleanSchoolCode || 'DPS2026',
+        userId: cleanUsername,
+        role: role || 'UNKNOWN',
+        module: 'AUDIT_LOGS',
+        action: 'BRUTE_FORCE_BLOCKED',
+        severity: 'SECURITY',
+        summary: `Repeated login failure lockout: Account ${cleanUsername} locked due to repeated invalid attempts`,
+        details: { ip: clientIp, userAgent, username: cleanUsername, school_code: cleanSchoolCode },
+        ip: clientIp,
+        userAgent
+      });
       return accountLock.response!;
     }
 
@@ -50,6 +80,19 @@ export async function POST(req: Request) {
         maxAttempts: 20,
         windowMs: 15 * 60 * 1000,
         customKey: `${(cleanSchoolCode || 'SYSTEM').toUpperCase()}:${cleanUsername.toUpperCase()}`
+      });
+
+      logAuditEvent({
+        schoolId: cleanSchoolCode || 'DPS2026',
+        userId: cleanUsername,
+        role: role || 'UNKNOWN',
+        module: 'AUDIT_LOGS',
+        action: 'LOGIN_FAILED',
+        severity: 'WARNING',
+        summary: `Failed login attempt for user "${cleanUsername}" (School: ${cleanSchoolCode || 'DEFAULT'})`,
+        details: { username: cleanUsername, school_code: cleanSchoolCode, role },
+        ip: clientIp,
+        userAgent
       });
 
       return NextResponse.json(
@@ -71,6 +114,19 @@ export async function POST(req: Request) {
       auth.user.role,
       shouldRemember
     );
+
+    logAuditEvent({
+      schoolId: canonicalSchool,
+      userId: auth.user.id,
+      role: auth.user.role,
+      module: 'AUDIT_LOGS',
+      action: 'LOGIN_SUCCESS',
+      severity: 'INFO',
+      summary: `User "${(auth.user as any).name || (auth.user as any).full_name || auth.user.id}" (${auth.user.role}) logged in successfully`,
+      details: { username: (auth.user as any).username || auth.user.id, role: auth.user.role },
+      ip: clientIp,
+      userAgent
+    });
 
     const response = NextResponse.json({
       success: true,

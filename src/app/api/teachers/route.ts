@@ -1,8 +1,9 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
 import { Database, hashPassword } from '@/lib/db';
-import { requireAuth, requireRole, resolveTenantSchoolId, ADMIN_ROLES } from '@/lib/auth-guard';
+import { requireAuth, requireRole, requirePermission, resolveTenantSchoolId, ADMIN_ROLES } from '@/lib/auth-guard';
 import { validateBody, createTeacherSchema, updateTeacherSchema, sanitizeNoSqlInput } from '@/lib/validation-schemas';
+import { logAuditEvent } from '@/lib/audit-logger';
 
 function sanitizeTeacherResponse(teacher: any) {
   if (!teacher) return teacher;
@@ -12,7 +13,7 @@ function sanitizeTeacherResponse(teacher: any) {
 
 export async function GET(req: Request) {
   try {
-    const auth = requireRole(req, [...ADMIN_ROLES, 'TEACHER', 'ACCOUNTANT']);
+    const auth = await requirePermission(req, 'teachers', 'view');
     if (auth instanceof NextResponse) return auth;
 
     const { searchParams } = new URL(req.url);
@@ -34,7 +35,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const auth = requireRole(req, ADMIN_ROLES);
+    const auth = await requirePermission(req, 'teachers', 'add');
     if (auth instanceof NextResponse) return auth;
 
     const rawBody = await req.json().catch(() => ({}));
@@ -65,11 +66,27 @@ export async function POST(req: Request) {
 
     if (body.action === 'UPDATE' || (body.id && body.is_update)) {
       const { id, ...updates } = body;
+      const existing = (await Database.getTeachers(tenant)).find(t => t.id === id);
       if (updates.passcode) {
         updates.passcode = await hashPassword(updates.passcode);
         (updates as any).must_change_password = true;
       }
       const updated = await Database.updateTeacher(id!, updates);
+
+      logAuditEvent({
+        schoolId: tenant,
+        userId: auth.userId,
+        role: auth.role,
+        module: 'TEACHERS',
+        action: 'UPDATE',
+        severity: 'INFO',
+        summary: `Updated teacher record "${updated?.full_name || id}"`,
+        targetId: id,
+        targetName: updated?.full_name,
+        before: sanitizeTeacherResponse(existing),
+        after: sanitizeTeacherResponse(updated)
+      });
+
       return NextResponse.json({ success: true, message: 'Teacher profile updated!', teacher: sanitizeTeacherResponse(updated) });
     }
 
@@ -86,6 +103,21 @@ export async function POST(req: Request) {
       must_change_password: mustChange,
       school_id: tenant
     });
+
+    logAuditEvent({
+      schoolId: tenant,
+      userId: auth.userId,
+      role: auth.role,
+      module: 'TEACHERS',
+      action: 'CREATE',
+      severity: 'INFO',
+      summary: `Registered staff member "${teacher.full_name}" (Code: ${teacher.staff_code || teacher.id})`,
+      targetId: teacher.id,
+      targetName: teacher.full_name,
+      before: null,
+      after: sanitizeTeacherResponse(teacher)
+    });
+
     return NextResponse.json({ success: true, message: 'Teacher registered successfully!', teacher: sanitizeTeacherResponse(teacher) });
   } catch (error: any) {
     console.error('[API_TEACHERS_POST_ERROR]', error);
@@ -95,7 +127,7 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
-    const auth = requireRole(req, ADMIN_ROLES);
+    const auth = await requirePermission(req, 'teachers', 'edit');
     if (auth instanceof NextResponse) return auth;
 
     const rawBody = await req.json().catch(() => ({}));
@@ -111,12 +143,29 @@ export async function PUT(req: Request) {
     const tenant = resolveTenantSchoolId(auth, updates.school_id);
     if (tenant instanceof NextResponse) return tenant;
 
+    const existing = (await Database.getTeachers(tenant)).find(t => t.id === id);
+
     if (updates.passcode) {
       updates.passcode = await hashPassword(updates.passcode);
       (updates as any).must_change_password = true;
     }
 
     const updated = await Database.updateTeacher(id, updates);
+
+    logAuditEvent({
+      schoolId: tenant,
+      userId: auth.userId,
+      role: auth.role,
+      module: 'TEACHERS',
+      action: 'UPDATE',
+      severity: 'INFO',
+      summary: `Updated staff profile "${updated?.full_name || id}"`,
+      targetId: id,
+      targetName: updated?.full_name,
+      before: sanitizeTeacherResponse(existing),
+      after: sanitizeTeacherResponse(updated)
+    });
+
     return NextResponse.json({ success: true, message: 'Teacher profile updated!', teacher: sanitizeTeacherResponse(updated) });
   } catch (error: any) {
     console.error('[API_TEACHERS_PUT_ERROR]', error);
@@ -130,7 +179,7 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const auth = requireRole(req, ADMIN_ROLES);
+    const auth = await requirePermission(req, 'teachers', 'delete');
     if (auth instanceof NextResponse) return auth;
 
     const { searchParams } = new URL(req.url);
@@ -141,7 +190,24 @@ export async function DELETE(req: Request) {
     if (!id) {
       return NextResponse.json({ success: false, error: 'Teacher ID is required.' }, { status: 400 });
     }
+
+    const existing = (await Database.getTeachers(tenant)).find(t => t.id === id);
     await Database.deleteTeacher(id);
+
+    logAuditEvent({
+      schoolId: tenant,
+      userId: auth.userId,
+      role: auth.role,
+      module: 'TEACHERS',
+      action: 'DELETE',
+      severity: 'WARNING',
+      summary: `Deleted teacher record "${existing?.full_name || id}"`,
+      targetId: id,
+      targetName: existing?.full_name,
+      before: sanitizeTeacherResponse(existing),
+      after: null
+    });
+
     return NextResponse.json({ success: true, message: 'Teacher deleted successfully!' });
   } catch (error: any) {
     console.error('[API_TEACHERS_DELETE_ERROR]', error);

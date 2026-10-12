@@ -252,7 +252,7 @@ export async function GET(req: Request) {
       const targetMonth = month || 'SEP';
       const report = await FeesService.executeReport(tenant, 'month_class_collection', {
         session,
-        month: targetMonth,
+        months: targetMonth ? [targetMonth as any] : undefined,
         classes: className ? [className] : undefined,
         search
       });

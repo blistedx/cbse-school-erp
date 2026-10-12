@@ -1,6 +1,7 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 import { NextResponse } from 'next/server';
-import { extractToken, revokeToken } from '@/lib/auth-guard';
+import { extractToken, revokeToken, revokeTokenAsync, verifySessionToken } from '@/lib/auth-guard';
+import { logAuditEvent } from '@/lib/audit-logger';
 
 /**
  * POST /api/auth/logout
@@ -9,7 +10,19 @@ import { extractToken, revokeToken } from '@/lib/auth-guard';
 export async function POST(req: Request) {
   const token = extractToken(req);
   if (token) {
+    const payload = verifySessionToken(token);
     revokeToken(token);
+    revokeTokenAsync(token).catch(() => {});
+    logAuditEvent({
+      schoolId: payload?.schoolId || 'DPS2026',
+      userId: payload?.userId || 'anonymous',
+      role: payload?.role || 'USER',
+      module: 'AUDIT_LOGS',
+      action: 'SESSION_REVOKED',
+      severity: 'INFO',
+      summary: `Session revoked / User "${payload?.userId || 'unknown'}" logged out`,
+      details: { userId: payload?.userId, role: payload?.role, schoolId: payload?.schoolId }
+    });
   }
 
   const response = NextResponse.json({

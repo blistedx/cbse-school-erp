@@ -3192,6 +3192,40 @@ export const Database = {
     return res;
   },
 
+  async getExams(schoolId?: string, session?: string, className?: string, examType?: string): Promise<ScheduledExamItem[]> {
+    return this.getScheduledExams(schoolId, session, className, examType);
+  },
+
+  async getTimetable(schoolId?: string, session?: string, className?: string, section?: string): Promise<TimetableEntry[]> {
+    try {
+      const db = await getDatabase();
+      if (db) {
+        const query: any = {};
+        if (schoolId) query.school_id = schoolId;
+        if (session) query.academic_session = session;
+        if (className) query.class_name = className;
+        if (section) query.section = section;
+        const docs = await db.collection('timetable').find(query).toArray();
+        if (docs && docs.length > 0) {
+          return docs.map((d: any) => {
+            const { _id, ...rest } = d;
+            return {
+              ...rest,
+              id: rest.id || _id?.toString()
+            } as TimetableEntry;
+          });
+        }
+      }
+    } catch (e) {}
+
+    let res = [...(memoryStore.timetable || [])];
+    if (schoolId) res = res.filter(t => !t.school_id || t.school_id === schoolId);
+    if (session) res = res.filter(t => !t.academic_session || t.academic_session === session);
+    if (className) res = res.filter(t => t.class_name?.toLowerCase() === className.toLowerCase());
+    if (section) res = res.filter(t => (t.section || 'A').toLowerCase() === section.toLowerCase());
+    return res;
+  },
+
   async createScheduledExams(exams: ScheduledExamItem[]): Promise<ScheduledExamItem[]> {
     await ensureIndexes();
     if (!exams || !exams.length) return [];

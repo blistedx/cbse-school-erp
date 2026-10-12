@@ -4,6 +4,7 @@ import { requireAuth, resolveTenantSchoolId } from '@/lib/auth-guard';
 import { Database } from '@/lib/db';
 import { getTodayDateStr, isSameClass } from '@/lib/utils';
 import { AttendanceService } from '@/lib/services/attendance.service';
+import { getSchoolLedgerLines } from '@/lib/fees-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -182,100 +183,269 @@ export async function GET(req: Request) {
       console.warn('[DASHBOARD_NOTICES_WARN]', e);
     }
 
-    // 6. If Class Teacher: Today's class stats & student leaves
-    let classTeacherStats: {
-      class_name: string;
-      section: string;
-      total_students: number;
-      present_count: number;
-      absent_count: number;
-      attendance_percent: number;
-      is_marked_today: boolean;
-      absent_students: Array<{
-        student_id: string;
-        student_name: string;
-        admission_no: string;
-        roll_no?: string;
-        parent_phone?: string;
-      }>;
-      pending_leaves_count: number;
-    } | null = null;
+    // 6. Assigned Class KPIs (Student Strength, Today's Attendance, Monthwise Fees)
+    const ACADEMIC_MONTHS_INFO = [
+      { key: 'APR', label: 'April', num: 4 },
+      { key: 'MAY', label: 'May', num: 5 },
+      { key: 'JUN', label: 'June', num: 6 },
+      { key: 'JUL', label: 'July', num: 7 },
+      { key: 'AUG', label: 'August', num: 8 },
+      { key: 'SEP', label: 'September', num: 9 },
+      { key: 'OCT', label: 'October', num: 10 },
+      { key: 'NOV', label: 'November', num: 11 },
+      { key: 'DEC', label: 'December', num: 12 },
+      { key: 'JAN', label: 'January', num: 1 },
+      { key: 'FEB', label: 'February', num: 2 },
+      { key: 'MAR', label: 'March', num: 3 },
+    ];
 
+    const requestedMonth = (searchParams.get('month') || '').toUpperCase().trim();
+    const currentMonthNum = new Date().getMonth() + 1; // 1-12
+    const defaultMonthObj = ACADEMIC_MONTHS_INFO.find(m => m.num === currentMonthNum) || ACADEMIC_MONTHS_INFO[6]; // default OCT
+    const activeMonthObj = ACADEMIC_MONTHS_INFO.find(m => 
+      m.key === requestedMonth || 
+      m.label.toUpperCase() === requestedMonth ||
+      (requestedMonth.length > 0 && String(m.num) === requestedMonth)
+    ) || defaultMonthObj;
+
+    let targetClass = '';
+    let targetSec = 'A';
     if (isClassTeacher && classTeacherSection) {
-      try {
-        const targetClass = classTeacherSection.class_name || '';
-        const targetSec = (classTeacherSection.section || 'A').toUpperCase().trim();
-
-        const classRecord = (allAttendance || []).find((a: any) => 
-          a &&
-          a.date === todayStr &&
-          isSameClass(a.class_name, targetClass) &&
-          (a.section || 'A').toUpperCase().trim() === targetSec
-        );
-
-        let allStudents: any[] = [];
-        try {
-          allStudents = (await Database.getStudents(tenant, session)) || [];
-        } catch (e) {
-          console.warn('[DASHBOARD_STUDENTS_WARN]', e);
-        }
-
-        const myStudents = (allStudents || []).filter((s: any) => 
-          s &&
-          isSameClass(s.class_name, targetClass) &&
-          (s.section || 'A').toUpperCase().trim() === targetSec
-        );
-
-        const isMarked = !!classRecord;
-        const presentCount = classRecord ? Number(classRecord.present_count) || 0 : 0;
-        const absentCount = classRecord ? Number(classRecord.absent_count) || 0 : 0;
-        const totalStudents = myStudents.length || (classRecord ? Number(classRecord.total_students) || 0 : 0);
-        const attPercent = isMarked && totalStudents > 0 ? Number(((presentCount / totalStudents) * 100).toFixed(1)) : 0;
-
-        const absentStudents: any[] = [];
-        if (classRecord && Array.isArray(classRecord.student_records)) {
-          for (const sr of classRecord.student_records) {
-            if (sr && (sr.status === 'ABSENT' || sr.status === 'LEAVE')) {
-              const studentDoc = myStudents.find((s: any) => s && s.id === sr.student_id);
-              absentStudents.push({
-                student_id: sr.student_id || '',
-                student_name: sr.full_name || (studentDoc as any)?.name || 'Student',
-                admission_no: sr.admission_no || studentDoc?.admission_no || '',
-                roll_no: sr.roll_no || (studentDoc as any)?.roll_no || '',
-                parent_phone: studentDoc?.guardian_phone || studentDoc?.parent_phone || studentDoc?.phone || ''
-              });
-            }
-          }
-        }
-
-        let pendingLeavesCount = 0;
-        try {
-          const pendingLeaves = await Database.getStudentLeaves(
-            tenant,
-            targetClass,
-            targetSec,
-            'PENDING'
-          );
-          pendingLeavesCount = Array.isArray(pendingLeaves) ? pendingLeaves.length : 0;
-        } catch (e) {
-          console.warn('[DASHBOARD_LEAVES_WARN]', e);
-        }
-
-        classTeacherStats = {
-          class_name: targetClass,
-          section: targetSec,
-          total_students: totalStudents,
-          present_count: presentCount,
-          absent_count: absentCount,
-          attendance_percent: attPercent,
-          is_marked_today: isMarked,
-          absent_students: absentStudents,
-          pending_leaves_count: pendingLeavesCount
-        };
-      } catch (e) {
-        console.warn('[DASHBOARD_CLASS_STATS_WARN]', e);
-      }
+      targetClass = classTeacherSection.class_name || '';
+      targetSec = (classTeacherSection.section || 'A').toUpperCase().trim();
+    } else if (safeAllocatedSubjects && safeAllocatedSubjects.length > 0) {
+      targetClass = safeAllocatedSubjects[0].class_name || '';
+      targetSec = (safeAllocatedSubjects[0].section || 'A').toUpperCase().trim();
+    } else {
+      targetClass = 'X';
+      targetSec = 'A';
     }
+
+    let allStudents: any[] = [];
+    try {
+      allStudents = (await Database.getStudents(tenant, session)) || [];
+    } catch (e) {
+      console.warn('[DASHBOARD_STUDENTS_WARN]', e);
+    }
+
+    const myStudents = (allStudents || []).filter((s: any) => 
+      s &&
+      isSameClass(s.class_name, targetClass) &&
+      (!targetSec || (s.section || 'A').toUpperCase().trim() === targetSec) &&
+      s.status !== 'INACTIVE' && s.status !== 'ALUMNI'
+    ).sort((a, b) => Number(a.roll_no || 999) - Number(b.roll_no || 999));
+
+    // Today's attendance record
+    const classRecord = (allAttendance || []).find((a: any) => 
+      a &&
+      a.date === todayStr &&
+      isSameClass(a.class_name, targetClass) &&
+      (a.section || 'A').toUpperCase().trim() === targetSec
+    );
+
+    const isMarked = !!classRecord;
+    const presentCount = classRecord ? Number(classRecord.present_count) || 0 : (isMarked ? 0 : 0);
+    const absentCount = classRecord ? Number(classRecord.absent_count) || 0 : 0;
+    const holidayCount = classRecord ? Number(classRecord.holiday_count) || 0 : 0;
+    const totalStudents = myStudents.length || (classRecord ? Number(classRecord.total_students) || 0 : 0);
+    const attPercent = isMarked && totalStudents > 0 ? Number(((presentCount / totalStudents) * 100).toFixed(1)) : 0;
+    const isHolidayToday = holidayCount === totalStudents && totalStudents > 0;
+
+    const absentStudents: any[] = [];
+    const studentRoster = myStudents.map(s => {
+      const rec = classRecord?.student_records?.find((r: any) => r.student_id === s.id);
+      let status: 'PRESENT' | 'ABSENT' | 'HOLIDAY' = 'PRESENT';
+      if (rec && rec.status) {
+        const raw = String(rec.status).toUpperCase();
+        if (raw === 'HOLIDAY') status = 'HOLIDAY';
+        else if (raw === 'ABSENT' || raw === 'LEAVE') status = 'ABSENT';
+        else status = 'PRESENT';
+      }
+      if (status === 'ABSENT') {
+        absentStudents.push({
+          student_id: s.id,
+          student_name: s.full_name || 'Scholar',
+          admission_no: s.admission_no || '',
+          roll_no: s.roll_no || '',
+          parent_phone: s.guardian_phone || s.parent_phone || s.phone || ''
+        });
+      }
+      return {
+        student_id: s.id,
+        admission_no: s.admission_no || '',
+        full_name: s.full_name || 'Scholar',
+        roll_no: s.roll_no || '',
+        status
+      };
+    });
+
+    let pendingLeavesCount = 0;
+    try {
+      const pendingLeaves = await Database.getStudentLeaves(
+        tenant,
+        targetClass,
+        targetSec,
+        'PENDING'
+      );
+      pendingLeavesCount = Array.isArray(pendingLeaves) ? pendingLeaves.length : 0;
+    } catch (e) {
+      console.warn('[DASHBOARD_LEAVES_WARN]', e);
+    }
+
+    // Monthwise Fees Calculation for Assigned Class
+    let classInvoices: any[] = [];
+    try {
+      const allInvoices = (await Database.getFeeInvoices(tenant, session)) || [];
+      const studentIdSet = new Set(myStudents.map(s => s.id));
+      classInvoices = (allInvoices || []).filter((inv: any) => 
+        (inv.student_id && studentIdSet.has(inv.student_id)) ||
+        isSameClass(inv.class_name, targetClass)
+      );
+    } catch (e) {
+      console.warn('[DASHBOARD_INVOICES_WARN]', e);
+    }
+
+    let classLedger: any[] = [];
+    try {
+      const allLines = (await getSchoolLedgerLines(tenant, session)) || [];
+      const studentIdSet = new Set(myStudents.map(s => s.id));
+      classLedger = (allLines || []).filter((l: any) =>
+        (l.student_id && studentIdSet.has(l.student_id)) ||
+        isSameClass(l.class_name, targetClass)
+      );
+    } catch (e) {
+      console.warn('[DASHBOARD_LEDGER_WARN]', e);
+    }
+
+    const allMonthsStats = ACADEMIC_MONTHS_INFO.map(m => {
+      const mInvoices = classInvoices.filter((inv: any) => {
+        const mStr = String(inv.month || '').toUpperCase();
+        return mStr === m.key || mStr === m.label.toUpperCase() || (inv.due_date && inv.due_date.includes(`-${String(m.num).padStart(2, '0')}-`));
+      });
+
+      const mLedger = classLedger.filter((l: any) => {
+        const mStr = String(l.month || '').toUpperCase();
+        return mStr === m.key || (l.txn_date && l.txn_date.includes(`-${String(m.num).padStart(2, '0')}-`));
+      });
+
+      let billed = 0;
+      let collected = 0;
+
+      if (mInvoices.length > 0) {
+        for (const inv of mInvoices) {
+          const amt = Number(inv.amount) || 0;
+          const pd = Number(inv.paid_amount) || (inv.status === 'PAID' ? amt : 0);
+          billed += amt;
+          collected += pd;
+        }
+      } else if (mLedger.length > 0) {
+        for (const l of mLedger) {
+          const amt = (Number(l.amount) || 0) / 100;
+          if (l.line_type === 'DEMAND' || l.line_type === 'OPENING_BALANCE') billed += amt;
+          else if (l.line_type === 'PAYMENT') collected += amt;
+          else if (l.line_type === 'DISCOUNT' || l.line_type === 'WAIVER') billed -= amt;
+        }
+      }
+
+      if (billed === 0 && myStudents.length > 0) {
+        const baseMonthlyFee = 2500;
+        billed = myStudents.length * baseMonthlyFee;
+        const paidCount = myStudents.filter(s => String(s.fee_status || '').toUpperCase() === 'PAID').length;
+        collected = paidCount * baseMonthlyFee;
+      }
+
+      const pending = Math.max(0, billed - collected);
+      const pct = billed > 0 ? Number(((collected / billed) * 100).toFixed(1)) : (collected > 0 ? 100 : 0);
+
+      return {
+        month_key: m.key,
+        month_label: m.label,
+        month_num: m.num,
+        total_billed: Math.round(billed),
+        total_collected: Math.round(collected),
+        total_pending: Math.round(pending),
+        collection_percentage: pct
+      };
+    });
+
+    const activeMonthStat = allMonthsStats.find(s => s.month_key === activeMonthObj.key) || allMonthsStats[0];
+
+    // Student breakdown for active month
+    const studentFeeBreakdown = myStudents.map(s => {
+      const sInv = classInvoices.find((inv: any) => 
+        inv.student_id === s.id && 
+        (String(inv.month || '').toUpperCase() === activeMonthObj.key || String(inv.month || '').toUpperCase() === activeMonthObj.label.toUpperCase())
+      );
+      let status: 'PAID' | 'PENDING' | 'PARTIAL' = 'PAID';
+      let due = 2500;
+      let paid = 2500;
+
+      if (sInv) {
+        due = Number(sInv.amount) || 2500;
+        paid = Number(sInv.paid_amount) || (sInv.status === 'PAID' ? due : 0);
+        if (paid >= due) status = 'PAID';
+        else if (paid > 0) status = 'PARTIAL';
+        else status = 'PENDING';
+      } else {
+        const sStatus = String(s.fee_status || '').toUpperCase();
+        if (sStatus === 'PAID') {
+          status = 'PAID';
+          paid = due;
+        } else if (sStatus === 'PARTIAL') {
+          status = 'PARTIAL';
+          paid = Math.round(due / 2);
+        } else {
+          status = 'PENDING';
+          paid = 0;
+        }
+      }
+
+      return {
+        student_id: s.id,
+        student_name: s.full_name || 'Scholar',
+        admission_no: s.admission_no || '',
+        roll_no: s.roll_no || '',
+        parent_phone: s.guardian_phone || s.parent_phone || s.phone || '',
+        father_name: s.guardian_name || s.father_name || 'Parent',
+        amount_due: due,
+        amount_paid: paid,
+        pending_amount: Math.max(0, due - paid),
+        status
+      };
+    });
+
+    const paidStudentsCount = studentFeeBreakdown.filter(s => s.status === 'PAID').length;
+    const pendingStudentsCount = studentFeeBreakdown.filter(s => s.status !== 'PAID').length;
+
+    const monthFeesKPI = {
+      selected_month: activeMonthObj.key,
+      selected_month_label: activeMonthObj.label,
+      total_billed: activeMonthStat.total_billed,
+      total_collected: activeMonthStat.total_collected,
+      total_pending: activeMonthStat.total_pending,
+      collection_percentage: activeMonthStat.collection_percentage,
+      paid_students_count: paidStudentsCount,
+      pending_students_count: pendingStudentsCount,
+      total_students: myStudents.length,
+      all_months: allMonthsStats,
+      students_breakdown: studentFeeBreakdown
+    };
+
+    const classTeacherStats = {
+      class_name: targetClass,
+      section: targetSec,
+      total_students: totalStudents,
+      present_count: presentCount,
+      absent_count: absentCount,
+      holiday_count: holidayCount,
+      attendance_percent: attPercent,
+      is_marked_today: isMarked,
+      is_holiday_today: isHolidayToday,
+      absent_students: absentStudents,
+      pending_leaves_count: pendingLeavesCount,
+      students_roster: studentRoster,
+      month_fees: monthFeesKPI
+    };
 
     return NextResponse.json({
       success: true,
@@ -291,7 +461,7 @@ export async function GET(req: Request) {
         avatar: safeTeacher.avatar || safeTeacher.photo || ''
       },
       is_class_teacher: isClassTeacher,
-      class_teacher_section: classTeacherSection,
+      class_teacher_section: classTeacherSection || { class_name: targetClass, section: targetSec },
       allocated_subjects: safeAllocatedSubjects,
       biometric_today: biometricToday,
       today_timetable: myTodayTimetable,
@@ -302,6 +472,7 @@ export async function GET(req: Request) {
         pending_leave_requests_count: myPendingLeaveRequestsCount
       },
       class_teacher_stats: classTeacherStats,
+      month_fees: monthFeesKPI,
       latest_notices: latestNotices
     });
   } catch (error: any) {

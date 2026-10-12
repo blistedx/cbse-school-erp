@@ -1,29 +1,45 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 - Audit Logs API */
 import { NextResponse } from 'next/server';
-import { getAuditLogs, logAuditEvent, exportAuditLogsToCsv } from '@/lib/audit-logger';
-import { requireRole, requireAuth, ADMIN_ROLES } from '@/lib/auth-guard';
+import { getAuditLogsAsync, logAuditEvent, exportAuditLogsToCsv } from '@/lib/audit-logger';
+import { requireRole, requireAuth, resolveTenantSchoolId, ADMIN_ROLES } from '@/lib/auth-guard';
 
 export async function GET(request: Request) {
   try {
     const auth = requireRole(request, ADMIN_ROLES);
     if (auth instanceof NextResponse) return auth;
+
     const { searchParams } = new URL(request.url);
+    const tenant = resolveTenantSchoolId(auth, searchParams.get('school_id') || searchParams.get('schoolId'));
+    if (tenant instanceof NextResponse) return tenant;
+    const schoolId = tenant;
+
     const moduleFilter = searchParams.get('module') || undefined;
     const severityFilter = searchParams.get('severity') || undefined;
+    const userFilter = searchParams.get('user') || searchParams.get('userId') || undefined;
+    const actionFilter = searchParams.get('action') || undefined;
+    const fromDate = searchParams.get('fromDate') || searchParams.get('from') || undefined;
+    const toDate = searchParams.get('toDate') || searchParams.get('to') || undefined;
     const search = searchParams.get('search') || undefined;
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : undefined;
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 100;
+    const skip = searchParams.get('skip') ? parseInt(searchParams.get('skip')!, 10) : 0;
     const exportFormat = searchParams.get('export');
 
-    const logs = getAuditLogs({
+    const result = await getAuditLogsAsync({
+      schoolId: auth.role === 'SUPERADMIN' || auth.role === 'AGENCY_SUPERADMIN' ? (searchParams.get('school_id') || 'ALL') : schoolId,
       module: moduleFilter,
       severity: severityFilter,
+      userId: userFilter,
+      action: actionFilter,
+      fromDate,
+      toDate,
       search,
-      limit
+      limit: exportFormat === 'csv' ? 5000 : limit,
+      skip
     });
 
     // Handle CSV Download
     if (exportFormat === 'csv') {
-      const csv = exportAuditLogsToCsv(logs);
+      const csv = exportAuditLogsToCsv(result.logs);
       return new NextResponse(csv, {
         headers: {
           'Content-Type': 'text/csv; charset=utf-8',
@@ -32,18 +48,11 @@ export async function GET(request: Request) {
       });
     }
 
-    // Compute live summary statistics
-    const stats = {
-      total: logs.length,
-      critical: logs.filter(l => l.severity === 'CRITICAL' || l.severity === 'SECURITY').length,
-      modules: Array.from(new Set(logs.map(l => l.module))),
-      recentTimestamp: logs[0]?.timestamp || null
-    };
-
     return NextResponse.json({
       success: true,
-      stats,
-      logs
+      stats: result.stats,
+      total: result.total,
+      logs: result.logs
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -56,15 +65,12 @@ export async function GET(request: Request) {
 function extractClientIp(request: Request): string {
   const headers = request.headers;
   
-  // Cloudflare
   const cfIp = headers.get('cf-connecting-ip');
   if (cfIp && isValidIp(cfIp)) return cfIp.trim();
   
-  // True-Client-IP / Fastly
   const trueClientIp = headers.get('true-client-ip') || headers.get('fastly-client-ip');
   if (trueClientIp && isValidIp(trueClientIp)) return trueClientIp.trim();
   
-  // X-Forwarded-For
   const forwardedFor = headers.get('x-forwarded-for');
   if (forwardedFor) {
     const ips = forwardedFor.split(',').map(s => s.trim());
@@ -78,7 +84,6 @@ function extractClientIp(request: Request): string {
     }
   }
 
-  // X-Real-IP
   const xRealIp = headers.get('x-real-ip') || headers.get('x-client-ip');
   if (xRealIp && isValidIp(xRealIp)) return xRealIp.trim();
 
@@ -97,8 +102,24 @@ export async function POST(request: Request) {
   try {
     const auth = requireAuth(request);
     if (auth instanceof NextResponse) return auth;
+
     const body = await request.json();
-    const { action, module, summary, severity, details, targetId, targetName, actor, school_id, session } = body;
+    const {
+      action,
+      module,
+      summary,
+      severity,
+      details,
+      targetId,
+      entityId,
+      targetName,
+      before,
+      after,
+      actor,
+      school_id,
+      schoolId,
+      session
+    } = body;
 
     if (!action || !module || !summary) {
       return NextResponse.json(
@@ -108,12 +129,18 @@ export async function POST(request: Request) {
     }
 
     const detectedIp = extractClientIp(request);
+    const userAgent = request.headers.get('user-agent') || 'Browser Client';
     const resolvedPublicIp = (actor?.public_ip && !isLocalhostOrPrivate(actor.public_ip)) 
       ? actor.public_ip 
       : ((actor?.ip && !isLocalhostOrPrivate(actor.ip)) ? actor.ip : detectedIp);
 
+    const targetSchoolId = schoolId || school_id || auth.schoolId || 'DPS2026';
+
     const mergedActor = {
-      ...(actor || { name: 'Dr. Rajesh Sharma', role: 'PRINCIPAL' }),
+      id: actor?.id || auth.userId || 'admin',
+      name: actor?.name || auth.name || auth.username || 'Staff User',
+      role: actor?.role || auth.role || 'ADMIN',
+      email: actor?.email,
       ip: resolvedPublicIp,
       public_ip: resolvedPublicIp
     };
@@ -127,10 +154,18 @@ export async function POST(request: Request) {
         ...(details || {}),
         public_ip: resolvedPublicIp
       },
-      targetId,
+      targetId: entityId || targetId,
+      entityId: entityId || targetId,
       targetName,
+      before,
+      after,
       actor: mergedActor,
-      school_id,
+      ip: resolvedPublicIp,
+      userAgent,
+      schoolId: targetSchoolId,
+      school_id: targetSchoolId,
+      userId: mergedActor.id,
+      role: mergedActor.role,
       session
     });
 

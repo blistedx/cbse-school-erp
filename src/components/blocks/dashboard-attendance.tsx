@@ -1378,6 +1378,33 @@ export function DashboardAttendance({
   // ─────────────────────────────────────────────────────────────────
   const todayDateStr = useMemo(() => getTodayDateStr(), [attendanceDate]);
   const [summaryDate, setSummaryDate] = useState<string>(() => getTodayDateStr());
+  const [cbseDefaultersOnly, setCbseDefaultersOnly] = useState<boolean>(false);
+  const [isSendingAbsentAlerts, setIsSendingAbsentAlerts] = useState<boolean>(false);
+  const [showDefaultersModal, setShowDefaultersModal] = useState<boolean>(false);
+
+  const handleSendAbsentAlerts = async () => {
+    try {
+      setIsSendingAbsentAlerts(true);
+      const res = await fetch('/api/attendance/absent-alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          school_id: selectedSchool?.id,
+          date: summaryDate
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showAdminToast(`Sent alerts to ${data.dispatchedCount} parents.`);
+      } else {
+        showAdminToast(data.error || 'Failed to dispatch alerts.');
+      }
+    } catch (err: any) {
+      showAdminToast(`Alert error: ${err.message}`);
+    } finally {
+      setIsSendingAbsentAlerts(false);
+    }
+  };
 
   const classSummaryData = useMemo(() => {
     const targetList = isTeacher ? selectableClasses : sortedClasses;
@@ -2818,7 +2845,48 @@ export function DashboardAttendance({
                   <h3 className="font-display font-bold text-sm text-[#122A24]">Class-by-Class Attendance Ledger</h3>
                   <p className="text-[11px] font-mono text-slate-500">Comparative attendance turnout rates and log status for {summaryDate === todayDateStr ? 'Today' : summaryDate}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Biometric / RFID Gateway Indicator */}
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10.5px] font-mono font-bold" title="Hardware Biometric & RFID Webhook: /api/attendance/hardware-sync">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>RFID / Biometric: Online</span>
+                  </div>
+
+                  {/* CBSE Defaulters Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => setCbseDefaultersOnly(prev => !prev)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono transition-all border cursor-pointer flex items-center gap-1.5 ${
+                      cbseDefaultersOnly
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-white text-slate-700 hover:bg-slate-50 border-[#DCE8E0]'
+                    }`}
+                  >
+                    <AlertTriangle className={`w-3.5 h-3.5 ${cbseDefaultersOnly ? 'text-white' : 'text-amber-500'}`} />
+                    <span>CBSE &lt;75% Only ({allDefaultersList.length})</span>
+                  </button>
+
+                  {/* Instant Absent Alerts Dispatcher Button */}
+                  <button
+                    type="button"
+                    onClick={handleSendAbsentAlerts}
+                    disabled={isSendingAbsentAlerts}
+                    className="px-3 py-1.5 rounded-xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold font-mono transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 border-none"
+                    title="Send automated WhatsApp absent alerts to parents of absentees"
+                  >
+                    {isSendingAbsentAlerts ? (
+                      <>
+                        <div className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                        <span>Dispatching...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3 h-3 text-emerald-300" />
+                        <span>Notify Absent Parents</span>
+                      </>
+                    )}
+                  </button>
+
                   <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-xl border border-[#DCE8E0] text-xs shadow-2xs">
                     <Calendar className="h-3.5 w-3.5 text-emerald-700" />
                     <span className="text-[10.5px] font-mono font-bold text-slate-500 uppercase">Date:</span>
@@ -2853,7 +2921,10 @@ export function DashboardAttendance({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#EBF2ED] text-xs">
-                    {classSummaryData.map((item, idx) => {
+                    {(cbseDefaultersOnly
+                      ? classSummaryData.filter(item => item.defaultersCount > 0)
+                      : classSummaryData
+                    ).map((item, idx) => {
                       const isEven = idx % 2 === 0;
                       return (
                         <tr

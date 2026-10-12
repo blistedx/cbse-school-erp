@@ -1,209 +1,142 @@
-/*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
+/*! Giterp Multi-School Enterprise ERP Core v1.2.0 - Unified Audit Logger */
 import fs from 'fs';
 import path from 'path';
+import { getDatabase } from '@/lib/mongodb';
 import { AuditLogEntry } from './types';
 
 const AUDIT_LOGS_FILE = path.join(process.cwd(), 'data', 'audit_logs.json');
+const AUDIT_BACKUP_FILE = path.join(process.cwd(), 'data', 'audit_logs.backup.json');
 
-// Default initial audit entries to populate security audit trail
-const DEFAULT_AUDIT_LOGS: AuditLogEntry[] = [
-  {
-    id: 'AUD-20260831-001',
-    timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    actor: {
-      id: 'usr-admin-01',
-      name: 'Dr. Rajesh Sharma',
-      role: 'PRINCIPAL',
-      email: 'principal@school.edu.in',
-      ip: '103.217.122.45',
-      public_ip: '103.217.122.45'
-    },
-    module: 'BROADCAST',
-    action: 'BROADCAST_DISPATCHED',
-    severity: 'WARNING',
-    summary: 'Dispatched emergency rainfall weather advisory & early dispersal alert to 1,200 families.',
-    details: { target: 'ALL_PARENTS', channel: 'WEB_PUSH_SMS', urgent: true, public_ip: '103.217.122.45' },
-    school_id: 'DPS2026',
-    session: '2026-27'
-  },
-  {
-    id: 'AUD-20260831-002',
-    timestamp: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-    actor: {
-      id: 'usr-tea-04',
-      name: 'Sunita Verma',
-      role: 'TEACHER',
-      email: 'sunita.verma@school.edu.in',
-      ip: '49.207.180.12',
-      public_ip: '49.207.180.12'
-    },
-    module: 'EXAMINATION',
-    action: 'MARKS_SUBMITTED',
-    severity: 'INFO',
-    summary: 'Submitted Unit Test 2 marks for Class 10 - Section A (Mathematics & Science - 28 scholars).',
-    details: { class: 'Class 10 - A', exam: 'Unit Test 2', total_scholars: 28, public_ip: '49.207.180.12' },
-    targetName: 'Class 10 - A',
-    school_id: 'DPS2026',
-    session: '2026-27'
-  },
-  {
-    id: 'AUD-20260831-003',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-    actor: {
-      id: 'usr-acc-01',
-      name: 'Ramesh Kulkarni',
-      role: 'ACCOUNTANT',
-      email: 'accounts@school.edu.in',
-      ip: '122.161.50.88',
-      public_ip: '122.161.50.88'
-    },
-    module: 'FEES',
-    action: 'FEE_COLLECTED',
-    severity: 'INFO',
-    summary: 'Collected Q2 Tuition & Transport Fee ₹18,500 for Scholar Aarav Sharma (SR-2026-C01-002) via UPI.',
-    details: { invoice_id: 'INV-2026-089', amount: 18500, mode: 'UPI', public_ip: '122.161.50.88' },
-    targetId: 'SR-2026-C01-002',
-    targetName: 'Aarav Sharma',
-    school_id: 'DPS2026',
-    session: '2026-27'
-  },
-  {
-    id: 'AUD-20260831-004',
-    timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    actor: {
-      id: 'usr-admin-01',
-      name: 'Admin Desk',
-      role: 'SUPERADMIN',
-      email: 'admin@school.edu.in',
-      ip: '157.34.112.90',
-      public_ip: '157.34.112.90'
-    },
-    module: 'ATTENDANCE',
-    action: 'ATTENDANCE_RECORDED',
-    severity: 'INFO',
-    summary: 'Locked morning attendance for 18 classes (504 total students - 94.2% Present).',
-    details: { total_classes: 18, present_rate: '94.2%', public_ip: '157.34.112.90' },
-    school_id: 'DPS2026',
-    session: '2026-27'
-  },
-  {
-    id: 'AUD-20260831-005',
-    timestamp: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-    actor: {
-      id: 'usr-admin-01',
-      name: 'Dr. Rajesh Sharma',
-      role: 'PRINCIPAL',
-      email: 'principal@school.edu.in',
-      ip: '103.217.122.45',
-      public_ip: '103.217.122.45'
-    },
-    module: 'STUDENTS',
-    action: 'STUDENT_ENROLLED',
-    severity: 'INFO',
-    summary: 'Completed new CBSE OASIS admission for Scholar Vivaan Joshi into Class 1 - Section A.',
-    details: { scholar_name: 'Vivaan Joshi', class: 'Class 1 - A', roll_no: 29, public_ip: '103.217.122.45' },
-    targetId: 'SR-2026-C01-029',
-    targetName: 'Vivaan Joshi',
-    school_id: 'DPS2026',
-    session: '2026-27'
-  },
-  {
-    id: 'AUD-20260831-006',
-    timestamp: new Date(Date.now() - 1000 * 60 * 240).toISOString(),
-    actor: {
-      id: 'usr-admin-01',
-      name: 'System Security Guard',
-      role: 'SECURITY',
-      email: 'security@cbse-erp.internal',
-      ip: '203.192.241.10',
-      public_ip: '203.192.241.10'
-    },
-    module: 'AUTH',
-    action: 'SECURITY_LOGIN_SUCCESS',
-    severity: 'SECURITY',
-    summary: 'Super Administrator signed in with 2FA verification from authorized static public subnet.',
-    details: { auth_mode: 'PIN_2FA', device: 'Chrome on Windows 11', public_ip: '203.192.241.10' },
-    school_id: 'DPS2026',
-    session: '2026-27'
+// In-memory cache for fast read fallback
+let inMemoryLogs: AuditLogEntry[] = [];
+let indexesCreated = false;
+let migrationAttempted = false;
+
+// Compute clean before/after key delta
+export function computeObjectDiff(before: any, after: any): Record<string, { before: any; after: any }> | null {
+  if (!before && !after) return null;
+  if (!before) return { _created: { before: null, after } };
+  if (!after) return { _deleted: { before, after: null } };
+
+  if (typeof before !== 'object' || typeof after !== 'object') {
+    return before !== after ? { value: { before, after } } : null;
   }
-];
 
-// Helper to load audit logs from file
-export function getAuditLogs(options?: {
-  module?: string;
-  severity?: string;
-  search?: string;
-  limit?: number;
-}): AuditLogEntry[] {
-  try {
-    let logs: AuditLogEntry[] = [];
+  const diff: Record<string, { before: any; after: any }> = {};
+  const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
 
-    if (fs.existsSync(AUDIT_LOGS_FILE)) {
-      const content = fs.readFileSync(AUDIT_LOGS_FILE, 'utf-8');
-      logs = JSON.parse(content);
-    } else {
-      logs = [...DEFAULT_AUDIT_LOGS];
-      saveAllLogs(logs);
+  for (const k of allKeys) {
+    // Skip noisy internal fields
+    if (k === 'password_hash' || k === 'passcode' || k === 'updated_at' || k === '_id') continue;
+    const valB = before[k];
+    const valA = after[k];
+    if (JSON.stringify(valB) !== JSON.stringify(valA)) {
+      diff[k] = { before: valB, after: valA };
     }
-
-    if (!Array.isArray(logs) || logs.length === 0) {
-      logs = [...DEFAULT_AUDIT_LOGS];
-      saveAllLogs(logs);
-    }
-
-    // Apply filtering
-    if (options?.module && options.module !== 'ALL') {
-      logs = logs.filter(l => l.module === options.module);
-    }
-
-    if (options?.severity && options.severity !== 'ALL') {
-      logs = logs.filter(l => l.severity === options.severity);
-    }
-
-    if (options?.search && options.search.trim()) {
-      const q = options.search.toLowerCase().trim();
-      logs = logs.filter(l =>
-        l.summary.toLowerCase().includes(q) ||
-        l.action.toLowerCase().includes(q) ||
-        l.actor.name.toLowerCase().includes(q) ||
-        l.actor.role.toLowerCase().includes(q) ||
-        (l.actor.ip && l.actor.ip.toLowerCase().includes(q)) ||
-        (l.actor.public_ip && l.actor.public_ip.toLowerCase().includes(q)) ||
-        (l.targetName && l.targetName.toLowerCase().includes(q)) ||
-        (l.targetId && l.targetId.toLowerCase().includes(q))
-      );
-    }
-
-    // Sort by timestamp descending (newest first)
-    logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-    if (options?.limit && options.limit > 0) {
-      logs = logs.slice(0, options.limit);
-    }
-
-    return logs;
-  } catch (error) {
-    console.error('[AuditLogger] Error reading audit logs:', error);
-    return DEFAULT_AUDIT_LOGS;
   }
+
+  return Object.keys(diff).length > 0 ? diff : null;
 }
 
-// Save all logs to JSON file
-function saveAllLogs(logs: AuditLogEntry[]): boolean {
+// Ensure compound indexes on MongoDB audit_logs collection
+export async function ensureAuditIndexes(): Promise<void> {
+  if (indexesCreated) return;
   try {
-    const dir = path.dirname(AUDIT_LOGS_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    const db = await getDatabase();
+    if (db) {
+      const col = db.collection('audit_logs');
+      await Promise.all([
+        col.createIndex({ schoolId: 1, createdAt: -1 }),
+        col.createIndex({ school_id: 1, timestamp: -1 }),
+        col.createIndex({ schoolId: 1, module: 1, createdAt: -1 }),
+        col.createIndex({ school_id: 1, module: 1, timestamp: -1 }),
+        col.createIndex({ schoolId: 1, action: 1, createdAt: -1 }),
+        col.createIndex({ id: 1 }, { unique: true })
+      ]);
+      indexesCreated = true;
     }
-    fs.writeFileSync(AUDIT_LOGS_FILE, JSON.stringify(logs, null, 2), 'utf-8');
-    return true;
   } catch (err) {
-    console.error('[AuditLogger] Error saving audit logs file:', err);
-    return false;
+    console.warn('[AuditLogger] ensureAuditIndexes warning:', err);
   }
 }
 
-// Append new audit entry
+// One-time safe migration from data/audit_logs.json into MongoDB audit_logs
+export async function migrateAuditLogsJsonToMongo(): Promise<number> {
+  if (migrationAttempted) return 0;
+  migrationAttempted = true;
+
+  try {
+    const db = await getDatabase();
+    if (!db) return 0;
+
+    let sourceFile = AUDIT_LOGS_FILE;
+    if (!fs.existsSync(sourceFile) && fs.existsSync(AUDIT_BACKUP_FILE)) {
+      sourceFile = AUDIT_BACKUP_FILE;
+    }
+
+    if (!fs.existsSync(sourceFile)) return 0;
+
+    const fileContent = fs.readFileSync(sourceFile, 'utf-8');
+    const parsedLogs = JSON.parse(fileContent);
+    if (!Array.isArray(parsedLogs) || parsedLogs.length === 0) return 0;
+
+    const col = db.collection('audit_logs');
+    const existingCount = await col.countDocuments();
+    if (existingCount >= parsedLogs.length) {
+      return 0; // Already migrated
+    }
+
+    const bulkOps = parsedLogs.map((log: any) => {
+      const schoolId = log.schoolId || log.school_id || 'DPS2026';
+      const createdAt = log.createdAt || log.timestamp || new Date().toISOString();
+      const entityId = log.entityId || log.targetId || '';
+      const userId = log.userId || log.actor?.id || 'admin';
+      const role = log.role || log.actor?.role || 'ADMIN';
+      const ip = log.ip || log.actor?.public_ip || log.actor?.ip || '103.217.122.45';
+
+      const doc = {
+        ...log,
+        schoolId,
+        school_id: schoolId,
+        userId,
+        role,
+        entityId,
+        targetId: entityId,
+        ip,
+        createdAt,
+        timestamp: createdAt
+      };
+
+      return {
+        updateOne: {
+          filter: { id: doc.id },
+          update: { $setOnInsert: doc },
+          upsert: true
+        }
+      };
+    });
+
+    const res = await col.bulkWrite(bulkOps, { ordered: false });
+    return res.upsertedCount || 0;
+  } catch (err) {
+    console.warn('[AuditLogger] Migration error (non-fatal):', err);
+    return 0;
+  }
+}
+
+// Load initial audit entries from file or defaults
+function loadInitialAuditLogs(): AuditLogEntry[] {
+  try {
+    if (fs.existsSync(AUDIT_LOGS_FILE)) {
+      const raw = fs.readFileSync(AUDIT_LOGS_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+// Main non-blocking failure-safe audit event logger
 export function logAuditEvent(entry: {
   actor?: { id?: string; name: string; role: string; email?: string; ip?: string; public_ip?: string };
   module: AuditLogEntry['module'];
@@ -212,24 +145,43 @@ export function logAuditEvent(entry: {
   summary: string;
   details?: Record<string, any>;
   targetId?: string;
+  entityId?: string;
   targetName?: string;
+  before?: any;
+  after?: any;
+  ip?: string;
+  userAgent?: string;
   school_id?: string;
+  schoolId?: string;
+  userId?: string;
+  role?: string;
   session?: string;
 }): AuditLogEntry {
-  const currentLogs = getAuditLogs();
+  const resolvedSchoolId = entry.schoolId || entry.school_id || 'DPS2026';
+  const resolvedIp = entry.ip || entry.actor?.public_ip || entry.actor?.ip || '103.217.122.45';
+  const resolvedUserId = entry.userId || entry.actor?.id || 'admin';
+  const resolvedRole = entry.role || entry.actor?.role || 'ADMIN';
+  const resolvedEntityId = entry.entityId || entry.targetId;
+  const now = new Date().toISOString();
 
-  const resolvedPublicIp = entry.actor?.public_ip || entry.actor?.ip || '103.217.122.45';
+  // Compute key-level diff if before/after are present
+  const diff = computeObjectDiff(entry.before, entry.after);
 
   const newLog: AuditLogEntry = {
-    id: `AUD-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-    timestamp: new Date().toISOString(),
+    id: `AUD-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+    timestamp: now,
+    createdAt: now,
+    schoolId: resolvedSchoolId,
+    school_id: resolvedSchoolId,
+    userId: resolvedUserId,
+    role: resolvedRole,
     actor: {
-      id: entry.actor?.id || 'admin_active',
-      name: entry.actor?.name || 'Dr. Rajesh Sharma',
-      role: entry.actor?.role || 'PRINCIPAL',
+      id: resolvedUserId,
+      name: entry.actor?.name || 'Administrator',
+      role: resolvedRole,
       email: entry.actor?.email,
-      ip: entry.actor?.ip || resolvedPublicIp,
-      public_ip: resolvedPublicIp
+      ip: resolvedIp,
+      public_ip: resolvedIp
     },
     module: entry.module,
     action: entry.action.toUpperCase(),
@@ -237,43 +189,277 @@ export function logAuditEvent(entry: {
     summary: entry.summary,
     details: {
       ...(entry.details || {}),
-      public_ip: resolvedPublicIp
+      public_ip: resolvedIp
     },
-    targetId: entry.targetId,
+    targetId: resolvedEntityId,
+    entityId: resolvedEntityId,
     targetName: entry.targetName,
-    school_id: entry.school_id || 'DPS2026',
+    before: entry.before ? JSON.parse(JSON.stringify(entry.before)) : undefined,
+    after: entry.after ? JSON.parse(JSON.stringify(entry.after)) : undefined,
+    diff: diff || undefined,
+    ip: resolvedIp,
+    userAgent: entry.userAgent,
     session: entry.session || '2026-27'
   };
 
-  const updatedLogs = [newLog, ...currentLogs];
-  
-  // Keep max 5,000 entries in local store to prevent unbounded growth
-  if (updatedLogs.length > 5000) {
-    updatedLogs.length = 5000;
+  // 1. Maintain in-memory log cache (max 5,000 entries)
+  if (inMemoryLogs.length === 0) {
+    inMemoryLogs = loadInitialAuditLogs();
+  }
+  inMemoryLogs.unshift(newLog);
+  if (inMemoryLogs.length > 5000) {
+    inMemoryLogs.length = 5000;
   }
 
-  saveAllLogs(updatedLogs);
+  // 2. Async, non-blocking, failure-safe write to MongoDB collection audit_logs
+  (async () => {
+    try {
+      await ensureAuditIndexes();
+      const db = await getDatabase();
+      if (db) {
+        await db.collection('audit_logs').insertOne({ ...newLog });
+      }
+    } catch (dbErr) {
+      console.warn('[AuditLogger] Async Mongo write error (non-fatal):', dbErr);
+    }
+
+    // Best-effort local file backup (ignored on Vercel read-only systems)
+    try {
+      const dir = path.dirname(AUDIT_LOGS_FILE);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(AUDIT_LOGS_FILE, JSON.stringify(inMemoryLogs, null, 2), 'utf-8');
+    } catch (_) {}
+  })().catch(() => {});
+
   return newLog;
 }
 
-// Convert audit logs to CSV string for compliance download
+// Asynchronously query audit logs from MongoDB Atlas with full filtering & pagination
+export async function getAuditLogsAsync(options?: {
+  schoolId?: string;
+  module?: string;
+  severity?: string;
+  userId?: string;
+  action?: string;
+  search?: string;
+  fromDate?: string;
+  toDate?: string;
+  limit?: number;
+  skip?: number;
+}): Promise<{
+  logs: AuditLogEntry[];
+  total: number;
+  stats: { total: number; critical: number; modules: string[]; recentTimestamp: string | null };
+}> {
+  try {
+    await ensureAuditIndexes();
+    await migrateAuditLogsJsonToMongo();
+
+    const db = await getDatabase();
+    if (db) {
+      const query: any = {};
+
+      if (options?.schoolId && options.schoolId !== 'ALL') {
+        query.$or = [{ schoolId: options.schoolId }, { school_id: options.schoolId }];
+      }
+
+      if (options?.module && options.module !== 'ALL') {
+        query.module = options.module;
+      }
+
+      if (options?.severity && options.severity !== 'ALL') {
+        query.severity = options.severity;
+      }
+
+      if (options?.action && options.action !== 'ALL') {
+        query.action = { $regex: new RegExp(`^${options.action}`, 'i') };
+      }
+
+      if (options?.userId && options.userId !== 'ALL') {
+        query.$or = [
+          { userId: options.userId },
+          { 'actor.id': options.userId },
+          { 'actor.name': { $regex: new RegExp(options.userId, 'i') } }
+        ];
+      }
+
+      if (options?.fromDate || options?.toDate) {
+        query.createdAt = {};
+        if (options.fromDate) query.createdAt.$gte = new Date(options.fromDate).toISOString();
+        if (options.toDate) {
+          const end = new Date(options.toDate);
+          end.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = end.toISOString();
+        }
+      }
+
+      if (options?.search && options.search.trim()) {
+        const regex = new RegExp(options.search.trim(), 'i');
+        query.$and = [
+          ...(query.$and || []),
+          {
+            $or: [
+              { summary: regex },
+              { action: regex },
+              { 'actor.name': regex },
+              { 'actor.role': regex },
+              { ip: regex },
+              { targetName: regex },
+              { targetId: regex },
+              { entityId: regex }
+            ]
+          }
+        ];
+      }
+
+      const col = db.collection<AuditLogEntry>('audit_logs');
+      const total = await col.countDocuments(query);
+
+      const limit = options?.limit && options.limit > 0 ? options.limit : 100;
+      const skip = options?.skip && options.skip >= 0 ? options.skip : 0;
+
+      const docs = await col
+        .find(query)
+        .sort({ createdAt: -1, timestamp: -1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+
+      const logs = docs.map((d: any) => {
+        const { _id, ...rest } = d;
+        return rest as AuditLogEntry;
+      });
+
+      // Quick summary stats
+      const criticalCount = await col.countDocuments({
+        ...(options?.schoolId && options.schoolId !== 'ALL'
+          ? { $or: [{ schoolId: options.schoolId }, { school_id: options.schoolId }] }
+          : {}),
+        severity: { $in: ['CRITICAL', 'SECURITY'] }
+      });
+
+      const modules = await col.distinct('module', options?.schoolId ? { schoolId: options.schoolId } : {});
+
+      return {
+        logs,
+        total,
+        stats: {
+          total,
+          critical: criticalCount,
+          modules: (modules as string[]) || [],
+          recentTimestamp: logs[0]?.createdAt || logs[0]?.timestamp || null
+        }
+      };
+    }
+  } catch (err) {
+    console.warn('[AuditLogger] MongoDB query fallback to in-memory/file:', err);
+  }
+
+  // Fallback to in-memory / file
+  const fallbackLogs = getAuditLogs({
+    module: options?.module,
+    severity: options?.severity,
+    search: options?.search,
+    limit: options?.limit
+  });
+
+  return {
+    logs: fallbackLogs,
+    total: fallbackLogs.length,
+    stats: {
+      total: fallbackLogs.length,
+      critical: fallbackLogs.filter(l => l.severity === 'CRITICAL' || l.severity === 'SECURITY').length,
+      modules: Array.from(new Set(fallbackLogs.map(l => l.module))),
+      recentTimestamp: fallbackLogs[0]?.timestamp || null
+    }
+  };
+}
+
+// Synchronous reader with memory/file fallback
+export function getAuditLogs(options?: {
+  module?: string;
+  severity?: string;
+  search?: string;
+  limit?: number;
+}): AuditLogEntry[] {
+  try {
+    if (inMemoryLogs.length === 0) {
+      inMemoryLogs = loadInitialAuditLogs();
+    }
+    let logs = [...inMemoryLogs];
+
+    if (options?.module && options.module !== 'ALL') {
+      logs = logs.filter(l => l.module === options.module);
+    }
+    if (options?.severity && options.severity !== 'ALL') {
+      logs = logs.filter(l => l.severity === options.severity);
+    }
+    if (options?.search && options.search.trim()) {
+      const q = options.search.toLowerCase().trim();
+      logs = logs.filter(l =>
+        l.summary.toLowerCase().includes(q) ||
+        l.action.toLowerCase().includes(q) ||
+        l.actor.name.toLowerCase().includes(q) ||
+        (l.targetName && l.targetName.toLowerCase().includes(q)) ||
+        (l.entityId && l.entityId.toLowerCase().includes(q))
+      );
+    }
+
+    logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    if (options?.limit && options.limit > 0) {
+      logs = logs.slice(0, options.limit);
+    }
+
+    return logs;
+  } catch {
+    return [];
+  }
+}
+
+// Convert audit logs to CSV string for compliance download with before/after diff summary
 export function exportAuditLogsToCsv(logs: AuditLogEntry[]): string {
-  const headers = ['Log ID', 'Timestamp', 'Operator Name', 'Role', 'Public IP Address', 'Module', 'Action', 'Severity', 'Summary', 'Target ID', 'Target Name', 'JSON Details'];
-  
-  const rows = logs.map(l => [
-    `"${l.id}"`,
-    `"${l.timestamp}"`,
-    `"${l.actor.name.replace(/"/g, '""')}"`,
-    `"${l.actor.role}"`,
-    `"${l.actor.public_ip || l.actor.ip || '103.217.122.45'}"`,
-    `"${l.module}"`,
-    `"${l.action}"`,
-    `"${l.severity}"`,
-    `"${l.summary.replace(/"/g, '""')}"`,
-    `"${l.targetId || ''}"`,
-    `"${(l.targetName || '').replace(/"/g, '""')}"`,
-    `"${JSON.stringify(l.details || {}).replace(/"/g, '""')}"`
-  ].join(','));
+  const headers = [
+    'Log ID',
+    'Timestamp',
+    'School ID',
+    'Operator Name',
+    'Role',
+    'Public IP',
+    'Module',
+    'Action',
+    'Severity',
+    'Summary',
+    'Target ID',
+    'Target Name',
+    'Diff Summary',
+    'Before Snapshot',
+    'After Snapshot'
+  ];
+
+  const rows = logs.map(l => {
+    const diffText = l.diff ? JSON.stringify(l.diff).replace(/"/g, '""') : '';
+    const beforeText = l.before ? JSON.stringify(l.before).replace(/"/g, '""') : '';
+    const afterText = l.after ? JSON.stringify(l.after).replace(/"/g, '""') : '';
+
+    return [
+      `"${l.id}"`,
+      `"${l.createdAt || l.timestamp}"`,
+      `"${l.schoolId || l.school_id || ''}"`,
+      `"${(l.actor.name || '').replace(/"/g, '""')}"`,
+      `"${l.role || l.actor.role || ''}"`,
+      `"${l.ip || l.actor.public_ip || l.actor.ip || ''}"`,
+      `"${l.module}"`,
+      `"${l.action}"`,
+      `"${l.severity}"`,
+      `"${(l.summary || '').replace(/"/g, '""')}"`,
+      `"${l.entityId || l.targetId || ''}"`,
+      `"${(l.targetName || '').replace(/"/g, '""')}"`,
+      `"${diffText}"`,
+      `"${beforeText}"`,
+      `"${afterText}"`
+    ].join(',');
+  });
 
   return [headers.join(','), ...rows].join('\n');
 }

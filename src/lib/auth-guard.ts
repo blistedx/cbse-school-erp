@@ -86,6 +86,8 @@ export interface TokenPayload {
   userId: string;
   schoolId: string;
   role: string;
+  username?: string;
+  name?: string;
   rem?: boolean;
   iat: number;
   exp: number;
@@ -231,6 +233,150 @@ export const ADMIN_ROLES = ['PRINCIPAL', 'VICE_PRINCIPAL', 'ADMIN', 'AGENCY_SUPE
 export const AGENCY_ONLY = ['AGENCY_SUPERADMIN', 'SUPERADMIN', 'GOD_ACCESS'];
 export const STAFF_ROLES = ['PRINCIPAL', 'VICE_PRINCIPAL', 'ADMIN', 'AGENCY_SUPERADMIN', 'SUPERADMIN', 'SCHOOL_ADMIN', 'GOD_ACCESS', 'TEACHER', 'FACULTY'];
 export const ALL_ROLES = ['PRINCIPAL', 'VICE_PRINCIPAL', 'ADMIN', 'AGENCY_SUPERADMIN', 'SUPERADMIN', 'SCHOOL_ADMIN', 'GOD_ACCESS', 'TEACHER', 'FACULTY', 'STUDENT', 'PARENT', 'ACCOUNTANT'];
+
+export type PermissionAction = 'view' | 'edit' | 'add' | 'delete' | 'manage';
+
+/**
+ * Checks if a given role has permission for a module and action.
+ * Superadmins and god access always return true.
+ */
+export function hasPermission(
+  role: string,
+  module: string,
+  action: PermissionAction = 'view',
+  customMatrix?: any
+): boolean {
+  const normRole = (role || '').toUpperCase();
+  if (['SUPERADMIN', 'AGENCY_SUPERADMIN', 'GOD_ACCESS', 'SUPER_ADMIN'].includes(normRole)) {
+    return true;
+  }
+
+  // Canonicalize role aliases to the 10 core managed roles
+  let canonicalRole = 'ADMIN';
+  if (normRole === 'PRINCIPAL') canonicalRole = 'PRINCIPAL';
+  else if (normRole === 'VICE_PRINCIPAL') canonicalRole = 'VICE_PRINCIPAL';
+  else if (normRole === 'ADMIN' || normRole === 'SCHOOL_ADMIN') canonicalRole = 'ADMIN';
+  else if (normRole === 'TEACHER' || normRole === 'FACULTY') canonicalRole = 'TEACHER';
+  else if (normRole === 'ACCOUNTANT') canonicalRole = 'ACCOUNTANT';
+  else if (normRole === 'DRIVER') canonicalRole = 'DRIVER';
+  else if (normRole === 'LIBRARIAN') canonicalRole = 'LIBRARIAN';
+  else if (normRole === 'SECURITY_GUARD' || normRole === 'GUARD' || normRole === 'GATEKEEPER') canonicalRole = 'SECURITY_GUARD';
+  else if (normRole === 'STUDENT') canonicalRole = 'STUDENT';
+  else if (normRole === 'PARENT') canonicalRole = 'PARENT';
+
+  const normModule = module.toLowerCase().replace(/[- ]/g, '_');
+  const rolePerms = customMatrix?.[canonicalRole];
+  if (rolePerms && rolePerms[normModule]) {
+    const p = rolePerms[normModule];
+    if (action === 'view') return !!p.can_view;
+    if (action === 'edit') return !!p.can_edit;
+    if (action === 'add') return !!p.can_add;
+    if (action === 'delete') return !!p.can_delete;
+    if (action === 'manage') return !!(p.can_edit || p.can_add || p.can_delete);
+  }
+
+  // Fallback defaults for core roles if module matrix is not overridden
+  if (canonicalRole === 'PRINCIPAL') return true;
+  if (canonicalRole === 'ADMIN' && action !== 'delete') return true;
+  if (canonicalRole === 'VICE_PRINCIPAL' && action !== 'delete') return true;
+  if (canonicalRole === 'TEACHER') {
+    if (['attendance', 'homework', 'exams', 'marks', 'syllabus'].includes(normModule)) return true;
+    if (action === 'view') return true;
+    return false;
+  }
+  if (canonicalRole === 'ACCOUNTANT') {
+    if (['fees', 'finance', 'invoices', 'receipts'].includes(normModule)) return true;
+    if (action === 'view' && ['students', 'classes', 'attendance'].includes(normModule)) return true;
+    return false;
+  }
+  if (canonicalRole === 'LIBRARIAN') {
+    if (['library', 'books'].includes(normModule)) return true;
+    if (action === 'view' && ['students', 'classes'].includes(normModule)) return true;
+    return false;
+  }
+  if (canonicalRole === 'DRIVER') {
+    if (['transport', 'telemetry', 'routes'].includes(normModule)) return true;
+    return false;
+  }
+  if (canonicalRole === 'SECURITY_GUARD') {
+    if (['visitors', 'gate', 'guard', 'scan'].includes(normModule)) return true;
+    return false;
+  }
+  if (canonicalRole === 'STUDENT' || canonicalRole === 'PARENT') {
+    if (action === 'view') return true;
+    return false;
+  }
+
+  return false;
+}
+
+/**
+ * Enforces Role-Based Access Control (RBAC).
+ * Supports both Request objects and pre-authenticated TokenPayload objects.
+ * Hard rule: Agency SUPERADMIN / SUPER_ADMIN / GOD_ACCESS always succeeds unimpeded.
+ * If unauthorized, logs a SECURITY audit event and returns a 403 NextResponse.
+ */
+export async function requirePermission(
+  reqOrUser: Request | TokenPayload,
+  module: string,
+  action: PermissionAction = 'view'
+): Promise<TokenPayload | NextResponse> {
+  let auth: TokenPayload;
+
+  if ('headers' in reqOrUser && typeof (reqOrUser as Request).headers?.get === 'function') {
+    const authRes = requireAuth(reqOrUser as Request);
+    if (authRes instanceof NextResponse) return authRes;
+    auth = authRes;
+  } else {
+    auth = reqOrUser as TokenPayload;
+  }
+
+  const role = (auth.role || '').toUpperCase();
+  // HARD RULE: Superadmin agency login must keep working exactly as before
+  if (['SUPERADMIN', 'AGENCY_SUPERADMIN', 'GOD_ACCESS', 'SUPER_ADMIN'].includes(role)) {
+    return auth;
+  }
+
+  let customMatrix: any = undefined;
+  try {
+    if (auth.schoolId) {
+      const db = await getDatabase();
+      if (db) {
+        const schoolDoc = await db.collection('schools').findOne({ id: auth.schoolId });
+        if (schoolDoc?.role_permissions) {
+          customMatrix = schoolDoc.role_permissions;
+        }
+      }
+    }
+  } catch {}
+
+  const allowed = hasPermission(role, module, action, customMatrix);
+  if (!allowed) {
+    try {
+      const { logAuditEvent } = await import('@/lib/audit-logger');
+      logAuditEvent({
+        schoolId: auth.schoolId,
+        userId: auth.userId,
+        role: auth.role,
+        module: 'AUDIT_LOGS',
+        action: 'UNAUTHORIZED_ACCESS_ATTEMPT',
+        severity: 'SECURITY',
+        summary: `Unauthorized access attempt (403): User "${auth.userId}" (${role}) denied "${action}" on module "${module}"`,
+        details: { module, action, role, userId: auth.userId }
+      });
+    } catch {}
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Forbidden: Role "${role}" does not have permission to ${action} module "${module}".`
+      },
+      { status: 403 }
+    );
+  }
+
+  return auth;
+}
 
 /**
  * Normalizes legacy, variant, or alias school IDs to their canonical database ID.

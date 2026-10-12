@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { requireAuth, requireRole, resolveTenantSchoolId, STAFF_ROLES, ADMIN_ROLES } from '@/lib/auth-guard';
-import { Database } from '@/lib/db';
+import { Database, invalidateServerCache } from '@/lib/db';
 import { isSameClass } from '@/lib/utils';
 import { AttendanceService } from '@/lib/services/attendance.service';
+import { AggregatesService } from '@/lib/services/aggregates.service';
+import { invalidateStatsCache } from '@/lib/stats';
 
 export async function GET(req: Request) {
   try {
@@ -147,7 +149,19 @@ export async function DELETE(req: Request) {
     if (!id) {
       return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 });
     }
+
+    // Tenant boundary verification
+    const records = await Database.getAttendance(tenant);
+    const existsInTenant = records.some(r => r.id === id);
+    if (!existsInTenant && auth.role !== 'SUPERADMIN' && auth.role !== 'AGENCY_SUPERADMIN') {
+      return NextResponse.json({ success: false, error: 'Access denied: record does not belong to this school.' }, { status: 403 });
+    }
+
     const success = await Database.deleteAttendance(id);
+    invalidateServerCache('attendance');
+    invalidateServerCache('overview');
+    AggregatesService.invalidateMemoryCache(tenant);
+    invalidateStatsCache(tenant);
     try {
       revalidateTag('attendance', { expire: 0 });
       revalidateTag('overview', { expire: 0 });

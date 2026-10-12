@@ -181,6 +181,7 @@ export interface FeeLedgerLine {
   class_name: string;
   section: string;
   admission_no: string;
+  student_name?: string;
 
   line_type: FeeLineType;
   fee_head: FeeHead;
@@ -203,6 +204,7 @@ export interface FeeLedgerLine {
 
   collected_by: string | null;
   approved_by: string | null;
+  posted_by?: string | null;
 
   is_cancelled: boolean;
   cancelled_reason: string | null;
@@ -223,6 +225,12 @@ export interface LedgerFeeSummary {
   totalPaid: number;       // paise
   totalRefund: number;     // paise
   balance: number;         // paise
+  totalBilledPaise?: number; // alias for totalDemand
+  totalPaidPaise?: number;   // alias for totalPaid
+  netPendingPaise?: number;  // alias for balance
+  total_receivable?: number; // alias for totalDemand in rupees or paise
+  total_collected?: number;  // alias for totalPaid in rupees or paise
+  total_pending?: number;    // alias for balance in rupees or paise
   status: 'PAID' | 'PARTIAL' | 'PENDING' | 'OVERDUE' | 'WAIVED' | 'ADVANCE';
   nextDueDate?: string | null;
   monthsPendingCount?: number;

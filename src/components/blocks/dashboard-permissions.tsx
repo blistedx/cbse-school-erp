@@ -1,7 +1,7 @@
 /*! Giterp Multi-School Enterprise ERP Core v1.2.0 */
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   ShieldCheck,
   GraduationCap,
@@ -33,7 +33,9 @@ import {
   CheckCheck,
   XCircle,
   Unlock,
-  AlertCircle
+  AlertCircle,
+  UserCheck,
+  RefreshCw
 } from 'lucide-react';
 import { ManagedRole, ModulePermission, RolePermissionMatrix, DEFAULT_ROLE_PERMISSIONS } from '@/lib/types';
 import { apiFetch } from '@/lib/api-client';
@@ -176,6 +178,61 @@ export function DashboardPermissions({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'All' | 'Academics' | 'Administrative' | 'Operations' | 'Communication'>('All');
+
+  // User-to-Role Assignment Desk State
+  const [viewMode, setViewMode] = useState<'matrix' | 'assignment'>('matrix');
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [staffSearch, setStaffSearch] = useState('');
+  const [staffRoleFilter, setStaffRoleFilter] = useState<string>('ALL');
+  const [updatingStaffId, setUpdatingStaffId] = useState<string | null>(null);
+
+  const fetchStaff = useCallback(async () => {
+    try {
+      setLoadingStaff(true);
+      const res = await apiFetch(`/api/teachers?school_id=${schoolId}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.teachers)) {
+        setStaffList(data.teachers);
+      }
+    } catch (err) {
+      console.error('Failed to load staff for role desk:', err);
+    } finally {
+      setLoadingStaff(false);
+    }
+  }, [schoolId]);
+
+  useEffect(() => {
+    if (viewMode === 'assignment' && staffList.length === 0) {
+      fetchStaff();
+    }
+  }, [viewMode, staffList.length, fetchStaff]);
+
+  const handleAssignRole = async (staffId: string, newRole: string) => {
+    try {
+      setUpdatingStaffId(staffId);
+      const res = await apiFetch('/api/teachers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: staffId,
+          role: newRole,
+          school_id: schoolId
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStaffList(prev => prev.map(s => s.id === staffId ? { ...s, role: newRole } : s));
+        if (showToast) showToast(`Role updated to ${newRole} successfully.`);
+      } else {
+        if (showToast) showToast(data.error || 'Failed to update role');
+      }
+    } catch (e: any) {
+      if (showToast) showToast(`Error: ${e.message}`);
+    } finally {
+      setUpdatingStaffId(null);
+    }
+  };
 
   // Toggle individual permission flag
   const togglePermission = (role: ManagedRole, moduleId: string, field: keyof ModulePermission) => {
@@ -478,6 +535,23 @@ export function DashboardPermissions({
     });
   }, [categoryFilter, searchQuery]);
 
+  // Filter staff roster for role assignment desk
+  const filteredStaff = useMemo(() => {
+    return staffList.filter(s => {
+      const q = staffSearch.toLowerCase().trim();
+      const matchesSearch = !q ||
+        (s.full_name || s.name || '').toLowerCase().includes(q) ||
+        (s.staff_code || '').toLowerCase().includes(q) ||
+        (s.email || '').toLowerCase().includes(q) ||
+        (s.department || '').toLowerCase().includes(q);
+
+      const sRole = (s.role || 'TEACHER').toUpperCase();
+      const matchesRole = staffRoleFilter === 'ALL' || sRole === staffRoleFilter.toUpperCase();
+
+      return matchesSearch && matchesRole;
+    });
+  }, [staffList, staffSearch, staffRoleFilter]);
+
   return (
     <div className="space-y-6 text-[#122A24]">
       {/* ─────────────────────────────────────────────────────────────
@@ -518,24 +592,69 @@ export function DashboardPermissions({
 
           {/* Header Action Button */}
           <div className="flex items-center gap-2.5 shrink-0 self-start md:self-auto">
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="px-6 py-3 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2.5 cursor-pointer border-none disabled:opacity-50 group"
-            >
-              {isSaving ? (
-                <>
-                  <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  <span>Saving Changes...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 text-emerald-300 group-hover:scale-110 transition-transform" />
-                  <span>Save Role Permissions</span>
-                </>
-              )}
-            </button>
+            {viewMode === 'matrix' ? (
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-6 py-3 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2.5 cursor-pointer border-none disabled:opacity-50 group"
+              >
+                {isSaving ? (
+                  <>
+                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    <span>Saving Changes...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 text-emerald-300 group-hover:scale-110 transition-transform" />
+                    <span>Save Role Permissions</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={fetchStaff}
+                disabled={loadingStaff}
+                className="px-5 py-3 rounded-2xl bg-[#122A24] hover:bg-[#1C443A] text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer border-none disabled:opacity-50 group"
+              >
+                <RefreshCw className={`w-4 h-4 text-emerald-300 ${loadingStaff ? 'animate-spin' : ''}`} />
+                <span>Refresh Staff Roster</span>
+              </button>
+            )}
           </div>
+        </div>
+
+        {/* Studio View Mode Switcher */}
+        <div className="flex items-center gap-2 pt-4 mt-4 border-t border-[#DCE8E0]/70">
+          <button
+            type="button"
+            onClick={() => setViewMode('matrix')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              viewMode === 'matrix'
+                ? 'bg-[#122A24] text-white shadow-xs'
+                : 'bg-[#F8FAF9] text-slate-600 hover:bg-white hover:text-[#122A24] border border-[#DCE8E0]'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Role Permissions Matrix</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode('assignment');
+              fetchStaff();
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              viewMode === 'assignment'
+                ? 'bg-[#122A24] text-white shadow-xs'
+                : 'bg-[#F8FAF9] text-slate-600 hover:bg-white hover:text-[#122A24] border border-[#DCE8E0]'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5 text-emerald-400" />
+            <span>User-to-Role Assignment Desk</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-700 font-bold">
+              {staffList.length > 0 ? `${staffList.length} Staff` : 'Desk'}
+            </span>
+          </button>
         </div>
 
         {/* Executive #122A24 Dashboard KPI Hero Banner */}
@@ -611,10 +730,212 @@ export function DashboardPermissions({
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────
-          2. Segmented Role Selector Cards (5-Column Grid)
-          ───────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      {/* User-to-Role Assignment Desk or Role Permissions Matrix */}
+      {viewMode === 'assignment' ? (
+        <div className="space-y-6 animate-fade-in">
+          {/* Executive KPI Summary */}
+          <div className="bg-[#122A24] rounded-2xl p-6 sm:p-7 border border-[#1C443A] shadow-md relative overflow-hidden z-10">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-y lg:divide-y-0 lg:divide-x divide-[#1C443A]/70">
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-emerald-400" />
+                  Total Staff Members
+                </span>
+                <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                  {staffList.length}
+                </div>
+                <p className="text-[11px] text-white/50">Active faculty &amp; operations</p>
+              </div>
+
+              <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                  <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                  Teaching Faculty
+                </span>
+                <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                  {staffList.filter(s => (s.role || '').toUpperCase() === 'TEACHER' || (s.role || '').toUpperCase() === 'FACULTY').length}
+                </div>
+                <p className="text-[11px] text-white/50">Subject instructors &amp; mentors</p>
+              </div>
+
+              <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-emerald-400" />
+                  Admin &amp; Accounts
+                </span>
+                <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                  {staffList.filter(s => ['ADMIN', 'PRINCIPAL', 'VICE_PRINCIPAL', 'ACCOUNTANT'].includes((s.role || '').toUpperCase())).length}
+                </div>
+                <p className="text-[11px] text-white/50">Office &amp; accounts management</p>
+              </div>
+
+              <div className="space-y-1 pt-4 lg:pt-0 lg:pl-6">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300/80 font-semibold flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  Fleet &amp; Security
+                </span>
+                <div className="text-2xl sm:text-3xl font-bold font-display text-white tracking-tight">
+                  {staffList.filter(s => ['DRIVER', 'LIBRARIAN', 'SECURITY_GUARD'].includes((s.role || '').toUpperCase())).length}
+                </div>
+                <p className="text-[11px] text-white/50">Drivers, librarians &amp; guards</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Search & Filter Toolbar */}
+          <div className="bg-white p-5 rounded-3xl border border-[#DCE8E0] shadow-xs space-y-4">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="relative flex-1 w-full max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="text"
+                  placeholder="Search staff by name, code, email, or department..."
+                  value={staffSearch}
+                  onChange={(e) => setStaffSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-[#DCE8E0] text-xs bg-[#F8FAF9] focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
+                />
+              </div>
+
+              <div className="flex items-center gap-2.5 flex-wrap w-full md:w-auto">
+                <select
+                  value={staffRoleFilter}
+                  onChange={(e) => setStaffRoleFilter(e.target.value)}
+                  className="px-3 py-2 bg-[#F8FAF9] border border-[#DCE8E0] text-xs font-bold text-[#122A24] rounded-xl outline-none cursor-pointer"
+                >
+                  <option value="ALL">All Roles ({staffList.length})</option>
+                  <option value="PRINCIPAL">Principals</option>
+                  <option value="ADMIN">Administrative Officers</option>
+                  <option value="VICE_PRINCIPAL">Vice Principals</option>
+                  <option value="TEACHER">Teachers</option>
+                  <option value="ACCOUNTANT">Accountants</option>
+                  <option value="LIBRARIAN">Librarians</option>
+                  <option value="DRIVER">Bus Drivers</option>
+                  <option value="SECURITY_GUARD">Security Guards</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={fetchStaff}
+                  disabled={loadingStaff}
+                  className="p-2.5 bg-[#F8FAF9] hover:bg-slate-100 text-[#122A24] border border-[#DCE8E0] rounded-xl shadow-2xs cursor-pointer transition-all disabled:opacity-50"
+                  title="Refresh Staff Roster"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingStaff ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Personnel Table */}
+          <div className="bg-white rounded-3xl border border-[#DCE8E0] shadow-xs overflow-hidden">
+            <div className="p-5 border-b border-[#E8F0EA] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-emerald-700" />
+                <h3 className="font-display font-bold text-sm text-[#122A24]">
+                  Institutional Personnel &amp; Role Delegations
+                </h3>
+              </div>
+              <span className="font-mono text-xs text-slate-500 font-bold">
+                Showing {filteredStaff.length} of {staffList.length} staff
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-[#F8FAF9] border-b border-[#DCE8E0] text-slate-600 font-mono font-bold uppercase text-[10.5px] tracking-wider">
+                    <th className="py-3 px-4">Staff Member</th>
+                    <th className="py-3 px-4">Staff Code</th>
+                    <th className="py-3 px-3">Department &amp; Specialization</th>
+                    <th className="py-3 px-3">Current Active Role</th>
+                    <th className="py-3 px-4 text-center">Assign Role</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#EBF0ED]">
+                  {loadingStaff ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-slate-400 font-mono text-xs">
+                        Loading personnel roster...
+                      </td>
+                    </tr>
+                  ) : filteredStaff.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-slate-400 font-sans text-xs">
+                        No staff members found matching your search.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredStaff.map((staff) => {
+                      const currentRole = (staff.role || 'TEACHER').toUpperCase();
+                      const isUpdating = updatingStaffId === staff.id;
+
+                      return (
+                        <tr key={staff.id} className="hover:bg-[#F9FCFA] transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-[#EBF5EF] text-[#122A24] font-bold text-xs flex items-center justify-center border border-[#C5E2CF]">
+                                {(staff.full_name || staff.name || 'S').slice(0, 2).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-bold text-[#122A24]">{staff.full_name || staff.name}</div>
+                                <div className="text-[11px] text-slate-400 font-mono">{staff.email || 'No email registered'}</div>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-4 font-mono font-bold text-slate-600">
+                            {staff.staff_code || staff.id}
+                          </td>
+
+                          <td className="py-3 px-3 text-slate-600">
+                            <div className="font-medium text-[#122A24]">{staff.department || 'General Academics'}</div>
+                            <div className="text-[10px] text-slate-400">{staff.subject_specialization || staff.designation || 'Faculty'}</div>
+                          </td>
+
+                          <td className="py-3 px-3">
+                            <span className="px-2.5 py-1 rounded-full text-[10.5px] font-mono font-bold bg-[#EBF5EF] text-[#1C443A] border border-[#C5E2CF]">
+                              {currentRole}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-4 text-center">
+                            <div className="inline-flex items-center gap-2">
+                              <select
+                                value={currentRole}
+                                onChange={(e) => handleAssignRole(staff.id, e.target.value)}
+                                disabled={isUpdating}
+                                className="px-3 py-1.5 bg-white border border-[#DCE8E0] text-xs font-bold text-[#122A24] rounded-xl outline-none cursor-pointer focus:ring-2 focus:ring-emerald-600 disabled:opacity-50"
+                              >
+                                <option value="ADMIN">Administrative Officer (Admin)</option>
+                                <option value="PRINCIPAL">Principal</option>
+                                <option value="VICE_PRINCIPAL">Vice Principal</option>
+                                <option value="TEACHER">Faculty &amp; Teacher</option>
+                                <option value="ACCOUNTANT">Accountant / Cashier</option>
+                                <option value="LIBRARIAN">Librarian</option>
+                                <option value="DRIVER">Bus Driver</option>
+                                <option value="SECURITY_GUARD">Security Guard</option>
+                              </select>
+                              {isUpdating && (
+                                <div className="w-3.5 h-3.5 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin shrink-0" />
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* ─────────────────────────────────────────────────────────────
+              2. Segmented Role Selector Cards (5-Column Grid)
+              ───────────────────────────────────────────────────────────── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {ROLES_LIST.map(roleItem => {
           const Icon = roleItem.icon;
           const isSelected = selectedRole === roleItem.id;
@@ -1052,6 +1373,8 @@ export function DashboardPermissions({
           </div>
         </div>
       </div>
-    </div>
+    </>
+  )}
+</div>
   );
 }

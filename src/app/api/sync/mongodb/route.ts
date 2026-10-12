@@ -8,6 +8,11 @@ export async function GET(req: Request) {
   try {
     const auth = requireAuth(req);
     if (auth instanceof NextResponse) return auth;
+    const { searchParams } = new URL(req.url);
+    const tenantParam = searchParams.get('school_id') || searchParams.get('schoolId');
+    const schoolId = tenantParam || auth.schoolId || 'DPS2026';
+    const schoolFilter = { school_id: schoolId };
+
     const status = await checkMongoStatus();
     let cloudCounts = { schools: 0, students: 0, teachers: 0, classes: 0, attendance: 0, fee_invoices: 0, notices: 0 };
     
@@ -16,25 +21,25 @@ export async function GET(req: Request) {
         const db = await getDatabase();
         if (db) {
           const [schools, students, teachers, classes, attendance, fee_invoices, notices] = await Promise.all([
-            db.collection('schools').countDocuments(),
-            db.collection('students').countDocuments(),
-            db.collection('teachers').countDocuments(),
-            db.collection('classes').countDocuments(),
-            db.collection('attendance').countDocuments(),
-            db.collection('fee_invoices').countDocuments(),
-            db.collection('notices').countDocuments()
+            db.collection('schools').countDocuments(auth.role === 'SUPERADMIN' || auth.role === 'AGENCY_SUPERADMIN' ? {} : { id: schoolId }),
+            db.collection('students').countDocuments(schoolFilter),
+            db.collection('teachers').countDocuments(schoolFilter),
+            db.collection('classes').countDocuments(schoolFilter),
+            db.collection('attendance').countDocuments(schoolFilter),
+            db.collection('fee_invoices').countDocuments(schoolFilter),
+            db.collection('notices').countDocuments(schoolFilter)
           ]);
           cloudCounts = { schools, students, teachers, classes, attendance, fee_invoices, notices };
         }
       } catch (e) {}
     }
 
-    const localStudents = await Database.getStudents('DPS2026');
-    const localTeachers = await Database.getTeachers('DPS2026');
-    const localClasses = await Database.getClasses('DPS2026');
-    const localAttendance = await Database.getAttendance('DPS2026');
-    const localInvoices = await Database.getFeeInvoices('DPS2026');
-    const localNotices = await Database.getNotices('DPS2026');
+    const localStudents = await Database.getStudents(schoolId);
+    const localTeachers = await Database.getTeachers(schoolId);
+    const localClasses = await Database.getClasses(schoolId);
+    const localAttendance = await Database.getAttendance(schoolId);
+    const localInvoices = await Database.getFeeInvoices(schoolId);
+    const localNotices = await Database.getNotices(schoolId);
 
     return NextResponse.json({
       success: true,

@@ -25,7 +25,7 @@ interface StudentAttendanceItem {
   full_name: string;
   roll_no: string;
   parent_phone: string;
-  status: 'PRESENT' | 'ABSENT' | 'LATE' | 'LEAVE' | 'HALF_DAY';
+  status: 'PRESENT' | 'ABSENT' | 'HOLIDAY';
   remark?: string;
 }
 
@@ -69,7 +69,16 @@ export default function ClassTeacherAttendancePage() {
       if (data.success) {
         setClassName(data.class_name);
         setSection(data.section);
-        setStudents(data.students || []);
+        // Sanitize status to strictly PRESENT, ABSENT, HOLIDAY
+        const sanitizedStudents = (data.students || []).map((s: any) => {
+          let status: StudentAttendanceItem['status'] = 'PRESENT';
+          const raw = String(s.status || 'PRESENT').toUpperCase();
+          if (raw === 'HOLIDAY') status = 'HOLIDAY';
+          else if (raw === 'ABSENT' || raw === 'LEAVE') status = 'ABSENT';
+          else status = 'PRESENT';
+          return { ...s, status };
+        });
+        setStudents(sanitizedStudents);
         setDefaulters(data.defaulters || []);
         setIsLockedByAdmin(!!data.is_locked_by_admin);
         setIsMarked(!!data.is_marked);
@@ -88,6 +97,19 @@ export default function ClassTeacherAttendancePage() {
   const setStudentStatus = (studentId: string, status: StudentAttendanceItem['status']) => {
     if (isLockedByAdmin) return;
     setStudents(prev => prev.map(s => s.student_id === studentId ? { ...s, status } : s));
+  };
+
+  // Tap-to-cycle status: PRESENT -> ABSENT -> HOLIDAY -> PRESENT (Strictly No LEAVE)
+  const toggleStudentStatus = (studentId: string) => {
+    if (isLockedByAdmin) return;
+    setStudents(prev => prev.map(s => {
+      if (s.student_id !== studentId) return s;
+      const nextStatus: StudentAttendanceItem['status'] = 
+        s.status === 'PRESENT' ? 'ABSENT' : 
+        s.status === 'ABSENT' ? 'HOLIDAY' : 
+        'PRESENT';
+      return { ...s, status: nextStatus };
+    }));
   };
 
   const setStudentRemark = (studentId: string, remark: string) => {
@@ -165,8 +187,7 @@ export default function ClassTeacherAttendancePage() {
 
   const presentCount = students.filter(s => s.status === 'PRESENT').length;
   const absentCount = students.filter(s => s.status === 'ABSENT').length;
-  const lateCount = students.filter(s => s.status === 'LATE').length;
-  const leaveCount = students.filter(s => s.status === 'LEAVE').length;
+  const holidayCount = students.filter(s => s.status === 'HOLIDAY').length;
 
   return (
     <div className="space-y-6">
@@ -256,16 +277,23 @@ export default function ClassTeacherAttendancePage() {
             <button
               onClick={() => markAll('PRESENT')}
               disabled={isLockedByAdmin}
-              className="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50"
+              className="px-2.5 py-1 text-xs font-semibold rounded bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50 cursor-pointer"
             >
               All Present
             </button>
             <button
               onClick={() => markAll('ABSENT')}
               disabled={isLockedByAdmin}
-              className="px-2.5 py-1 text-xs font-medium rounded text-rose-700 hover:bg-rose-50 transition disabled:opacity-50"
+              className="px-2.5 py-1 text-xs font-medium rounded text-rose-700 hover:bg-rose-50 transition disabled:opacity-50 cursor-pointer"
             >
-              Clear All
+              All Absent
+            </button>
+            <button
+              onClick={() => markAll('HOLIDAY')}
+              disabled={isLockedByAdmin}
+              className="px-2.5 py-1 text-xs font-medium rounded text-amber-800 hover:bg-amber-50 transition disabled:opacity-50 cursor-pointer"
+            >
+              Mark Holiday
             </button>
           </div>
         </div>
@@ -285,7 +313,7 @@ export default function ClassTeacherAttendancePage() {
           <button
             onClick={saveAttendance}
             disabled={saving || isLockedByAdmin || students.length === 0}
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition shadow-sm disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition shadow-sm disabled:opacity-50 cursor-pointer"
           >
             <Save className={`w-3.5 h-3.5 ${saving ? 'animate-spin' : ''}`} />
             {saving ? 'Saving...' : 'Save Register'}
@@ -298,7 +326,7 @@ export default function ClassTeacherAttendancePage() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => setActiveTab('register')}
-            className={`pb-3 text-sm font-semibold border-b-2 transition ${
+            className={`pb-3 text-sm font-semibold border-b-2 transition cursor-pointer ${
               activeTab === 'register' 
                 ? 'border-emerald-600 text-emerald-800' 
                 : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -308,7 +336,7 @@ export default function ClassTeacherAttendancePage() {
           </button>
           <button
             onClick={() => setActiveTab('defaulters')}
-            className={`pb-3 text-sm font-semibold border-b-2 transition flex items-center gap-1.5 ${
+            className={`pb-3 text-sm font-semibold border-b-2 transition flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'defaulters' 
                 ? 'border-rose-600 text-rose-700' 
                 : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -322,18 +350,15 @@ export default function ClassTeacherAttendancePage() {
         </div>
 
         {/* Counter Pills */}
-        <div className="hidden sm:flex items-center gap-2 pb-2 text-xs">
-          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-semibold">
+        <div className="flex items-center gap-1.5 pb-2 text-xs font-mono">
+          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold">
             P: {presentCount}
           </span>
-          <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 font-semibold">
+          <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 font-bold">
             A: {absentCount}
           </span>
-          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-semibold">
-            L: {lateCount}
-          </span>
-          <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 font-semibold">
-            LV: {leaveCount}
+          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold">
+            H: {holidayCount}
           </span>
         </div>
       </div>
@@ -346,94 +371,105 @@ export default function ClassTeacherAttendancePage() {
       ) : activeTab === 'register' ? (
         /* Register Roster (Mobile Cards + Desktop Table) */
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          {/* MOBILE VIEW: Touch-Friendly Student Roll Call Cards */}
-          <div className="block md:hidden divide-y divide-gray-100 pb-16">
+          {/* MOBILE VIEW: Touch-Friendly Tap-to-Change Roll Call Cards */}
+          <div className="block md:hidden divide-y divide-gray-100 pb-20">
+            <div className="p-3 bg-emerald-50/50 text-emerald-900 border-b border-emerald-100 text-xs flex items-center justify-between">
+              <span className="font-semibold">💡 Tap scholar card or button to cycle status:</span>
+              <span className="font-mono text-[11px] font-bold text-emerald-800">P → A → H</span>
+            </div>
+
             {filteredStudents.map((s) => (
-              <div key={s.student_id} className="p-4 space-y-3 hover:bg-gray-50/70 transition">
-                <div className="flex items-center justify-between">
+              <div 
+                key={s.student_id} 
+                className="p-4 space-y-3 hover:bg-gray-50/80 transition"
+              >
+                <div 
+                  onClick={() => toggleStudentStatus(s.student_id)}
+                  className="flex items-center justify-between cursor-pointer select-none"
+                >
                   <div className="flex items-center gap-2.5">
-                    <span className="w-8 h-8 rounded-xl bg-gray-100 text-gray-800 font-mono font-bold text-xs flex items-center justify-center">
+                    <span className="w-9 h-9 rounded-xl bg-gray-100 text-gray-800 font-mono font-bold text-xs flex items-center justify-center">
                       {s.roll_no || '--'}
                     </span>
                     <div>
                       <h4 className="font-bold text-sm text-gray-900 leading-tight">{s.full_name}</h4>
-                      <p className="text-[10px] font-mono text-gray-400">{s.admission_no}</p>
+                      <p className="text-[10px] font-mono text-gray-400">Adm: {s.admission_no}</p>
                     </div>
                   </div>
 
-                  {s.parent_phone && (
-                    <a
-                      href={`tel:${s.parent_phone}`}
-                      className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1"
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-3 py-1 rounded-xl text-xs font-black font-mono shadow-xs border transition ${
+                        s.status === 'PRESENT'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-2 ring-emerald-500/20'
+                          : s.status === 'ABSENT'
+                          ? 'bg-rose-50 text-rose-700 border-rose-300 ring-2 ring-rose-500/20'
+                          : 'bg-amber-50 text-amber-800 border-amber-300 ring-2 ring-amber-500/20'
+                      }`}
                     >
-                      <Phone className="w-3 h-3" />
-                      <span>Call</span>
-                    </a>
-                  )}
+                      {s.status === 'PRESENT' ? '✓ Present' : s.status === 'ABSENT' ? '✕ Absent' : '🌴 Holiday'}
+                    </span>
+                    {s.parent_phone && (
+                      <a
+                        href={`tel:${s.parent_phone}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-emerald-700 bg-emerald-50 border border-emerald-200 p-2 rounded-xl text-xs flex items-center justify-center"
+                        title="Call Guardian"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
                 </div>
 
-                {/* Large 4-Segment Touch Selector for Mobile Finger Taps */}
-                <div className="grid grid-cols-4 gap-1.5 p-1 bg-gray-100 rounded-xl">
+                {/* 3-Segment Touch Selector for Mobile Finger Taps (Strictly PRESENT, ABSENT, HOLIDAY - No LEAVE) */}
+                <div className="grid grid-cols-3 gap-2 p-1.5 bg-gray-100 rounded-xl">
                   <button
                     type="button"
                     onClick={() => setStudentStatus(s.student_id, 'PRESENT')}
                     disabled={isLockedByAdmin}
-                    className={`py-2.5 rounded-lg text-xs font-black transition flex flex-col items-center justify-center cursor-pointer ${
+                    className={`py-2 rounded-lg text-xs font-black transition flex flex-col items-center justify-center cursor-pointer ${
                       s.status === 'PRESENT'
                         ? 'bg-emerald-600 text-white shadow-md'
-                        : 'text-gray-600 hover:text-emerald-700'
+                        : 'text-gray-600 hover:text-emerald-700 bg-white/60'
                     }`}
                   >
                     <span>P</span>
-                    <span className="text-[9px] font-normal opacity-90">Present</span>
+                    <span className="text-[9.5px] font-medium opacity-90">Present</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setStudentStatus(s.student_id, 'ABSENT')}
                     disabled={isLockedByAdmin}
-                    className={`py-2.5 rounded-lg text-xs font-black transition flex flex-col items-center justify-center cursor-pointer ${
+                    className={`py-2 rounded-lg text-xs font-black transition flex flex-col items-center justify-center cursor-pointer ${
                       s.status === 'ABSENT'
                         ? 'bg-rose-600 text-white shadow-md'
-                        : 'text-gray-600 hover:text-rose-700'
+                        : 'text-gray-600 hover:text-rose-700 bg-white/60'
                     }`}
                   >
                     <span>A</span>
-                    <span className="text-[9px] font-normal opacity-90">Absent</span>
+                    <span className="text-[9.5px] font-medium opacity-90">Absent</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setStudentStatus(s.student_id, 'LATE')}
+                    onClick={() => setStudentStatus(s.student_id, 'HOLIDAY')}
                     disabled={isLockedByAdmin}
-                    className={`py-2.5 rounded-lg text-xs font-black transition flex flex-col items-center justify-center cursor-pointer ${
-                      s.status === 'LATE'
-                        ? 'bg-amber-500 text-white shadow-md'
-                        : 'text-gray-600 hover:text-amber-700'
+                    className={`py-2 rounded-lg text-xs font-black transition flex flex-col items-center justify-center cursor-pointer ${
+                      s.status === 'HOLIDAY'
+                        ? 'bg-amber-600 text-white shadow-md'
+                        : 'text-gray-600 hover:text-amber-800 bg-white/60'
                     }`}
                   >
-                    <span>L</span>
-                    <span className="text-[9px] font-normal opacity-90">Late</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setStudentStatus(s.student_id, 'LEAVE')}
-                    disabled={isLockedByAdmin}
-                    className={`py-2.5 rounded-lg text-xs font-black transition flex flex-col items-center justify-center cursor-pointer ${
-                      s.status === 'LEAVE'
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'text-gray-600 hover:text-blue-700'
-                    }`}
-                  >
-                    <span>LV</span>
-                    <span className="text-[9px] font-normal opacity-90">Leave</span>
+                    <span>H</span>
+                    <span className="text-[9.5px] font-medium opacity-90">Holiday</span>
                   </button>
                 </div>
 
                 <input
                   type="text"
-                  placeholder="Optional note / reason for absence or late..."
+                  placeholder="Optional remark / reason for scholar..."
                   value={s.remark || ''}
                   disabled={isLockedByAdmin}
                   onChange={(e) => setStudentRemark(s.student_id, e.target.value)}
@@ -451,7 +487,7 @@ export default function ClassTeacherAttendancePage() {
                   <th className="py-3 px-4 w-16">Roll</th>
                   <th className="py-3 px-4">Student Name</th>
                   <th className="py-3 px-4">Adm No</th>
-                  <th className="py-3 px-4 text-center">Attendance Status</th>
+                  <th className="py-3 px-4 text-center">Attendance Status (Tap to toggle)</th>
                   <th className="py-3 px-4">Remark / Note</th>
                 </tr>
               </thead>
@@ -470,7 +506,7 @@ export default function ClassTeacherAttendancePage() {
                     </td>
                     <td className="py-3 px-4 font-mono text-gray-500">{s.admission_no}</td>
                     <td className="py-3 px-4">
-                      <div className="flex items-center justify-center gap-1.5">
+                      <div className="flex items-center justify-center gap-2">
                         <button
                           type="button"
                           onClick={() => setStudentStatus(s.student_id, 'PRESENT')}
@@ -497,27 +533,23 @@ export default function ClassTeacherAttendancePage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setStudentStatus(s.student_id, 'LATE')}
+                          onClick={() => setStudentStatus(s.student_id, 'HOLIDAY')}
                           disabled={isLockedByAdmin}
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                            s.status === 'LATE'
-                              ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-500/30'
-                              : 'bg-gray-100 text-gray-600 hover:bg-amber-50 hover:text-amber-700'
+                            s.status === 'HOLIDAY'
+                              ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-600/30'
+                              : 'bg-gray-100 text-gray-600 hover:bg-amber-50 hover:text-amber-800'
                           }`}
                         >
-                          L
+                          H
                         </button>
                         <button
                           type="button"
-                          onClick={() => setStudentStatus(s.student_id, 'LEAVE')}
+                          onClick={() => toggleStudentStatus(s.student_id)}
                           disabled={isLockedByAdmin}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                            s.status === 'LEAVE'
-                              ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/30'
-                              : 'bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-700'
-                          }`}
+                          className="text-[10px] text-gray-400 hover:text-emerald-700 font-mono underline ml-1 cursor-pointer"
                         >
-                          LV
+                          Toggle
                         </button>
                       </div>
                     </td>
@@ -543,6 +575,8 @@ export default function ClassTeacherAttendancePage() {
               <span className="text-emerald-700 font-bold">{presentCount} P</span>
               <span className="text-slate-400 mx-1">•</span>
               <span className="text-rose-600 font-bold">{absentCount} A</span>
+              <span className="text-slate-400 mx-1">•</span>
+              <span className="text-amber-700 font-bold">{holidayCount} H</span>
             </div>
             <button
               onClick={saveAttendance}

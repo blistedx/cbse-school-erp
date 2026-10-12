@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAuth, requireRole, resolveTenantSchoolId, ADMIN_ROLES } from '@/lib/auth-guard';
+import { logAuditEvent } from '@/lib/audit-logger';
 import { FeesService } from '@/lib/services/fees.service';
 import {
   postLedgerLines,
@@ -224,6 +225,20 @@ export async function POST(req: Request) {
       invalidateServerCache('fees');
       invalidateFeeOverviewMemoryCache(tenant);
 
+      logAuditEvent({
+        schoolId: tenant,
+        userId: (auth as any)?.userId || 'ADMIN',
+        role: (auth as any)?.role || 'ADMIN',
+        module: 'FEES',
+        action: 'COLLECT_PAYMENT',
+        severity: 'INFO',
+        summary: `Collected fee payment of ₹${((Number(body.amount_paise) || 0) / 100).toFixed(2)} for ${student.full_name} (Receipt: ${res.receipt.receipt_no})`,
+        targetId: res.receipt.receipt_no,
+        targetName: student.full_name,
+        before: null,
+        after: res.receipt
+      });
+
       return NextResponse.json({
         success: true,
         message: `Payment collected successfully. Receipt No: ${res.receipt.receipt_no}`,
@@ -247,12 +262,40 @@ export async function POST(req: Request) {
       }
 
       const res = await cancelReceipt(tenant, receiptNo, reason, actorId);
+
+      logAuditEvent({
+        schoolId: tenant,
+        userId: (auth as any)?.userId || 'ADMIN',
+        role: (auth as any)?.role || 'ADMIN',
+        module: 'FEES',
+        action: 'CANCEL_RECEIPT',
+        severity: 'WARNING',
+        summary: `Cancelled fee receipt "${receiptNo}". Reason: ${reason}`,
+        targetId: receiptNo,
+        before: { receiptNo },
+        after: null
+      });
+
       return NextResponse.json(res);
     }
 
     // 3. Save Fee Structure Config
     if (action === 'save_config') {
       const updatedConfig = await saveFeeConfig(tenant, body.config, actorId);
+
+      logAuditEvent({
+        schoolId: tenant,
+        userId: (auth as any)?.userId || 'ADMIN',
+        role: (auth as any)?.role || 'ADMIN',
+        module: 'FEES',
+        action: 'UPDATE_CONFIG',
+        severity: 'INFO',
+        summary: `Updated school fee structure configuration`,
+        targetId: tenant,
+        before: null,
+        after: updatedConfig
+      });
+
       return NextResponse.json({ success: true, message: 'Fee configuration saved successfully', config: updatedConfig });
     }
 

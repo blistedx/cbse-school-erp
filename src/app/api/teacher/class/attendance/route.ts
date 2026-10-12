@@ -58,16 +58,23 @@ export async function GET(req: Request) {
       dateRecord.marked_by.toLowerCase().includes('principal')
     );
 
-    // Map student records for the selected date
+    // Map student records for the selected date (Strictly PRESENT, ABSENT, HOLIDAY - No LEAVE)
     const studentRows = myStudents.map(s => {
       const recorded = dateRecord?.student_records?.find(sr => sr.student_id === s.id);
+      let status: 'PRESENT' | 'ABSENT' | 'HOLIDAY' = 'PRESENT';
+      if (recorded && recorded.status) {
+        const rawStatus = String(recorded.status).toUpperCase();
+        if (rawStatus === 'HOLIDAY') status = 'HOLIDAY';
+        else if (rawStatus === 'ABSENT' || rawStatus === 'LEAVE') status = 'ABSENT';
+        else status = 'PRESENT';
+      }
       return {
         student_id: s.id,
         admission_no: s.admission_no,
         full_name: s.full_name,
         roll_no: s.roll_no || '',
         parent_phone: s.guardian_phone || (s as any).parent_phone || (s as any).phone || '',
-        status: recorded ? recorded.status : 'PRESENT',
+        status,
         is_recorded: !!recorded
       };
     });
@@ -122,6 +129,7 @@ export async function GET(req: Request) {
         total_students: myStudents.length,
         present_count: dateRecord ? dateRecord.present_count : myStudents.length,
         absent_count: dateRecord ? dateRecord.absent_count : 0,
+        holiday_count: dateRecord ? (dateRecord.holiday_count || 0) : 0,
         defaulters_count: defaulters.length
       },
       students: studentRows,
@@ -201,13 +209,20 @@ export async function POST(req: Request) {
       class_name: assignedSection.class_name,
       section: assignedSection.section,
       marked_by: `Class Teacher (${assignments.teacher.full_name})`,
-      records: records.map((r: any) => ({
-        student_id: r.student_id,
-        admission_no: r.admission_no,
-        full_name: r.full_name || r.student_name,
-        roll_no: r.roll_no,
-        status: r.status || 'PRESENT'
-      }))
+      records: records.map((r: any) => {
+        let status = 'PRESENT';
+        const raw = String(r.status || 'PRESENT').toUpperCase();
+        if (raw === 'HOLIDAY') status = 'HOLIDAY';
+        else if (raw === 'ABSENT' || raw === 'LEAVE') status = 'ABSENT';
+        else status = 'PRESENT';
+        return {
+          student_id: r.student_id,
+          admission_no: r.admission_no,
+          full_name: r.full_name || r.student_name,
+          roll_no: r.roll_no,
+          status
+        };
+      })
     };
 
     const savedRecord = await AttendanceService.markAttendance(tenant, session, attendancePayload);

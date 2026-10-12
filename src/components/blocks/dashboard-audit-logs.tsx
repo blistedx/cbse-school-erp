@@ -43,6 +43,11 @@ export function DashboardAuditLogs({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedModule, setSelectedModule] = useState<string>('ALL');
   const [selectedSeverity, setSelectedSeverity] = useState<string>('ALL');
+  const [selectedUser, setSelectedUser] = useState<string>('ALL');
+  const [selectedAction, setSelectedAction] = useState<string>('ALL');
+  const [fromDate, setFromDate] = useState<string>('');
+  const [toDate, setToDate] = useState<string>('');
+  const [modalTab, setModalTab] = useState<'diff' | 'json'>('diff');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const [detailModalLog, setDetailModalLog] = useState<AuditLogEntry | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -59,6 +64,10 @@ export function DashboardAuditLogs({
       const params = new URLSearchParams();
       if (selectedModule !== 'ALL') params.append('module', selectedModule);
       if (selectedSeverity !== 'ALL') params.append('severity', selectedSeverity);
+      if (selectedUser !== 'ALL') params.append('user', selectedUser);
+      if (selectedAction !== 'ALL') params.append('action', selectedAction);
+      if (fromDate) params.append('fromDate', fromDate);
+      if (toDate) params.append('toDate', toDate);
       if (searchQuery.trim()) params.append('search', searchQuery.trim());
 
       const res = await fetch(`/api/audit-logs?${params.toString()}`);
@@ -72,7 +81,7 @@ export function DashboardAuditLogs({
     } finally {
       setLoading(false);
     }
-  }, [selectedModule, selectedSeverity, searchQuery]);
+  }, [selectedModule, selectedSeverity, selectedUser, selectedAction, fromDate, toDate, searchQuery]);
 
   useEffect(() => {
     fetchLogs();
@@ -88,16 +97,37 @@ export function DashboardAuditLogs({
     return { total, critical, warnings, uniqueActors };
   }, [logs]);
 
+  // Distinct users and actions for quick dropdown filters
+  const uniqueUsers = useMemo(() => {
+    const set = new Set<string>();
+    logs.forEach(l => {
+      if (l.actor?.name) set.add(l.actor.name);
+      else if (l.userId) set.add(l.userId);
+    });
+    return Array.from(set);
+  }, [logs]);
+
+  const uniqueActions = useMemo(() => {
+    const set = new Set<string>();
+    logs.forEach(l => {
+      if (l.action) set.add(l.action);
+    });
+    return Array.from(set);
+  }, [logs]);
+
   // Modules list
   const MODULES = [
     { id: 'ALL', label: 'All Modules' },
-    { id: 'EXAMINATION', label: 'Examination & Marks' },
+    { id: 'STUDENTS', label: 'Students SIS' },
+    { id: 'TEACHERS', label: 'Faculty & Staff' },
+    { id: 'CLASSES', label: 'Classes & Sections' },
     { id: 'FEES', label: 'Fees & Invoices' },
+    { id: 'EXAMS', label: 'Examination' },
     { id: 'ATTENDANCE', label: 'Attendance' },
-    { id: 'STUDENTS', label: 'Student Admissions' },
-    { id: 'BROADCAST', label: 'Broadcast & Alerts' },
-    { id: 'AUTH', label: 'Authentication & Security' },
-    { id: 'SETTINGS', label: 'System Settings' },
+    { id: 'HOMEWORK', label: 'Homework' },
+    { id: 'NOTICES', label: 'Notices' },
+    { id: 'SECURITY', label: 'RBAC Security' },
+    { id: 'AUDIT_LOGS', label: 'Audit Trail' },
   ];
 
   // Helper to format ISO timestamp
@@ -135,7 +165,17 @@ export function DashboardAuditLogs({
 
   // Download CSV
   const handleExportCsv = () => {
-    const url = `/api/audit-logs?export=csv${selectedModule !== 'ALL' ? `&module=${selectedModule}` : ''}${selectedSeverity !== 'ALL' ? `&severity=${selectedSeverity}` : ''}`;
+    const params = new URLSearchParams();
+    params.append('export', 'csv');
+    if (selectedModule !== 'ALL') params.append('module', selectedModule);
+    if (selectedSeverity !== 'ALL') params.append('severity', selectedSeverity);
+    if (selectedUser !== 'ALL') params.append('user', selectedUser);
+    if (selectedAction !== 'ALL') params.append('action', selectedAction);
+    if (fromDate) params.append('fromDate', fromDate);
+    if (toDate) params.append('toDate', toDate);
+    if (searchQuery.trim()) params.append('search', searchQuery.trim());
+
+    const url = `/api/audit-logs?${params.toString()}`;
     window.open(url, '_blank');
     showToast('Compliance Audit Trail CSV download started!');
   };
@@ -273,6 +313,52 @@ export function DashboardAuditLogs({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Action Filter */}
+            <select
+              value={selectedAction}
+              onChange={(e) => setSelectedAction(e.target.value)}
+              className="px-3 py-2 bg-[#F8FAF9] border border-[#DCE8E0] text-xs font-bold text-[#122A24] rounded-xl outline-none cursor-pointer"
+            >
+              <option value="ALL">All Actions</option>
+              {uniqueActions.map(act => (
+                <option key={act} value={act}>{act}</option>
+              ))}
+            </select>
+
+            {/* Operator / User Filter */}
+            <select
+              value={selectedUser}
+              onChange={(e) => setSelectedUser(e.target.value)}
+              className="px-3 py-2 bg-[#F8FAF9] border border-[#DCE8E0] text-xs font-bold text-[#122A24] rounded-xl outline-none cursor-pointer"
+            >
+              <option value="ALL">All Operators</option>
+              {uniqueUsers.map(u => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
+
+            {/* Date Range: From Date */}
+            <div className="flex items-center gap-1.5 bg-[#F8FAF9] border border-[#DCE8E0] px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#122A24]">
+              <span className="text-[10px] text-slate-400 font-mono uppercase">From:</span>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="bg-transparent border-none outline-none text-xs font-mono cursor-pointer"
+              />
+            </div>
+
+            {/* Date Range: To Date */}
+            <div className="flex items-center gap-1.5 bg-[#F8FAF9] border border-[#DCE8E0] px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#122A24]">
+              <span className="text-[10px] text-slate-400 font-mono uppercase">To:</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="bg-transparent border-none outline-none text-xs font-mono cursor-pointer"
+              />
+            </div>
+
             {/* Severity Filter */}
             <select
               value={selectedSeverity}
@@ -555,12 +641,94 @@ export function DashboardAuditLogs({
                 </div>
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1 font-mono">Payload &amp; Metadata (JSON):</label>
-                <pre className="p-3 bg-[#0D1B17] text-emerald-400 font-mono text-[11px] rounded-xl overflow-x-auto max-h-48">
-                  {JSON.stringify(detailModalLog.details || {}, null, 2)}
-                </pre>
+              {/* Tabs: Visual Diff vs Raw JSON */}
+              <div className="flex items-center gap-2 border-b border-[#E8F0EA] pb-1 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setModalTab('diff')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    modalTab === 'diff'
+                      ? 'bg-[#122A24] text-white shadow-xs'
+                      : 'bg-[#F8FAF9] text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Before / After Diff Viewer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTab('json')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    modalTab === 'json'
+                      ? 'bg-[#122A24] text-white shadow-xs'
+                      : 'bg-[#F8FAF9] text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Raw JSON Metadata
+                </button>
               </div>
+
+              {modalTab === 'diff' ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-700">Entity Change Delta:</span>
+                    <span className="text-[10px] font-mono text-slate-400">Action: {detailModalLog.action}</span>
+                  </div>
+
+                  {detailModalLog.diff ? (
+                    <div className="border border-[#DCE8E0] rounded-xl overflow-hidden max-h-56 overflow-y-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-[#F8FAF9] text-slate-600 font-mono text-[10px] uppercase border-b border-[#DCE8E0]">
+                          <tr>
+                            <th className="p-2">Field</th>
+                            <th className="p-2">Previous State (Before)</th>
+                            <th className="p-2">Updated State (After)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E8F0EA] font-mono text-[11px]">
+                          {Object.entries(detailModalLog.diff).map(([key, delta]: [string, any]) => (
+                            <tr key={key} className="hover:bg-[#F9FCFA]">
+                              <td className="p-2 font-bold text-[#122A24]">{key}</td>
+                              <td className="p-2 bg-red-50/50 text-red-700 line-through">
+                                {typeof delta.before === 'object' ? JSON.stringify(delta.before) : String(delta.before ?? 'null')}
+                              </td>
+                              <td className="p-2 bg-emerald-50/60 text-emerald-800 font-bold">
+                                {typeof delta.after === 'object' ? JSON.stringify(delta.after) : String(delta.after ?? 'null')}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : detailModalLog.before || detailModalLog.after ? (
+                    <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
+                      <div className="p-2.5 bg-red-50/50 border border-red-200 rounded-xl max-h-48 overflow-y-auto">
+                        <span className="text-[10px] font-bold text-red-700 uppercase block mb-1">State Before:</span>
+                        <pre className="text-red-900 whitespace-pre-wrap">{JSON.stringify(detailModalLog.before, null, 2) || 'null'}</pre>
+                      </div>
+                      <div className="p-2.5 bg-emerald-50/60 border border-emerald-200 rounded-xl max-h-48 overflow-y-auto">
+                        <span className="text-[10px] font-bold text-emerald-800 uppercase block mb-1">State After:</span>
+                        <pre className="text-emerald-950 whitespace-pre-wrap">{JSON.stringify(detailModalLog.after, null, 2) || 'null'}</pre>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-[#F8FAF9] border border-[#DCE8E0] rounded-xl text-center text-slate-500 font-sans text-xs">
+                      No structural object diff recorded for this event. Summary: <em>{detailModalLog.summary}</em>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1 font-mono">Payload &amp; Metadata (JSON):</label>
+                  <pre className="p-3 bg-[#0D1B17] text-emerald-400 font-mono text-[11px] rounded-xl overflow-x-auto max-h-52">
+                    {JSON.stringify({
+                      details: detailModalLog.details,
+                      before: detailModalLog.before,
+                      after: detailModalLog.after,
+                      diff: detailModalLog.diff
+                    }, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
 
             <div className="pt-2 flex justify-end">

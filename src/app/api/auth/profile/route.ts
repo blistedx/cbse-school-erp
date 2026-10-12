@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { Database } from '@/lib/db';
 import { requireAuth } from '@/lib/auth-guard';
+import { logAuditEvent } from '@/lib/audit-logger';
 
 /**
  * GET /api/auth/profile
@@ -151,6 +152,31 @@ export async function POST(req: Request) {
 
       const updatedTeacher = await Database.updateTeacher(teacher.id, updates);
 
+      if (new_password) {
+        logAuditEvent({
+          schoolId,
+          userId,
+          role,
+          module: 'AUDIT_LOGS',
+          action: 'PASSWORD_CHANGED',
+          severity: 'SECURITY',
+          summary: `Personal passcode updated for teacher "${teacher.full_name || teacher.staff_code}"`,
+          targetId: teacher.id
+        });
+      }
+      logAuditEvent({
+        schoolId,
+        userId,
+        role,
+        module: 'TEACHERS',
+        action: 'UPDATE_PROFILE',
+        severity: 'INFO',
+        summary: `Teacher profile updated for "${teacher.full_name || teacher.staff_code}"`,
+        targetId: teacher.id,
+        before: { full_name: teacher.full_name, email: teacher.email, phone: teacher.phone },
+        after: { full_name: updatedTeacher?.full_name, email: updatedTeacher?.email, phone: updatedTeacher?.phone }
+      });
+
       return NextResponse.json({
         success: true,
         message: new_password
@@ -192,6 +218,31 @@ export async function POST(req: Request) {
       }
 
       const updatedStudent = await Database.updateStudent(student.id, updates);
+
+      if (new_password) {
+        logAuditEvent({
+          schoolId,
+          userId,
+          role,
+          module: 'AUDIT_LOGS',
+          action: 'PASSWORD_CHANGED',
+          severity: 'SECURITY',
+          summary: `Personal passcode updated for ${role.toLowerCase()} "${student.full_name || student.admission_no}"`,
+          targetId: student.id
+        });
+      }
+      logAuditEvent({
+        schoolId,
+        userId,
+        role,
+        module: 'STUDENTS',
+        action: 'UPDATE_PROFILE',
+        severity: 'INFO',
+        summary: `Profile updated for student "${student.full_name || student.admission_no}"`,
+        targetId: student.id,
+        before: { email: student.email, phone: student.phone },
+        after: { email: updatedStudent?.email, phone: updatedStudent?.phone }
+      });
 
       return NextResponse.json({
         success: true,
@@ -237,6 +288,31 @@ export async function POST(req: Request) {
 
       const updatedSchool = await Database.updateSchool(targetSchool.id, updates);
       const resAvatar = (updatedSchool as any)?.principal_avatar || (updatedSchool as any)?.avatar || (updatedSchool as any)?.photo || '';
+
+      if (body.admin_pin) {
+        logAuditEvent({
+          schoolId,
+          userId,
+          role,
+          module: 'AUDIT_LOGS',
+          action: 'PASSWORD_CHANGED',
+          severity: 'SECURITY',
+          summary: `School Admin PIN updated for school "${targetSchool.name || schoolId}"`,
+          targetId: targetSchool.id
+        });
+      }
+      logAuditEvent({
+        schoolId,
+        userId,
+        role,
+        module: 'SCHOOLS',
+        action: 'UPDATE_PROFILE',
+        severity: 'INFO',
+        summary: `School administrator profile updated for "${targetSchool.name || schoolId}"`,
+        targetId: targetSchool.id,
+        before: { admin_name: targetSchool.admin_name, principal_name: targetSchool.principal_name },
+        after: { admin_name: updatedSchool?.admin_name, principal_name: updatedSchool?.principal_name }
+      });
 
       return NextResponse.json({
         success: true,

@@ -4,6 +4,7 @@ import { requireAuth, resolveTenantSchoolId } from '@/lib/auth-guard';
 import { Database } from '@/lib/db';
 import { isSameClass, getTodayDateStr } from '@/lib/utils';
 import { HomeworkItem } from '@/lib/types';
+import { logAuditEvent } from '@/lib/audit-logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,6 +97,20 @@ export async function POST(req: Request) {
       created_at: body.created_at || new Date().toISOString()
     });
 
+    logAuditEvent({
+      schoolId: tenant,
+      userId: auth.userId,
+      role: auth.role,
+      module: 'HOMEWORK',
+      action: id ? 'UPDATE' : 'CREATE',
+      severity: 'INFO',
+      summary: `Published homework: "${saved.title}" (${saved.class_name}-${saved.section} ${saved.subject_name})`,
+      targetId: saved.id,
+      targetName: saved.title,
+      before: id ? { id } : null,
+      after: saved
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Homework published successfully for scholars.',
@@ -118,6 +133,19 @@ export async function DELETE(req: Request) {
 
     const assignments = await Database.getTeacherAssignments(auth.schoolId || 'DPS2026', auth.userId);
     await Database.deleteHomework(id, assignments?.teacher?.id || auth.userId);
+
+    logAuditEvent({
+      schoolId: auth.schoolId || 'DPS2026',
+      userId: auth.userId,
+      role: auth.role,
+      module: 'HOMEWORK',
+      action: 'DELETE',
+      severity: 'INFO',
+      summary: `Deleted homework assignment ID ${id}`,
+      targetId: id,
+      before: { id },
+      after: null
+    });
 
     return NextResponse.json({ success: true, message: 'Homework removed successfully.' });
   } catch (error: any) {

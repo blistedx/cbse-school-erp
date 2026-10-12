@@ -884,4 +884,252 @@ export class AttendanceService {
       faculty_records: rows
     };
   }
+
+  /**
+   * Get all students marked ABSENT on a given date for a school.
+   * Useful for daily morning absentee alerts and parental communication.
+   */
+  static async getAbsentStudents(
+    schoolId: string,
+    session: string = '2026-27',
+    date: string = getTodayDateStr()
+  ): Promise<AbsentStudentInfo[]> {
+    const db = await getDatabase();
+    if (!db) return [];
+
+    const dayRecords = await db.collection('attendance')
+      .find({
+        school_id: { $in: expandSchoolIds([schoolId]) },
+        academic_session: session,
+        date
+      })
+      .toArray();
+
+    const absentList: AbsentStudentInfo[] = [];
+    const allStudents = await Database.getStudents(schoolId);
+    const studentMap = new Map<string, Student>();
+    for (const s of allStudents) {
+      studentMap.set(s.id, s);
+      if (s.admission_no) studentMap.set(s.admission_no, s);
+    }
+
+    for (const rec of dayRecords) {
+      if (Array.isArray(rec.student_records)) {
+        for (const sr of rec.student_records) {
+          const status = (sr.status || '').toUpperCase();
+          if (status === 'ABSENT' || status === 'LEAVE') {
+            const studentId = sr.student_id || sr.id;
+            const fullStudent = studentMap.get(studentId);
+            absentList.push({
+              studentId,
+              admissionNo: sr.admission_no || fullStudent?.admission_no || studentId,
+              fullName: sr.student_name || sr.full_name || fullStudent?.full_name || 'Scholar',
+              className: rec.class_name || fullStudent?.class_name || 'General',
+              section: rec.section || fullStudent?.section || 'A',
+              rollNo: sr.roll_no || (fullStudent?.roll_no ? String(fullStudent.roll_no) : undefined),
+              parentPhone: (fullStudent as any)?.father_mobile || (fullStudent as any)?.mother_mobile || fullStudent?.guardian_phone || fullStudent?.emergency_contact_phone || fullStudent?.mobile,
+              parentEmail: (fullStudent as any)?.father_email || (fullStudent as any)?.mother_email || fullStudent?.email,
+              date,
+              status: status as 'ABSENT' | 'LEAVE'
+            });
+          }
+        }
+      }
+    }
+
+    return absentList;
+  }
+
+  /**
+   * Hardware biometric / RFID punch ingestion
+   * Processes hardware scan logs from ZKTeco, Essl, or RFID gate swipe readers.
+   */
+  static async recordHardwarePunches(
+    schoolId: string,
+    session: string = '2026-27',
+    punches: Array<{
+      identifier: string; // rfid_card_id, admission_no, staff_code, or student_id
+      timestamp?: string;
+      device_id?: string;
+      in_out_type?: 'IN' | 'OUT' | 'CHECK';
+      punch_time?: string;
+    }>
+  ): Promise<{
+    success: boolean;
+    total: number;
+    matched: number;
+    unmatched: number;
+    studentsMarked: number;
+    facultyMarked: number;
+    logs: string[];
+  }> {
+    const db = await getDatabase();
+    if (!db) throw new Error('Database not connected');
+
+    const allStudents = await Database.getStudents(schoolId);
+    const allTeachers = await Database.getTeachers(schoolId);
+
+    const studentById = new Map<string, Student>();
+    const studentByRfid = new Map<string, Student>();
+    const studentByAdm = new Map<string, Student>();
+
+    for (const s of allStudents) {
+      studentById.set(s.id, s);
+      if (s.admission_no) studentByAdm.set(s.admission_no.toLowerCase().trim(), s);
+      if (s.rfid_card_id) studentByRfid.set(s.rfid_card_id.toLowerCase().trim(), s);
+    }
+
+    const teacherById = new Map<string, Teacher>();
+    const teacherByCode = new Map<string, Teacher>();
+    const teacherByRfid = new Map<string, Teacher>();
+
+    for (const t of allTeachers) {
+      teacherById.set(t.id, t);
+      if (t.staff_code) teacherByCode.set(t.staff_code.toLowerCase().trim(), t);
+      if (t.rfid_card_id) teacherByRfid.set(t.rfid_card_id.toLowerCase().trim(), t);
+    }
+
+    let matchedCount = 0;
+    let unmatchedCount = 0;
+    let studentsMarked = 0;
+    let facultyMarked = 0;
+    const logs: string[] = [];
+    const date = getTodayDateStr();
+
+    const studentPunchesByClass = new Map<string, Array<{ student: Student; time: string }>>();
+    const facultyPunches: Array<{ teacher: Teacher; time: string; inOut: string }> = [];
+
+    for (const punch of punches) {
+      const rawId = (punch.identifier || '').toLowerCase().trim();
+      if (!rawId) {
+        unmatchedCount++;
+        continue;
+      }
+
+      const punchTime = punch.punch_time || punch.timestamp || new Date().toISOString();
+      const timeStr = punchTime.includes('T') ? punchTime.split('T')[1].slice(0, 5) : punchTime.slice(0, 5);
+
+      const teacher = teacherById.get(rawId) || teacherByCode.get(rawId) || teacherByRfid.get(rawId);
+      if (teacher) {
+        matchedCount++;
+        facultyMarked++;
+        facultyPunches.push({ teacher, time: timeStr, inOut: punch.in_out_type || 'IN' });
+        logs.push(`Matched Staff: ${teacher.full_name} (${teacher.staff_code}) at ${timeStr}`);
+        continue;
+      }
+
+      const student = studentById.get(rawId) || studentByAdm.get(rawId) || studentByRfid.get(rawId);
+      if (student) {
+        matchedCount++;
+        studentsMarked++;
+        const classKey = `${student.class_name || 'Class 10'}_${student.section || 'A'}`;
+        if (!studentPunchesByClass.has(classKey)) {
+          studentPunchesByClass.set(classKey, []);
+        }
+        studentPunchesByClass.get(classKey)!.push({ student, time: timeStr });
+        logs.push(`Matched Scholar: ${student.full_name} (${student.admission_no}) at ${timeStr}`);
+        continue;
+      }
+
+      unmatchedCount++;
+      logs.push(`Unmatched identifier: ${punch.identifier}`);
+    }
+
+    for (const [classKey, pList] of studentPunchesByClass.entries()) {
+      const [className, section] = classKey.split('_');
+      const existingRecord = await db.collection('attendance').findOne({
+        school_id: { $in: expandSchoolIds([schoolId]) },
+        academic_session: session,
+        date,
+        class_name: className,
+        section
+      });
+
+      const classStudents = allStudents.filter(
+        s => isSameClass(s.class_name, className) && (s.section || 'A').toUpperCase() === section.toUpperCase()
+      );
+
+      const punchedIds = new Set(pList.map(p => p.student.id));
+
+      const updatedStudentRecords = classStudents.map(s => {
+        const existingStudentRec = (existingRecord?.student_records as any[])?.find((r: any) => (r.student_id || r.id) === s.id);
+        const wasPunched = punchedIds.has(s.id);
+        const currentStatus = wasPunched ? 'PRESENT' : (existingStudentRec?.status || 'ABSENT');
+        return {
+          student_id: s.id,
+          admission_no: s.admission_no || s.id,
+          full_name: s.full_name,
+          roll_no: s.roll_no ? String(s.roll_no) : '',
+          status: currentStatus as 'PRESENT' | 'ABSENT' | 'LEAVE' | 'HOLIDAY' | 'LATE',
+          marked_by: wasPunched ? 'Biometric/RFID Gateway' : (existingStudentRec?.marked_by || 'Auto-Roll')
+        };
+      });
+
+      await this.markAttendance(schoolId, session, {
+        date,
+        class_name: className,
+        section,
+        marked_by: 'Hardware Biometric Gateway',
+        student_records: updatedStudentRecords as any
+      });
+    }
+
+    if (facultyPunches.length > 0) {
+      const existingFacultyRec = await db.collection('attendance').findOne({
+        school_id: { $in: expandSchoolIds([schoolId]) },
+        academic_session: session,
+        date,
+        class_name: 'FACULTY',
+        section: 'ALL'
+      });
+
+      const punchedTeacherMap = new Map(facultyPunches.map(p => [p.teacher.id, p]));
+
+      const updatedTeacherRecords = allTeachers.map(t => {
+        const punch = punchedTeacherMap.get(t.id);
+        const existingTeacherRec = (existingFacultyRec?.teacher_records as any[])?.find((r: any) => (r.teacher_id || r.id) === t.id);
+
+        if (punch) {
+          return {
+            id: t.id,
+            teacher_id: t.id,
+            staff_code: t.staff_code || t.employee_code || 'EMP',
+            name: t.full_name,
+            status: 'PRESENT' as const,
+            in_time: existingTeacherRec?.in_time || punch.time,
+            out_time: punch.inOut === 'OUT' ? punch.time : (existingTeacherRec?.out_time || null),
+            is_late: false,
+            marked_by: 'Biometric/RFID Gateway'
+          };
+        }
+
+        return existingTeacherRec || {
+          id: t.id,
+          teacher_id: t.id,
+          staff_code: t.staff_code || t.employee_code || 'EMP',
+          name: t.full_name,
+          status: 'ABSENT' as const,
+          marked_by: 'System'
+        };
+      });
+
+      await this.markAttendance(schoolId, session, {
+        date,
+        class_name: 'FACULTY',
+        section: 'ALL',
+        marked_by: 'Hardware Biometric Gateway',
+        teacher_records: updatedTeacherRecords
+      });
+    }
+
+    return {
+      success: true,
+      total: punches.length,
+      matched: matchedCount,
+      unmatched: unmatchedCount,
+      studentsMarked,
+      facultyMarked,
+      logs
+    };
+  }
 }

@@ -10,6 +10,7 @@ export interface School {
   id: string;
   school_code: string;
   school_name: string;
+  name?: string;
   board: string;
   city: string;
   state: string;
@@ -171,6 +172,8 @@ export interface Student {
   concession_category?: string;
   is_new_admission?: 'YES' | 'NO' | string;
   medical_conditions?: string;
+  rfid_card_id?: string;
+  biometric_id?: string;
 }
 
 export interface HostelRoom {
@@ -221,9 +224,12 @@ export interface Teacher {
   password_hash?: string;
   avatar?: string; // Faculty avatar URL or data URI
   photo?: string;  // Faculty profile picture
+  rfid_card_id?: string;
+  biometric_id?: string;
 
   // CBSE Norms & Qualifications
   teacher_type?: 'PRT' | 'TGT' | 'PGT' | 'NTT' | 'NON_TEACHING' | 'ADMINISTRATIVE';
+  is_class_teacher?: boolean;
   subject_specialization?: string;
   classes_taught?: string;
   ctet_qualified?: 'YES' | 'NO';
@@ -276,6 +282,8 @@ export interface ClassRoom {
   section: string;
   class_code?: string;
   class_teacher?: string;
+  teacher_id?: string;
+  teacher_name?: string;
   room_no?: string;
   capacity?: number;
   subjects?: SubjectItem[];
@@ -325,6 +333,10 @@ export interface Notice {
   content: string;
   target_audience: 'ALL' | 'TEACHERS' | 'STUDENTS' | 'PARENTS' | string;
   posted_by: string;
+  author_name?: string;
+  target_classes?: string[];
+  is_published?: boolean;
+  priority?: 'NORMAL' | 'URGENT' | 'HIGH' | string;
   date?: string; // Date (YYYY-MM-DD)
   created_at: string; // Exact ISO Timestamp
 }
@@ -337,6 +349,7 @@ export interface AttendanceRecord {
   class_name: string;
   section: string;
   total_students: number;
+  total_count?: number;
   present_count: number;
   absent_count: number;
   leave_count?: number;
@@ -412,6 +425,8 @@ export interface Holiday {
   school_id: string;
   academic_session?: string;
   title: string;
+  name?: string;
+  date?: string;
   start_date: string; // YYYY-MM-DD
   end_date: string;   // YYYY-MM-DD
   total_days: number;
@@ -458,15 +473,25 @@ export interface AuditLogEntry {
     ip?: string;
     public_ip?: string;
   };
-  module: 'AUTH' | 'ATTENDANCE' | 'EXAMINATION' | 'FEES' | 'STUDENTS' | 'TEACHERS' | 'BROADCAST' | 'SETTINGS' | 'APPROVALS' | 'TRANSPORT' | 'PROMOTION' | 'CLASSES' | 'CERTIFICATES' | 'SECURITY';
+  module: 'AUTH' | 'ATTENDANCE' | 'EXAMINATION' | 'EXAMS' | 'FEES' | 'STUDENTS' | 'TEACHERS' | 'STAFF' | 'BROADCAST' | 'NOTICES' | 'SETTINGS' | 'APPROVALS' | 'TRANSPORT' | 'PROMOTION' | 'CLASSES' | 'CERTIFICATES' | 'SECURITY' | 'HOMEWORK' | 'LIBRARY' | 'HEALTH' | 'LEAVE' | 'DISCIPLINE' | 'EVENTS' | 'STORE' | 'LABS' | 'CURRICULUM' | 'REPORTS' | (string & {});
   action: string; // e.g. 'MARKS_SUBMITTED', 'STUDENT_ENROLLED', 'FEE_COLLECTED', 'ATTENDANCE_MARKED', etc.
   severity: 'INFO' | 'WARNING' | 'CRITICAL' | 'SECURITY';
   summary: string; // Human readable description
   details?: Record<string, any>; // JSON metadata
   targetId?: string; // Entity ID (e.g. Student ID, Invoice ID, Exam ID)
+  entityId?: string; // Canonical alias for targetId
   targetName?: string; // Entity Name (e.g. "Aarav Sharma", "Class 10-A")
+  before?: any; // Snapshot before mutation
+  after?: any;  // Snapshot after mutation
+  diff?: any;   // Differential delta
+  ip?: string;
+  userAgent?: string;
   school_id?: string;
+  schoolId?: string;
+  userId?: string;
+  role?: string;
   session?: string;
+  createdAt?: string;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -865,6 +890,7 @@ export interface ScheduledExamItem {
   school_id?: string;
   academic_session?: string;
   title: string;
+  name?: string;
   type: 'SCHOOL_EXAM' | 'CLASS_TEST';
   class_name: string;
   section: string;
@@ -897,6 +923,7 @@ export interface ReportCardTemplate {
   description?: string;
   selected_exams: ReportCardTemplateExam[];
   is_locked: boolean;
+  status?: 'ACTIVE' | 'DRAFT' | 'LOCKED' | string;
   created_by?: string;
   created_at?: string;
   updated_at?: string;
@@ -917,6 +944,7 @@ export interface ExamMarkRecord {
   theory_marks: number;
   practical_marks: number;
   total_marks: number;
+  marks_obtained?: number;
   max_marks: number;
   grade: string;
   gp: number;
@@ -1060,6 +1088,7 @@ export interface FeeLedgerLine {
 
   // Student identity (denormalized for query performance)
   student_id: string;
+  student_name?: string;
   class_name: string;
   section: string;
   admission_no: string;
