@@ -448,53 +448,25 @@ export default function SubjectReportsPage() {
             <p className="text-xs text-gray-500 mt-1">Please ensure marks have been recorded for this exam and subject.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase tracking-wider font-semibold">
-                  <th className="py-3 px-4">Roll No</th>
-                  <th className="py-3 px-4">Student Name</th>
-                  <th className="py-3 px-4">Marks Obtained</th>
-                  <th className="py-3 px-4">Max Marks</th>
-                  <th className="py-3 px-4">Percentage</th>
-                  <th className="py-3 px-4">Grade</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Teacher Remark</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredRecords.map((r) => {
-                  const pct = r.attendance_status === 'ABSENT' ? 0 : Math.round((r.total_marks / r.max_marks) * 100);
-                  const isWeak = pct < 40 && r.attendance_status !== 'ABSENT';
-                  return (
-                    <tr key={r.student_id} className={`hover:bg-gray-50/70 transition ${isWeak ? 'bg-rose-50/30' : ''}`}>
-                      <td className="py-3 px-4 font-mono font-medium text-gray-600">{r.roll_no || '-'}</td>
-                      <td className="py-3 px-4 font-semibold text-gray-900">{r.student_name}</td>
-                      <td className="py-3 px-4 font-bold text-gray-900">
-                        {r.attendance_status === 'ABSENT' ? (
-                          <span className="text-rose-600">ABSENT</span>
-                        ) : r.attendance_status === 'EXEMPT' ? (
-                          <span className="text-gray-500">EXEMPT</span>
-                        ) : (
-                          r.total_marks
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-gray-500">{r.max_marks}</td>
-                      <td className="py-3 px-4">
-                        {r.attendance_status === 'ABSENT' ? (
-                          <span className="text-gray-400">-</span>
-                        ) : (
-                          <span className={`font-semibold ${pct >= 75 ? 'text-emerald-700' : isWeak ? 'text-rose-600' : 'text-gray-700'}`}>
-                            {pct}%
+          <div>
+            {/* Mobile Student Scores Feed (< md) */}
+            <div className="block md:hidden divide-y divide-gray-100">
+              {filteredRecords.map((r) => {
+                const pct = r.attendance_status === 'ABSENT' ? 0 : Math.round((r.total_marks / r.max_marks) * 100);
+                const isWeak = pct < 40 && r.attendance_status !== 'ABSENT';
+                return (
+                  <div key={r.student_id} className={`p-4 space-y-2.5 hover:bg-gray-50/70 transition ${isWeak ? 'bg-rose-50/20' : ''}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        {r.roll_no && (
+                          <span className="text-[11px] font-mono text-gray-500 font-bold block">
+                            Roll No: {r.roll_no}
                           </span>
                         )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 text-gray-700">
-                          {r.grade || 'NA'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
+                        <h4 className="font-bold text-sm text-gray-900 mt-0.5">{r.student_name}</h4>
+                      </div>
+
+                      <div className="text-right shrink-0">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           r.attendance_status === 'PRESENT' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
                           r.attendance_status === 'ABSENT' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
@@ -502,13 +474,111 @@ export default function SubjectReportsPage() {
                         }`}>
                           {r.attendance_status}
                         </span>
-                      </td>
-                      <td className="py-3 px-4 text-gray-500 italic max-w-xs truncate">{r.remarks || '-'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between bg-gray-50/80 p-2.5 rounded-xl border border-gray-100 text-xs">
+                      <div>
+                        <span className="text-[10px] text-gray-400 font-mono uppercase block">Marks</span>
+                        <span className="font-bold text-gray-900 font-mono">
+                          {r.attendance_status === 'ABSENT' ? (
+                            <span className="text-rose-600">ABSENT</span>
+                          ) : r.attendance_status === 'EXEMPT' ? (
+                            <span className="text-gray-500">EXEMPT</span>
+                          ) : (
+                            `${r.total_marks} / ${r.max_marks}`
+                          )}
+                        </span>
+                      </div>
+
+                      <div className="text-center">
+                        <span className="text-[10px] text-gray-400 font-mono uppercase block">Grade</span>
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-white text-gray-800 border border-gray-200">
+                          {r.grade || 'NA'}
+                        </span>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] text-gray-400 font-mono uppercase block">Percentage</span>
+                        <span className={`font-black font-mono text-sm ${pct >= 75 ? 'text-emerald-700' : isWeak ? 'text-rose-600' : 'text-gray-800'}`}>
+                          {r.attendance_status === 'ABSENT' ? '--' : `${pct}%`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {r.remarks && (
+                      <p className="text-[11px] text-gray-600 italic bg-white p-2 rounded-lg border border-gray-100">
+                        Remark: {r.remarks}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Broadsheet Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase tracking-wider font-semibold">
+                    <th className="py-3 px-4">Roll No</th>
+                    <th className="py-3 px-4">Student Name</th>
+                    <th className="py-3 px-4">Marks Obtained</th>
+                    <th className="py-3 px-4">Max Marks</th>
+                    <th className="py-3 px-4">Percentage</th>
+                    <th className="py-3 px-4">Grade</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Teacher Remark</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredRecords.map((r) => {
+                    const pct = r.attendance_status === 'ABSENT' ? 0 : Math.round((r.total_marks / r.max_marks) * 100);
+                    const isWeak = pct < 40 && r.attendance_status !== 'ABSENT';
+                    return (
+                      <tr key={r.student_id} className={`hover:bg-gray-50/70 transition ${isWeak ? 'bg-rose-50/30' : ''}`}>
+                        <td className="py-3 px-4 font-mono font-medium text-gray-600">{r.roll_no || '-'}</td>
+                        <td className="py-3 px-4 font-semibold text-gray-900">{r.student_name}</td>
+                        <td className="py-3 px-4 font-bold text-gray-900">
+                          {r.attendance_status === 'ABSENT' ? (
+                            <span className="text-rose-600">ABSENT</span>
+                          ) : r.attendance_status === 'EXEMPT' ? (
+                            <span className="text-gray-500">EXEMPT</span>
+                          ) : (
+                            r.total_marks
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-gray-500">{r.max_marks}</td>
+                        <td className="py-3 px-4">
+                          {r.attendance_status === 'ABSENT' ? (
+                            <span className="text-gray-400">-</span>
+                          ) : (
+                            <span className={`font-semibold ${pct >= 75 ? 'text-emerald-700' : isWeak ? 'text-rose-600' : 'text-gray-700'}`}>
+                              {pct}%
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 text-gray-700">
+                            {r.grade || 'NA'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            r.attendance_status === 'PRESENT' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                            r.attendance_status === 'ABSENT' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                            'bg-gray-50 text-gray-700 border border-gray-200'
+                          }`}>
+                            {r.attendance_status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-gray-500 italic max-w-xs truncate">{r.remarks || '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

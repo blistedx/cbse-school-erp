@@ -289,55 +289,50 @@ function TeacherMarksContent() {
             No scholars enrolled in this class-section.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#F8FAF9] border-b border-[#DCE8E0] text-[#2D5A4E] font-bold font-mono text-[11px]">
-                <tr>
-                  <th className="py-3 px-3">Roll No</th>
-                  <th className="py-3 px-4">Scholar Name</th>
-                  <th className="py-3 px-3">Admission No</th>
-                  <th className="py-3 px-3">Attendance</th>
-                  <th className="py-3 px-3">Theory Marks</th>
-                  <th className="py-3 px-3">Practical / IA</th>
-                  <th className="py-3 px-3">Total Marks</th>
-                  <th className="py-3 px-3">Grade</th>
-                  <th className="py-3 px-4">Remarks</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E2EBE5]">
-                {records.map((r) => {
-                  const isLocked = sheetData?.is_locked;
-                  const isAbsent = r.attendance_status === 'ABSENT' || r.attendance_status === 'EXEMPT';
+          <>
+            {/* MOBILE VIEW: Touch-Friendly Marks Cards (< md screens) */}
+            <div className="block md:hidden divide-y divide-[#E2EBE5]">
+              {records.map((r) => {
+                const isLocked = sheetData?.is_locked;
+                const isAbsent = r.attendance_status === 'ABSENT' || r.attendance_status === 'EXEMPT';
 
-                  return (
-                    <tr key={r.student_id} className={`hover:bg-[#F8FAF9] transition ${isAbsent ? 'bg-slate-50/70 opacity-80' : ''}`}>
-                      <td className="py-3 px-3 font-mono font-bold text-[#122A24]">{r.roll_no || '--'}</td>
-                      <td className="py-3 px-4 font-bold text-[#122A24]">{r.student_name}</td>
-                      <td className="py-3 px-3 font-mono text-slate-500">{r.admission_no}</td>
+                return (
+                  <div key={r.student_id} className={`p-4 space-y-3 ${isAbsent ? 'bg-slate-50/70' : 'bg-white'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-900 font-mono font-bold text-xs flex items-center justify-center">
+                          {r.roll_no || '--'}
+                        </span>
+                        <div>
+                          <h4 className="font-bold text-sm text-[#122A24]">{r.student_name}</h4>
+                          <span className="text-[10px] font-mono text-slate-400">{r.admission_no}</span>
+                        </div>
+                      </div>
 
-                      {/* Attendance Status Selector */}
-                      <td className="py-3 px-3">
-                        <select
-                          disabled={isLocked}
-                          value={r.attendance_status}
-                          onChange={(e) => handleMarkChange(r.student_id, 'attendance_status', e.target.value)}
-                          className={`p-1.5 rounded-lg border text-[11px] font-bold font-mono cursor-pointer ${
-                            r.attendance_status === 'ABSENT'
-                              ? 'bg-rose-50 text-rose-800 border-rose-300'
-                              : r.attendance_status === 'EXEMPT'
-                              ? 'bg-amber-50 text-amber-800 border-amber-300'
-                              : 'bg-white text-emerald-800 border-emerald-300'
-                          }`}
-                        >
-                          <option value="PRESENT">Present</option>
-                          <option value="ABSENT">Absent</option>
-                          <option value="EXEMPT">Exempted</option>
-                          <option value="MEDICAL">Medical</option>
-                        </select>
-                      </td>
+                      {/* Attendance Selector on Mobile */}
+                      <select
+                        disabled={isLocked}
+                        value={r.attendance_status}
+                        onChange={(e) => handleMarkChange(r.student_id, 'attendance_status', e.target.value)}
+                        className={`p-1.5 rounded-lg border text-xs font-bold font-mono cursor-pointer ${
+                          r.attendance_status === 'ABSENT'
+                            ? 'bg-rose-50 text-rose-800 border-rose-300'
+                            : r.attendance_status === 'EXEMPT'
+                            ? 'bg-amber-50 text-amber-800 border-amber-300'
+                            : 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        }`}
+                      >
+                        <option value="PRESENT">Present</option>
+                        <option value="ABSENT">Absent</option>
+                        <option value="EXEMPT">Exempt</option>
+                        <option value="MEDICAL">Medical</option>
+                      </select>
+                    </div>
 
-                      {/* Theory Marks Input */}
-                      <td className="py-3 px-3">
+                    {/* Marks Inputs Grid */}
+                    <div className="grid grid-cols-3 gap-2 bg-[#F8FAF9] p-3 rounded-2xl border border-[#E2EBE5]">
+                      <div>
+                        <label className="text-[10px] font-mono text-slate-500 block">Theory</label>
                         <input
                           type="number"
                           disabled={isLocked || isAbsent}
@@ -345,12 +340,12 @@ function TeacherMarksContent() {
                           max={sheetData?.max_marks || 100}
                           value={isAbsent ? 0 : r.theory_marks}
                           onChange={(e) => handleMarkChange(r.student_id, 'theory_marks', e.target.value)}
-                          className="w-16 p-1.5 rounded-lg border border-[#DCE8E0] text-xs font-mono font-bold text-center bg-white focus:outline-hidden focus:border-emerald-500 disabled:bg-slate-100"
+                          className="w-full p-2 mt-1 rounded-xl border border-[#DCE8E0] text-sm font-mono font-bold text-center bg-white focus:outline-hidden focus:border-emerald-500 disabled:bg-slate-100"
                         />
-                      </td>
+                      </div>
 
-                      {/* Practical Marks Input */}
-                      <td className="py-3 px-3">
+                      <div>
+                        <label className="text-[10px] font-mono text-slate-500 block">Practical/IA</label>
                         <input
                           type="number"
                           disabled={isLocked || isAbsent}
@@ -358,39 +353,138 @@ function TeacherMarksContent() {
                           max={sheetData?.max_marks || 100}
                           value={isAbsent ? 0 : r.practical_marks}
                           onChange={(e) => handleMarkChange(r.student_id, 'practical_marks', e.target.value)}
-                          className="w-16 p-1.5 rounded-lg border border-[#DCE8E0] text-xs font-mono font-bold text-center bg-white focus:outline-hidden focus:border-emerald-500 disabled:bg-slate-100"
+                          className="w-full p-2 mt-1 rounded-xl border border-[#DCE8E0] text-sm font-mono font-bold text-center bg-white focus:outline-hidden focus:border-emerald-500 disabled:bg-slate-100"
                         />
-                      </td>
+                      </div>
 
-                      {/* Total Marks */}
-                      <td className="py-3 px-3 font-mono font-black text-sm text-[#122A24]">
-                        {isAbsent ? 0 : r.total_marks}
-                      </td>
+                      <div className="flex flex-col justify-center items-center text-center">
+                        <span className="text-[10px] font-mono text-slate-500 block">Total / Grade</span>
+                        <div className="mt-1 flex items-baseline gap-1">
+                          <span className="text-base font-black font-mono text-[#122A24]">{isAbsent ? 0 : r.total_marks}</span>
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold">
+                            {r.grade || '--'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
 
-                      {/* Grade */}
-                      <td className="py-3 px-3">
-                        <span className="font-mono font-bold text-[11px] bg-[#E2EBE5] px-2 py-0.5 rounded-md text-[#122A24]">
-                          {r.grade || '--'}
-                        </span>
-                      </td>
+                    <input
+                      type="text"
+                      disabled={isLocked}
+                      value={r.remarks || ''}
+                      onChange={(e) => handleMarkChange(r.student_id, 'remarks', e.target.value)}
+                      placeholder="Optional feedback / remark..."
+                      className="w-full p-2 text-xs rounded-xl border border-[#DCE8E0] bg-[#F8FAF9] focus:bg-white focus:border-emerald-500 outline-none"
+                    />
+                  </div>
+                );
+              })}
+            </div>
 
-                      {/* Remarks Input */}
-                      <td className="py-3 px-4">
-                        <input
-                          type="text"
-                          disabled={isLocked}
-                          value={r.remarks || ''}
-                          onChange={(e) => handleMarkChange(r.student_id, 'remarks', e.target.value)}
-                          placeholder="Feedback..."
-                          className="w-full p-1.5 rounded-lg border border-[#DCE8E0] text-xs bg-white focus:outline-hidden focus:border-emerald-500 disabled:bg-slate-100"
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+            {/* DESKTOP VIEW: Spreadsheet-Style Table (>= md screens) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F8FAF9] border-b border-[#DCE8E0] text-[#2D5A4E] font-bold font-mono text-[11px]">
+                  <tr>
+                    <th className="py-3 px-3">Roll No</th>
+                    <th className="py-3 px-4">Scholar Name</th>
+                    <th className="py-3 px-3">Admission No</th>
+                    <th className="py-3 px-3">Attendance</th>
+                    <th className="py-3 px-3">Theory Marks</th>
+                    <th className="py-3 px-3">Practical / IA</th>
+                    <th className="py-3 px-3">Total Marks</th>
+                    <th className="py-3 px-3">Grade</th>
+                    <th className="py-3 px-4">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E2EBE5]">
+                  {records.map((r) => {
+                    const isLocked = sheetData?.is_locked;
+                    const isAbsent = r.attendance_status === 'ABSENT' || r.attendance_status === 'EXEMPT';
+
+                    return (
+                      <tr key={r.student_id} className={`hover:bg-[#F8FAF9] transition ${isAbsent ? 'bg-slate-50/70 opacity-80' : ''}`}>
+                        <td className="py-3 px-3 font-mono font-bold text-[#122A24]">{r.roll_no || '--'}</td>
+                        <td className="py-3 px-4 font-bold text-[#122A24]">{r.student_name}</td>
+                        <td className="py-3 px-3 font-mono text-slate-500">{r.admission_no}</td>
+
+                        {/* Attendance Status Selector */}
+                        <td className="py-3 px-3">
+                          <select
+                            disabled={isLocked}
+                            value={r.attendance_status}
+                            onChange={(e) => handleMarkChange(r.student_id, 'attendance_status', e.target.value)}
+                            className={`p-1.5 rounded-lg border text-[11px] font-bold font-mono cursor-pointer ${
+                              r.attendance_status === 'ABSENT'
+                                ? 'bg-rose-50 text-rose-800 border-rose-300'
+                                : r.attendance_status === 'EXEMPT'
+                                ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                : 'bg-white text-emerald-800 border-emerald-300'
+                            }`}
+                          >
+                            <option value="PRESENT">Present</option>
+                            <option value="ABSENT">Absent</option>
+                            <option value="EXEMPT">Exempted</option>
+                            <option value="MEDICAL">Medical</option>
+                          </select>
+                        </td>
+
+                        {/* Theory Marks Input */}
+                        <td className="py-3 px-3">
+                          <input
+                            type="number"
+                            disabled={isLocked || isAbsent}
+                            min="0"
+                            max={sheetData?.max_marks || 100}
+                            value={isAbsent ? 0 : r.theory_marks}
+                            onChange={(e) => handleMarkChange(r.student_id, 'theory_marks', e.target.value)}
+                            className="w-16 p-1.5 rounded-lg border border-[#DCE8E0] text-xs font-mono font-bold text-center bg-white focus:outline-hidden focus:border-emerald-500 disabled:bg-slate-100"
+                          />
+                        </td>
+
+                        {/* Practical Marks Input */}
+                        <td className="py-3 px-3">
+                          <input
+                            type="number"
+                            disabled={isLocked || isAbsent}
+                            min="0"
+                            max={sheetData?.max_marks || 100}
+                            value={isAbsent ? 0 : r.practical_marks}
+                            onChange={(e) => handleMarkChange(r.student_id, 'practical_marks', e.target.value)}
+                            className="w-16 p-1.5 rounded-lg border border-[#DCE8E0] text-xs font-mono font-bold text-center bg-white focus:outline-hidden focus:border-emerald-500 disabled:bg-slate-100"
+                          />
+                        </td>
+
+                        {/* Total Marks */}
+                        <td className="py-3 px-3 font-mono font-black text-sm text-[#122A24]">
+                          {isAbsent ? 0 : r.total_marks}
+                        </td>
+
+                        {/* Grade */}
+                        <td className="py-3 px-3">
+                          <span className="font-mono font-bold text-[11px] bg-[#E2EBE5] px-2 py-0.5 rounded-md text-[#122A24]">
+                            {r.grade || '--'}
+                          </span>
+                        </td>
+
+                        {/* Remarks Input */}
+                        <td className="py-3 px-4">
+                          <input
+                            type="text"
+                            disabled={isLocked}
+                            value={r.remarks || ''}
+                            onChange={(e) => handleMarkChange(r.student_id, 'remarks', e.target.value)}
+                            placeholder="Feedback..."
+                            className="w-full p-1.5 rounded-lg border border-[#DCE8E0] text-xs bg-white focus:outline-hidden focus:border-emerald-500 disabled:bg-slate-100"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

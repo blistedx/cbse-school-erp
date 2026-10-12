@@ -32,7 +32,7 @@ import {
   MessageSquare,
   Save
 } from 'lucide-react';
-import { getTodayDateStr } from '@/lib/utils';
+import { getTodayDateStr, formatClassSectionDisplay } from '@/lib/utils';
 
 export default function TeacherDashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -276,6 +276,16 @@ export default function TeacherDashboardPage() {
   const presentCountSheet = sheetStudents.filter(s => s.status === 'PRESENT').length;
   const absentCountSheet = sheetStudents.filter(s => s.status === 'ABSENT').length;
 
+  const classDisplay = formatClassSectionDisplay(
+    class_teacher_section?.class_name,
+    class_teacher_section?.section
+  );
+  const statsClassDisplay = formatClassSectionDisplay(
+    class_teacher_stats?.class_name,
+    class_teacher_stats?.section
+  );
+  const displayClassCode = classDisplay.code || statsClassDisplay.code || 'X-A';
+
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in relative">
       {/* ── PERSISTENT ATTENDANCE ALERT PILL (If Attendance is pending today) ── */}
@@ -288,7 +298,7 @@ export default function TeacherDashboardPage() {
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping shrink-0" />
             <div className="min-w-0">
               <span className="text-xs font-bold text-amber-950 block truncate">
-                🚨 Class {class_teacher_stats.class_name}-{class_teacher_stats.section} Roll Call Pending!
+                🚨 Class {displayClassCode} Roll Call Pending!
               </span>
               <span className="text-[11px] text-amber-900/80 font-mono hidden sm:inline">
                 Tap here to open fast mobile attendance pop-up
@@ -305,25 +315,38 @@ export default function TeacherDashboardPage() {
         </div>
       )}
 
-      {/* ── 1. HERO TEACHER APP CARD (MOBILE FIRST) ── */}
-      <div className="p-5 sm:p-7 rounded-3xl text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#122A24] via-[#16382E] to-[#1C443A] border border-emerald-800/40 space-y-4">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-radial from-emerald-400/15 to-transparent pointer-events-none" />
+      {/* ── 1. HERO TEACHER APP CARD (EXECUTIVE WORKSTATION) ── */}
+      <div className="p-4.5 sm:p-6 rounded-3xl text-white shadow-xl relative overflow-hidden bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] border border-emerald-700/50 space-y-4 sm:space-y-5">
+        <div className="absolute -right-12 -top-12 w-64 h-64 bg-radial from-emerald-400/20 via-teal-500/5 to-transparent pointer-events-none rounded-full blur-2xl" />
+        <div className="absolute right-0 bottom-0 w-1/2 h-1/2 bg-radial from-amber-400/10 to-transparent pointer-events-none rounded-full blur-xl" />
 
-        {/* Top Header Row with Live Clock */}
-        <div className="flex items-center justify-between relative z-10">
-          <div className="flex items-center gap-2 text-xs font-mono text-emerald-300">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-bold">{currentTime || '08:00 AM IST'}</span>
+        {/* Top Header Row with Live Clock & Session Badges */}
+        <div className="flex items-center justify-between relative z-10 border-b border-white/10 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2.5 w-2.5 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+            </span>
+            <span className="font-mono font-bold text-xs sm:text-sm tracking-wider text-emerald-200">
+              {currentTime || '08:00:00 AM'}
+            </span>
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 font-bold uppercase">
+              IST
+            </span>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            {is_class_teacher && class_teacher_section ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[10px] font-bold font-mono">
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-emerald-200 border border-white/10 text-[11px] font-mono font-medium">
+              <CalendarCheck className="w-3 h-3 text-emerald-300" />
+              Session 2026-27
+            </span>
+            {is_class_teacher ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[10px] sm:text-[11px] font-bold font-mono">
                 <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" />
-                Class Incharge: {class_teacher_section.class_name}-{class_teacher_section.section}
+                Class Incharge
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold font-mono">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] sm:text-[11px] font-bold font-mono">
                 <ShieldCheck className="w-3 h-3 text-emerald-400" />
                 Subject Faculty
               </span>
@@ -331,43 +354,82 @@ export default function TeacherDashboardPage() {
           </div>
         </div>
 
-        {/* Teacher Identity & Greeting */}
-        <div className="relative z-10 flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-400 to-teal-300 text-[#122A24] font-black text-lg flex items-center justify-center shadow-lg shrink-0">
-            {(teacher.full_name || 'T')[0]}
+        {/* Teacher Identity & BADA BADA Class Incharge Showcase */}
+        <div className="relative z-10 flex items-center justify-between gap-3 sm:gap-6">
+          {/* Left: Avatar & Identity */}
+          <div className="flex items-center gap-3 sm:gap-4.5 min-w-0 flex-1">
+            <div className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-emerald-400 via-teal-300 to-emerald-200 text-[#0F2620] font-black text-xl sm:text-2xl flex items-center justify-center shadow-lg shrink-0 ring-2 ring-emerald-300/40 ring-offset-2 ring-offset-[#14352B]">
+              {(teacher.full_name || 'T')[0]}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base sm:text-2xl font-black text-white tracking-tight truncate leading-tight">
+                {teacher.full_name}
+              </h1>
+              <p className="text-xs sm:text-sm text-emerald-200/90 font-medium truncate mt-0.5">
+                {teacher.designation || 'Faculty Member'}
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-white/10 text-emerald-200 text-[10px] sm:text-[11px] font-mono font-bold tracking-wide border border-white/10">
+                  ID: {teacher.staff_code}
+                </span>
+                {teacher.department && (
+                  <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-200 text-[10px] font-mono border border-emerald-500/20 truncate max-w-[140px]">
+                    {teacher.department}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight truncate">
-              {teacher.full_name}
-            </h1>
-            <p className="text-xs text-emerald-200/80 font-mono truncate">
-              {teacher.designation || 'Teacher'} • Staff Code: {teacher.staff_code}
-            </p>
-          </div>
+
+          {/* Right: X-A BADA BADA SHOWCASE */}
+          {is_class_teacher && (
+            <div className="relative shrink-0 group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-amber-400/40 via-amber-300/30 to-emerald-400/30 rounded-2xl blur-xs group-hover:opacity-100 transition duration-300" />
+              <div className="relative bg-gradient-to-b from-[#183d32] to-[#0e251f] border-2 border-amber-400/60 rounded-2xl px-3 py-2 sm:px-5 sm:py-2.5 flex flex-col items-center justify-center text-center shadow-xl backdrop-blur-md min-w-[92px] sm:min-w-[125px]">
+                <div className="flex items-center gap-1 text-[8.5px] sm:text-[10px] font-mono font-black uppercase tracking-wider text-amber-300/90">
+                  <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400 animate-pulse shrink-0" />
+                  <span>Class Incharge</span>
+                </div>
+                <div className="text-2xl sm:text-4xl font-black font-mono tracking-wider text-amber-300 drop-shadow-[0_2px_10px_rgba(251,191,36,0.35)] leading-none my-1">
+                  {displayClassCode}
+                </div>
+                <div className="text-[8.5px] sm:text-[10px] font-mono text-emerald-200/90 font-medium">
+                  {class_teacher_section?.student_count
+                    ? `${class_teacher_section.student_count} Scholars`
+                    : (class_teacher_section?.room_no ? `Room ${class_teacher_section.room_no}` : 'Assigned')}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Biometrics Quick Action Bar inside Hero Card */}
-        <div className="relative z-10 pt-2 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
-          <div className="flex items-center gap-2">
-            <Fingerprint className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span className="text-emerald-200">
-              {biometric_today.status === 'PRESENT'
-                ? `Clocked In at ${biometric_today.in_time || '08:15 AM'}`
-                : biometric_today.status === 'REGULARIZED'
-                ? 'Regularized by Principal'
-                : 'Not Clocked In Yet'}
-            </span>
+        <div className="relative z-10 pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
+          <div className="flex items-center gap-2.5 bg-black/20 sm:bg-transparent p-2 sm:p-0 rounded-xl sm:rounded-none">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 border border-emerald-500/30">
+              <Fingerprint className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] text-emerald-300/70 block uppercase leading-none font-bold">Biometric Attendance</span>
+              <span className="text-xs font-bold text-emerald-100 leading-tight">
+                {biometric_today.status === 'PRESENT'
+                  ? `Clocked In at ${biometric_today.in_time || '08:15 AM'}`
+                  : biometric_today.status === 'REGULARIZED'
+                  ? 'Regularized by Principal'
+                  : 'Not Clocked In Yet'}
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {biometric_today.status !== 'PRESENT' ? (
               <button
                 type="button"
                 onClick={() => handlePunch('PUNCH_IN')}
                 disabled={punching}
-                className="w-full sm:w-auto px-4 py-2 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-[#122A24] font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2 bg-emerald-400 hover:bg-emerald-300 active:scale-95 text-[#0F2620] font-black rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
               >
-                <LogIn className="w-3.5 h-3.5" />
+                <LogIn className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>{punching ? 'Recording...' : 'Clock In Now'}</span>
               </button>
             ) : !biometric_today.out_time ? (
@@ -375,13 +437,13 @@ export default function TeacherDashboardPage() {
                 type="button"
                 onClick={() => handlePunch('PUNCH_OUT')}
                 disabled={punching}
-                className="w-full sm:w-auto px-4 py-2 bg-amber-400 hover:bg-amber-300 active:scale-95 text-[#122A24] font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2 bg-amber-400 hover:bg-amber-300 active:scale-95 text-[#0F2620] font-black rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="w-3.5 h-3.5 stroke-[2.5]" />
                 <span>{punching ? 'Recording...' : 'Clock Out Departure'}</span>
               </button>
             ) : (
-              <span className="text-emerald-300 font-bold flex items-center gap-1">
+              <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-bold flex items-center gap-1 text-xs">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Shift Completed
               </span>
             )}
@@ -425,7 +487,7 @@ export default function TeacherDashboardPage() {
             <div>
               <span className="text-xs font-bold text-[#122A24] block truncate">Student Roll Call</span>
               <span className="text-[10px] text-slate-500 font-mono truncate block">
-                {is_class_teacher && class_teacher_section ? `${class_teacher_section.class_name}-${class_teacher_section.section}` : 'Classes'}
+                {is_class_teacher ? `Class ${displayClassCode}` : 'Classes'}
               </span>
             </div>
           </Link>
@@ -496,7 +558,7 @@ export default function TeacherDashboardPage() {
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-600" />
               <h2 className="text-xs sm:text-sm font-bold text-[#122A24]">
-                Class {class_teacher_stats.class_name}-{class_teacher_stats.section} Overview Today
+                Class {displayClassCode} Overview Today
               </h2>
             </div>
             <Link

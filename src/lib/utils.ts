@@ -211,3 +211,52 @@ export function isSameClass(classA?: string, classB?: string): boolean {
 export function formatCurrency(paise: number): string {
   return `₹${(Math.round(Number(paise) || 0) / 100).toLocaleString('en-IN')}`;
 }
+
+/**
+ * Standardizes CBSE Class and Section formatting into Roman numeral codes (e.g., "Class 10" + "A" -> "X-A").
+ */
+export function formatClassSectionDisplay(className?: string, section?: string): {
+  roman: string;
+  section: string;
+  code: string;
+  fullName: string;
+} {
+  if (!className && !section) {
+    return { roman: '', section: '', code: '', fullName: '' };
+  }
+
+  const romanMap: Record<string, string> = {
+    '1': 'I', '2': 'II', '3': 'III', '4': 'IV', '5': 'V',
+    '6': 'VI', '7': 'VII', '8': 'VIII', '9': 'IX', '10': 'X',
+    '11': 'XI', '12': 'XII'
+  };
+
+  let rawClass = (className || '').trim().replace(/^(class|grade|std|standard)\s+/i, '').trim();
+  let rawSec = (section || '').trim().toUpperCase();
+
+  // If section is empty, check if class string already includes section suffix (e.g. "10-A", "10 A")
+  if (!rawSec) {
+    const secMatch = rawClass.match(/[-_\s(]([A-Za-z])\)?$/);
+    if (secMatch) {
+      rawSec = secMatch[1].toUpperCase();
+      rawClass = rawClass.replace(/[-_\s(]([A-Za-z])\)?$/, '').trim();
+    }
+  } else {
+    // If rawClass has redundant -A at end while rawSec is also provided
+    rawClass = rawClass.replace(new RegExp(`[-_\\s(]${rawSec}\\)?$`, 'i'), '').trim();
+  }
+
+  // Check numeric 1-12
+  const numMatch = rawClass.match(/\b([1-9]|1[0-2])\b/);
+  let roman = '';
+  if (numMatch && romanMap[numMatch[1]]) {
+    roman = romanMap[numMatch[1]];
+  } else {
+    roman = rawClass;
+  }
+
+  const code = rawSec ? `${roman}-${rawSec}` : roman;
+  const fullName = rawSec ? `Class ${roman}-${rawSec}` : `Class ${roman}`;
+
+  return { roman, section: rawSec, code, fullName };
+}

@@ -24,17 +24,91 @@ export async function GET(req: Request) {
 
     const session = searchParams.get('session') || searchParams.get('academic_session') || '2026-27';
     const studentId = searchParams.get('student_id');
+    const reqClass = searchParams.get('class_name') || searchParams.get('class');
+    const reqSection = searchParams.get('section');
 
-    // 1. Verify Class Teacher Assignment
-    const assignments = await Database.getTeacherAssignments(tenant, auth.userId);
-    if (!assignments || !assignments.isClassTeacher || !assignments.classTeacherSection) {
-      return NextResponse.json({
-        success: false,
-        error: 'Access Denied: You are not assigned as a Class Teacher.'
-      }, { status: 403 });
+    // 1. Resolve Teacher Assignments with fallback
+    let assignments = await Database.getTeacherAssignments(tenant, auth.userId);
+    if (!assignments) {
+      const teachers = await Database.getTeachers(tenant);
+      const matched = teachers.find(t => 
+        (t.staff_code && t.staff_code.toUpperCase() === (auth.userId || '').toUpperCase()) ||
+        (t.id && t.id.toUpperCase() === (auth.userId || '').toUpperCase()) ||
+        (t.email && t.email.toLowerCase() === (auth.userId || '').toLowerCase())
+      );
+      if (matched) {
+        assignments = await Database.getTeacherAssignments(tenant, matched.id);
+      }
     }
 
-    const { class_name, section } = assignments.classTeacherSection;
+    // Determine available classes for this teacher or admin
+    const allClasses = await Database.getClasses(tenant);
+    const isSuperOrAdmin = ['SUPERADMIN', 'GOD_ACCESS', 'AGENCY_SUPERADMIN', 'PRINCIPAL', 'ADMIN'].includes(userRole);
+
+    let targetClassName = '';
+    let targetSection = 'A';
+    const availableClasses: Array<{ class_name: string; section: string; is_class_teacher: boolean; label: string }> = [];
+
+    if (assignments?.isClassTeacher && assignments.classTeacherSection) {
+      availableClasses.push({
+        class_name: assignments.classTeacherSection.class_name,
+        section: assignments.classTeacherSection.section,
+        is_class_teacher: true,
+        label: `${assignments.classTeacherSection.class_name}-${assignments.classTeacherSection.section} (Class Teacher)`
+      });
+      targetClassName = assignments.classTeacherSection.class_name;
+      targetSection = assignments.classTeacherSection.section;
+    }
+
+    if (Array.isArray(assignments?.allocatedSubjects)) {
+      assignments.allocatedSubjects.forEach(s => {
+        const exists = availableClasses.some(
+          ac => isSameClass(ac.class_name, s.class_name) && ac.section.toUpperCase() === s.section.toUpperCase()
+        );
+        if (!exists) {
+          availableClasses.push({
+            class_name: s.class_name,
+            section: s.section,
+            is_class_teacher: false,
+            label: `${s.class_name}-${s.section} (${s.subject_name || 'Subject'})`
+          });
+        }
+      });
+    }
+
+    // If superadmin or admin, or if teacher has no specific class, add all school classes
+    if (isSuperOrAdmin || availableClasses.length === 0) {
+      allClasses.forEach(c => {
+        const exists = availableClasses.some(
+          ac => isSameClass(ac.class_name, c.class_name) && ac.section.toUpperCase() === (c.section || 'A').toUpperCase()
+        );
+        if (!exists) {
+          availableClasses.push({
+            class_name: c.class_name,
+            section: c.section || 'A',
+            is_class_teacher: false,
+            label: `${c.class_name}-${c.section || 'A'}`
+          });
+        }
+      });
+    }
+
+    // Override with requested class if provided and valid
+    if (reqClass) {
+      targetClassName = reqClass;
+      targetSection = reqSection || 'A';
+    } else if (!targetClassName && availableClasses.length > 0) {
+      targetClassName = availableClasses[0].class_name;
+      targetSection = availableClasses[0].section;
+    }
+
+    if (!targetClassName) {
+      targetClassName = 'Class 10';
+      targetSection = 'A';
+    }
+
+    const class_name = targetClassName;
+    const section = targetSection;
 
     // 2. Fetch all students in class
     const allStudents = await Database.getStudents(tenant, session);
@@ -125,6 +199,7 @@ export async function GET(req: Request) {
       success: true,
       class_name,
       section,
+      available_classes: availableClasses,
       total_students: studentRoster.length,
       students: studentRoster
     });

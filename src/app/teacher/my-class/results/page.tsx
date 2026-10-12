@@ -367,47 +367,95 @@ export default function ClassResultAnalysisPage() {
             <p className="font-medium text-gray-700">No evaluation records found</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase font-semibold">
-                  <th className="py-3 px-4">Roll</th>
-                  <th className="py-3 px-4">Adm No</th>
-                  <th className="py-3 px-4">Student Name</th>
-                  <th className="py-3 px-4">Marks Obtained</th>
-                  <th className="py-3 px-4">Max Marks</th>
-                  <th className="py-3 px-4">Percentage</th>
-                  <th className="py-3 px-4">Academic Standing</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredResults.map(s => (
-                  <tr key={s.student_id} className={`hover:bg-gray-50/70 transition ${s.is_failing ? 'bg-rose-50/20' : ''}`}>
-                    <td className="py-3 px-4 font-mono font-medium text-gray-700">{s.roll_no || '-'}</td>
-                    <td className="py-3 px-4 font-mono text-gray-500">{s.admission_no}</td>
-                    <td className="py-3 px-4 font-semibold text-gray-900">{s.student_name}</td>
-                    <td className="py-3 px-4 font-bold text-gray-900">{s.total_obtained}</td>
-                    <td className="py-3 px-4 text-gray-500">{s.total_max}</td>
-                    <td className="py-3 px-4">
-                      <span className={`font-bold ${s.percentage >= 75 ? 'text-emerald-700' : s.is_failing ? 'text-rose-600' : 'text-gray-800'}`}>
-                        {s.percentage}%
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
+          <div>
+            {/* Mobile Student Results Cards (< md) */}
+            <div className="block md:hidden divide-y divide-gray-100">
+              {filteredResults.map(s => (
+                <div key={s.student_id} className={`p-4 space-y-2.5 hover:bg-gray-50/70 transition ${s.is_failing ? 'bg-rose-50/20' : ''}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-[11px] font-mono text-gray-500">
+                        {s.roll_no && <span className="font-bold text-gray-700">Roll: {s.roll_no}</span>}
+                        <span>Adm: {s.admission_no}</span>
+                      </div>
+                      <h4 className="font-bold text-sm text-gray-900 mt-0.5">{s.student_name}</h4>
+                    </div>
+
+                    <div className="shrink-0">
                       {s.is_failing ? (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                          Remedial Recommended
+                          Remedial
                         </span>
                       ) : (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                           Satisfactory
                         </span>
                       )}
-                    </td>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl border border-gray-100 text-xs">
+                    <div>
+                      <span className="text-[10px] text-gray-400 font-mono uppercase block">Marks</span>
+                      <span className="font-bold text-gray-900 font-mono">
+                        {s.total_obtained} / {s.total_max}
+                      </span>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-[10px] text-gray-400 font-mono uppercase block">Percentage</span>
+                      <span className={`font-black font-mono text-sm ${s.percentage >= 75 ? 'text-emerald-700' : s.is_failing ? 'text-rose-600' : 'text-gray-800'}`}>
+                        {s.percentage}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Broadsheet Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase font-semibold">
+                    <th className="py-3 px-4">Roll</th>
+                    <th className="py-3 px-4">Adm No</th>
+                    <th className="py-3 px-4">Student Name</th>
+                    <th className="py-3 px-4">Marks Obtained</th>
+                    <th className="py-3 px-4">Max Marks</th>
+                    <th className="py-3 px-4">Percentage</th>
+                    <th className="py-3 px-4">Academic Standing</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredResults.map(s => (
+                    <tr key={s.student_id} className={`hover:bg-gray-50/70 transition ${s.is_failing ? 'bg-rose-50/20' : ''}`}>
+                      <td className="py-3 px-4 font-mono font-medium text-gray-700">{s.roll_no || '-'}</td>
+                      <td className="py-3 px-4 font-mono text-gray-500">{s.admission_no}</td>
+                      <td className="py-3 px-4 font-semibold text-gray-900">{s.student_name}</td>
+                      <td className="py-3 px-4 font-bold text-gray-900">{s.total_obtained}</td>
+                      <td className="py-3 px-4 text-gray-500">{s.total_max}</td>
+                      <td className="py-3 px-4">
+                        <span className={`font-bold ${s.percentage >= 75 ? 'text-emerald-700' : s.is_failing ? 'text-rose-600' : 'text-gray-800'}`}>
+                          {s.percentage}%
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        {s.is_failing ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                            Remedial Recommended
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Satisfactory
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

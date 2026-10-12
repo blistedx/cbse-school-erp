@@ -27,7 +27,9 @@ export default function TeacherAttendancePage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState<string>('2026-08');
+  // Default to current month or active month
+  const currentMonthStr = new Date().toISOString().substring(0, 7);
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
 
   // Live IST Clock
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -72,15 +74,19 @@ export default function TeacherAttendancePage() {
     }
   });
 
-  const loadAttendance = useCallback(async () => {
+  const loadAttendance = useCallback(async (monthToLoad?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`/api/teacher/attendance?month=${selectedMonth}`);
+      const queryMonth = monthToLoad || selectedMonth;
+      const res = await fetch(`/api/teacher/attendance?month=${queryMonth}`);
       if (!res.ok) throw new Error('Failed to load biometric records');
       const json = await res.json();
       if (json.success) {
         setData(json);
+        if (json.active_month && !monthToLoad && (!json.ledger || json.ledger.length === 0) && json.available_months?.length > 0) {
+          // If current month has no records yet but other months do, offer clean sync
+        }
       } else {
         setError(json.error || 'Failed to load attendance');
       }
@@ -94,6 +100,10 @@ export default function TeacherAttendancePage() {
   useEffect(() => {
     loadAttendance();
   }, [loadAttendance]);
+
+  const handleMonthChange = (newMonth: string) => {
+    setSelectedMonth(newMonth);
+  };
 
   const handlePunchAction = async (action: 'PUNCH_IN' | 'PUNCH_OUT') => {
     try {
@@ -195,27 +205,54 @@ export default function TeacherAttendancePage() {
         </div>
 
         {/* Month Selector & Requests Link */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <select
             value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="p-2.5 rounded-xl bg-white border border-[#DCE8E0] text-xs font-mono font-bold text-[#122A24] focus:outline-hidden focus:border-[#10B981] shadow-xs cursor-pointer"
+            onChange={(e) => handleMonthChange(e.target.value)}
+            className="flex-1 sm:flex-initial p-2.5 rounded-xl bg-white border border-[#DCE8E0] text-xs font-mono font-bold text-[#122A24] focus:outline-hidden focus:border-[#10B981] shadow-xs cursor-pointer"
           >
-            <option value="2026-08">August 2026</option>
-            <option value="2026-07">July 2026</option>
-            <option value="2026-05">May 2026</option>
-            <option value="2026-04">April 2026</option>
+            {Array.from(new Set([
+              selectedMonth,
+              '2026-10',
+              '2026-09',
+              '2026-08',
+              '2026-07',
+              '2026-05',
+              '2026-04',
+              ...(Array.isArray(data?.available_months) ? data.available_months : [])
+            ])).filter(Boolean).map((m: string) => {
+              const [y, mo] = m.split('-');
+              const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+              const label = `${monthNames[Number(mo)] || mo} ${y}`;
+              return <option key={m} value={m}>{label}</option>;
+            })}
           </select>
 
           <Link
             href="/teacher/requests"
-            className="px-4 py-2.5 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 transition flex items-center gap-1.5 shadow-xs"
+            className="px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
           >
             <span>My Petitions</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </div>
+
+      {punchFeedback && (
+        <div className={`p-4 rounded-2xl border text-xs font-bold font-mono animate-fade-in flex items-center justify-between ${
+          punchFeedback.type === 'success'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            : 'bg-rose-50 border-rose-200 text-rose-800'
+        }`}>
+          <div className="flex items-center gap-2">
+            {punchFeedback.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-600" />}
+            <span>{punchFeedback.message}</span>
+          </div>
+          <button onClick={() => setPunchFeedback(null)} className="text-slate-400 hover:text-slate-700">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* TODAY'S LIVE ATTENDANCE PUNCH & LEAVE QUOTA DESK */}
       <div className="bg-[#122A24] text-white rounded-3xl p-6 sm:p-7 shadow-xl relative overflow-hidden border border-emerald-800/50">
@@ -435,82 +472,174 @@ export default function TeacherAttendancePage() {
             Loading unified staff attendance records...
           </div>
         ) : error ? (
-          <div className="p-12 text-center text-rose-600 font-mono text-xs">{error}</div>
+          <div className="p-8 text-center space-y-3">
+            <p className="text-rose-600 font-mono text-xs">{error}</p>
+            <button
+              onClick={() => loadAttendance()}
+              className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+            >
+              Retry Connection
+            </button>
+          </div>
         ) : !data?.ledger || data.ledger.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 font-mono text-xs">
-            No biometric records logged for {selectedMonth}
+          <div className="p-8 sm:p-12 text-center space-y-3">
+            <Palmtree className="w-10 h-10 text-slate-300 mx-auto" />
+            <p className="text-slate-500 font-mono text-xs">
+              No biometric records logged for {selectedMonth}
+            </p>
+            {data?.available_months && data.available_months.length > 0 && data.available_months[0] !== selectedMonth && (
+              <button
+                onClick={() => setSelectedMonth(data.available_months[0])}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+              >
+                View Active Month ({data.available_months[0]})
+              </button>
+            )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#F8FAF9] border-b border-[#DCE8E0] text-[#2D5A4E] font-bold font-mono text-[11px]">
-                <tr>
-                  <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Day</th>
-                  <th className="py-3 px-4">Biometric IN</th>
-                  <th className="py-3 px-4">Biometric OUT</th>
-                  <th className="py-3 px-4">Duration</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Regularization Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E2EBE5]">
-                {data.ledger.map((row: any) => (
-                  <tr key={row.date} className="hover:bg-[#F8FAF9] transition">
-                    <td className="py-3.5 px-4 font-mono font-bold text-[#122A24]">{row.date}</td>
-                    <td className="py-3.5 px-4 text-slate-500 font-mono">{row.day_of_week}</td>
-                    <td className="py-3.5 px-4 font-mono">{row.in_time}</td>
-                    <td className="py-3.5 px-4 font-mono">{row.out_time}</td>
-                    <td className="py-3.5 px-4 font-mono text-slate-600">{row.working_hours}</td>
-                    <td className="py-3.5 px-4">
-                      {row.is_regularized ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
-                          <CheckCircle2 className="w-3 h-3 text-amber-600" />
-                          Regularized by Principal
-                        </span>
-                      ) : row.status === 'PRESENT' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          Present
-                        </span>
-                      ) : row.status === 'ABSENT' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-lg">
-                          <XCircle className="w-3 h-3 text-rose-600" />
-                          Absent / Missed
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-lg">
-                          {row.status}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      {row.existing_request ? (
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold font-mono px-2 py-0.5 rounded-lg border ${
-                          row.existing_request.status === 'PENDING'
-                            ? 'bg-amber-50 text-amber-800 border-amber-200'
-                            : row.existing_request.status === 'APPROVED'
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-rose-50 text-rose-800 border-rose-200'
-                        }`}>
-                          Petition: {row.existing_request.status}
-                        </span>
-                      ) : row.can_raise_request ? (
-                        <button
-                          onClick={() => handleOpenRequestModal(row.date)}
-                          className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] shadow-xs transition cursor-pointer"
-                        >
-                          Raise Request
-                        </button>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 font-mono">--</span>
-                      )}
-                    </td>
+          <>
+            {/* MOBILE VIEW: Touch-Friendly Attendance Cards (< md screens) */}
+            <div className="block md:hidden divide-y divide-[#E2EBE5]">
+              {data.ledger.map((row: any) => (
+                <div key={row.date} className="p-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-sm text-[#122A24]">{row.date}</span>
+                      <span className="text-xs text-slate-400 font-mono">({row.day_of_week})</span>
+                    </div>
+
+                    {row.is_regularized ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                        <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                        Regularized
+                      </span>
+                    ) : row.status === 'PRESENT' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        Present
+                      </span>
+                    ) : row.status === 'ABSENT' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-lg">
+                        <XCircle className="w-3 h-3 text-rose-600" />
+                        Missed
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-lg">
+                        {row.status}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 bg-[#F8FAF9] p-2.5 rounded-xl text-xs font-mono">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">IN</span>
+                      <span className="font-bold text-[#122A24]">{row.in_time || '--:--'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block">OUT</span>
+                      <span className="font-bold text-[#122A24]">{row.out_time || '--:--'}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 block">Duration</span>
+                      <span className="font-bold text-emerald-700">{row.working_hours || '--'}</span>
+                    </div>
+                  </div>
+
+                  {row.existing_request ? (
+                    <div className={`p-2 rounded-xl text-[11px] font-bold font-mono text-center border ${
+                      row.existing_request.status === 'PENDING'
+                        ? 'bg-amber-50 text-amber-800 border-amber-200'
+                        : row.existing_request.status === 'APPROVED'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : 'bg-rose-50 text-rose-800 border-rose-200'
+                    }`}>
+                      Petition: {row.existing_request.status}
+                    </div>
+                  ) : row.can_raise_request ? (
+                    <button
+                      onClick={() => handleOpenRequestModal(row.date)}
+                      className="w-full py-2 bg-amber-600 hover:bg-amber-700 active:scale-98 text-white rounded-xl font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Raise Regularization Petition</span>
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            {/* DESKTOP VIEW: Table (>= md screens) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F8FAF9] border-b border-[#DCE8E0] text-[#2D5A4E] font-bold font-mono text-[11px]">
+                  <tr>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Day</th>
+                    <th className="py-3 px-4">Biometric IN</th>
+                    <th className="py-3 px-4">Biometric OUT</th>
+                    <th className="py-3 px-4">Duration</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Regularization Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-[#E2EBE5]">
+                  {data.ledger.map((row: any) => (
+                    <tr key={row.date} className="hover:bg-[#F8FAF9] transition">
+                      <td className="py-3.5 px-4 font-mono font-bold text-[#122A24]">{row.date}</td>
+                      <td className="py-3.5 px-4 text-slate-500 font-mono">{row.day_of_week}</td>
+                      <td className="py-3.5 px-4 font-mono">{row.in_time}</td>
+                      <td className="py-3.5 px-4 font-mono">{row.out_time}</td>
+                      <td className="py-3.5 px-4 font-mono text-slate-600">{row.working_hours}</td>
+                      <td className="py-3.5 px-4">
+                        {row.is_regularized ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                            <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                            Regularized
+                          </span>
+                        ) : row.status === 'PRESENT' ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            Present
+                          </span>
+                        ) : row.status === 'ABSENT' ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-lg">
+                            <XCircle className="w-3 h-3 text-rose-600" />
+                            Absent / Missed
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-lg">
+                            {row.status}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        {row.existing_request ? (
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold font-mono px-2 py-0.5 rounded-lg border ${
+                            row.existing_request.status === 'PENDING'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              : row.existing_request.status === 'APPROVED'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : 'bg-rose-50 text-rose-800 border-rose-200'
+                          }`}>
+                            Petition: {row.existing_request.status}
+                          </span>
+                        ) : row.can_raise_request ? (
+                          <button
+                            onClick={() => handleOpenRequestModal(row.date)}
+                            className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] shadow-xs transition cursor-pointer"
+                          >
+                            Raise Request
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 font-mono">--</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

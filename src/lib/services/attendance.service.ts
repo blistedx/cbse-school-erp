@@ -7,7 +7,7 @@
 import { getDatabase, sanitizeDocNoBinary as sanitizeDoc } from '@/lib/mongodb';
 import { AttendanceRecord, Holiday, Student, Teacher } from '@/lib/types';
 import { getTodayDateStr, normalizeClassName, isSameClass } from '@/lib/utils';
-import { Database, invalidateServerCache, expandSchoolIds } from '@/lib/db';
+import { invalidateServerCache, expandSchoolIds } from '@/lib/db';
 import { AggregatesService } from '@/lib/services/aggregates.service';
 
 export interface StudentAttendanceSummary {

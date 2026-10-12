@@ -16,6 +16,7 @@ import {
   Building2,
   GraduationCap
 } from 'lucide-react';
+import { formatClassSectionDisplay } from '@/lib/utils';
 
 interface TeacherProfile {
   id: string;
@@ -187,7 +188,7 @@ export default function TeacherProfilePage() {
                 {profile?.is_class_teacher && profile.class_teacher_section && (
                   <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500 text-[#122A24]">
                     <ShieldCheck className="w-3.5 h-3.5" />
-                    Class Teacher: {profile.class_teacher_section.class_name}-{profile.class_teacher_section.section}
+                    Class Incharge: {formatClassSectionDisplay(profile.class_teacher_section.class_name, profile.class_teacher_section.section).code}
                   </span>
                 )}
                 <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">

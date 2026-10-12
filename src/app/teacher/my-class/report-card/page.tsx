@@ -290,82 +290,167 @@ export default function ConsolidatedReportCardPage() {
             <p className="font-medium text-gray-700">No marks recorded yet for this examination</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase tracking-wider font-semibold">
-                  <th className="py-3 px-3 w-12">Roll</th>
-                  <th className="py-3 px-4 min-w-[140px]">Student Name</th>
-                  {subjects.map(s => (
-                    <th key={s.name} className="py-3 px-3 text-center">
-                      <div>{s.name}</div>
-                      <div className="text-[10px] text-gray-400 font-normal">Max {s.max_marks}</div>
-                    </th>
-                  ))}
-                  <th className="py-3 px-3 text-center font-bold text-gray-900">Total</th>
-                  <th className="py-3 px-3 text-center font-bold text-emerald-800">%</th>
-                  <th className="py-3 px-3">Conduct</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredRows.map((r) => (
-                  <tr key={r.student_id} className="hover:bg-gray-50/70 transition">
-                    <td className="py-3 px-3 font-mono font-medium text-gray-700">{r.roll_no || '-'}</td>
-                    <td className="py-3 px-4 font-semibold text-gray-900">{r.student_name}</td>
-                    {subjects.map(s => {
-                      const sm = r.subjects[s.name];
-                      if (!sm) {
-                        return <td key={s.name} className="py-3 px-3 text-center text-gray-300">--</td>;
-                      }
-                      return (
-                        <td key={s.name} className="py-3 px-3 text-center">
-                          {sm.is_absent ? (
-                            <span className="text-rose-600 font-bold text-[10px]">ABS</span>
-                          ) : (
-                            <div>
-                              <span className="font-semibold text-gray-800">{sm.total_marks}</span>
-                              <span className="text-[10px] text-gray-400 block">{sm.grade}</span>
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="py-3 px-3 text-center font-bold text-gray-900">
-                      {r.total_obtained} / {r.total_max}
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <span className={`font-bold ${r.percentage >= 75 ? 'text-emerald-700' : r.percentage < 40 ? 'text-rose-600' : 'text-gray-800'}`}>
+          <div>
+            {/* Mobile Scholar Broadsheet Cards (< md) */}
+            <div className="block md:hidden divide-y divide-gray-100">
+              {filteredRows.map((r) => (
+                <div key={r.student_id} className="p-4 space-y-3 hover:bg-gray-50/70 transition">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-[11px] font-mono text-gray-500">
+                        {r.roll_no && <span className="font-bold text-gray-700">Roll: {r.roll_no}</span>}
+                        <span>Adm: {r.admission_no}</span>
+                      </div>
+                      <h3 className="font-bold text-base text-gray-900 mt-0.5">{r.student_name}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-gray-500 font-mono">
+                          Total: <strong className="text-gray-900">{r.total_obtained}/{r.total_max}</strong>
+                        </span>
+                        <span className="px-2 py-0.2 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">
+                          Conduct: {r.conduct}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="text-[10px] font-mono text-gray-400 block uppercase">Score</span>
+                      <span className={`text-lg font-black font-mono ${
+                        r.percentage >= 75 ? 'text-emerald-700' : r.percentage < 40 ? 'text-rose-600' : 'text-gray-800'
+                      }`}>
                         {r.percentage}%
                       </span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-700">
-                        {r.conduct}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => openRemarksModal(r)}
-                          title="Edit Teacher Remarks"
-                          className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 transition"
+                    </div>
+                  </div>
+
+                  {/* Subject Breakdown Pills */}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {subjects.map(s => {
+                      const sm = r.subjects[s.name];
+                      if (!sm) return null;
+                      return (
+                        <div
+                          key={s.name}
+                          className="px-2 py-1 rounded-lg bg-gray-50 border border-gray-200/80 text-[11px] flex items-center gap-1.5 font-mono"
                         >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setPreviewStudent(r)}
-                          title="Preview Report Card"
-                          className="p-1.5 rounded-lg bg-[#122A24] text-white hover:bg-emerald-900 transition"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
+                          <span className="text-gray-600 font-semibold">{s.name}:</span>
+                          {sm.is_absent ? (
+                            <span className="text-rose-600 font-bold">ABS</span>
+                          ) : (
+                            <span className="text-gray-900 font-bold">
+                              {sm.total_marks} <span className="text-gray-400 font-normal">({sm.grade})</span>
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Teacher Remark snippet */}
+                  {r.class_teacher_remark && (
+                    <p className="text-[11px] text-emerald-800 italic bg-emerald-50/50 p-2 rounded-lg border border-emerald-100">
+                      Remark: {r.class_teacher_remark}
+                    </p>
+                  )}
+
+                  {/* Actions Bar */}
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
+                    <button
+                      onClick={() => openRemarksModal(r)}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 active:scale-95 transition"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-gray-500" />
+                      <span>Edit Remarks</span>
+                    </button>
+                    <button
+                      onClick={() => setPreviewStudent(r)}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-[#122A24] text-white hover:bg-emerald-900 active:scale-95 transition shadow-xs"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview Card</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Broadsheet Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase tracking-wider font-semibold">
+                    <th className="py-3 px-3 w-12">Roll</th>
+                    <th className="py-3 px-4 min-w-[140px]">Student Name</th>
+                    {subjects.map(s => (
+                      <th key={s.name} className="py-3 px-3 text-center">
+                        <div>{s.name}</div>
+                        <div className="text-[10px] text-gray-400 font-normal">Max {s.max_marks}</div>
+                      </th>
+                    ))}
+                    <th className="py-3 px-3 text-center font-bold text-gray-900">Total</th>
+                    <th className="py-3 px-3 text-center font-bold text-emerald-800">%</th>
+                    <th className="py-3 px-3">Conduct</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredRows.map((r) => (
+                    <tr key={r.student_id} className="hover:bg-gray-50/70 transition">
+                      <td className="py-3 px-3 font-mono font-medium text-gray-700">{r.roll_no || '-'}</td>
+                      <td className="py-3 px-4 font-semibold text-gray-900">{r.student_name}</td>
+                      {subjects.map(s => {
+                        const sm = r.subjects[s.name];
+                        if (!sm) {
+                          return <td key={s.name} className="py-3 px-3 text-center text-gray-300">--</td>;
+                        }
+                        return (
+                          <td key={s.name} className="py-3 px-3 text-center">
+                            {sm.is_absent ? (
+                              <span className="text-rose-600 font-bold text-[10px]">ABS</span>
+                            ) : (
+                              <div>
+                                <span className="font-semibold text-gray-800">{sm.total_marks}</span>
+                                <span className="text-[10px] text-gray-400 block">{sm.grade}</span>
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="py-3 px-3 text-center font-bold text-gray-900">
+                        {r.total_obtained} / {r.total_max}
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <span className={`font-bold ${r.percentage >= 75 ? 'text-emerald-700' : r.percentage < 40 ? 'text-rose-600' : 'text-gray-800'}`}>
+                          {r.percentage}%
+                        </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-700">
+                          {r.conduct}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => openRemarksModal(r)}
+                            title="Edit Teacher Remarks"
+                            className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 transition"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setPreviewStudent(r)}
+                            title="Preview Report Card"
+                            className="p-1.5 rounded-lg bg-[#122A24] text-white hover:bg-emerald-900 transition"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

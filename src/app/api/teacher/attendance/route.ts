@@ -24,13 +24,27 @@ export async function GET(req: Request) {
     const session = searchParams.get('session') || searchParams.get('academic_session') || '2026-27';
     const month = searchParams.get('month'); // e.g. '2026-08' or undefined
 
-    // Resolve teacher
     const teachers = await Database.getTeachers(tenant);
-    const teacher = teachers.find(t => 
-      t.id === auth.userId || 
-      (t.staff_code && t.staff_code === auth.userId) ||
-      (t.email && t.email === auth.username)
+    let teacher = teachers.find(t => 
+      (t.id && t.id.toLowerCase() === (auth.userId || '').toLowerCase()) || 
+      (t.staff_code && t.staff_code.toLowerCase() === (auth.userId || '').toLowerCase()) ||
+      (t.email && t.email.toLowerCase() === (auth.userId || '').toLowerCase())
     );
+
+    if (!teacher) {
+      const assignments = await Database.getTeacherAssignments(tenant, auth.userId);
+      if (assignments?.teacher) {
+        teacher = assignments.teacher;
+      }
+    }
+
+    if (!teacher && ['SUPERADMIN', 'GOD_ACCESS', 'AGENCY_SUPERADMIN', 'PRINCIPAL', 'ADMIN'].includes(userRole)) {
+      teacher = teachers.find(t => t.is_class_teacher) || teachers[0];
+    }
+
+    if (!teacher && teachers.length > 0) {
+      teacher = teachers[0];
+    }
 
     if (!teacher) {
       return NextResponse.json({ success: false, error: 'Teacher profile not found.' }, { status: 404 });
@@ -44,13 +58,19 @@ export async function GET(req: Request) {
       (Array.isArray(a.teacher_records) && a.teacher_records.length > 0)
     );
 
-    // Get holidays for context
-    const holidays = await Database.getHolidays(tenant, session);
+    // Extract available months from recorded data
+    const availableMonths = Array.from(new Set(
+      facultyRecords.map(r => r.date.substring(0, 7)).filter(Boolean)
+    )).sort((a, b) => b.localeCompare(a));
 
-    // Filter by month if provided
-    const targetFacultyRecords = month 
-      ? facultyRecords.filter(r => r.date.startsWith(month))
-      : facultyRecords;
+    const todayMonth = getTodayDateStr().substring(0, 7);
+    if (!availableMonths.includes(todayMonth)) {
+      availableMonths.unshift(todayMonth);
+    }
+
+    // Filter by month if provided, or default to requested or latest available
+    const activeMonth = month || (availableMonths.length > 0 ? availableMonths[0] : todayMonth);
+    const targetFacultyRecords = facultyRecords.filter(r => r.date.startsWith(activeMonth));
 
     // Existing biometric requests for this teacher
     const bioRequests = await Database.getBiometricRequests(tenant, teacher.id);
@@ -145,6 +165,8 @@ export async function GET(req: Request) {
         staff_code: teacher.staff_code,
         full_name: teacher.full_name
       },
+      active_month: activeMonth,
+      available_months: availableMonths,
       today_punch: todayPunch,
       summary: {
         total_working_days: totalRecordedDays,
@@ -180,11 +202,26 @@ export async function POST(req: Request) {
 
     // Resolve teacher
     const teachers = await Database.getTeachers(tenant);
-    const teacher = teachers.find(t => 
-      t.id === auth.userId || 
-      (t.staff_code && t.staff_code === auth.userId) ||
-      (t.email && t.email === auth.username)
+    let teacher = teachers.find(t => 
+      (t.id && t.id.toLowerCase() === (auth.userId || '').toLowerCase()) || 
+      (t.staff_code && t.staff_code.toLowerCase() === (auth.userId || '').toLowerCase()) ||
+      (t.email && t.email.toLowerCase() === (auth.userId || '').toLowerCase())
     );
+
+    if (!teacher) {
+      const assignments = await Database.getTeacherAssignments(tenant, auth.userId);
+      if (assignments?.teacher) {
+        teacher = assignments.teacher;
+      }
+    }
+
+    if (!teacher && ['SUPERADMIN', 'GOD_ACCESS', 'AGENCY_SUPERADMIN', 'PRINCIPAL', 'ADMIN'].includes(userRole)) {
+      teacher = teachers.find(t => t.is_class_teacher) || teachers[0];
+    }
+
+    if (!teacher && teachers.length > 0) {
+      teacher = teachers[0];
+    }
 
     if (!teacher) {
       return NextResponse.json({ success: false, error: 'Teacher profile not found.' }, { status: 404 });

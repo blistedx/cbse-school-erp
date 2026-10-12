@@ -240,25 +240,25 @@ export default function ClassStudentLeavesPage() {
                 </div>
 
                 {l.status === 'PENDING' ? (
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="w-full sm:w-auto grid grid-cols-2 sm:flex sm:items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
                     <button
                       onClick={() => setActionItem({ id: l.id, action: 'APPROVE', student_name: l.student_name })}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition"
+                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition shadow-xs active:scale-95 cursor-pointer"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Approve
                     </button>
                     <button
                       onClick={() => setActionItem({ id: l.id, action: 'REJECT', student_name: l.student_name })}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition"
+                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition active:scale-95 cursor-pointer"
                     >
                       <XCircle className="w-3.5 h-3.5" />
                       Reject
                     </button>
                   </div>
                 ) : (
-                  <div className="text-right text-xs text-gray-400">
-                    Decided on {l.action_at || 'record'}
+                  <div className="text-left sm:text-right text-xs text-gray-400 font-mono">
+                    Decided: {l.action_at || 'Recorded'}
                   </div>
                 )}
               </div>
@@ -269,8 +269,8 @@ export default function ClassStudentLeavesPage() {
 
       {/* Decision Dialog Modal */}
       {actionItem && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200 max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-gray-900 mb-1">
               {actionItem.action === 'APPROVE' ? 'Approve Leave Request' : 'Reject Leave Request'}
             </h3>
@@ -286,14 +286,14 @@ export default function ClassStudentLeavesPage() {
               value={remarkInput}
               onChange={(e) => setRemarkInput(e.target.value)}
               placeholder="e.g., Granted on medical grounds..."
-              className="w-full text-xs p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 outline-none mb-4"
+              className="w-full text-xs p-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 outline-none mb-4"
             />
 
-            <div className="flex items-center justify-end gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setActionItem(null)}
-                className="px-3.5 py-2 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+                className="py-2.5 text-xs font-medium rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition text-center"
               >
                 Cancel
               </button>
@@ -301,7 +301,7 @@ export default function ClassStudentLeavesPage() {
                 type="button"
                 onClick={handleAction}
                 disabled={processing}
-                className={`px-4 py-2 text-xs font-bold rounded-lg text-white transition ${
+                className={`py-2.5 text-xs font-bold rounded-xl text-white transition text-center shadow-xs ${
                   actionItem.action === 'APPROVE'
                     ? 'bg-emerald-600 hover:bg-emerald-500'
                     : 'bg-rose-600 hover:bg-rose-500'

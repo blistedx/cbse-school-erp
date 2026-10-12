@@ -14,6 +14,7 @@ import {
   Sparkles,
   ArrowRight
 } from 'lucide-react';
+import { formatClassSectionDisplay } from '@/lib/utils';
 
 export default function TeacherClassesPage() {
   const [loading, setLoading] = useState(true);
@@ -87,7 +88,7 @@ export default function TeacherClassesPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-xl font-black text-[#122A24]">
-                {class_teacher_section.class_name} - {class_teacher_section.section}
+                Class {formatClassSectionDisplay(class_teacher_section.class_name, class_teacher_section.section).code}
               </h2>
               <p className="text-xs text-[#2D5A4E] font-mono">
                 Room: {class_teacher_section.room_no || 'Assigned Classroom'} • Incharge Duties Active

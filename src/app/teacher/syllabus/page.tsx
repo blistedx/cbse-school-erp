@@ -220,17 +220,17 @@ function TeacherSyllabusContent() {
       </div>
 
       {/* Selectors */}
-      <div className="p-5 bg-white rounded-3xl border border-[#DCE8E0] shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="p-4 sm:p-5 bg-white rounded-3xl border border-[#DCE8E0] shadow-sm space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-mono font-bold text-slate-600 mb-1.5 uppercase">
             Curriculum Month
           </label>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 no-scrollbar">
             {['April', 'May', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February'].map((m) => (
               <button
                 key={m}
                 onClick={() => setSelectedMonth(m)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold font-mono transition cursor-pointer whitespace-nowrap shrink-0 ${
                   selectedMonth === m
                     ? 'bg-[#122A24] text-white shadow-xs'
                     : 'bg-[#F8FAF9] text-[#2D5A4E] hover:bg-[#E2EBE5]'
@@ -263,7 +263,7 @@ function TeacherSyllabusContent() {
       {/* Success Banner */}
       {successMessage && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-2xl flex items-center gap-2 font-bold">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{successMessage}</span>
         </div>
       )}
@@ -292,7 +292,7 @@ function TeacherSyllabusContent() {
               className="bg-white rounded-3xl border border-[#DCE8E0] shadow-sm overflow-hidden"
             >
               {/* Plan Header with Progress Bar */}
-              <div className="p-5 border-b border-[#DCE8E0] bg-[#F8FAF9] space-y-3">
+              <div className="p-4 sm:p-5 border-b border-[#DCE8E0] bg-[#F8FAF9] space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2 text-xs">
@@ -303,16 +303,16 @@ function TeacherSyllabusContent() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 sm:gap-3">
                     <span className="text-xs font-mono font-bold text-[#122A24]">
-                      {plan.completion_percent}% Completed ({plan.completed_topics}/{plan.total_topics} Topics)
+                      {plan.completion_percent}% ({plan.completed_topics}/{plan.total_topics} Topics)
                     </span>
                     <button
                       onClick={() => handleMarkMonthCompleted(plan)}
                       className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center gap-1"
                     >
                       <Check className="w-3.5 h-3.5" />
-                      <span>Mark Month Completed</span>
+                      <span>Mark Month Done</span>
                     </button>
                   </div>
                 </div>
@@ -326,8 +326,79 @@ function TeacherSyllabusContent() {
                 </div>
               </div>
 
-              {/* Topics Table */}
-              <div className="overflow-x-auto">
+              {/* Mobile Topics Card Feed (< md) */}
+              <div className="block md:hidden divide-y divide-[#E2EBE5]">
+                {(plan.topics || []).map((t: any, idx: number) => {
+                  const isCompleted = t.status === 'COMPLETED';
+                  const isInProgress = t.status === 'IN_PROGRESS';
+
+                  return (
+                    <div key={t.id} className="p-4 space-y-2.5 hover:bg-[#F8FAF9] transition">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-0.5 flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-bold">
+                              Ch #{t.chapter_no || idx + 1}
+                            </span>
+                            <span className="font-mono text-[11px] text-slate-500 truncate">{t.chapter_title}</span>
+                          </div>
+                          <h4 className="font-bold text-sm text-[#122A24] leading-snug">{t.topic_title}</h4>
+                        </div>
+                        <div className="shrink-0">
+                          {isCompleted ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              Completed
+                            </span>
+                          ) : isInProgress ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                              <Clock className="w-3 h-3 text-amber-600" />
+                              In Progress
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg">
+                              Not Started
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 bg-[#F8FAF9] p-2.5 rounded-xl border border-[#E2EBE5] text-[11px] font-mono text-slate-600">
+                        <div>
+                          <span className="text-[9px] text-slate-400 block uppercase">Planned</span>
+                          <span className="font-bold text-slate-700">{t.planned_periods} Per.</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-400 block uppercase">Used</span>
+                          <span className="font-bold text-[#122A24]">{t.periods_used || 0} Per.</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-400 block uppercase">Target</span>
+                          <span className={t.is_overdue ? 'text-rose-600 font-bold' : 'text-slate-700'}>
+                            {t.target_date || '--'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {t.teacher_remarks && (
+                        <p className="text-[11px] text-emerald-800 font-mono bg-emerald-50/50 p-2 rounded-lg border border-emerald-100">
+                          Note: {t.teacher_remarks}
+                        </p>
+                      )}
+
+                      <button
+                        onClick={() => handleOpenEditTopic(t, plan)}
+                        className="w-full py-2 bg-[#122A24] hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center justify-center gap-1"
+                      >
+                        Update Coverage Status
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Topics Table (>= md) */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[#F8FAF9] border-b border-[#DCE8E0] text-[#2D5A4E] font-bold font-mono text-[11px]">
                     <tr>
@@ -405,12 +476,12 @@ function TeacherSyllabusContent() {
 
       {/* Topic Status Edit Modal */}
       {topicModal.isOpen && topicModal.topic && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-xs animate-fade-in"
             onClick={() => setTopicModal(prev => ({ ...prev, isOpen: false }))}
           />
-          <div className="relative w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-[#DCE8E0] z-10 space-y-4">
+          <div className="relative w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl border border-[#DCE8E0] z-10 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[#DCE8E0] pb-3">
               <div className="flex items-center gap-2">
                 <ClipboardList className="w-5 h-5 text-emerald-700" />

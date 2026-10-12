@@ -273,57 +273,109 @@ export default function SubjectTeacherStudentAttendancePage() {
             <p className="font-medium text-gray-700">No students found matching filters</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase tracking-wider font-semibold">
-                  <th className="py-3 px-4">Roll No</th>
-                  <th className="py-3 px-4">Adm No</th>
-                  <th className="py-3 px-4">Student Name</th>
-                  <th className="py-3 px-4">Present Days</th>
-                  <th className="py-3 px-4">Working Days</th>
-                  <th className="py-3 px-4">Attendance %</th>
-                  <th className="py-3 px-4">Standing</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredStudents.map((s) => (
-                  <tr key={s.student_id} className={`hover:bg-gray-50 transition ${s.is_defaulter ? 'bg-rose-50/20' : ''}`}>
-                    <td className="py-3 px-4 font-mono font-medium text-gray-600">{s.roll_no || '-'}</td>
-                    <td className="py-3 px-4 font-mono text-gray-500">{s.admission_no}</td>
-                    <td className="py-3 px-4 font-semibold text-gray-900">{s.full_name}</td>
-                    <td className="py-3 px-4 text-gray-700">{s.present_days}</td>
-                    <td className="py-3 px-4 text-gray-500">{s.total_working_days}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 bg-gray-200 rounded-full h-2 overflow-hidden">
-                          <div 
-                            className={`h-2 rounded-full ${s.is_defaulter ? 'bg-rose-500' : 'bg-emerald-500'}`} 
-                            style={{ width: `${Math.min(s.attendance_percent, 100)}%` }} 
-                          />
-                        </div>
-                        <span className={`font-bold ${s.is_defaulter ? 'text-rose-700' : 'text-emerald-700'}`}>
-                          {s.attendance_percent}%
-                        </span>
+          <div>
+            {/* Mobile Student Attendance Feed (< md) */}
+            <div className="block md:hidden divide-y divide-gray-100">
+              {filteredStudents.map((s) => (
+                <div key={s.student_id} className={`p-4 space-y-2.5 hover:bg-gray-50 transition ${s.is_defaulter ? 'bg-rose-50/20' : ''}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-[11px] font-mono text-gray-500">
+                        {s.roll_no && <span className="font-bold text-gray-700">Roll: {s.roll_no}</span>}
+                        <span>Adm: {s.admission_no}</span>
                       </div>
-                    </td>
-                    <td className="py-3 px-4">
+                      <h4 className="font-bold text-sm text-gray-900 mt-0.5">{s.full_name}</h4>
+                    </div>
+
+                    <div className="shrink-0">
                       {s.is_defaulter ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
                           <AlertTriangle className="w-3 h-3" />
                           Defaulter (&lt;75%)
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                           <CheckCircle2 className="w-3 h-3" />
                           Regular
                         </span>
                       )}
-                    </td>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-100 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-gray-500">
+                        Present: <strong className="text-gray-900">{s.present_days}</strong> / {s.total_working_days} Days
+                      </span>
+                      <span className={`font-black ${s.is_defaulter ? 'text-rose-700' : 'text-emerald-700'}`}>
+                        {s.attendance_percent}%
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className={`h-2 rounded-full transition-all duration-300 ${s.is_defaulter ? 'bg-rose-500' : 'bg-emerald-500'}`} 
+                        style={{ width: `${Math.min(s.attendance_percent, 100)}%` }} 
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Broadsheet Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase tracking-wider font-semibold">
+                    <th className="py-3 px-4">Roll No</th>
+                    <th className="py-3 px-4">Adm No</th>
+                    <th className="py-3 px-4">Student Name</th>
+                    <th className="py-3 px-4">Present Days</th>
+                    <th className="py-3 px-4">Working Days</th>
+                    <th className="py-3 px-4">Attendance %</th>
+                    <th className="py-3 px-4">Standing</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredStudents.map((s) => (
+                    <tr key={s.student_id} className={`hover:bg-gray-50 transition ${s.is_defaulter ? 'bg-rose-50/20' : ''}`}>
+                      <td className="py-3 px-4 font-mono font-medium text-gray-600">{s.roll_no || '-'}</td>
+                      <td className="py-3 px-4 font-mono text-gray-500">{s.admission_no}</td>
+                      <td className="py-3 px-4 font-semibold text-gray-900">{s.full_name}</td>
+                      <td className="py-3 px-4 text-gray-700">{s.present_days}</td>
+                      <td className="py-3 px-4 text-gray-500">{s.total_working_days}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div 
+                              className={`h-2 rounded-full ${s.is_defaulter ? 'bg-rose-500' : 'bg-emerald-500'}`} 
+                              style={{ width: `${Math.min(s.attendance_percent, 100)}%` }} 
+                            />
+                          </div>
+                          <span className={`font-bold ${s.is_defaulter ? 'text-rose-700' : 'text-emerald-700'}`}>
+                            {s.attendance_percent}%
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        {s.is_defaulter ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                            <AlertTriangle className="w-3 h-3" />
+                            Defaulter (&lt;75%)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Regular
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

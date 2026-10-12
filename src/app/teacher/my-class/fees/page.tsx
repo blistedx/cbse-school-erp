@@ -248,66 +248,139 @@ export default function ClassFeeStatusPage() {
             <p className="text-xs text-gray-500 mt-1">All active scholars in Class {className}-{section} are fully fee-cleared.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase font-semibold">
-                  <th className="py-3 px-4">Roll</th>
-                  <th className="py-3 px-4">Adm No</th>
-                  <th className="py-3 px-4">Student Name</th>
-                  <th className="py-3 px-4">Father / Guardian</th>
-                  <th className="py-3 px-4">Parent Mobile</th>
-                  <th className="py-3 px-4">Outstanding Due</th>
-                  <th className="py-3 px-4 text-right">Advisory Notice</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map((d) => {
-                  const isSent = !!sentReminders[d.student_id];
-                  const isSending = remindingId === d.student_id;
-                  return (
-                    <tr key={d.student_id} className="hover:bg-gray-50/70 transition">
-                      <td className="py-3 px-4 font-mono font-medium">{d.roll_no || '-'}</td>
-                      <td className="py-3 px-4 font-mono text-gray-500">{d.admission_no}</td>
-                      <td className="py-3 px-4 font-semibold text-gray-900">{d.student_name}</td>
-                      <td className="py-3 px-4 text-gray-700">{d.father_name}</td>
-                      <td className="py-3 px-4 font-mono text-gray-600">{d.mobile || 'NA'}</td>
-                      <td className="py-3 px-4 font-bold text-rose-700">
-                        ₹{Number(d.pending_amount).toLocaleString('en-IN')}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => sendReminder(d)}
-                          disabled={isSending || isSent}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                            isSent
-                              ? 'bg-emerald-100 text-emerald-800 cursor-default'
-                              : 'bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50'
-                          }`}
+          <div>
+            {/* Mobile Cards Feed (< md) */}
+            <div className="block md:hidden divide-y divide-gray-100">
+              {filtered.map((d) => {
+                const isSent = !!sentReminders[d.student_id];
+                const isSending = remindingId === d.student_id;
+                return (
+                  <div key={d.student_id} className="p-4 space-y-3 hover:bg-gray-50/70 transition">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-1.5 text-[11px] font-mono text-gray-500">
+                          {d.roll_no && <span className="font-bold text-gray-700">Roll: {d.roll_no}</span>}
+                          <span>Adm: {d.admission_no}</span>
+                        </div>
+                        <h3 className="font-bold text-base text-gray-900 mt-0.5">{d.student_name}</h3>
+                        <p className="text-xs text-gray-600 mt-0.5">Parent: {d.father_name}</p>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="text-[10px] text-gray-500 uppercase font-mono block">Pending</span>
+                        <span className="text-base font-black text-rose-700 font-mono">
+                          ₹{Number(d.pending_amount).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
+                      {d.mobile ? (
+                        <a
+                          href={`tel:${d.mobile}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100 transition active:scale-95"
                         >
-                          {isSent ? (
-                            <>
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Advisory Sent
-                            </>
-                          ) : isSending ? (
-                            <>
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              Sending...
-                            </>
-                          ) : (
-                            <>
-                              <Send className="w-3.5 h-3.5" />
-                              Remind Parent
-                            </>
-                          )}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Call Parent</span>
+                        </a>
+                      ) : (
+                        <span className="text-[11px] text-gray-400 font-mono">No phone</span>
+                      )}
+
+                      <button
+                        onClick={() => sendReminder(d)}
+                        disabled={isSending || isSent}
+                        className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition shadow-xs active:scale-95 ${
+                          isSent
+                            ? 'bg-emerald-100 text-emerald-800 cursor-default'
+                            : 'bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50'
+                        }`}
+                      >
+                        {isSent ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Advisory Dispatched</span>
+                          </>
+                        ) : isSending ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Dispatching...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Send Notice</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Broadsheet Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase font-semibold">
+                    <th className="py-3 px-4">Roll</th>
+                    <th className="py-3 px-4">Adm No</th>
+                    <th className="py-3 px-4">Student Name</th>
+                    <th className="py-3 px-4">Father / Guardian</th>
+                    <th className="py-3 px-4">Parent Mobile</th>
+                    <th className="py-3 px-4">Outstanding Due</th>
+                    <th className="py-3 px-4 text-right">Advisory Notice</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filtered.map((d) => {
+                    const isSent = !!sentReminders[d.student_id];
+                    const isSending = remindingId === d.student_id;
+                    return (
+                      <tr key={d.student_id} className="hover:bg-gray-50/70 transition">
+                        <td className="py-3 px-4 font-mono font-medium">{d.roll_no || '-'}</td>
+                        <td className="py-3 px-4 font-mono text-gray-500">{d.admission_no}</td>
+                        <td className="py-3 px-4 font-semibold text-gray-900">{d.student_name}</td>
+                        <td className="py-3 px-4 text-gray-700">{d.father_name}</td>
+                        <td className="py-3 px-4 font-mono text-gray-600">{d.mobile || 'NA'}</td>
+                        <td className="py-3 px-4 font-bold text-rose-700">
+                          ₹{Number(d.pending_amount).toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            onClick={() => sendReminder(d)}
+                            disabled={isSending || isSent}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                              isSent
+                                ? 'bg-emerald-100 text-emerald-800 cursor-default'
+                                : 'bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50'
+                            }`}
+                          >
+                            {isSent ? (
+                              <>
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Advisory Sent
+                              </>
+                            ) : isSending ? (
+                              <>
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                Sending...
+                              </>
+                            ) : (
+                              <>
+                                <Send className="w-3.5 h-3.5" />
+                                Remind Parent
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

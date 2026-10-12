@@ -14,6 +14,7 @@ import {
   BookOpen,
   Calendar
 } from 'lucide-react';
+import { formatClassSectionDisplay } from '@/lib/utils';
 
 interface TeacherHeaderProps {
   teacherName?: string;
@@ -95,8 +96,8 @@ export function TeacherHeader({
           {isClassTeacher && classTeacherSection && (
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-900 text-xs font-bold">
               <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>Class Teacher:</span>
-              <span className="font-mono text-emerald-800">{classTeacherSection.class_name}-{classTeacherSection.section}</span>
+              <span>Class Incharge:</span>
+              <span className="font-mono text-emerald-800 font-black">{formatClassSectionDisplay(classTeacherSection.class_name, classTeacherSection.section).code}</span>
             </div>
           )}
 

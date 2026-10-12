@@ -344,9 +344,107 @@ export default function ClassTeacherAttendancePage() {
           Loading student roster for Class {className}...
         </div>
       ) : activeTab === 'register' ? (
-        /* Register Roster Table */
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+        /* Register Roster (Mobile Cards + Desktop Table) */
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          {/* MOBILE VIEW: Touch-Friendly Student Roll Call Cards */}
+          <div className="block md:hidden divide-y divide-gray-100 pb-16">
+            {filteredStudents.map((s) => (
+              <div key={s.student_id} className="p-4 space-y-3 hover:bg-gray-50/70 transition">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-8 h-8 rounded-xl bg-gray-100 text-gray-800 font-mono font-bold text-xs flex items-center justify-center">
+                      {s.roll_no || '--'}
+                    </span>
+                    <div>
+                      <h4 className="font-bold text-sm text-gray-900 leading-tight">{s.full_name}</h4>
+                      <p className="text-[10px] font-mono text-gray-400">{s.admission_no}</p>
+                    </div>
+                  </div>
+
+                  {s.parent_phone && (
+                    <a
+                      href={`tel:${s.parent_phone}`}
+                      className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>Call</span>
+                    </a>
+                  )}
+                </div>
+
+                {/* Large 4-Segment Touch Selector for Mobile Finger Taps */}
+                <div className="grid grid-cols-4 gap-1.5 p-1 bg-gray-100 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setStudentStatus(s.student_id, 'PRESENT')}
+                    disabled={isLockedByAdmin}
+                    className={`py-2.5 rounded-lg text-xs font-black transition flex flex-col items-center justify-center cursor-pointer ${
+                      s.status === 'PRESENT'
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'text-gray-600 hover:text-emerald-700'
+                    }`}
+                  >
+                    <span>P</span>
+                    <span className="text-[9px] font-normal opacity-90">Present</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStudentStatus(s.student_id, 'ABSENT')}
+                    disabled={isLockedByAdmin}
+                    className={`py-2.5 rounded-lg text-xs font-black transition flex flex-col items-center justify-center cursor-pointer ${
+                      s.status === 'ABSENT'
+                        ? 'bg-rose-600 text-white shadow-md'
+                        : 'text-gray-600 hover:text-rose-700'
+                    }`}
+                  >
+                    <span>A</span>
+                    <span className="text-[9px] font-normal opacity-90">Absent</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStudentStatus(s.student_id, 'LATE')}
+                    disabled={isLockedByAdmin}
+                    className={`py-2.5 rounded-lg text-xs font-black transition flex flex-col items-center justify-center cursor-pointer ${
+                      s.status === 'LATE'
+                        ? 'bg-amber-500 text-white shadow-md'
+                        : 'text-gray-600 hover:text-amber-700'
+                    }`}
+                  >
+                    <span>L</span>
+                    <span className="text-[9px] font-normal opacity-90">Late</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStudentStatus(s.student_id, 'LEAVE')}
+                    disabled={isLockedByAdmin}
+                    className={`py-2.5 rounded-lg text-xs font-black transition flex flex-col items-center justify-center cursor-pointer ${
+                      s.status === 'LEAVE'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'text-gray-600 hover:text-blue-700'
+                    }`}
+                  >
+                    <span>LV</span>
+                    <span className="text-[9px] font-normal opacity-90">Leave</span>
+                  </button>
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Optional note / reason for absence or late..."
+                  value={s.remark || ''}
+                  disabled={isLockedByAdmin}
+                  onChange={(e) => setStudentRemark(s.student_id, e.target.value)}
+                  className="w-full text-xs px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 focus:bg-white focus:border-emerald-500 outline-none"
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* DESKTOP VIEW: High-Density Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase tracking-wider font-semibold">
@@ -377,7 +475,7 @@ export default function ClassTeacherAttendancePage() {
                           type="button"
                           onClick={() => setStudentStatus(s.student_id, 'PRESENT')}
                           disabled={isLockedByAdmin}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                             s.status === 'PRESENT'
                               ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-600/30'
                               : 'bg-gray-100 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
@@ -389,7 +487,7 @@ export default function ClassTeacherAttendancePage() {
                           type="button"
                           onClick={() => setStudentStatus(s.student_id, 'ABSENT')}
                           disabled={isLockedByAdmin}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                             s.status === 'ABSENT'
                               ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-600/30'
                               : 'bg-gray-100 text-gray-600 hover:bg-rose-50 hover:text-rose-700'
@@ -401,7 +499,7 @@ export default function ClassTeacherAttendancePage() {
                           type="button"
                           onClick={() => setStudentStatus(s.student_id, 'LATE')}
                           disabled={isLockedByAdmin}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                             s.status === 'LATE'
                               ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-500/30'
                               : 'bg-gray-100 text-gray-600 hover:bg-amber-50 hover:text-amber-700'
@@ -413,7 +511,7 @@ export default function ClassTeacherAttendancePage() {
                           type="button"
                           onClick={() => setStudentStatus(s.student_id, 'LEAVE')}
                           disabled={isLockedByAdmin}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
                             s.status === 'LEAVE'
                               ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/30'
                               : 'bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-700'
@@ -437,6 +535,23 @@ export default function ClassTeacherAttendancePage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Sticky Bottom Bar for Quick Save on Mobile */}
+          <div className="md:hidden fixed bottom-14 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-gray-200 z-30 shadow-2xl flex items-center justify-between">
+            <div className="text-xs font-mono">
+              <span className="text-emerald-700 font-bold">{presentCount} P</span>
+              <span className="text-slate-400 mx-1">•</span>
+              <span className="text-rose-600 font-bold">{absentCount} A</span>
+            </div>
+            <button
+              onClick={saveAttendance}
+              disabled={saving || isLockedByAdmin || students.length === 0}
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <Save className={`w-3.5 h-3.5 ${saving ? 'animate-spin' : ''}`} />
+              <span>{saving ? 'Saving...' : 'Save Register'}</span>
+            </button>
           </div>
         </div>
       ) : (
