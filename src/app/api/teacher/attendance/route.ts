@@ -229,19 +229,27 @@ export async function POST(req: Request) {
 
     // 1. Live Self Clock-In / Punch-Out / Leave Action
     if (body.action === 'PUNCH_IN' || body.action === 'PUNCH_OUT' || body.action === 'LEAVE') {
-      const punchResult = await AttendanceService.punchTeacherAttendance({
-        schoolId: tenant,
-        session,
-        teacherId: teacher.id,
-        staffCode: teacher.staff_code,
-        teacherName: teacher.full_name,
-        action: body.action,
-        timeStr: body.time,
-        leaveType: body.leave_type,
-        remarks: body.remarks
-      });
+      try {
+        const punchResult = await AttendanceService.punchTeacherAttendance({
+          schoolId: tenant,
+          session,
+          teacherId: teacher.id,
+          staffCode: teacher.staff_code,
+          teacherName: teacher.full_name,
+          action: body.action,
+          timeStr: body.time,
+          leaveType: body.leave_type,
+          remarks: body.remarks
+        });
 
-      return NextResponse.json(punchResult);
+        return NextResponse.json(punchResult);
+      } catch (punchErr: any) {
+        console.error('[API_TEACHER_PUNCH_ERROR]', punchErr);
+        return NextResponse.json({
+          success: false,
+          error: punchErr.message || 'Failed to record attendance punch.'
+        }, { status: 500 });
+      }
     }
 
     // 2. Otherwise: Regularization Request for Past Dates
@@ -293,6 +301,9 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error('[API_TEACHER_ATTENDANCE_POST_ERROR]', error);
-    return NextResponse.json({ success: false, error: 'Failed to submit regularization request.' }, { status: 500 });
+    return NextResponse.json({
+      success: false,
+      error: error.message || 'Failed to process attendance request.'
+    }, { status: 500 });
   }
 }

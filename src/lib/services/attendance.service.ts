@@ -7,7 +7,7 @@
 import { getDatabase, sanitizeDocNoBinary as sanitizeDoc } from '@/lib/mongodb';
 import { AttendanceRecord, Holiday, Student, Teacher } from '@/lib/types';
 import { getTodayDateStr, normalizeClassName, isSameClass } from '@/lib/utils';
-import { invalidateServerCache, expandSchoolIds } from '@/lib/db';
+import { Database, invalidateServerCache, expandSchoolIds } from '@/lib/db';
 import { AggregatesService } from '@/lib/services/aggregates.service';
 
 export interface StudentAttendanceSummary {
@@ -587,7 +587,9 @@ export class AttendanceService {
     session: string = '2026-27',
     holiday: Holiday
   ): Promise<void> {
-    await Database.autoRecordHolidayAttendance(schoolId, session, holiday);
+    if (typeof (Database as any).autoRecordHolidayAttendance === 'function') {
+      await (Database as any).autoRecordHolidayAttendance(schoolId, session, holiday);
+    }
   }
 
   /**
