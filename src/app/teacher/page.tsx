@@ -508,73 +508,93 @@ export default function TeacherDashboardPage() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
-          2. FACULTY PROFILE CARD (MATCHING USER SCREENSHOT)
+          2. FACULTY PROFILE CARD (ADMIN-STYLE DEEP GREEN THEME)
           ══════════════════════════════════════════════════════════════ */}
-      <div className="bg-white rounded-[26px] p-4 sm:p-5 shadow-sm border border-slate-100 flex items-start gap-3.5 sm:gap-4 relative overflow-hidden">
-        {/* Profile Avatar with Circular Badge 'A' */}
-        <div className="relative shrink-0 pt-0.5">
-          <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-full overflow-hidden bg-emerald-50 ring-2 ring-emerald-100 shadow-xs flex items-center justify-center">
-            <img
-              src="/teacher-ananya.jpg"
-              alt={teacher.full_name || 'Ananya Sen'}
-              className="w-full h-full object-cover object-top"
-              onError={(e) => {
-                // Fallback to stylized SVG placeholder if local file is missing
-                (e.target as HTMLElement).style.display = 'none';
-              }}
-            />
-            <div className="w-full h-full bg-emerald-700 text-white font-black text-2xl flex items-center justify-center -mt-0.5">
+      <div className="rounded-[28px] p-4.5 sm:p-6 shadow-xl border border-emerald-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] text-white">
+        <div className="absolute -right-8 -top-8 w-52 h-52 bg-radial from-emerald-400/20 via-teal-500/5 to-transparent pointer-events-none rounded-full blur-2xl" />
+        <div className="absolute right-0 bottom-0 w-36 h-36 bg-radial from-amber-400/10 to-transparent pointer-events-none rounded-full blur-xl" />
+
+        {/* Left: Avatar + Details */}
+        <div className="flex items-start sm:items-center gap-3.5 sm:gap-4 relative z-10 min-w-0 flex-1">
+          {/* Profile Avatar with Circular Badge 'A' */}
+          <div className="relative shrink-0 pt-0.5">
+            <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-full overflow-hidden bg-emerald-950 ring-2 ring-emerald-300/40 shadow-lg flex items-center justify-center">
+              <img
+                src="/teacher-ananya.jpg"
+                alt={teacher.full_name || 'Ananya Sen'}
+                className="w-full h-full object-cover object-top"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+              <div className="w-full h-full bg-emerald-700 text-white font-black text-2xl flex items-center justify-center -mt-0.5">
+                {(teacher.full_name || 'A')[0]}
+              </div>
+            </div>
+            {/* Badge 'A' at bottom-right of avatar */}
+            <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-400 text-[#0F2620] font-black text-xs flex items-center justify-center border-2 border-[#14352B] shadow-xs">
               {(teacher.full_name || 'A')[0]}
-            </div>
-          </div>
-          {/* Badge 'A' at bottom-right of avatar */}
-          <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-700 text-white font-bold text-xs flex items-center justify-center border-2 border-white shadow-xs">
-            {(teacher.full_name || 'A')[0]}
-          </span>
-        </div>
-
-        {/* Profile Info */}
-        <div className="flex-1 min-w-0 space-y-1">
-          <div>
-            <h2 className="text-lg sm:text-xl font-black text-slate-900 leading-tight truncate">
-              {teacher.full_name || 'Ananya Sen'}
-            </h2>
-            <p className="text-xs sm:text-sm font-semibold text-emerald-700 leading-tight mt-0.5 truncate">
-              {cleanDesignation || 'Head of English'}
-            </p>
+            </span>
           </div>
 
-          <div className="space-y-0.5 pt-1 text-[11px] sm:text-xs text-slate-600 font-medium">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="flex items-center gap-1">
-                <span className="text-slate-400">🪪</span>
-                <span className="font-semibold text-slate-700">ID • {teacher.staff_code || 'EMP-CLAS01'}</span>
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="text-slate-600">Joined • 12 Jun 2021</span>
+          {/* Profile Info */}
+          <div className="flex-1 min-w-0 space-y-1">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-white leading-tight tracking-tight truncate">
+                {teacher.full_name || 'Ananya Sen'}
+              </h2>
+              <p className="text-xs sm:text-sm font-bold text-emerald-300 leading-tight mt-0.5 truncate">
+                {cleanDesignation || 'Head of English'}
+              </p>
             </div>
 
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-slate-700">Department • {teacher.department || 'English'}</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-slate-600">Experience • 4+ Years</span>
-            </div>
+            <div className="space-y-0.5 pt-1 text-[11px] sm:text-xs text-emerald-100/90 font-medium font-mono">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/10 text-emerald-200 border border-white/10 text-[10px] font-bold">
+                  ID • {teacher.staff_code || 'EMP-CLAS01'}
+                </span>
+                <span className="text-emerald-400/50">•</span>
+                <span className="text-emerald-200/90">Joined • 12 Jun 2021</span>
+              </div>
 
-            <div className="text-slate-700 truncate">
-              Qualification • {teacher.qualification || 'MA English'}
-            </div>
+              <div className="flex items-center gap-1.5 flex-wrap text-emerald-200/80">
+                <span>Department • {teacher.department || 'English'}</span>
+                <span className="text-emerald-400/50">•</span>
+                <span>Experience • 4+ Years</span>
+              </div>
 
-            <div className="flex items-center gap-1.5 text-slate-700 truncate pt-0.5">
-              <Mail className="w-3 h-3 text-slate-400 shrink-0" />
-              <span className="truncate">{teacher.email || 'ananya.sen@school.edu'}</span>
-            </div>
+              <div className="text-emerald-200/90 truncate">
+                Qualification • {teacher.qualification || 'MA English'}
+              </div>
 
-            <div className="flex items-center gap-1.5 text-slate-700 truncate">
-              <Phone className="w-3 h-3 text-slate-400 shrink-0" />
-              <span className="font-mono">{teacher.phone || '+91 98765 43210'}</span>
+              <div className="flex items-center gap-1.5 text-emerald-200/90 truncate pt-0.5">
+                <Mail className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span className="truncate">{teacher.email || 'ananya.sen@school.edu'}</span>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-emerald-200/90 truncate">
+                <Phone className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span className="font-mono">{teacher.phone || '+91 98765 43210'}</span>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Right: Incharge Badge Highlight */}
+        {is_class_teacher && (
+          <div className="relative z-10 shrink-0 w-full sm:w-auto flex sm:flex-col items-center justify-between sm:justify-center p-3 sm:px-4 sm:py-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/15 text-center">
+            <div className="flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-amber-300 font-bold">
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              <span>Class Incharge</span>
+            </div>
+            <div className="text-xl sm:text-2xl font-black font-mono text-amber-300 my-0.5 sm:my-1">
+              {displayClassCode}
+            </div>
+            <span className="text-[10px] font-mono text-emerald-200">
+              {totalEnrolled} Scholars
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
@@ -727,7 +747,7 @@ export default function TeacherDashboardPage() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
-          5. "CLASS X-A INSIGHTS" (4 METRIC TILES)
+          5. "CLASS X-A INSIGHTS" & INTERACTIVE MONTH FEE FILTER
           ══════════════════════════════════════════════════════════════ */}
       <div className="space-y-2.5">
         <div className="flex items-center justify-between px-1">
@@ -745,6 +765,36 @@ export default function TeacherDashboardPage() {
             <span>Roll Call</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
+        </div>
+
+        {/* ── ACADEMIC MONTH FILTER FOR FEES & ANALYTICS ── */}
+        <div className="bg-white rounded-2xl p-2.5 shadow-sm border border-slate-100 space-y-1.5">
+          <div className="flex items-center justify-between text-xs font-bold px-1">
+            <span className="text-slate-800 flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Select Academic Fee Month:</span>
+            </span>
+            <span className="text-emerald-900 font-mono text-[11px] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+              {activeMonthLabel} 2026
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 custom-scrollbar">
+            {ACADEMIC_MONTHS.map(m => (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => handleMonthChange(m.key)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition cursor-pointer ${
+                  selectedMonth === m.key
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
@@ -1063,7 +1113,7 @@ export default function TeacherDashboardPage() {
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
+                <div className="w-10 h-10 rounded-2xl bg-[#0F2620] text-white flex items-center justify-center font-bold shadow-xs">
                   <CreditCard className="w-5 h-5 text-emerald-400" />
                 </div>
                 <div>
@@ -1082,6 +1132,38 @@ export default function TeacherDashboardPage() {
               >
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* Academic Month Selector Bar inside Modal */}
+            <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-2.5">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 px-1 mb-1.5">
+                <span className="flex items-center gap-1 text-slate-800">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-700" />
+                  Select Academic Month
+                </span>
+                <span className="font-mono text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                  {activeMonthLabel} • {activeMonthData?.collection_percentage || 0}% Cleared
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                {ACADEMIC_MONTHS.map((m) => {
+                  const isCurrent = (activeMonthData?.selected_month || selectedMonth) === m.key;
+                  return (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => handleMonthChange(m.key)}
+                      className={`shrink-0 px-2.5 py-1 rounded-xl text-[11px] font-bold font-mono transition-all cursor-pointer ${
+                        isCurrent
+                          ? 'bg-[#0F2620] text-emerald-300 shadow-xs ring-1 ring-emerald-500'
+                          : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/70'
+                      }`}
+                    >
+                      {m.label.slice(0, 3)}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Filter Tabs & Search */}

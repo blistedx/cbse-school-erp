@@ -27,6 +27,8 @@ interface TeacherProfile {
   department?: string;
   designation?: string;
   qualification?: string;
+  avatar?: string;
+  photo?: string;
   subject_specialization?: string[];
   is_class_teacher?: boolean;
   class_teacher_section?: { class_name: string; section: string };
@@ -123,18 +125,21 @@ export default function TeacherProfilePage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Top Banner */}
-      <div className="bg-[#122A24] text-white p-6 rounded-2xl shadow-sm border border-emerald-900/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+      {/* Top Banner (Admin Deep Green Theme) */}
+      <div className="bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] text-white p-6 sm:p-7 rounded-3xl shadow-xl border border-emerald-700/60 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-emerald-400/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
+
+        <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-400 text-[#0F2620] shadow-xs">
               Teacher Credentials
             </span>
             {profile?.staff_code && (
-              <span className="text-emerald-300/80 text-xs font-mono">Code: {profile.staff_code}</span>
+              <span className="text-emerald-300 text-xs font-mono font-bold">Code: {profile.staff_code}</span>
             )}
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Faculty Profile &amp; Settings</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Faculty Profile &amp; Settings</h1>
           <p className="text-emerald-100/70 text-sm mt-1">
             Review your academic appointments, contact particulars, and update account security.
           </p>
@@ -142,9 +147,9 @@ export default function TeacherProfilePage() {
 
         <button
           onClick={fetchProfile}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg bg-emerald-800/80 hover:bg-emerald-700 text-white border border-emerald-600/40 transition"
+          className="relative z-10 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/20 transition cursor-pointer"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 text-emerald-300 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
@@ -174,25 +179,41 @@ export default function TeacherProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column: Academic Badges & Assignments */}
           <div className="space-y-6">
-            {/* Identity Card */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm text-center">
-              <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-2xl mx-auto mb-3 shadow-inner">
-                {profile?.full_name?.charAt(0) || 'T'}
+            {/* Identity Card (Deep Emerald Admin Theme) */}
+            <div className="bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] text-white p-6 rounded-3xl border border-emerald-700/60 shadow-xl text-center relative overflow-hidden">
+              <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full bg-emerald-400/10 blur-2xl pointer-events-none" />
+              
+              <div className="relative z-10 w-24 h-24 rounded-full p-1 bg-gradient-to-br from-emerald-400 to-amber-300 mx-auto mb-3.5 shadow-lg">
+                <img
+                  src={profile?.avatar || '/teacher-ananya.jpg'}
+                  alt={profile?.full_name || 'Faculty Member'}
+                  className="w-full h-full rounded-full object-cover object-top bg-emerald-950"
+                  onError={(e: any) => {
+                    e.currentTarget.style.display = 'none';
+                    if (e.currentTarget.nextSibling) {
+                      e.currentTarget.nextSibling.style.display = 'flex';
+                    }
+                  }}
+                />
+                <div className="hidden w-full h-full rounded-full bg-emerald-800 text-white items-center justify-center font-bold text-2xl">
+                  {profile?.full_name?.charAt(0) || 'T'}
+                </div>
               </div>
-              <h2 className="text-lg font-bold text-gray-900">{profile?.full_name}</h2>
-              <p className="text-xs text-gray-500 font-medium mt-0.5">{profile?.designation || 'Faculty Member'}</p>
-              <p className="text-[11px] text-emerald-700 font-semibold mt-1">{profile?.department || 'Academics Department'}</p>
+              
+              <h2 className="relative z-10 text-xl font-black text-white">{profile?.full_name}</h2>
+              <p className="relative z-10 text-xs text-emerald-300 font-mono mt-0.5">{profile?.designation || 'Senior Faculty'}</p>
+              <p className="relative z-10 text-[11px] text-emerald-200/80 font-mono mt-0.5">{profile?.department || 'Academics Department'}</p>
 
               {/* Badges */}
-              <div className="flex flex-wrap items-center justify-center gap-2 mt-4 pt-4 border-t border-gray-100">
+              <div className="relative z-10 flex flex-wrap items-center justify-center gap-2 mt-4 pt-4 border-t border-white/10">
                 {profile?.is_class_teacher && profile.class_teacher_section && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500 text-[#122A24]">
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-400 text-[#0F2620] shadow-xs">
                     <ShieldCheck className="w-3.5 h-3.5" />
                     Class Incharge: {formatClassSectionDisplay(profile.class_teacher_section.class_name, profile.class_teacher_section.section).code}
                   </span>
                 )}
-                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
-                  {profile?.allocated_subjects?.length || 0} Subject Allocations
+                <span className="px-3 py-1 rounded-full text-xs font-mono font-semibold bg-white/10 text-emerald-200 border border-white/10">
+                  {profile?.allocated_subjects?.length || 0} Batches
                 </span>
               </div>
             </div>

@@ -254,9 +254,10 @@ export default function TeacherAttendancePage() {
         </div>
       )}
 
-      {/* TODAY'S LIVE ATTENDANCE PUNCH & LEAVE QUOTA DESK */}
-      <div className="bg-[#122A24] text-white rounded-3xl p-6 sm:p-7 shadow-xl relative overflow-hidden border border-emerald-800/50">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-radial from-emerald-500/10 to-transparent pointer-events-none" />
+      {/* TODAY'S LIVE ATTENDANCE PUNCH & LEAVE QUOTA DESK (Admin Deep Green Theme) */}
+      <div className="bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] text-white rounded-3xl p-6 sm:p-7 shadow-2xl relative overflow-hidden border border-emerald-700/60">
+        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-emerald-400/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
 
         <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
           {/* Col 1: Live Clock & Shift Info (5 Cols) */}

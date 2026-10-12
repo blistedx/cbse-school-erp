@@ -129,34 +129,39 @@ export default function SubjectTeacherStudentAttendancePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-[#122A24] text-white p-6 rounded-2xl shadow-sm border border-emerald-900/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+      {/* Header (Admin Deep Green Theme) */}
+      <div className="bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] text-white p-6 sm:p-7 rounded-3xl shadow-xl border border-emerald-700/60 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-emerald-400/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-400 text-[#0F2620] shadow-xs">
               Read-Only Ledger
             </span>
-            <span className="text-emerald-300/60 text-xs">Unified School Attendance</span>
+            <span className="text-emerald-300 text-xs font-mono font-bold">
+              Unified School Attendance
+            </span>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Student Attendance %</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Student Attendance %</h1>
           <p className="text-emerald-100/70 text-sm mt-1">
             Read-only overview of student attendance percentages in your assigned teaching sections.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 print:hidden">
+        <div className="relative z-10 flex items-center gap-2 print:hidden">
           <button
             onClick={exportCSV}
             disabled={students.length === 0}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg bg-emerald-800/80 hover:bg-emerald-700 text-white border border-emerald-600/40 transition disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/20 transition cursor-pointer disabled:opacity-50"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5 text-emerald-300" />
             Export CSV
           </button>
           <button
             onClick={() => window.print()}
             disabled={students.length === 0}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg bg-emerald-500 hover:bg-emerald-400 text-[#122A24] font-semibold transition disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#0F2620] shadow-xs transition cursor-pointer disabled:opacity-50"
           >
             <Printer className="w-3.5 h-3.5" />
             Print

@@ -13,7 +13,8 @@ import {
   Phone, 
   User, 
   ShieldAlert,
-  BellRing
+  BellRing,
+  Calendar
 } from 'lucide-react';
 
 interface FeeDefaulter {
@@ -27,6 +28,21 @@ interface FeeDefaulter {
   due_date?: string;
 }
 
+const ACADEMIC_MONTHS = [
+  { key: 'APR', label: 'April' },
+  { key: 'MAY', label: 'May' },
+  { key: 'JUN', label: 'June' },
+  { key: 'JUL', label: 'July' },
+  { key: 'AUG', label: 'August' },
+  { key: 'SEP', label: 'September' },
+  { key: 'OCT', label: 'October' },
+  { key: 'NOV', label: 'November' },
+  { key: 'DEC', label: 'December' },
+  { key: 'JAN', label: 'January' },
+  { key: 'FEB', label: 'February' },
+  { key: 'MAR', label: 'March' },
+];
+
 export default function ClassFeeStatusPage() {
   const [defaulters, setDefaulters] = useState<FeeDefaulter[]>([]);
   const [className, setClassName] = useState('');
@@ -34,6 +50,7 @@ export default function ClassFeeStatusPage() {
   const [totalPending, setTotalPending] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('OCT');
 
   // Reminder status tracker
   const [remindingId, setRemindingId] = useState<string | null>(null);
@@ -41,13 +58,13 @@ export default function ClassFeeStatusPage() {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    fetchDefaulters();
+    fetchDefaulters(selectedMonth);
   }, []);
 
-  const fetchDefaulters = async () => {
+  const fetchDefaulters = async (monthKey = selectedMonth) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/teacher/class/fees');
+      const res = await fetch(`/api/teacher/class/fees?month=${monthKey}`);
       const data = await res.json();
       if (data.success) {
         setClassName(data.class_name);
@@ -63,6 +80,11 @@ export default function ClassFeeStatusPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMonthChange = (monthKey: string) => {
+    setSelectedMonth(monthKey);
+    fetchDefaulters(monthKey);
   };
 
   const sendReminder = async (d: FeeDefaulter) => {
@@ -128,42 +150,79 @@ export default function ClassFeeStatusPage() {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="bg-[#122A24] text-white p-6 rounded-2xl shadow-sm border border-emerald-900/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
+      {/* Top Banner (Admin Deep Green Theme) */}
+      <div className="bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] text-white p-6 sm:p-7 rounded-3xl shadow-xl border border-emerald-700/60 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-emerald-400/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500 text-[#122A24]">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-400 text-[#0F2620] shadow-xs">
               Class Teacher Desk
             </span>
             {className && (
-              <span className="text-emerald-300 text-xs font-bold">
+              <span className="text-emerald-300 text-xs font-bold font-mono">
                 Class {className}-{section}
               </span>
             )}
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Class Fee Status &amp; Defaulters</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Class Fee Status &amp; Defaulters</h1>
           <p className="text-emerald-100/70 text-sm mt-1">
             Real-time fee clearance ledger powered by the school Fee Master engine.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 print:hidden">
+        <div className="relative z-10 flex items-center gap-2 print:hidden">
           <button
             onClick={exportCSV}
             disabled={defaulters.length === 0}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg bg-emerald-800/80 hover:bg-emerald-700 text-white border border-emerald-600/40 transition disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/20 transition cursor-pointer disabled:opacity-50"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5 text-emerald-300" />
             Export CSV
           </button>
           <button
             onClick={() => window.print()}
             disabled={defaulters.length === 0}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg bg-emerald-500 hover:bg-emerald-400 text-[#122A24] font-semibold transition disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#0F2620] shadow-xs transition cursor-pointer disabled:opacity-50"
           >
             <Printer className="w-3.5 h-3.5" />
             Print
           </button>
+        </div>
+      </div>
+
+      {/* Academic Month Filter Selector */}
+      <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xs space-y-2.5 print:hidden">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-emerald-700" />
+            <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+              Filter by Academic Month
+            </span>
+          </div>
+          <span className="text-xs font-mono text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+            Selected: {ACADEMIC_MONTHS.find(m => m.key === selectedMonth)?.label || selectedMonth}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+          {ACADEMIC_MONTHS.map((m) => {
+            const isSelected = selectedMonth === m.key;
+            return (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => handleMonthChange(m.key)}
+                className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-[#0F2620] text-emerald-300 shadow-xs ring-1 ring-emerald-500'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/70'
+                }`}
+              >
+                {m.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

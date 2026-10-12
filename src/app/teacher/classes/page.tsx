@@ -63,51 +63,86 @@ export default function TeacherClassesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-black text-[#122A24] tracking-tight">
-          My Classes &amp; Teaching Workload
-        </h1>
-        <p className="text-xs text-[#2D5A4E]/80 font-mono mt-0.5">
-          Academic year 2026-27 classroom allocations and subject assignments
-        </p>
+      {/* Top Banner (Admin Deep Green Theme) */}
+      <div className="bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] text-white p-6 sm:p-7 rounded-3xl shadow-xl border border-emerald-700/60 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-emerald-400/15 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-400 text-[#0F2620] shadow-xs">
+              Academic Roster
+            </span>
+            <span className="text-emerald-300 text-xs font-mono font-bold">
+              Session 2026-27
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            My Classes &amp; Teaching Workload
+          </h1>
+          <p className="text-emerald-100/70 text-sm mt-1">
+            Classroom allocations, class teacher incharge desk, and allocated subject batches.
+          </p>
+        </div>
+
+        {is_class_teacher && class_teacher_section && (
+          <div className="relative z-10 flex items-center gap-2">
+            <Link
+              href="/teacher/my-class/attendance"
+              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-[#0F2620] rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <CalendarCheck className="w-3.5 h-3.5" />
+              <span>Roll Call</span>
+            </Link>
+            <Link
+              href="/teacher/my-class/dossier"
+              className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white border border-white/20 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <Users className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Dossier</span>
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Class Teacher Section Highlight */}
       {is_class_teacher && class_teacher_section && (
-        <div className="p-6 bg-gradient-to-r from-amber-50 to-amber-100/70 border border-amber-300/80 rounded-3xl shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-400 text-[#122A24] font-black text-xs font-mono">
+        <div className="p-6 bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] text-white border border-emerald-700/60 rounded-3xl shadow-lg space-y-4 relative overflow-hidden">
+          <div className="absolute right-0 top-0 w-64 h-64 bg-radial from-amber-400/10 to-transparent blur-2xl pointer-events-none" />
+          
+          <div className="relative z-10 flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-400 text-[#0F2620] font-black text-xs font-mono shadow-xs">
               <Sparkles className="w-3.5 h-3.5" />
-              ASSIGNED CLASS TEACHER
+              ASSIGNED CLASS INCHARGE
             </span>
-            <span className="text-xs font-mono font-bold text-amber-900">
+            <span className="text-xs font-mono font-bold text-amber-300 bg-white/10 px-3 py-1 rounded-full border border-white/10">
               {class_teacher_section.student_count} Scholars Enrolled
             </span>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-black text-[#122A24]">
+              <h2 className="text-2xl font-black text-white font-mono">
                 Class {formatClassSectionDisplay(class_teacher_section.class_name, class_teacher_section.section).code}
               </h2>
-              <p className="text-xs text-[#2D5A4E] font-mono">
-                Room: {class_teacher_section.room_no || 'Assigned Classroom'} • Incharge Duties Active
+              <p className="text-xs text-emerald-200/90 font-mono mt-0.5">
+                Room: {class_teacher_section.room_no || 'Room 101'} • Full Class Incharge Privileges Active
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <Link
                 href="/teacher/my-class/attendance"
-                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-xs"
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-[#0F2620] rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
               >
                 <CalendarCheck className="w-3.5 h-3.5" />
                 <span>Mark Attendance</span>
               </Link>
               <Link
                 href="/teacher/my-class/dossier"
-                className="px-3.5 py-2 bg-white hover:bg-slate-50 text-[#122A24] border border-[#DCE8E0] rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-xs"
+                className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white border border-white/20 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
               >
-                <Users className="w-3.5 h-3.5" />
+                <Users className="w-3.5 h-3.5 text-emerald-300" />
                 <span>Scholars Dossier</span>
               </Link>
             </div>
