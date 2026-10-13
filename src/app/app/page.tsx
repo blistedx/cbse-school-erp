@@ -4838,24 +4838,36 @@ function ERPWorkspaceContent() {
 
   return (
     <div suppressHydrationWarning className="h-[100dvh] max-h-[100dvh] w-full max-w-full flex flex-col overflow-hidden bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased print:h-auto print:max-h-none print:overflow-visible">
-      {/* School Enterprise Session Header Bar (Top Bar for each school to change their session) */}
+      {/* Consolidated Enterprise Top Header Bar (Unified session switcher, branding, search, theme, & actions) */}
       <SchoolSessionHeader
         selectedSchool={selectedSchool}
         availableSchools={availableSchools}
         selectedSession={selectedSession}
         availableSessions={AVAILABLE_SESSIONS}
+        activeTab={activeTab}
+        tabTitle={TAB_POSTER_CONFIG[activeTab]?.title || activeTab.replace('_', ' ')}
+        currentTheme={currentTheme}
+        isSyncingLive={isSyncingLive}
+        isLoading={loading}
+        unreadCount={unreadBroadcastCount || 2}
+        currentUser={currentUser}
+        profileForm={profileForm}
         onSwitchSession={handleSwitchSession}
         onSwitchSchool={handleSwitchSchool}
         onToggleSidebar={() => setMobileMenuOpen(prev => !prev)}
-        onNavigateTab={(tab) => setActiveTab(tab)}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'attendance') setAttendanceSubTab(undefined);
+        }}
         onOpenCalendar={() => setActiveTab('timetable')}
         onOpenNotifications={() => {
           setPushStatus(getNotificationPermissionStatus());
           setShowBroadcastInbox(true);
         }}
-        onOpenProfile={() => setShowUserMenu(prev => !prev)}
-        unreadCount={unreadBroadcastCount || 2}
-        currentUser={currentUser}
+        onOpenSearch={() => setIsOmniSearchOpen(true)}
+        onToggleTheme={(theme) => handleSwitchTheme(theme || (currentTheme === 'monochrome' ? 'emerald' : 'monochrome'))}
+        onRefresh={() => selectedSchool && loadSchoolData(selectedSchool.id)}
+        onLogout={handleLogout}
       />
 
       {/* PWA Offline Mode Notice Banner */}
@@ -4870,255 +4882,6 @@ function ERPWorkspaceContent() {
           </span>
         </div>
       )}
-
-      {/* Top Header: Responsive with Mobile Drawer Toggle & Authentic Dashboard Theme */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#DCE8E0] px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between shadow-2xs gap-3 sm:gap-6">
-        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
-          {/* Mobile Hamburger Menu Button */}
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="lg:hidden p-2 rounded-xl bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] transition-colors cursor-pointer shadow-2xs flex items-center justify-center shrink-0"
-            title="Open Navigation Menu"
-            aria-label="Open Navigation Menu"
-          >
-            <Menu className="h-5 w-5 text-[#122A24]" />
-          </button>
-
-          {/* Clean Breadcrumbs */}
-          <div className="hidden sm:flex items-center gap-2 text-xs sm:text-sm font-medium">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className="text-[#2D5A4E]/80 hover:text-[#122A24] font-medium transition-colors border-none bg-transparent p-0 cursor-pointer"
-            >
-              Dashboard
-            </button>
-            <span className="text-[#2D5A4E]/40 font-mono select-none">/</span>
-            <span className="text-[#122A24] font-display font-bold capitalize tracking-tight">
-              {TAB_POSTER_CONFIG[activeTab]?.title || activeTab.replace('_', ' ')}
-            </span>
-          </div>
-
-          <div className="sm:hidden flex items-center gap-2 min-w-0">
-            <span className="font-display font-bold text-xs text-[#122A24] truncate">
-              {TAB_POSTER_CONFIG[activeTab]?.title || activeTab}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* Live Cloud DB Syncing ThinkingOrb Pill */}
-          {isSyncingLive && (
-            <div className="hidden md:flex items-center animate-fade-in">
-              <ThinkingOrbSyncPill compact text="Syncing Master DB…" />
-            </div>
-          )}
-
-          {/* Universal Omni-Search Trigger Button / Bar */}
-          {effectiveRole !== 'DRIVER' && (
-            <>
-              {/* Mobile Search Icon Button */}
-              <button
-                type="button"
-                onClick={() => setIsOmniSearchOpen(true)}
-                className="sm:hidden p-2 rounded-xl bg-white hover:bg-[#EBF5EF] border border-[#DCE8E0] text-[#122A24] transition-colors cursor-pointer shadow-2xs flex items-center justify-center shrink-0"
-                title="Search scholars, staff, fees (Ctrl+K)"
-                aria-label="Search"
-              >
-                <Search className="h-4 w-4 text-[#122A24]" />
-              </button>
-
-              {/* Desktop Omni-Search Trigger Bar */}
-              <button
-                type="button"
-                onClick={() => setIsOmniSearchOpen(true)}
-                className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[#F4F8F5] hover:bg-[#EBF5EF]/80 border border-[#DCE8E0] text-[#122A24] rounded-xl text-xs font-medium shadow-2xs transition-all cursor-pointer group sm:w-56 md:w-64 shrink-0 text-left"
-                title="Search Scholars, Staff, Invoices, Classes (Ctrl+K)"
-              >
-                <Search className="h-3.5 w-3.5 text-[#2D5A4E]/80 shrink-0 group-hover:text-[#122A24] transition-colors" />
-                <span className="text-[#2D5A4E]/60 text-xs truncate flex-1 select-none">
-                  Search scholars, staff, fees...
-                </span>
-                <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[9.5px] font-mono bg-white border border-[#DCE8E0] rounded text-[#122A24] shrink-0 shadow-2xs">
-                  ⌘K
-                </kbd>
-              </button>
-            </>
-          )}
-
-          {/* Direct Desktop Theme Toggle Button (Strictly Default Emerald <-> Black & White) */}
-          <div className="relative hidden sm:block">
-            <button
-              type="button"
-              onClick={() => {
-                const nextTheme = currentTheme === 'monochrome' ? 'emerald' : 'monochrome';
-                handleSwitchTheme(nextTheme);
-              }}
-              className="p-2 rounded-xl border border-[#DCE8E0] bg-white hover:bg-[#EBF5EF] text-[#122A24] text-xs font-semibold cursor-pointer transition-all shadow-2xs flex items-center justify-center gap-1.5 group"
-              title={`Active Theme: ${currentTheme === 'monochrome' ? 'Black & White (Monochrome)' : 'Default (Emerald Heritage)'}. Click to switch.`}
-              aria-label="Toggle Theme"
-            >
-              <Palette className="h-4 w-4 text-[#122A24] group-hover:rotate-12 transition-transform" />
-              <span className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                currentTheme === 'monochrome' ? 'bg-zinc-950 ring-1 ring-zinc-500' : 'bg-emerald-500 ring-1 ring-emerald-300'
-              }`} />
-            </button>
-          </div>
-
-          {/* User Section Popover Dropdown (Controlled via Top Bar Profile Avatar) */}
-          {showUserMenu && (
-            <>
-              <div
-                className="fixed inset-0 z-50"
-                onClick={() => setShowUserMenu(false)}
-              />
-              <div className="fixed top-14 right-2 sm:right-4 w-72 bg-white rounded-2xl shadow-2xl border border-[#DCE8E0] p-3 z-50 animate-in fade-in zoom-in-95 space-y-3">
-                  {/* User Identity Header */}
-                  <div className="flex items-center gap-3 pb-2.5 border-b border-[#E8F0EA]">
-                    <div className="w-10 h-10 rounded-full bg-[#122A24] text-white font-bold flex items-center justify-center text-sm shrink-0 shadow-xs overflow-hidden">
-                      {currentUser?.avatar || currentUser?.photo || profileForm.avatar ? (
-                        <img src={currentUser?.avatar || currentUser?.photo || profileForm.avatar} alt="Avatar" className="w-full h-full object-cover rounded-full" />
-                      ) : (
-                        (currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-bold text-[#122A24] truncate">
-                        {currentUser?.full_name || profileForm.full_name || 'Administrator'}
-                      </div>
-                      <div className="text-[10px] text-[#2D5A4E] font-mono truncate">
-                        {currentUser?.role || 'Admin'} • ID: {currentUser?.username || profileForm.username || 'admin'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Theme Switcher in User Section */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-[10.5px] font-bold text-[#2D5A4E] uppercase tracking-wider px-1">
-                      <span className="flex items-center gap-1.5">
-                        <Palette className="h-3.5 w-3.5 text-[#1C443A]" />
-                        Theme Mode
-                      </span>
-                      <span className="text-[9.5px] font-mono px-1.5 py-0.2 rounded bg-[#EBF5EF] text-[#122A24] font-semibold">
-                        {currentTheme === 'monochrome' ? 'B & W' : 'Default'}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-                      {/* Default Emerald Theme */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleSwitchTheme('emerald');
-                        }}
-                        className={`flex items-center gap-2 p-2 rounded-xl text-left transition-all cursor-pointer border ${
-                          currentTheme === 'emerald'
-                            ? 'bg-[#EBF5EF] border-[#1C443A] text-[#122A24] font-bold shadow-2xs'
-                            : 'bg-slate-50/70 hover:bg-slate-100 border-[#E8F0EA] text-slate-700 font-medium'
-                        }`}
-                      >
-                        <span className="w-3.5 h-3.5 rounded-full bg-[#122A24] border border-[#10B981] shrink-0 flex items-center justify-center">
-                          {currentTheme === 'emerald' && <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="text-[11px] leading-tight truncate">Default</div>
-                          <div className="text-[9px] text-[#2D5A4E] truncate">Emerald</div>
-                        </div>
-                      </button>
-
-                      {/* Black & White Theme */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleSwitchTheme('monochrome');
-                        }}
-                        className={`flex items-center gap-2 p-2 rounded-xl text-left transition-all cursor-pointer border ${
-                          currentTheme === 'monochrome'
-                            ? 'bg-zinc-100 border-zinc-900 text-zinc-950 font-bold shadow-2xs'
-                            : 'bg-slate-50/70 hover:bg-slate-100 border-[#E8F0EA] text-slate-700 font-medium'
-                        }`}
-                      >
-                        <span className="w-3.5 h-3.5 rounded-full bg-zinc-950 border border-zinc-500 shrink-0 flex items-center justify-center">
-                          {currentTheme === 'monochrome' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="text-[11px] leading-tight truncate">Black &amp; White</div>
-                          <div className="text-[9px] text-zinc-500 truncate">Monochrome</div>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Actions: View Profile, My Attendance & Sign Out */}
-                  <div className="pt-2 border-t border-[#E8F0EA] space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAttendanceSubTab('my_attendance');
-                        setActiveTab('attendance');
-                        setShowUserMenu(false);
-                      }}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-[#122A24] hover:bg-[#EBF5EF] transition-colors cursor-pointer border-none bg-transparent text-left"
-                    >
-                      <span className="flex items-center gap-2">
-                        <Clock className="h-3.5 w-3.5 text-[#1C443A]" />
-                        My Attendance &amp; Regularization
-                      </span>
-                      <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveTab('profile');
-                        setShowUserMenu(false);
-                      }}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-[#122A24] hover:bg-[#EBF5EF] transition-colors cursor-pointer border-none bg-transparent text-left"
-                    >
-                      <span className="flex items-center gap-2">
-                        <User className="h-3.5 w-3.5 text-[#1C443A]" />
-                        My Profile &amp; Passcode
-                      </span>
-                      <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        handleLogout();
-                      }}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer border-none bg-transparent text-left"
-                    >
-                      <span className="flex items-center gap-2">
-                        <LogOut className="h-3.5 w-3.5" />
-                        Sign Out
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-
-          {/* Refresh button */}
-          <button
-            onClick={() => selectedSchool && loadSchoolData(selectedSchool.id)}
-            className="hidden sm:flex p-2 rounded-xl bg-white border border-[#DCE8E0] hover:bg-[#EBF5EF] text-[#122A24] transition-colors shadow-2xs cursor-pointer items-center justify-center"
-            title="Refresh Data"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-
-          {/* Sign out */}
-          <button
-            onClick={handleLogout}
-            className="hidden sm:flex p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-white hover:bg-rose-50 hover:text-rose-700 border border-[#DCE8E0] hover:border-rose-200 text-xs font-semibold text-[#122A24] transition-colors cursor-pointer shrink-0 items-center gap-1.5 shadow-2xs"
-            title="Sign Out"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </button>
-        </div>
-      </header>
 
       {/* MOBILE SUPER ADMIN SUB-BAR (ONLY ON PHONES / TABLETS FOR SUPER ADMIN) */}
       {isSuperAdmin && (

@@ -22,7 +22,10 @@ import {
   LogOut,
   ShieldCheck,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Search,
+  Palette,
+  RefreshCw
 } from 'lucide-react';
 import { School } from '@/lib/types';
 
@@ -31,6 +34,14 @@ export interface SchoolSessionHeaderProps {
   availableSchools?: School[];
   selectedSession?: string;
   availableSessions?: string[];
+  activeTab?: string;
+  tabTitle?: string;
+  currentTheme?: string;
+  isSyncingLive?: boolean;
+  isLoading?: boolean;
+  unreadCount?: number;
+  currentUser?: any;
+  profileForm?: any;
   onSwitchSession?: (session: string) => void;
   onSwitchSchool?: (schoolId: string) => void;
   onToggleSidebar?: () => void;
@@ -38,8 +49,10 @@ export interface SchoolSessionHeaderProps {
   onOpenNotifications?: () => void;
   onOpenProfile?: () => void;
   onNavigateTab?: (tab: string) => void;
-  unreadCount?: number;
-  currentUser?: any;
+  onOpenSearch?: () => void;
+  onToggleTheme?: (theme?: string) => void;
+  onRefresh?: () => void;
+  onLogout?: () => void;
 }
 
 // Convert session string like "2026-27" to full display format "2026-2027"
@@ -82,6 +95,14 @@ export function SchoolSessionHeader({
   availableSchools = [],
   selectedSession = '2026-27',
   availableSessions,
+  activeTab = 'overview',
+  tabTitle = 'OVERVIEW',
+  currentTheme = 'emerald',
+  isSyncingLive = false,
+  isLoading = false,
+  unreadCount = 2,
+  currentUser,
+  profileForm,
   onSwitchSession,
   onSwitchSchool,
   onToggleSidebar,
@@ -89,13 +110,15 @@ export function SchoolSessionHeader({
   onOpenNotifications,
   onOpenProfile,
   onNavigateTab,
-  unreadCount = 2,
-  currentUser
+  onOpenSearch,
+  onToggleTheme,
+  onRefresh,
+  onLogout
 }: SchoolSessionHeaderProps) {
   const [showSessionMenu, setShowSessionMenu] = useState(false);
   const [showSchoolMenu, setShowSchoolMenu] = useState(false);
   const [showAppsMenu, setShowAppsMenu] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const sessionMenuRef = useRef<HTMLDivElement>(null);
   const schoolMenuRef = useRef<HTMLDivElement>(null);
@@ -116,7 +139,7 @@ export function SchoolSessionHeader({
         setShowAppsMenu(false);
       }
       if (profileMenuRef.current && !profileMenuRef.current.contains(target)) {
-        setShowProfileMenu(false);
+        setShowUserMenu(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -167,14 +190,14 @@ export function SchoolSessionHeader({
   };
 
   return (
-    <div className="w-full bg-[#34373C] text-white border-b border-[#26282B] px-3 sm:px-5 py-1.5 flex items-center justify-between shadow-md z-40 select-none shrink-0 relative h-14">
-      {/* ── LEFT SECTION: Sidebar Toggle & Apps/Modules Grid ── */}
-      <div className="flex items-center gap-1 sm:gap-2">
+    <div className="w-full bg-[#34373C] text-white border-b border-[#26282B] px-3 sm:px-4 py-1.5 flex items-center justify-between shadow-md z-40 select-none shrink-0 relative h-14 gap-2 sm:gap-3">
+      {/* ── LEFT SECTION: Sidebar Toggle, Apps Grid & Integrated Breadcrumbs ── */}
+      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
         {/* Sidebar Toggle Button */}
         <button
           type="button"
           onClick={onToggleSidebar}
-          className="p-1.5 sm:p-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center"
+          className="p-1.5 sm:p-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center shrink-0"
           title="Toggle Navigation Menu"
           aria-label="Toggle Navigation"
         >
@@ -187,7 +210,7 @@ export function SchoolSessionHeader({
         </button>
 
         {/* Modules Grid Button */}
-        <div className="relative" ref={appsMenuRef}>
+        <div className="relative shrink-0" ref={appsMenuRef}>
           <button
             type="button"
             onClick={() => setShowAppsMenu(!showAppsMenu)}
@@ -236,10 +259,66 @@ export function SchoolSessionHeader({
             </div>
           )}
         </div>
+
+        {/* Integrated Clean Breadcrumbs */}
+        <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-300 border-l border-white/15 pl-2.5 ml-0.5 truncate">
+          <button
+            type="button"
+            onClick={() => onNavigateTab && onNavigateTab('overview')}
+            className="hover:text-emerald-300 transition-colors border-none bg-transparent p-0 cursor-pointer font-medium text-gray-300"
+          >
+            Dashboard
+          </button>
+          <span className="text-gray-500 font-mono select-none">/</span>
+          <span className="text-white font-bold tracking-tight uppercase truncate max-w-[130px] md:max-w-[180px]">
+            {tabTitle || activeTab || 'OVERVIEW'}
+          </span>
+        </div>
       </div>
 
-      {/* ── RIGHT SECTION: Academic Session Switcher + School Details + Action Icons ── */}
-      <div className="flex items-center gap-2 sm:gap-4 ml-auto">
+      {/* ── CENTER SECTION: Omni-Search Bar ── */}
+      {onOpenSearch && (
+        <div className="hidden md:flex items-center flex-1 max-w-xs lg:max-w-sm mx-2">
+          <button
+            type="button"
+            onClick={onOpenSearch}
+            className="w-full flex items-center gap-2 px-3 py-1.5 bg-black/25 hover:bg-black/35 border border-white/15 hover:border-white/25 rounded-xl text-xs text-gray-300 transition-all cursor-pointer group shadow-2xs text-left"
+            title="Search Scholars, Staff, Fees, Classes (Ctrl+K)"
+          >
+            <Search className="w-3.5 h-3.5 text-gray-400 group-hover:text-white transition-colors shrink-0" />
+            <span className="truncate flex-1 text-gray-400 group-hover:text-gray-200 text-xs select-none">
+              Search scholars, staff, fees...
+            </span>
+            <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-[9.5px] font-mono bg-white/10 border border-white/10 rounded text-gray-300 shrink-0">
+              ⌘K
+            </kbd>
+          </button>
+        </div>
+      )}
+
+      {/* ── RIGHT SECTION: Academic Session + School Brand + Action Icons ── */}
+      <div className="flex items-center gap-1.5 sm:gap-3 ml-auto shrink-0">
+        {/* Live Master DB Sync Pill */}
+        {isSyncingLive && (
+          <div className="hidden xl:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-500/40 text-[10px] font-mono text-emerald-300 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span>Syncing Master DB</span>
+          </div>
+        )}
+
+        {/* Mobile Search Icon Button */}
+        {onOpenSearch && (
+          <button
+            type="button"
+            onClick={onOpenSearch}
+            className="md:hidden p-1.5 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center"
+            title="Search"
+            aria-label="Search"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+        )}
+
         {/* 1. Academic Session Interactive Switcher */}
         <div className="relative" ref={sessionMenuRef}>
           <div
@@ -303,7 +382,6 @@ export function SchoolSessionHeader({
                 alt={schoolName}
                 className="w-full h-full object-contain rounded-full"
                 onError={(e) => {
-                  // Fallback to SVG badge if image fails to load
                   (e.currentTarget as HTMLImageElement).style.display = 'none';
                   const fb = e.currentTarget.nextElementSibling as HTMLElement;
                   if (fb) fb.style.display = 'flex';
@@ -318,14 +396,11 @@ export function SchoolSessionHeader({
               <svg viewBox="0 0 100 100" className="w-full h-full text-[#15803d]" fill="currentColor">
                 <circle cx="50" cy="50" r="47" fill="none" stroke="currentColor" strokeWidth="3.5" />
                 <circle cx="50" cy="50" r="41" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                {/* Torch / Flame Emblem */}
                 <path d="M50 20 C46 28 44 32 47 38 C49 34 52 32 50 20 Z" fill="#eab308" />
                 <path d="M48 24 C45 30 46 34 48 38 C50 34 52 30 48 24 Z" fill="#ef4444" />
                 <rect x="45" y="38" width="10" height="24" rx="2" fill="currentColor" />
-                {/* Wreath / Shield base */}
                 <path d="M30 45 C30 65 50 78 50 78 C50 78 70 65 70 45" fill="none" stroke="currentColor" strokeWidth="3" />
                 <path d="M22 40 C24 60 38 74 50 82 C62 74 76 60 78 40" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3,2" />
-                {/* Motto ribbon */}
                 <path d="M25 82 Q50 90 75 82" fill="none" stroke="currentColor" strokeWidth="2.5" />
               </svg>
             </div>
@@ -333,26 +408,25 @@ export function SchoolSessionHeader({
 
           {/* School Name & Subtitle/Address */}
           <div className="hidden sm:flex flex-col justify-center min-w-0 pr-1">
-            <span className="text-xs sm:text-[13px] font-bold text-white uppercase tracking-wider truncate max-w-[170px] md:max-w-[240px] leading-tight">
+            <span className="text-xs sm:text-[13px] font-bold text-white uppercase tracking-wider truncate max-w-[150px] md:max-w-[210px] leading-tight">
               {schoolName}
             </span>
-            <span className="text-[10px] text-gray-300/80 font-normal truncate max-w-[160px] md:max-w-[220px] leading-tight">
+            <span className="text-[10px] text-gray-300/80 font-normal truncate max-w-[140px] md:max-w-[190px] leading-tight">
               {schoolAddress}
             </span>
           </div>
         </div>
 
-        {/* 3. Right Action Icons: Calendar, Switch School, Notifications, Profile */}
-        <div className="flex items-center gap-1 sm:gap-2 border-l border-white/15 pl-2">
+        {/* 3. Action Icons: Calendar, Switch School, Theme, Refresh, Notifications, Profile, Logout */}
+        <div className="flex items-center gap-1 sm:gap-1.5 border-l border-white/15 pl-1.5 sm:pl-2">
           {/* Calendar / Date Sheet Icon */}
           <button
             type="button"
             onClick={onOpenCalendar}
-            className="p-1.5 sm:p-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center"
+            className="p-1.5 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center shrink-0"
             title="School Date Sheet & Academic Calendar"
             aria-label="Academic Calendar"
           >
-            {/* Calendar with Star Icon matching screenshot */}
             <div className="relative">
               <Calendar className="w-4 h-4" />
               <span className="absolute -top-1 -right-1 text-[8px] text-amber-300 font-bold">★</span>
@@ -360,11 +434,11 @@ export function SchoolSessionHeader({
           </button>
 
           {/* Switch School / Branch Icon */}
-          <div className="relative" ref={schoolMenuRef}>
+          <div className="relative shrink-0" ref={schoolMenuRef}>
             <button
               type="button"
               onClick={() => setShowSchoolMenu(!showSchoolMenu)}
-              className={`p-1.5 sm:p-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center ${
+              className={`p-1.5 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center ${
                 showSchoolMenu ? 'bg-white/15 text-white' : ''
               }`}
               title="Switch School Tenant / Branch"
@@ -419,11 +493,38 @@ export function SchoolSessionHeader({
             )}
           </div>
 
+          {/* Theme Mode Toggle Button */}
+          {onToggleTheme && (
+            <button
+              type="button"
+              onClick={() => onToggleTheme()}
+              className="p-1.5 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center gap-1 shrink-0"
+              title={`Active Theme: ${currentTheme === 'monochrome' ? 'Black & White' : 'Default Emerald'}. Click to toggle.`}
+              aria-label="Toggle Theme"
+            >
+              <Palette className="w-4 h-4" />
+              <span className={`w-2 h-2 rounded-full ${currentTheme === 'monochrome' ? 'bg-zinc-300 ring-1 ring-zinc-500' : 'bg-emerald-400 ring-1 ring-emerald-300'}`} />
+            </button>
+          )}
+
+          {/* Refresh Data Button */}
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="p-1.5 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center shrink-0"
+              title="Refresh Live School Data"
+              aria-label="Refresh Data"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-emerald-400' : ''}`} />
+            </button>
+          )}
+
           {/* Notifications Bell with Badge */}
           <button
             type="button"
             onClick={onOpenNotifications}
-            className="p-1.5 sm:p-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center relative"
+            className="p-1.5 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer border-none bg-transparent flex items-center justify-center relative shrink-0"
             title="School Notifications & Circulars"
             aria-label="Notifications"
           >
@@ -435,22 +536,169 @@ export function SchoolSessionHeader({
             )}
           </button>
 
-          {/* User Account Profile Avatar */}
-          <div className="relative" ref={profileMenuRef}>
+          {/* User Account Profile Avatar & Dropdown */}
+          <div className="relative shrink-0" ref={profileMenuRef}>
             <button
               type="button"
-              onClick={onOpenProfile || (() => setShowProfileMenu(!showProfileMenu))}
+              onClick={() => setShowUserMenu(!showUserMenu)}
               className="w-7 h-7 rounded-full border border-gray-400/50 bg-gray-700 hover:border-emerald-400 flex items-center justify-center text-white text-xs font-bold overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-400 transition-all ml-0.5"
               title="User Account & Office Credentials"
               aria-label="User Account"
             >
-              {currentUser?.avatar || currentUser?.photo ? (
-                <img src={currentUser.avatar || currentUser.photo} alt="User Avatar" className="w-full h-full object-cover" />
+              {currentUser?.avatar || currentUser?.photo || profileForm?.avatar ? (
+                <img
+                  src={currentUser?.avatar || currentUser?.photo || profileForm?.avatar}
+                  alt="User Avatar"
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <User className="w-4 h-4 text-gray-300" />
               )}
             </button>
+
+            {/* Rich User Account Popover Dropdown */}
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-72 bg-[#25282D] rounded-2xl shadow-2xl border border-white/10 p-3 z-50 text-white animate-in fade-in zoom-in-95 space-y-3">
+                {/* User Identity Header */}
+                <div className="flex items-center gap-3 pb-2.5 border-b border-white/10">
+                  <div className="w-9 h-9 rounded-full bg-white/10 text-white font-bold flex items-center justify-center text-xs shrink-0 overflow-hidden border border-white/15">
+                    {currentUser?.avatar || currentUser?.photo || profileForm?.avatar ? (
+                      <img
+                        src={currentUser?.avatar || currentUser?.photo || profileForm?.avatar}
+                        alt="Avatar"
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    ) : (
+                      (currentUser?.full_name || profileForm?.full_name || 'Admin')[0]?.toUpperCase()
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-bold text-white truncate">
+                      {currentUser?.full_name || profileForm?.full_name || 'Administrator'}
+                    </div>
+                    <div className="text-[10px] text-gray-400 font-mono truncate">
+                      {currentUser?.role || 'Admin'} • ID: {currentUser?.username || profileForm?.username || 'admin'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Theme Mode Selector */}
+                {onToggleTheme && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[10.5px] font-bold text-gray-300 uppercase tracking-wider px-1">
+                      <span className="flex items-center gap-1.5">
+                        <Palette className="h-3.5 w-3.5 text-emerald-400" />
+                        Theme Mode
+                      </span>
+                      <span className="text-[9.5px] font-mono px-1.5 py-0.2 rounded bg-white/10 text-gray-200 font-semibold">
+                        {currentTheme === 'monochrome' ? 'B & W' : 'Default'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => onToggleTheme('emerald')}
+                        className={`flex items-center gap-2 p-2 rounded-xl text-left transition-all cursor-pointer border ${
+                          currentTheme === 'emerald'
+                            ? 'bg-emerald-600/25 border-emerald-500/50 text-emerald-300 font-bold'
+                            : 'bg-white/5 hover:bg-white/10 border-transparent text-gray-300 font-medium'
+                        }`}
+                      >
+                        <span className="w-3.5 h-3.5 rounded-full bg-[#122A24] border border-[#10B981] shrink-0 flex items-center justify-center">
+                          {currentTheme === 'emerald' && <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-[11px] leading-tight truncate">Default</div>
+                          <div className="text-[9px] text-gray-400 truncate">Emerald</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onToggleTheme('monochrome')}
+                        className={`flex items-center gap-2 p-2 rounded-xl text-left transition-all cursor-pointer border ${
+                          currentTheme === 'monochrome'
+                            ? 'bg-white/15 border-white/30 text-white font-bold'
+                            : 'bg-white/5 hover:bg-white/10 border-transparent text-gray-300 font-medium'
+                        }`}
+                      >
+                        <span className="w-3.5 h-3.5 rounded-full bg-zinc-950 border border-zinc-500 shrink-0 flex items-center justify-center">
+                          {currentTheme === 'monochrome' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-[11px] leading-tight truncate">Black &amp; White</div>
+                          <div className="text-[9px] text-gray-400 truncate">Monochrome</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick Profile Actions */}
+                <div className="pt-2 border-t border-white/10 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      if (onNavigateTab) onNavigateTab('attendance');
+                    }}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-200 hover:bg-white/10 transition-colors cursor-pointer border-none bg-transparent text-left"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Clock className="h-3.5 w-3.5 text-emerald-400" />
+                      My Attendance &amp; Regularization
+                    </span>
+                    <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      if (onNavigateTab) onNavigateTab('profile');
+                    }}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-200 hover:bg-white/10 transition-colors cursor-pointer border-none bg-transparent text-left"
+                  >
+                    <span className="flex items-center gap-2">
+                      <User className="h-3.5 w-3.5 text-emerald-400" />
+                      My Profile &amp; Passcode
+                    </span>
+                    <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                  </button>
+
+                  {onLogout && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onLogout();
+                      }}
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/20 transition-colors cursor-pointer border-none bg-transparent text-left"
+                    >
+                      <span className="flex items-center gap-2">
+                        <LogOut className="h-3.5 w-3.5" />
+                        Sign Out
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Direct Sign Out Button */}
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/10 hover:bg-rose-600/30 text-gray-200 hover:text-rose-200 border border-white/10 hover:border-rose-500/40 text-xs font-semibold transition cursor-pointer shrink-0 ml-1"
+              title="Sign Out of School ERP"
+            >
+              <LogOut className="w-3.5 h-3.5 text-rose-400" />
+              <span>Sign Out</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
