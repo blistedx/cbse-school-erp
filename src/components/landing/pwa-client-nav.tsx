@@ -23,8 +23,15 @@ export default function PwaClientNav() {
       if (rawUser && token) {
         const parsed = JSON.parse(rawUser);
         const schoolCode = parsed.school_code || parsed.school_id || 'DPS2026';
-        // Auto navigate to active school dashboard
-        router.replace(`/app?school=${encodeURIComponent(schoolCode)}`);
+        const userRole = (parsed.role || parsed.login_role || '').toUpperCase();
+
+        if (userRole === 'TEACHER') {
+          router.replace(`/teacher?school=${encodeURIComponent(schoolCode)}`);
+        } else if (userRole === 'PRINCIPAL') {
+          router.replace(`/principal?school=${encodeURIComponent(schoolCode)}`);
+        } else {
+          router.replace(`/app?school=${encodeURIComponent(schoolCode)}`);
+        }
       } else if (isStandalone) {
         // In standalone PWA without existing session, take user directly to Login
         router.replace('/login');

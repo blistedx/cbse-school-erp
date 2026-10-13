@@ -363,19 +363,27 @@ export default function TeacherDashboardPage() {
 
   if (loading) {
     return (
-      <div className="max-w-md mx-auto space-y-4 animate-pulse pt-2">
-        <div className="h-10 bg-slate-200/70 rounded-2xl" />
-        <div className="h-44 bg-slate-200/70 rounded-3xl" />
-        <div className="grid grid-cols-2 gap-3">
+      <div className="w-full max-w-7xl mx-auto space-y-6 animate-pulse pt-2 font-sans">
+        <div className="h-10 bg-slate-200/70 rounded-2xl w-48" />
+        <div className="h-48 bg-slate-200/70 rounded-[28px] w-full" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
           {[1, 2, 3, 4].map(i => (
             <div key={i} className="h-24 bg-slate-200/70 rounded-2xl" />
           ))}
         </div>
-        <div className="h-32 bg-slate-200/70 rounded-2xl" />
-        <div className="grid grid-cols-2 gap-3">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-24 bg-slate-200/70 rounded-2xl" />
-          ))}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8 space-y-6">
+            <div className="h-44 bg-slate-200/70 rounded-2xl" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-24 bg-slate-200/70 rounded-2xl" />
+              ))}
+            </div>
+          </div>
+          <div className="lg:col-span-4 space-y-6">
+            <div className="h-48 bg-slate-200/70 rounded-2xl" />
+            <div className="h-40 bg-slate-200/70 rounded-2xl" />
+          </div>
         </div>
       </div>
     );
@@ -383,7 +391,7 @@ export default function TeacherDashboardPage() {
 
   if (error || !data) {
     return (
-      <div className="max-w-md mx-auto p-6 text-center bg-rose-50 border border-rose-200 rounded-3xl space-y-3">
+      <div className="w-full max-w-xl mx-auto p-8 text-center bg-rose-50 border border-rose-200 rounded-3xl space-y-3 my-12 font-sans">
         <AlertTriangle className="w-10 h-10 text-rose-500 mx-auto" />
         <h3 className="text-base font-bold text-rose-900">Faculty Workstation Error</h3>
         <p className="text-xs text-rose-700 max-w-md mx-auto">{error || 'Unable to load teacher dashboard.'}</p>
@@ -475,50 +483,70 @@ export default function TeacherDashboardPage() {
   const isHoliday = currentHolidayCount === totalEnrolled && totalEnrolled > 0;
 
   return (
-    <div className="max-w-md mx-auto space-y-4 sm:space-y-5 animate-fade-in pb-16 font-sans">
+    <div className="w-full max-w-7xl mx-auto space-y-6 sm:space-y-7 animate-fade-in pb-16 font-sans">
 
       {/* ══════════════════════════════════════════════════════════════
-          1. HEADER: SETTINGS GEAR • "Faculty Dashboard" • NOTIFICATION BELL
+          1. HEADER: GREETING & WORKSPACE CONTROLS
           ══════════════════════════════════════════════════════════════ */}
-      <div className="flex items-center justify-between pt-1 pb-1 px-1">
-        <button
-          type="button"
-          onClick={() => setShowSettingsModal(true)}
-          className="p-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-100/80 active:scale-95 transition cursor-pointer"
-          title="Settings"
-        >
-          <Settings className="w-5 h-5 stroke-[2.2]" />
-        </button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#DCE8E0]/70">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-mono font-semibold text-[#2D5A4E]">
+            <span>{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+            <span>•</span>
+            <span className="text-emerald-700 font-bold">{currentTime || 'Live IST'}</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-[#122A24] tracking-tight mt-0.5">
+            Faculty Overview Dashboard
+          </h1>
+        </div>
 
-        <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight text-center">
-          Faculty Dashboard
-        </h1>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setShowAttendanceSheet(true)}
+            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-2 transition cursor-pointer"
+          >
+            <ClipboardList className="w-4 h-4" />
+            <span>Daily Roll Call</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setShowNoticesModal(true)}
-          className="p-2 rounded-xl text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 active:scale-95 transition cursor-pointer relative"
-          title="Notifications"
-        >
-          <Bell className="w-5 h-5 stroke-[2.2]" />
-          {(latest_notices?.length > 0 || (pending_tasks && pending_tasks.pending_leave_requests_count > 0)) && (
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-600 ring-2 ring-white" />
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={() => setShowNoticesModal(true)}
+            className="p-2 sm:px-3 sm:py-2 rounded-xl text-emerald-800 hover:text-emerald-900 bg-white hover:bg-emerald-50 border border-[#DCE8E0] shadow-2xs relative transition active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+            title="School Circulars"
+          >
+            <Bell className="w-4 h-4 stroke-[2.2]" />
+            <span className="hidden sm:inline">Circulars</span>
+            {(latest_notices?.length > 0 || (pending_tasks && pending_tasks.pending_leave_requests_count > 0)) && (
+              <span className="w-2 h-2 rounded-full bg-emerald-600 ring-2 ring-white" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowSettingsModal(true)}
+            className="p-2 sm:px-3 sm:py-2 rounded-xl text-[#2D5A4E] hover:text-[#122A24] bg-white hover:bg-slate-50 border border-[#DCE8E0] shadow-2xs transition active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+            title="Quick Settings"
+          >
+            <Settings className="w-4 h-4 stroke-[2.2]" />
+            <span className="hidden sm:inline">Settings</span>
+          </button>
+        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
           2. FACULTY PROFILE CARD (ADMIN-STYLE DEEP GREEN THEME)
           ══════════════════════════════════════════════════════════════ */}
-      <div className="rounded-[28px] p-4.5 sm:p-6 shadow-xl border border-emerald-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] text-white">
-        <div className="absolute -right-8 -top-8 w-52 h-52 bg-radial from-emerald-400/20 via-teal-500/5 to-transparent pointer-events-none rounded-full blur-2xl" />
-        <div className="absolute right-0 bottom-0 w-36 h-36 bg-radial from-amber-400/10 to-transparent pointer-events-none rounded-full blur-xl" />
+      <div className="rounded-[28px] p-5 sm:p-7 shadow-xl border border-emerald-700/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] text-white">
+        <div className="absolute -right-8 -top-8 w-64 h-64 bg-radial from-emerald-400/20 via-teal-500/5 to-transparent pointer-events-none rounded-full blur-2xl" />
+        <div className="absolute right-0 bottom-0 w-44 h-44 bg-radial from-amber-400/10 to-transparent pointer-events-none rounded-full blur-xl" />
 
         {/* Left: Avatar + Details */}
-        <div className="flex items-start sm:items-center gap-3.5 sm:gap-4 relative z-10 min-w-0 flex-1">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 relative z-10 min-w-0 flex-1">
           {/* Profile Avatar with Circular Badge 'A' */}
-          <div className="relative shrink-0 pt-0.5">
-            <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-full overflow-hidden bg-emerald-950 ring-2 ring-emerald-300/40 shadow-lg flex items-center justify-center">
+          <div className="relative shrink-0">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-emerald-950 ring-2 ring-emerald-300/40 shadow-lg flex items-center justify-center">
               <img
                 src="/teacher-ananya.jpg"
                 alt={teacher.full_name || 'Ananya Sen'}
@@ -538,43 +566,37 @@ export default function TeacherDashboardPage() {
           </div>
 
           {/* Profile Info */}
-          <div className="flex-1 min-w-0 space-y-1">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-black text-white leading-tight tracking-tight truncate">
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex flex-wrap items-baseline gap-2">
+              <h2 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight truncate">
                 {teacher.full_name || 'Ananya Sen'}
               </h2>
-              <p className="text-xs sm:text-sm font-bold text-emerald-300 leading-tight mt-0.5 truncate">
-                {cleanDesignation || 'Head of English'}
-              </p>
+              <span className="text-xs sm:text-sm font-bold text-emerald-300 leading-tight">
+                • {cleanDesignation || 'Head of English'}
+              </span>
             </div>
 
-            <div className="space-y-0.5 pt-1 text-[11px] sm:text-xs text-emerald-100/90 font-medium font-mono">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/10 text-emerald-200 border border-white/10 text-[10px] font-bold">
-                  ID • {teacher.staff_code || 'EMP-CLAS01'}
-                </span>
-                <span className="text-emerald-400/50">•</span>
-                <span className="text-emerald-200/90">Joined • 12 Jun 2021</span>
-              </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-emerald-100/90 font-medium font-mono">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/10 text-emerald-200 border border-white/10 text-[10px] font-bold">
+                ID • {teacher.staff_code || 'EMP-CLAS01'}
+              </span>
+              <span>Joined • 12 Jun 2021</span>
+              <span className="text-emerald-400/50">•</span>
+              <span>Department • {teacher.department || 'English'}</span>
+              <span className="text-emerald-400/50">•</span>
+              <span>Experience • 4+ Years</span>
+              <span className="text-emerald-400/50">•</span>
+              <span>Qualification • {teacher.qualification || 'MA English'}</span>
+            </div>
 
-              <div className="flex items-center gap-1.5 flex-wrap text-emerald-200/80">
-                <span>Department • {teacher.department || 'English'}</span>
-                <span className="text-emerald-400/50">•</span>
-                <span>Experience • 4+ Years</span>
-              </div>
-
-              <div className="text-emerald-200/90 truncate">
-                Qualification • {teacher.qualification || 'MA English'}
-              </div>
-
-              <div className="flex items-center gap-1.5 text-emerald-200/90 truncate pt-0.5">
-                <Mail className="w-3 h-3 text-emerald-400 shrink-0" />
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-emerald-200/90 pt-0.5">
+              <div className="flex items-center gap-1.5 truncate">
+                <Mail className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span className="truncate">{teacher.email || 'ananya.sen@school.edu'}</span>
               </div>
-
-              <div className="flex items-center gap-1.5 text-emerald-200/90 truncate">
-                <Phone className="w-3 h-3 text-emerald-400 shrink-0" />
-                <span className="font-mono">{teacher.phone || '+91 98765 43210'}</span>
+              <div className="flex items-center gap-1.5 font-mono">
+                <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>{teacher.phone || '+91 98765 43210'}</span>
               </div>
             </div>
           </div>
@@ -582,15 +604,15 @@ export default function TeacherDashboardPage() {
 
         {/* Right: Incharge Badge Highlight */}
         {is_class_teacher && (
-          <div className="relative z-10 shrink-0 w-full sm:w-auto flex sm:flex-col items-center justify-between sm:justify-center p-3 sm:px-4 sm:py-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/15 text-center">
-            <div className="flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider text-amber-300 font-bold">
-              <Sparkles className="w-3 h-3 text-amber-400" />
+          <div className="relative z-10 shrink-0 w-full md:w-auto flex md:flex-col items-center justify-between md:justify-center p-3.5 sm:px-5 sm:py-3.5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/15 text-center">
+            <div className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-amber-300 font-bold">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               <span>Class Incharge</span>
             </div>
-            <div className="text-xl sm:text-2xl font-black font-mono text-amber-300 my-0.5 sm:my-1">
+            <div className="text-2xl sm:text-3xl font-black font-mono text-amber-300 my-0.5 sm:my-1">
               {displayClassCode}
             </div>
-            <span className="text-[10px] font-mono text-emerald-200">
+            <span className="text-xs font-mono text-emerald-200">
               {totalEnrolled} Scholars
             </span>
           </div>
@@ -598,20 +620,22 @@ export default function TeacherDashboardPage() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
-          3. "MY DUTIES" (2x2 GRID WITH GREEN ICONS)
+          3. "MY DUTIES" (4-COLUMN RESPONSIVE GRID WITH GREEN ICONS)
           ══════════════════════════════════════════════════════════════ */}
-      <div className="space-y-2.5">
-        <div className="px-1">
-          <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-            My Duties
-          </h2>
-          <div className="w-7 h-1 bg-emerald-700 rounded-full mt-0.5" />
+      <div className="space-y-3">
+        <div className="px-1 flex items-center justify-between">
+          <div>
+            <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+              My Duties
+            </h2>
+            <div className="w-7 h-1 bg-emerald-700 rounded-full mt-0.5" />
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
           {/* Duty 1: Class Incharge */}
-          <div className="bg-white rounded-2xl p-3 sm:p-3.5 shadow-sm border border-slate-100 flex items-center gap-2.5 sm:gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-xs">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3 hover:border-emerald-200 transition">
+            <div className="w-11 h-11 rounded-full bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-xs">
               <Users className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div className="min-w-0">
@@ -625,8 +649,8 @@ export default function TeacherDashboardPage() {
           </div>
 
           {/* Duty 2: 28 Scholars */}
-          <div className="bg-white rounded-2xl p-3 sm:p-3.5 shadow-sm border border-slate-100 flex items-center gap-2.5 sm:gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-xs">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3 hover:border-emerald-200 transition">
+            <div className="w-11 h-11 rounded-full bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-xs">
               <GraduationCap className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div className="min-w-0">
@@ -640,8 +664,8 @@ export default function TeacherDashboardPage() {
           </div>
 
           {/* Duty 3: Subjects Taught */}
-          <div className="bg-white rounded-2xl p-3 sm:p-3.5 shadow-sm border border-slate-100 flex items-center gap-2.5 sm:gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-xs">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3 hover:border-emerald-200 transition">
+            <div className="w-11 h-11 rounded-full bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-xs">
               <BookOpen className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div className="min-w-0">
@@ -655,8 +679,8 @@ export default function TeacherDashboardPage() {
           </div>
 
           {/* Duty 4: Total Periods Today */}
-          <div className="bg-white rounded-2xl p-3 sm:p-3.5 shadow-sm border border-slate-100 flex items-center gap-2.5 sm:gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-xs">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-3 hover:border-emerald-200 transition">
+            <div className="w-11 h-11 rounded-full bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-xs">
               <Clock className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div className="min-w-0">
@@ -664,7 +688,7 @@ export default function TeacherDashboardPage() {
                 Total Periods Today
               </span>
               <span className="text-base sm:text-lg font-black text-slate-900 block leading-tight mt-0.5">
-                {today_timetable?.length || 5}
+                {today_timetable?.length || 5} Periods
               </span>
             </div>
           </div>
@@ -672,193 +696,304 @@ export default function TeacherDashboardPage() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
-          4. "TODAY'S SNAPSHOT"
+          4. DESKTOP 2-COLUMN WORKSPACE: INSIGHTS & SNAPSHOTS
           ══════════════════════════════════════════════════════════════ */}
-      <div className="space-y-2.5">
-        <div className="flex items-center gap-2 text-base sm:text-lg font-black text-slate-900 px-1">
-          <Calendar className="w-4 h-4 text-slate-800" />
-          <span>Today's Snapshot</span>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 divide-y divide-slate-100 overflow-hidden">
-          {/* Row 1: Biometric Clocked In */}
-          <div className="p-3.5 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* ── LEFT COLUMN (8 cols): Class Insights & Academic Desk ── */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Class X-A Insights */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2 text-base sm:text-lg font-black text-slate-900">
+                <BarChart2 className="w-4 h-4 text-slate-800" />
+                <span>Class {displayClassCode} Insights</span>
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs sm:text-sm font-bold text-slate-900">
-                    Biometric • Clocked In
+
+              {/* Quick Mark button */}
+              <button
+                type="button"
+                onClick={() => setShowAttendanceSheet(true)}
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-0.5 cursor-pointer"
+              >
+                <span>Roll Call</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Academic Month Selector Filter */}
+            <div className="bg-white rounded-2xl p-3 shadow-sm border border-slate-100 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold px-1">
+                <span className="text-slate-800 flex items-center gap-1.5">
+                  <Filter className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Select Academic Fee Month:</span>
+                </span>
+                <span className="text-emerald-900 font-mono text-[11px] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  {activeMonthLabel} 2026
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 custom-scrollbar">
+                {ACADEMIC_MONTHS.map(m => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => handleMonthChange(m.key)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition cursor-pointer ${
+                      selectedMonth === m.key
+                        ? 'bg-emerald-700 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 4 Stat Tiles */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-3.5">
+              {/* Tile 1: Enrolled */}
+              <div className="bg-white rounded-2xl p-3.5 sm:p-4 shadow-sm border border-slate-100 flex items-center gap-3">
+                <GraduationCap className="w-7 h-7 text-slate-800 shrink-0" strokeWidth={1.8} />
+                <div className="min-w-0">
+                  <span className="text-sm sm:text-base font-black text-slate-900 block leading-tight truncate">
+                    {totalEnrolled} Enrolled
                   </span>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 fill-emerald-100 shrink-0" />
-                </div>
-                <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
-                  {biometric_today.in_time || '08:15 AM'} • {isDutyCompleted ? 'Shift Completed' : 'Shift Active'}
-                </p>
-              </div>
-            </div>
-
-            {/* Shift Timer or Punch button */}
-            {biometric_today.status !== 'PRESENT' ? (
-              <button
-                type="button"
-                onClick={() => handlePunch('PUNCH_IN')}
-                disabled={punching}
-                className="px-3 py-1.5 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 active:scale-95 transition cursor-pointer"
-              >
-                {punching ? '...' : 'Punch In'}
-              </button>
-            ) : (
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold">
-                {dutyCountdownStr}
-              </span>
-            )}
-          </div>
-
-          {/* Row 2: Next Class & Pending Tasks */}
-          <div className="p-3.5 flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
-                <Clock className="w-5 h-5 stroke-[2.2]" />
-              </div>
-              <div className="min-w-0 space-y-0.5">
-                <p className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
-                  Next Class • {displayClassCode} Period 3 at 10:30 AM • English Literature
-                </p>
-                <div className="text-[11px] sm:text-xs text-slate-500 font-medium">
-                  <span className="font-semibold text-slate-700">Pending Tasks</span> • 2 copies to check
+                  <span className="text-xs text-slate-500 block mt-0.5">
+                    Total Enrolled
+                  </span>
                 </div>
               </div>
-            </div>
 
-            {/* Badges: Upcoming & 2 Pending */}
-            <div className="flex flex-col items-end gap-1 shrink-0 pt-0.5">
-              <span className="px-2 py-0.5 rounded-md bg-[#143d32] text-emerald-100 text-[10px] font-bold tracking-tight">
-                Upcoming
-              </span>
-              <span className="px-2 py-0.5 rounded-md bg-amber-400 text-amber-950 text-[10px] font-bold tracking-tight">
-                2 Pending
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════════
-          5. "CLASS X-A INSIGHTS" & INTERACTIVE MONTH FEE FILTER
-          ══════════════════════════════════════════════════════════════ */}
-      <div className="space-y-2.5">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2 text-base sm:text-lg font-black text-slate-900">
-            <BarChart2 className="w-4 h-4 text-slate-800" />
-            <span>Class {displayClassCode} Insights</span>
-          </div>
-
-          {/* Quick Mark button */}
-          <button
-            type="button"
-            onClick={() => setShowAttendanceSheet(true)}
-            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-0.5 cursor-pointer"
-          >
-            <span>Roll Call</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* ── ACADEMIC MONTH FILTER FOR FEES & ANALYTICS ── */}
-        <div className="bg-white rounded-2xl p-2.5 shadow-sm border border-slate-100 space-y-1.5">
-          <div className="flex items-center justify-between text-xs font-bold px-1">
-            <span className="text-slate-800 flex items-center gap-1.5">
-              <Filter className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Select Academic Fee Month:</span>
-            </span>
-            <span className="text-emerald-900 font-mono text-[11px] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-              {activeMonthLabel} 2026
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 custom-scrollbar">
-            {ACADEMIC_MONTHS.map(m => (
-              <button
-                key={m.key}
-                type="button"
-                onClick={() => handleMonthChange(m.key)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition cursor-pointer ${
-                  selectedMonth === m.key
-                    ? 'bg-emerald-700 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                }`}
+              {/* Tile 2: Today's Attendance (Clickable) */}
+              <div
+                onClick={() => setShowAttendanceSheet(true)}
+                className="bg-white hover:bg-emerald-50/50 rounded-2xl p-3.5 sm:p-4 shadow-sm border border-slate-100 flex items-center gap-3 cursor-pointer transition group"
+                title="Click to view/mark class attendance"
               >
-                {m.label}
-              </button>
-            ))}
+                <CalendarCheck className="w-7 h-7 text-emerald-700 group-hover:scale-110 transition shrink-0" strokeWidth={1.8} />
+                <div className="min-w-0 flex-1">
+                  <span className="text-sm sm:text-base font-black text-slate-900 block leading-tight truncate">
+                    {isHoliday ? '0% Attendance' : `${currentAttPercent}% Attendance`}
+                  </span>
+                  <span className="text-xs text-slate-500 block mt-0.5 truncate font-medium">
+                    {isHoliday
+                      ? 'Today • Holiday'
+                      : currentAbsentCount > 0
+                      ? `Today • ${currentAbsentCount} Absent`
+                      : 'Today • All Present'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tile 3: Avg Monthly Attendance */}
+              <div className="bg-white rounded-2xl p-3.5 sm:p-4 shadow-sm border border-slate-100 flex items-center gap-3">
+                <TrendingUp className="w-7 h-7 text-slate-800 shrink-0" strokeWidth={1.8} />
+                <div className="min-w-0">
+                  <span className="text-sm sm:text-base font-black text-slate-900 block leading-tight">
+                    92%
+                  </span>
+                  <span className="text-[11px] sm:text-xs text-slate-500 block leading-snug mt-0.5">
+                    Monthly Avg Attendance
+                  </span>
+                </div>
+              </div>
+
+              {/* Tile 4: Fee Clearance (Clickable) */}
+              <div
+                onClick={() => setShowFeeStudentsModal(true)}
+                className="bg-white hover:bg-slate-50/80 rounded-2xl p-3.5 sm:p-4 shadow-sm border border-slate-100 flex items-center gap-3 cursor-pointer transition group"
+                title="Click to view scholar fees"
+              >
+                <CreditCard className="w-7 h-7 text-slate-800 group-hover:text-emerald-700 transition shrink-0" strokeWidth={1.8} />
+                <div className="min-w-0 flex-1">
+                  <span className="text-sm sm:text-base font-black text-slate-900 block leading-tight truncate">
+                    {activeMonthData?.collection_percentage ? `${activeMonthData.collection_percentage}% Fee Clearance` : '100% Fee Clearance'}
+                  </span>
+                  <span className="text-xs text-slate-500 block mt-0.5 truncate font-medium">
+                    {activeMonthLabel} • {activeMonthData?.total_pending === 0 ? 'Cleared' : `₹${Number(activeMonthData?.total_pending || 0).toLocaleString('en-IN')} Due`}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Academic Quick Desk */}
+          <div className="space-y-3">
+            <div className="px-1 flex items-center justify-between">
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                  Academic Quick Desk
+                </h2>
+                <div className="w-7 h-1 bg-emerald-700 rounded-full mt-0.5" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+              <Link
+                href="/teacher/my-class/attendance"
+                className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-emerald-300 hover:shadow-md transition flex flex-col justify-between group no-underline"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-700 group-hover:text-white transition shadow-2xs">
+                  <ClipboardList className="w-5 h-5" />
+                </div>
+                <div className="mt-4">
+                  <span className="text-xs sm:text-sm font-bold text-slate-900 block leading-tight">Class Roll Call</span>
+                  <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">Register Desk</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/teacher/marks"
+                className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-emerald-300 hover:shadow-md transition flex flex-col justify-between group no-underline"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-700 group-hover:text-white transition shadow-2xs">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div className="mt-4">
+                  <span className="text-xs sm:text-sm font-bold text-slate-900 block leading-tight">Marks Entry</span>
+                  <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">Assessment Records</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/teacher/homework"
+                className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-emerald-300 hover:shadow-md transition flex flex-col justify-between group no-underline"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-700 group-hover:text-white transition shadow-2xs">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div className="mt-4">
+                  <span className="text-xs sm:text-sm font-bold text-slate-900 block leading-tight">Homework Desk</span>
+                  <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">Assignments & Work</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/teacher/my-class/dossier"
+                className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm hover:border-emerald-300 hover:shadow-md transition flex flex-col justify-between group no-underline"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-700 group-hover:text-white transition shadow-2xs">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div className="mt-4">
+                  <span className="text-xs sm:text-sm font-bold text-slate-900 block leading-tight">Scholar Dossier</span>
+                  <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">360° Directory</span>
+                </div>
+              </Link>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-          {/* Tile 1: Enrolled */}
-          <div className="bg-white rounded-2xl p-3 sm:p-3.5 shadow-sm border border-slate-100 flex items-center gap-2.5 sm:gap-3">
-            <GraduationCap className="w-7 h-7 text-slate-800 shrink-0" strokeWidth={1.8} />
-            <div className="min-w-0">
-              <span className="text-sm sm:text-base font-black text-slate-900 block leading-tight truncate">
-                {totalEnrolled} Enrolled
-              </span>
-              <span className="text-xs text-slate-500 block mt-0.5">
-                Total Enrolled
-              </span>
+        {/* ── RIGHT COLUMN (4 cols): Today's Snapshot & Notices ── */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Today's Snapshot */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-base sm:text-lg font-black text-slate-900 px-1">
+              <Calendar className="w-4 h-4 text-slate-800" />
+              <span>Today's Snapshot</span>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 divide-y divide-slate-100 overflow-hidden">
+              {/* Row 1: Biometric Clocked In */}
+              <div className="p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs sm:text-sm font-bold text-slate-900">
+                        Biometric • Clocked In
+                      </span>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 fill-emerald-100 shrink-0" />
+                    </div>
+                    <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
+                      {biometric_today.in_time || '08:15 AM'} • {isDutyCompleted ? 'Shift Completed' : 'Shift Active'}
+                    </p>
+                  </div>
+                </div>
+
+                {biometric_today.status !== 'PRESENT' ? (
+                  <button
+                    type="button"
+                    onClick={() => handlePunch('PUNCH_IN')}
+                    disabled={punching}
+                    className="px-3 py-1.5 bg-emerald-700 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 active:scale-95 transition cursor-pointer"
+                  >
+                    {punching ? '...' : 'Punch In'}
+                  </button>
+                ) : (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold shrink-0">
+                    {dutyCountdownStr}
+                  </span>
+                )}
+              </div>
+
+              {/* Row 2: Next Class & Pending Tasks */}
+              <div className="p-4 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                    <Clock className="w-5 h-5 stroke-[2.2]" />
+                  </div>
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">
+                      Next Class • {displayClassCode} Period 3 at 10:30 AM • English Literature
+                    </p>
+                    <div className="text-[11px] sm:text-xs text-slate-500 font-medium">
+                      <span className="font-semibold text-slate-700">Pending Tasks</span> • 2 copies to check
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-1 shrink-0 pt-0.5">
+                  <span className="px-2 py-0.5 rounded-md bg-[#143d32] text-emerald-100 text-[10px] font-bold tracking-tight">
+                    Upcoming
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-amber-400 text-amber-950 text-[10px] font-bold tracking-tight">
+                    2 Pending
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Tile 2: Today's Attendance (INTERACTIVE CLICKABLE TILE) */}
-          <div
-            onClick={() => setShowAttendanceSheet(true)}
-            className="bg-white hover:bg-emerald-50/50 rounded-2xl p-3 sm:p-3.5 shadow-sm border border-slate-100 flex items-center gap-2.5 sm:gap-3 cursor-pointer transition group"
-            title="Click to view/mark class attendance"
-          >
-            <CalendarCheck className="w-7 h-7 text-emerald-700 group-hover:scale-110 transition shrink-0" strokeWidth={1.8} />
-            <div className="min-w-0 flex-1">
-              <span className="text-sm sm:text-base font-black text-slate-900 block leading-tight truncate">
-                {isHoliday ? '0% Attendance (holiday)' : `${currentAttPercent}% Attendance`}
-              </span>
-              <span className="text-xs text-slate-500 block mt-0.5 truncate font-medium">
-                {isHoliday
-                  ? 'Today • Holiday'
-                  : currentAbsentCount > 0
-                  ? `Today • ${currentAbsentCount} Absent`
-                  : 'Today • All Present'}
-              </span>
+          {/* Official Notices / Circulars Card */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-100 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-emerald-700" />
+                <h3 className="font-bold text-xs sm:text-sm text-slate-900">Official Notices</h3>
+              </div>
+              <Link
+                href="/teacher/notices"
+                className="text-xs font-bold text-emerald-700 hover:underline flex items-center gap-0.5"
+              >
+                <span>All Circulars</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
-          </div>
 
-          {/* Tile 3: Avg Monthly Attendance */}
-          <div className="bg-white rounded-2xl p-3 sm:p-3.5 shadow-sm border border-slate-100 flex items-center gap-2.5 sm:gap-3">
-            <TrendingUp className="w-7 h-7 text-slate-800 shrink-0" strokeWidth={1.8} />
-            <div className="min-w-0">
-              <span className="text-sm sm:text-base font-black text-slate-900 block leading-tight">
-                92%
-              </span>
-              <span className="text-[11px] sm:text-xs text-slate-500 block leading-snug mt-0.5">
-                Avg Monthly Attendance<br className="hidden sm:inline" /> Last 30 days
-              </span>
-            </div>
-          </div>
-
-          {/* Tile 4: Fee Clearance (CLICKABLE TO OPEN MONTHLY FEES MODAL) */}
-          <div
-            onClick={() => setShowFeeStudentsModal(true)}
-            className="bg-white hover:bg-slate-50/80 rounded-2xl p-3 sm:p-3.5 shadow-sm border border-slate-100 flex items-center gap-2.5 sm:gap-3 cursor-pointer transition group"
-            title="Click to view scholar fees"
-          >
-            <CreditCard className="w-7 h-7 text-slate-800 group-hover:text-emerald-700 transition shrink-0" strokeWidth={1.8} />
-            <div className="min-w-0 flex-1">
-              <span className="text-sm sm:text-base font-black text-slate-900 block leading-tight truncate">
-                {activeMonthData?.collection_percentage ? `${activeMonthData.collection_percentage}% Fee Clearance` : '100% Fee Clearance'}
-              </span>
-              <span className="text-xs text-slate-500 block mt-0.5 truncate font-medium">
-                {activeMonthLabel} 2026 • {activeMonthData?.total_pending === 0 ? 'Cleared' : `₹${Number(activeMonthData?.total_pending || 0).toLocaleString('en-IN')} Due`}
-              </span>
+            <div className="divide-y divide-slate-100 max-h-56 overflow-y-auto custom-scrollbar">
+              {(!latest_notices || latest_notices.length === 0) ? (
+                <div className="py-6 text-center text-slate-400 font-mono text-xs">
+                  No new circulars published today.
+                </div>
+              ) : (
+                latest_notices.slice(0, 3).map((n: any, idx: number) => (
+                  <div key={n.id || idx} className="py-2.5 first:pt-0 last:pb-0 space-y-1">
+                    <span className="text-[10px] font-mono font-bold text-emerald-700 uppercase">
+                      {n.date || 'Circular'}
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 leading-snug line-clamp-1">
+                      {n.title}
+                    </h4>
+                    <p className="text-[11px] text-slate-500 line-clamp-2">
+                      {n.content || n.description}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

@@ -57,6 +57,8 @@ export default function TeacherLayout({
               loading: false
             });
           }
+        } else if (res.status === 401 || res.status === 403) {
+          window.location.href = '/login?error=session_expired';
         }
       } catch (err) {
         console.error('Failed to load teacher layout state:', err);

@@ -685,7 +685,13 @@ function LoginPageContent() {
               if (d && d.success) {
                 const parsed = JSON.parse(rawUser);
                 const targetSchool = parsed.school_code || parsed.school_id || searchParams.get('school') || 'DPS2026';
-                window.location.href = `/app?school=${encodeURIComponent(targetSchool)}`;
+                const userRole = (d.user?.role || parsed.role || parsed.login_role || '').toUpperCase();
+                const targetUrl = userRole === 'PRINCIPAL'
+                  ? `/principal?school=${encodeURIComponent(targetSchool)}`
+                  : userRole === 'TEACHER'
+                  ? `/teacher?school=${encodeURIComponent(targetSchool)}`
+                  : `/app?school=${encodeURIComponent(targetSchool)}`;
+                window.location.href = targetUrl;
               }
             })
             .catch(() => {});

@@ -820,6 +820,11 @@ function ERPWorkspaceContent() {
   useEffect(() => {
     if (!currentUser) return;
     const role = (currentUser.role || 'PRINCIPAL').toUpperCase();
+    if (role === 'TEACHER') {
+      const schoolCode = currentUser.school_code || currentUser.school_id || (new URLSearchParams(window.location.search).get('school')) || 'DPS2026';
+      router.replace(`/teacher?school=${encodeURIComponent(schoolCode)}`);
+      return;
+    }
     if (role === 'DRIVER') {
       setActiveTab('transport');
     } else if (role === 'LIBRARIAN') {
@@ -828,14 +833,12 @@ function ERPWorkspaceContent() {
       setActiveTab('visitors');
     } else if (role === 'ACCOUNTANT') {
       setActiveTab('overview');
-    } else if (role === 'TEACHER') {
-      setActiveTab('attendance');
     } else if (role === 'STUDENT' || role === 'PARENT') {
       setActiveTab('profile');
     } else {
       setActiveTab('overview');
     }
-  }, [currentUser]);
+  }, [currentUser, router]);
 
   // Synchronize dynamic active tab restrictions per role
   useEffect(() => {
@@ -1377,6 +1380,13 @@ function ERPWorkspaceContent() {
               validUser = parsed;
             }
           } catch (_) {}
+        }
+
+        // If logged-in user is a TEACHER, immediately redirect to teacher workspace
+        if (validUser && (validUser.role || validUser.login_role || '').toUpperCase() === 'TEACHER') {
+          const schoolCode = validUser.school_code || validUser.school_id || (new URLSearchParams(window.location.search).get('school')) || 'DPS2026';
+          window.location.replace(`/teacher?school=${encodeURIComponent(schoolCode)}`);
+          return;
         }
 
         if (!validUser) {
@@ -2236,6 +2246,16 @@ function ERPWorkspaceContent() {
       } catch (_) {}
 
       let storedUser = localStorage.getItem('current_user');
+      if (storedUser && storedUser !== 'null' && storedUser !== 'undefined') {
+        try {
+          const parsed = JSON.parse(storedUser);
+          if ((parsed.role || parsed.login_role || '').toUpperCase() === 'TEACHER') {
+            const schoolCode = parsed.school_code || parsed.school_id || 'DPS2026';
+            window.location.replace(`/teacher?school=${encodeURIComponent(schoolCode)}`);
+            return;
+          }
+        } catch (_) {}
+      }
       if (!storedUser || storedUser === 'null' || storedUser === 'undefined') {
         const defaultAdmin = {
           id: 'TCH-PRIN-DPS2026',
@@ -2320,6 +2340,16 @@ function ERPWorkspaceContent() {
     try {
       if (typeof window !== 'undefined') {
         let storedUser = localStorage.getItem('current_user');
+        if (storedUser && storedUser !== 'null' && storedUser !== 'undefined') {
+          try {
+            const parsed = JSON.parse(storedUser);
+            if ((parsed.role || parsed.login_role || '').toUpperCase() === 'TEACHER') {
+              const schoolCode = parsed.school_code || parsed.school_id || 'DPS2026';
+              window.location.replace(`/teacher?school=${encodeURIComponent(schoolCode)}`);
+              return;
+            }
+          } catch (_) {}
+        }
         if (!storedUser || storedUser === 'null' || storedUser === 'undefined') {
           const defaultAdmin = {
             id: 'TCH-PRIN-DPS2026',
@@ -2460,6 +2490,11 @@ function ERPWorkspaceContent() {
         if (storedUser) {
           try {
             activeUserObj = JSON.parse(storedUser);
+            if ((activeUserObj.role || activeUserObj.login_role || '').toUpperCase() === 'TEACHER') {
+              const schoolCode = targetSchool.school_code || targetSchool.id || 'DPS2026';
+              window.location.replace(`/teacher?school=${encodeURIComponent(schoolCode)}`);
+              return;
+            }
             if (activeUserObj.username === 'admin' || (activeUserObj.full_name || '').toLowerCase().includes('abhishek')) {
               activeUserObj.role = 'PRINCIPAL';
               activeUserObj.full_name = activeUserObj.full_name || 'Abhishek Shukla';
