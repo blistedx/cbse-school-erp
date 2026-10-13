@@ -4884,20 +4884,8 @@ function ERPWorkspaceContent() {
             <Menu className="h-5 w-5 text-[#122A24]" />
           </button>
 
-          {/* Clean Breadcrumbs with School Logo Badge */}
-          <div className="hidden sm:flex items-center gap-2.5 text-xs sm:text-sm font-medium">
-            {(selectedSchool?.logo || selectedSchool?.logo_url) && (
-              <div className="w-6 h-6 rounded-lg bg-[#EBF5EF] border border-[#C5E2CF] overflow-hidden shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
-                <img
-                  src={selectedSchool.logo || selectedSchool.logo_url}
-                  alt="School Logo"
-                  className="w-full h-full object-contain rounded"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = '/giterp-logo.png';
-                  }}
-                />
-              </div>
-            )}
+          {/* Clean Breadcrumbs */}
+          <div className="hidden sm:flex items-center gap-2 text-xs sm:text-sm font-medium">
             <button
               onClick={() => setActiveTab('overview')}
               className="text-[#2D5A4E]/80 hover:text-[#122A24] font-medium transition-colors border-none bg-transparent p-0 cursor-pointer"
@@ -4911,18 +4899,6 @@ function ERPWorkspaceContent() {
           </div>
 
           <div className="sm:hidden flex items-center gap-2 min-w-0">
-            {(selectedSchool?.logo || selectedSchool?.logo_url) && (
-              <div className="w-5 h-5 rounded-md bg-[#EBF5EF] border border-[#C5E2CF] overflow-hidden shrink-0 flex items-center justify-center p-0.5 shadow-2xs">
-                <img
-                  src={selectedSchool.logo || selectedSchool.logo_url}
-                  alt="School Logo"
-                  className="w-full h-full object-contain rounded-xs"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = '/giterp-logo.png';
-                  }}
-                />
-              </div>
-            )}
             <span className="font-display font-bold text-xs text-[#122A24] truncate">
               {TAB_POSTER_CONFIG[activeTab]?.title || activeTab}
             </span>
@@ -4969,45 +4945,6 @@ function ERPWorkspaceContent() {
             </>
           )}
 
-          {/* Academic Session Switcher (Desktop & Tablets) */}
-          {effectiveRole !== 'DRIVER' && (
-            <div className="hidden md:flex items-center gap-1 px-2.5 py-1.5 bg-white border border-[#DCE8E0] text-[#122A24] rounded-xl text-xs font-medium shadow-2xs">
-              <Calendar className="h-3.5 w-3.5 text-[#1C443A] shrink-0" />
-              <select
-                value={selectedSession}
-                onChange={(e) => handleSwitchSession(e.target.value)}
-                className="bg-transparent border-none text-xs font-medium text-[#122A24] focus:outline-none cursor-pointer pr-0.5"
-                title="Switch Session"
-              >
-                {AVAILABLE_SESSIONS.map((sess) => (
-                  <option key={sess} value={sess}>
-                    {sess}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Notification Bell */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setPushStatus(getNotificationPermissionStatus());
-                setShowBroadcastInbox(true);
-              }}
-              className="p-2 rounded-xl border border-[#DCE8E0] bg-white hover:bg-[#EBF5EF] text-[#122A24] text-xs font-semibold cursor-pointer transition-colors shadow-2xs flex items-center justify-center"
-              title="Notifications"
-            >
-              <Bell className="h-4 w-4 text-[#122A24]" />
-              {unreadBroadcastCount > 0 && (
-                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 min-w-[17px] h-[17px] bg-[#C4432B] text-white rounded-full text-[9px] font-bold font-mono flex items-center justify-center shadow-2xs">
-                  {unreadBroadcastCount}
-                </span>
-              )}
-            </button>
-          </div>
-
           {/* Direct Desktop Theme Toggle Button (Strictly Default Emerald <-> Black & White) */}
           <div className="relative hidden sm:block">
             <button
@@ -5027,43 +4964,14 @@ function ERPWorkspaceContent() {
             </button>
           </div>
 
-          {/* User Section (Profile Avatar Pill & Dropdown Menu with Theme Options) */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className={`flex items-center gap-2 p-1 sm:px-2.5 sm:py-1 rounded-full border text-xs font-medium cursor-pointer transition-colors shadow-2xs ${
-                showUserMenu || activeTab === 'profile'
-                  ? 'bg-[#122A24] text-white border-[#122A24] shadow-xs'
-                  : 'bg-white hover:bg-[#EBF5EF] text-[#122A24] border-[#DCE8E0]'
-              }`}
-              title="User Account & Theme Settings"
-            >
-              <div className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-[11px] overflow-hidden ${
-                showUserMenu || activeTab === 'profile' ? 'bg-white text-[#122A24]' : 'bg-[#122A24] text-white'
-              }`}>
-                {currentUser?.avatar || currentUser?.photo || profileForm.avatar ? (
-                  <img src={currentUser?.avatar || currentUser?.photo || profileForm.avatar} alt="Avatar" className="w-full h-full object-cover rounded-full" />
-                ) : (
-                  (currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()
-                )}
-              </div>
-              <span className="hidden md:inline max-w-[120px] truncate text-xs font-medium">
-                {currentUser?.full_name?.split(' ')[0] || 'Admin'}
-              </span>
-              <span 
-                className={`hidden sm:inline-block w-2 h-2 rounded-full ${currentTheme === 'monochrome' ? 'bg-zinc-400' : 'bg-emerald-400'}`} 
-                title={`Active Theme: ${currentTheme === 'monochrome' ? 'Black & White' : 'Default (Emerald)'}`} 
+          {/* User Section Popover Dropdown (Controlled via Top Bar Profile Avatar) */}
+          {showUserMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-50"
+                onClick={() => setShowUserMenu(false)}
               />
-            </button>
-
-            {showUserMenu && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowUserMenu(false)}
-                />
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-[#DCE8E0] p-3 z-50 animate-in fade-in zoom-in-95 space-y-3">
+              <div className="fixed top-14 right-2 sm:right-4 w-72 bg-white rounded-2xl shadow-2xl border border-[#DCE8E0] p-3 z-50 animate-in fade-in zoom-in-95 space-y-3">
                   {/* User Identity Header */}
                   <div className="flex items-center gap-3 pb-2.5 border-b border-[#E8F0EA]">
                     <div className="w-10 h-10 rounded-full bg-[#122A24] text-white font-bold flex items-center justify-center text-sm shrink-0 shadow-xs overflow-hidden">
@@ -5190,7 +5098,6 @@ function ERPWorkspaceContent() {
                 </div>
               </>
             )}
-          </div>
 
           {/* Refresh button */}
           <button

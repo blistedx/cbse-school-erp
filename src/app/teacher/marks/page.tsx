@@ -82,6 +82,17 @@ function TeacherMarksContent() {
     const sNorm = (section || 'A').toUpperCase().trim();
     const subNorm = (subjectName || '').toLowerCase().trim();
 
+    // Helper to deduplicate list by exam title
+    const distinctByTitle = (list: typeof exams) => {
+      const seen = new Set<string>();
+      return list.filter(e => {
+        const title = (e.name || e.title || '').trim().toLowerCase();
+        if (!title || seen.has(title)) return false;
+        seen.add(title);
+        return true;
+      });
+    };
+
     // 1. Strict match: class, section and exact subject name
     const strictMatches = exams.filter(e => {
       const ecNorm = (e.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
@@ -89,11 +100,11 @@ function TeacherMarksContent() {
       const esubNorm = (e.subject_name || '').toLowerCase().trim();
       const classMatch = ecNorm === cNorm || cNorm.includes(ecNorm) || ecNorm.includes(cNorm);
       const secMatch = !e.section || esNorm === sNorm;
-      const subMatch = !e.subject_name || esubNorm === subNorm;
+      const subMatch = !e.subject_name || esubNorm === 'all cbse subjects' || esubNorm === subNorm;
       return classMatch && secMatch && subMatch;
     });
 
-    if (strictMatches.length > 0) return strictMatches;
+    if (strictMatches.length > 0) return distinctByTitle(strictMatches);
 
     // 2. Fuzzy match: subject includes / prefix match
     const fuzzyMatches = exams.filter(e => {
@@ -106,9 +117,9 @@ function TeacherMarksContent() {
       return classMatch && secMatch && subMatch;
     });
 
-    if (fuzzyMatches.length > 0) return fuzzyMatches;
+    if (fuzzyMatches.length > 0) return distinctByTitle(fuzzyMatches);
 
-    // 2. Class & section match (across subjects in this class)
+    // 3. Class & section match (across subjects in this class)
     const classMatches = exams.filter(e => {
       const ecNorm = (e.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
       const esNorm = (e.section || 'A').toUpperCase().trim();
@@ -117,24 +128,10 @@ function TeacherMarksContent() {
       return classMatch && secMatch;
     });
 
-    if (classMatches.length > 0) {
-      const seen = new Set<string>();
-      return classMatches.filter(e => {
-        const title = (e.name || e.title || '').trim();
-        if (seen.has(title)) return false;
-        seen.add(title);
-        return true;
-      });
-    }
+    if (classMatches.length > 0) return distinctByTitle(classMatches);
 
-    // 3. Fallback: all exams with distinct titles
-    const seen = new Set<string>();
-    return exams.filter(e => {
-      const title = (e.name || e.title || '').trim();
-      if (!title || seen.has(title)) return false;
-      seen.add(title);
-      return true;
-    });
+    // 4. Fallback: all exams with distinct titles
+    return distinctByTitle(exams);
   }, [exams, selectedBatch]);
 
   // Ensure selectedExamId matches an available exam for the active batch
