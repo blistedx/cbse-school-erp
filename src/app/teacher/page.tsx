@@ -91,6 +91,23 @@ export default function TeacherDashboardPage() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showNoticesModal, setShowNoticesModal] = useState(false);
 
+  // Academic Routine & Lesson Desk Modals
+  const [showClassworkModal, setShowClassworkModal] = useState(false);
+  const [showLessonCompleteModal, setShowLessonCompleteModal] = useState(false);
+  const [academicAlert, setAcademicAlert] = useState<string | null>(null);
+  const [classworkForm, setClassworkForm] = useState({
+    subject: 'English Literature',
+    topic: 'Chapter 4: The Sermon at Benares (Passage Reading & Vocabulary Analysis)',
+    period: 'Period 3 (10:30 AM - 11:15 AM)',
+    hasHomework: true,
+    homeworkNotes: 'Complete Exercises Q1-Q5 on page 48'
+  });
+  const [lessonCompleteForm, setLessonCompleteForm] = useState({
+    chapter: 'Unit 4: Prose - Nelson Mandela: Long Walk to Freedom',
+    periodsUsed: 4,
+    remarks: 'Detailed discussion, key theme highlights & comprehension checks concluded.'
+  });
+
   // 8-Hour Reverse Duty Shift Countdown Timer
   const [dutyCountdownStr, setDutyCountdownStr] = useState<string>('08h 00m 00s');
   const [isDutyCompleted, setIsDutyCompleted] = useState<boolean>(false);
@@ -539,6 +556,14 @@ export default function TeacherDashboardPage() {
           2. FACULTY PROFILE CARD (ADMIN-STYLE DEEP GREEN THEME)
           ══════════════════════════════════════════════════════════════ */}
       <div className="rounded-[28px] p-5 sm:p-7 shadow-xl border border-emerald-700/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] text-white">
+        {/* Crisp White Dots Matrix Chalkboard Texture */}
+        <div
+          className="absolute inset-0 pointer-events-none opacity-25"
+          style={{
+            backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.7) 1.5px, transparent 1.5px)',
+            backgroundSize: '18px 18px'
+          }}
+        />
         <div className="absolute -right-8 -top-8 w-64 h-64 bg-radial from-emerald-400/20 via-teal-500/5 to-transparent pointer-events-none rounded-full blur-2xl" />
         <div className="absolute right-0 bottom-0 w-44 h-44 bg-radial from-amber-400/10 to-transparent pointer-events-none rounded-full blur-xl" />
 
@@ -813,6 +838,196 @@ export default function TeacherDashboardPage() {
                   <span className="text-xs text-slate-500 block mt-0.5 truncate font-medium">
                     {activeMonthLabel} • {activeMonthData?.total_pending === 0 ? 'Cleared' : `₹${Number(activeMonthData?.total_pending || 0).toLocaleString('en-IN')} Due`}
                   </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════════
+              ACADEMIC WORKSTATION & LESSON DESK (WHITE DOTS)
+              ══════════════════════════════════════════════════════════════ */}
+          <div className="space-y-3">
+            <div className="px-1 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-emerald-700" />
+                  <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                    Academic
+                  </h2>
+                  <span className="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md">
+                    Routine &amp; Lesson Planner
+                  </span>
+                </div>
+                <div className="w-7 h-1 bg-emerald-700 rounded-full mt-0.5" />
+              </div>
+
+              <div className="flex items-center gap-2 text-xs font-mono text-emerald-700 font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                <span>Term-2 Progress Active</span>
+              </div>
+            </div>
+
+            {academicAlert && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-900 flex items-center justify-between animate-fade-in shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>{academicAlert}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAcademicAlert(null)}
+                  className="text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 divide-y divide-slate-100 overflow-hidden">
+              {/* 1. Update daily classwork */}
+              <div className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition group">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center shrink-0 shadow-xs ring-2 ring-emerald-500/20 group-hover:scale-105 transition">
+                    <span className="w-2.5 h-2.5 rounded-full bg-white shadow-xs ring-2 ring-white/50" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 block leading-tight">
+                      Update daily classwork
+                    </span>
+                    <span className="text-[11px] sm:text-xs text-slate-500 block leading-snug mt-0.5">
+                      Log lecture coverage, class activities &amp; blackboard notes
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    Period 3 • Today
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowClassworkModal(true)}
+                    className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs"
+                  >
+                    Update Classwork
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. Assign homework */}
+              <div className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition group">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center shrink-0 shadow-xs ring-2 ring-emerald-500/20 group-hover:scale-105 transition">
+                    <span className="w-2.5 h-2.5 rounded-full bg-white shadow-xs ring-2 ring-white/50" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 block leading-tight">
+                      Assign homework
+                    </span>
+                    <span className="text-[11px] sm:text-xs text-slate-500 block leading-snug mt-0.5">
+                      Dispatch exercises, reading tasks &amp; submission deadlines
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                    Class {displayClassCode}
+                  </span>
+                  <Link
+                    href="/teacher/homework"
+                    className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs no-underline"
+                  >
+                    Assign Homework
+                  </Link>
+                </div>
+              </div>
+
+              {/* 3. Organize lesson plan */}
+              <div className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition group">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center shrink-0 shadow-xs ring-2 ring-emerald-500/20 group-hover:scale-105 transition">
+                    <span className="w-2.5 h-2.5 rounded-full bg-white shadow-xs ring-2 ring-white/50" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 block leading-tight">
+                      Organize lesson plan
+                    </span>
+                    <span className="text-[11px] sm:text-xs text-slate-500 block leading-snug mt-0.5">
+                      Structure pedagogical objectives, teaching aids &amp; unit timeline
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 border border-blue-200">
+                    Unit 4 In Focus
+                  </span>
+                  <Link
+                    href="/teacher/syllabus"
+                    className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs no-underline"
+                  >
+                    Organize Plan
+                  </Link>
+                </div>
+              </div>
+
+              {/* 4. Syllabus scheduling */}
+              <div className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition group">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center shrink-0 shadow-xs ring-2 ring-emerald-500/20 group-hover:scale-105 transition">
+                    <span className="w-2.5 h-2.5 rounded-full bg-white shadow-xs ring-2 ring-white/50" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 block leading-tight">
+                      Syllabus scheduling
+                    </span>
+                    <span className="text-[11px] sm:text-xs text-slate-500 block leading-snug mt-0.5">
+                      Track CBSE curriculum pacing, holiday buffers &amp; target exam dates
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    On Schedule
+                  </span>
+                  <Link
+                    href="/teacher/syllabus"
+                    className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs no-underline"
+                  >
+                    Syllabus Schedule
+                  </Link>
+                </div>
+              </div>
+
+              {/* 5. Update completed lesson */}
+              <div className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition group">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-700 flex items-center justify-center shrink-0 shadow-xs ring-2 ring-emerald-500/20 group-hover:scale-105 transition">
+                    <span className="w-2.5 h-2.5 rounded-full bg-white shadow-xs ring-2 ring-white/50" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 block leading-tight">
+                      Update completed lesson
+                    </span>
+                    <span className="text-[11px] sm:text-xs text-slate-500 block leading-snug mt-0.5">
+                      Mark finished curriculum chapters, periods taken &amp; teacher sign-off
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    74% Completed
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowLessonCompleteModal(true)}
+                    className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition active:scale-95 cursor-pointer shadow-2xs"
+                  >
+                    Update Completed
+                  </button>
                 </div>
               </div>
             </div>
@@ -1531,6 +1746,214 @@ export default function TeacherDashboardPage() {
             >
               Done
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          MODAL: UPDATE DAILY CLASSWORK
+          ══════════════════════════════════════════════════════════════ */}
+      {showClassworkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setShowClassworkModal(false)}
+          />
+
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 p-5 sm:p-6 z-10 max-h-[90vh] overflow-y-auto space-y-4 animate-scale-up">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-bold shadow-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-white shadow-xs ring-2 ring-white/50" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 leading-tight">
+                    Update Daily Classwork
+                  </h3>
+                  <p className="text-xs text-slate-500 font-mono">
+                    Class {displayClassCode} • Period 3 Today
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowClassworkModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Subject &amp; Teaching Period
+                </label>
+                <input
+                  type="text"
+                  value={classworkForm.period}
+                  onChange={(e) => setClassworkForm({ ...classworkForm, period: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:bg-white focus:border-emerald-600 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Topic / Concept Covered Today *
+                </label>
+                <textarea
+                  rows={3}
+                  value={classworkForm.topic}
+                  onChange={(e) => setClassworkForm({ ...classworkForm, topic: e.target.value })}
+                  placeholder="e.g. Chapter 4: The Sermon at Benares - Reading and textual discussion"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:bg-white focus:border-emerald-600 outline-none resize-none"
+                />
+              </div>
+
+              <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-100 space-y-2">
+                <label className="flex items-center gap-2 font-bold text-emerald-950 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={classworkForm.hasHomework}
+                    onChange={(e) => setClassworkForm({ ...classworkForm, hasHomework: e.target.checked })}
+                    className="rounded text-emerald-700 focus:ring-emerald-600 w-4 h-4"
+                  />
+                  <span>Assign Homework for this classwork topic</span>
+                </label>
+
+                {classworkForm.hasHomework && (
+                  <input
+                    type="text"
+                    value={classworkForm.homeworkNotes}
+                    onChange={(e) => setClassworkForm({ ...classworkForm, homeworkNotes: e.target.value })}
+                    placeholder="e.g. Read Unit 4 and solve Question 1 to 5"
+                    className="w-full px-3 py-1.5 bg-white border border-emerald-200 rounded-lg text-slate-900 text-xs outline-none"
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowClassworkModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowClassworkModal(false);
+                  setAcademicAlert('Daily classwork updated successfully for Class ' + displayClassCode);
+                  setTimeout(() => setAcademicAlert(null), 5000);
+                }}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
+              >
+                Save Daily Classwork
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════
+          MODAL: UPDATE COMPLETED LESSON
+          ══════════════════════════════════════════════════════════════ */}
+      {showLessonCompleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setShowLessonCompleteModal(false)}
+          />
+
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 p-5 sm:p-6 z-10 max-h-[90vh] overflow-y-auto space-y-4 animate-scale-up">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-bold shadow-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-white shadow-xs ring-2 ring-white/50" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 leading-tight">
+                    Update Completed Lesson
+                  </h3>
+                  <p className="text-xs text-slate-500 font-mono">
+                    Syllabus Tracker Sign-Off
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowLessonCompleteModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Chapter / Unit Completed *
+                </label>
+                <input
+                  type="text"
+                  value={lessonCompleteForm.chapter}
+                  onChange={(e) => setLessonCompleteForm({ ...lessonCompleteForm, chapter: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:bg-white focus:border-emerald-600 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Actual Periods Utilized
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={lessonCompleteForm.periodsUsed}
+                  onChange={(e) => setLessonCompleteForm({ ...lessonCompleteForm, periodsUsed: Number(e.target.value) })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:bg-white focus:border-emerald-600 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Teacher Observations / Remarks
+                </label>
+                <textarea
+                  rows={3}
+                  value={lessonCompleteForm.remarks}
+                  onChange={(e) => setLessonCompleteForm({ ...lessonCompleteForm, remarks: e.target.value })}
+                  placeholder="Remarks on student understanding, tests conducted, or reinforcement required..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:bg-white focus:border-emerald-600 outline-none resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowLessonCompleteModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLessonCompleteModal(false);
+                  setAcademicAlert('Lesson marked as completed and synced with CBSE Syllabus Tracker!');
+                  setTimeout(() => setAcademicAlert(null), 5000);
+                }}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
+              >
+                Mark Lesson Complete
+              </button>
+            </div>
           </div>
         </div>
       )}

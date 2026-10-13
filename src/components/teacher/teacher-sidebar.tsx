@@ -144,8 +144,108 @@ export function TeacherSidebar({
         </div>
 
         {/* Navigation Items (Scrollable) */}
-        <div className="flex-1 overflow-y-auto px-3 py-1 space-y-5 custom-scrollbar">
-          {/* 1. CLASS TEACHER SECTION (Conditionally Shown ONLY if Teacher is Class Teacher) */}
+        <div className="flex-1 overflow-y-auto px-3 py-1 space-y-4 custom-scrollbar">
+          {/* 1. TOP-LEVEL PRIMARY: OVERVIEW DASHBOARD */}
+          <div>
+            <Link
+              href="/teacher"
+              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
+                isActive('/teacher', true)
+                  ? 'bg-[#10B981] text-[#122A24] font-bold shadow-md shadow-emerald-950/40'
+                  : 'text-emerald-100/90 hover:bg-[#1A3B32] hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <LayoutDashboard className="w-4 h-4 text-emerald-400" />
+                <span>Overview Dashboard</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+            </Link>
+          </div>
+
+          {/* 2. ACADEMIC SECTION (WHITE DOTS) */}
+          <div className="space-y-1">
+            <div className="px-3 py-1 text-[10px] font-bold tracking-wider uppercase text-emerald-300/60 flex items-center justify-between">
+              <span>Academic</span>
+            </div>
+
+            <Link
+              href="/teacher/classes"
+              className={`flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-semibold transition ${
+                pathname === '/teacher/classes'
+                  ? 'bg-[#10B981] text-[#122A24] font-bold shadow-md shadow-emerald-950/40'
+                  : 'text-emerald-100/90 hover:bg-[#1A3B32] hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 shadow-xs ring-1 ring-white/50" />
+                <span>Update daily classwork</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+            </Link>
+
+            <Link
+              href="/teacher/homework"
+              className={`flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-semibold transition ${
+                isActive('/teacher/homework')
+                  ? 'bg-[#10B981] text-[#122A24] font-bold shadow-md shadow-emerald-950/40'
+                  : 'text-emerald-100/90 hover:bg-[#1A3B32] hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 shadow-xs ring-1 ring-white/50" />
+                <span>Assign homework</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+            </Link>
+
+            <Link
+              href="/teacher/syllabus"
+              className={`flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-semibold transition ${
+                isActive('/teacher/syllabus')
+                  ? 'bg-[#10B981] text-[#122A24] font-bold shadow-md shadow-emerald-950/40'
+                  : 'text-emerald-100/90 hover:bg-[#1A3B32] hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 shadow-xs ring-1 ring-white/50" />
+                <span>Organize lesson plan</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+            </Link>
+
+            <Link
+              href="/teacher/syllabus"
+              className={`flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-semibold transition ${
+                isActive('/teacher/syllabus')
+                  ? 'bg-[#10B981] text-[#122A24] font-bold shadow-md shadow-emerald-950/40'
+                  : 'text-emerald-100/90 hover:bg-[#1A3B32] hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 shadow-xs ring-1 ring-white/50" />
+                <span>Syllabus scheduling</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+            </Link>
+
+            <Link
+              href="/teacher/syllabus"
+              className={`flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-semibold transition ${
+                isActive('/teacher/syllabus')
+                  ? 'bg-[#10B981] text-[#122A24] font-bold shadow-md shadow-emerald-950/40'
+                  : 'text-emerald-100/90 hover:bg-[#1A3B32] hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0 shadow-xs ring-1 ring-white/50" />
+                <span>Update completed lesson</span>
+              </div>
+              <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+            </Link>
+          </div>
+
+          {/* 3. CLASS TEACHER SECTION (Conditionally Shown ONLY if Teacher is Class Teacher) */}
           {isClassTeacher && classTeacherSection && (
             <div className="space-y-1">
               <div className="px-3 py-1 text-[10px] font-bold tracking-wider uppercase text-amber-300/90 flex items-center justify-between">
@@ -296,26 +396,11 @@ export function TeacherSidebar({
             </div>
           )}
 
-          {/* 2. SUBJECT TEACHER SECTION (Shown for all teachers) */}
+          {/* 4. FACULTY WORKSTATION & TEACHING TOOLS */}
           <div className="space-y-1">
             <div className="px-3 py-1 text-[10px] font-bold tracking-wider uppercase text-emerald-300/50">
-              Subject Faculty
+              Teaching Tools &amp; Roster
             </div>
-
-            <Link
-              href="/teacher"
-              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
-                isActive('/teacher', true)
-                  ? 'bg-[#10B981] text-[#122A24] font-bold shadow-md shadow-emerald-950/40'
-                  : 'text-emerald-100/90 hover:bg-[#1A3B32] hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <LayoutDashboard className="w-4 h-4 text-emerald-400" />
-                <span>Overview Dashboard</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 opacity-60" />
-            </Link>
 
             <Link
               href="/teacher/classes"
