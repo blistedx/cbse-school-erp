@@ -83,7 +83,7 @@ export function TeacherSidebar({
 
       {/* Main Sidebar */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-72 bg-[#122A24] text-white flex flex-col justify-between border-r border-[#1B3D34] shadow-2xl transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 lg:top-14 bottom-0 left-0 z-50 w-72 bg-[#122A24] text-white flex flex-col justify-between border-r border-[#1B3D34] shadow-2xl transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           isOpenMobile ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

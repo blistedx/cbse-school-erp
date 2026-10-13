@@ -287,7 +287,7 @@ export function PrincipalSidebar({
   return (
     <>
       {/* Desktop Persistent Sidebar */}
-      <aside className="hidden lg:flex w-64 flex-col fixed inset-y-0 left-0 z-30 shadow-xl">
+      <aside className="hidden lg:flex w-64 flex-col fixed top-14 bottom-0 left-0 z-30 shadow-xl">
         {sidebarContent}
       </aside>
 

@@ -4849,7 +4849,7 @@ function ERPWorkspaceContent() {
         currentTheme={currentTheme}
         isSyncingLive={isSyncingLive}
         isLoading={loading}
-        unreadCount={unreadBroadcastCount || 2}
+        unreadCount={unreadBroadcastCount || 0}
         currentUser={currentUser}
         profileForm={profileForm}
         onSwitchSession={handleSwitchSession}
@@ -4859,7 +4859,6 @@ function ERPWorkspaceContent() {
           setActiveTab(tab);
           if (tab === 'attendance') setAttendanceSubTab(undefined);
         }}
-        onOpenCalendar={() => setActiveTab('timetable')}
         onOpenNotifications={() => {
           setPushStatus(getNotificationPermissionStatus());
           setShowBroadcastInbox(true);

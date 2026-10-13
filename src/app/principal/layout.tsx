@@ -2,9 +2,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { PrincipalSidebar } from '@/components/principal/principal-sidebar';
-import { PrincipalHeader } from '@/components/principal/principal-header';
+import { SchoolSessionHeader } from '@/components/common/school-session-header';
 
 export default function PrincipalLayout({
   children
@@ -12,6 +12,7 @@ export default function PrincipalLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [schoolName, setSchoolName] = useState<string>('Delhi Public School');
   const [principalName, setPrincipalName] = useState<string>('Abhishek Shukla');
@@ -112,30 +113,58 @@ export default function PrincipalLayout({
     );
   }
 
+  const getBreadcrumbTitle = () => {
+    if (pathname === '/principal') return 'Executive Overview';
+    if (pathname.includes('/approvals')) return 'Statutory Approvals';
+    if (pathname.includes('/students')) return 'Scholars Directory';
+    if (pathname.includes('/faculty')) return 'Faculty & Staff Roster';
+    if (pathname.includes('/reports')) return 'Institutional Reports';
+    if (pathname.includes('/notices')) return 'Circulars & Official Broadcasts';
+    if (pathname.includes('/profile')) return 'Principal Office & Credentials';
+    return 'Principal Panel';
+  };
+
   return (
-    <div className="min-h-screen bg-[#F4F8F5] text-[#122A24] flex">
-      {/* Sidebar */}
-      <PrincipalSidebar
-        schoolName={schoolName}
-        principalName={principalName}
-        principalAvatar={principalAvatar}
-        pendingApprovalsCount={pendingApprovalsCount}
-        isOpenMobile={isMobileOpen}
-        onCloseMobile={() => setIsMobileOpen(false)}
+    <div className="min-h-screen bg-[#F4F8F5] text-[#122A24] flex flex-col font-sans antialiased">
+      {/* Unified Enterprise Top School Header */}
+      <SchoolSessionHeader
+        panelName="Principal"
+        activeTab={pathname.replace('/principal/', '').replace('/principal', 'overview')}
+        tabTitle={getBreadcrumbTitle()}
+        selectedSchool={{
+          id: 'DPS2026',
+          school_name: schoolName,
+          name: schoolName,
+          city: 'Lucknow',
+          address: 'Amrapali Yojna, Dubagga'
+        } as any}
+        currentUser={{
+          full_name: principalName,
+          role: 'Principal',
+          avatar: principalAvatar
+        }}
+        onToggleSidebar={() => setIsMobileOpen(prev => !prev)}
+        onRefresh={handleManualRefresh}
+        isLoading={isRefreshing}
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
-        <PrincipalHeader
+      <div className="flex-1 flex min-w-0 relative">
+        {/* Sidebar */}
+        <PrincipalSidebar
           schoolName={schoolName}
-          onOpenMobile={() => setIsMobileOpen(true)}
-          onRefresh={handleManualRefresh}
-          isRefreshing={isRefreshing}
+          principalName={principalName}
+          principalAvatar={principalAvatar}
+          pendingApprovalsCount={pendingApprovalsCount}
+          isOpenMobile={isMobileOpen}
+          onCloseMobile={() => setIsMobileOpen(false)}
         />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          {children}
-        </main>
+        {/* Main Content Area */}
+        <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-20 lg:pb-8">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );
