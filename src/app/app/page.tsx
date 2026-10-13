@@ -95,6 +95,7 @@ import { ANTIGRAVITY_THEMES, applyAntigravityTheme, getSavedThemeId } from '@/li
 import { compressImageFile } from '@/lib/image-compress';
 import { getSchoolInitials, printHtmlElement, numberToWordsINR, getTodayDateStr, isSameClass } from '@/lib/utils';
 import { ThinkingOrb, ThinkingOrbThinkingDemo, ThinkingOrbSyncPill } from '@/components/ui/thinking-orbs';
+import { SchoolSessionHeader } from '@/components/common/school-session-header';
 
 // Instant Module Loading Fallback using ThinkingOrb
 const ModuleThinkingFallback = () => (
@@ -4837,6 +4838,26 @@ function ERPWorkspaceContent() {
 
   return (
     <div suppressHydrationWarning className="h-[100dvh] max-h-[100dvh] w-full max-w-full flex flex-col overflow-hidden bg-[var(--parchment)] text-[var(--text-dark)] font-sans antialiased print:h-auto print:max-h-none print:overflow-visible">
+      {/* School Enterprise Session Header Bar (Top Bar for each school to change their session) */}
+      <SchoolSessionHeader
+        selectedSchool={selectedSchool}
+        availableSchools={availableSchools}
+        selectedSession={selectedSession}
+        availableSessions={AVAILABLE_SESSIONS}
+        onSwitchSession={handleSwitchSession}
+        onSwitchSchool={handleSwitchSchool}
+        onToggleSidebar={() => setMobileMenuOpen(prev => !prev)}
+        onNavigateTab={(tab) => setActiveTab(tab)}
+        onOpenCalendar={() => setActiveTab('timetable')}
+        onOpenNotifications={() => {
+          setPushStatus(getNotificationPermissionStatus());
+          setShowBroadcastInbox(true);
+        }}
+        onOpenProfile={() => setShowUserMenu(prev => !prev)}
+        unreadCount={unreadBroadcastCount || 2}
+        currentUser={currentUser}
+      />
+
       {/* PWA Offline Mode Notice Banner */}
       {isOffline && (
         <div className="bg-[#122A24] text-amber-300 px-3.5 sm:px-6 py-2 text-xs font-mono font-bold flex items-center justify-between shadow-xs border-b border-white/20 z-50 shrink-0 animate-fade-in">

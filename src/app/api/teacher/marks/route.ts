@@ -55,8 +55,16 @@ export async function GET(req: Request) {
         success: true,
         exams: allExams.map(e => ({
           id: e.id,
-          name: e.name,
+          name: (e as any).name || e.title || 'Scheduled Assessment',
+          title: e.title || (e as any).name || 'Scheduled Assessment',
+          type: e.type || 'SCHOOL_EXAM',
+          class_name: e.class_name,
+          section: e.section,
+          subject_name: e.subject_name,
+          max_marks: e.max_marks,
+          pass_marks: e.pass_marks,
           date: e.date,
+          time: e.time,
           status: e.status,
           is_locked: (e as any).is_locked || false,
           deadline: (e as any).marks_entry_deadline
@@ -231,6 +239,14 @@ export async function POST(req: Request) {
     }
 
     const savedMarks = await Database.saveExamMarks(marksToSave);
+
+    if (!is_draft) {
+      try {
+        await Database.updateScheduledExam(exam_id, { status: 'MARKS_FILLED' });
+      } catch (e) {
+        console.warn('[SyncMarksStatus] Note:', e);
+      }
+    }
 
     logAuditEvent({
       actor: { id: assignments.teacher.id, name: assignments.teacher.full_name, role: 'TEACHER' },

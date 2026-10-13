@@ -19,6 +19,7 @@ import {
 interface ExamItem {
   id: string;
   name: string;
+  title?: string;
 }
 
 interface TopperItem {
@@ -192,7 +193,7 @@ export default function ClassResultAnalysisPage() {
             className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none w-full sm:w-64"
           >
             {exams.map(ex => (
-              <option key={ex.id} value={ex.id}>{ex.name}</option>
+              <option key={ex.id} value={ex.id}>{ex.name || ex.title}</option>
             ))}
           </select>
         </div>

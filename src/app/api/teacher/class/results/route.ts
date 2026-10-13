@@ -40,7 +40,7 @@ export async function GET(req: Request) {
     if (!targetExam) {
       return NextResponse.json({
         success: true,
-        exams: allExams.map(e => ({ id: e.id, name: e.name })),
+        exams: allExams.map(e => ({ id: e.id, name: (e as any).name || e.title || 'Scheduled Assessment', title: e.title || (e as any).name || 'Scheduled Assessment' })),
         message: 'No exams scheduled yet.'
       });
     }
@@ -122,8 +122,8 @@ export async function GET(req: Request) {
       success: true,
       class_name,
       section,
-      exams: allExams.map(e => ({ id: e.id, name: e.name })),
-      active_exam: { id: targetExam.id, name: targetExam.name },
+      exams: allExams.map(e => ({ id: e.id, name: (e as any).name || e.title || 'Scheduled Assessment', title: e.title || (e as any).name || 'Scheduled Assessment' })),
+      active_exam: { id: targetExam.id, name: (targetExam as any).name || targetExam.title || 'Scheduled Assessment' },
       stats: {
         total_students: myStudents.length,
         evaluated_students: appearedStudents.length,

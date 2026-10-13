@@ -20,6 +20,7 @@ import {
 interface ExamItem {
   id: string;
   name: string;
+  title?: string;
 }
 
 interface Allocation {
@@ -227,7 +228,7 @@ export default function SubjectReportsPage() {
               className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
             >
               {exams.map(exam => (
-                <option key={exam.id} value={exam.id}>{exam.name}</option>
+                <option key={exam.id} value={exam.id}>{exam.name || exam.title}</option>
               ))}
             </select>
           </div>

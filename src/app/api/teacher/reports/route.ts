@@ -37,7 +37,7 @@ export async function GET(req: Request) {
     if (!examId || !className || !subjectName) {
       return NextResponse.json({
         success: true,
-        exams: allExams.map(e => ({ id: e.id, name: e.name })),
+        exams: allExams.map(e => ({ id: e.id, name: (e as any).name || e.title || 'Scheduled Assessment', title: e.title || (e as any).name || 'Scheduled Assessment' })),
         allocated_subjects: assignments.allocatedSubjects
       });
     }

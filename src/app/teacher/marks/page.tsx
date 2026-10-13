@@ -74,6 +74,83 @@ function TeacherMarksContent() {
     loadInit();
   }, [searchParams]);
 
+  // Filter exams that are available for the currently selected class & subject batch
+  const availableExams = React.useMemo(() => {
+    if (!selectedBatch || exams.length === 0) return exams;
+    const [className, section, subjectName] = selectedBatch.split('___');
+    const cNorm = (className || '').toLowerCase().trim().replace(/^class\s*/i, '');
+    const sNorm = (section || 'A').toUpperCase().trim();
+    const subNorm = (subjectName || '').toLowerCase().trim();
+
+    // 1. Strict match: class, section and exact subject name
+    const strictMatches = exams.filter(e => {
+      const ecNorm = (e.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+      const esNorm = (e.section || 'A').toUpperCase().trim();
+      const esubNorm = (e.subject_name || '').toLowerCase().trim();
+      const classMatch = ecNorm === cNorm || cNorm.includes(ecNorm) || ecNorm.includes(cNorm);
+      const secMatch = !e.section || esNorm === sNorm;
+      const subMatch = !e.subject_name || esubNorm === subNorm;
+      return classMatch && secMatch && subMatch;
+    });
+
+    if (strictMatches.length > 0) return strictMatches;
+
+    // 2. Fuzzy match: subject includes / prefix match
+    const fuzzyMatches = exams.filter(e => {
+      const ecNorm = (e.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+      const esNorm = (e.section || 'A').toUpperCase().trim();
+      const esubNorm = (e.subject_name || '').toLowerCase().trim();
+      const classMatch = ecNorm === cNorm || cNorm.includes(ecNorm) || ecNorm.includes(cNorm);
+      const secMatch = !e.section || esNorm === sNorm;
+      const subMatch = !e.subject_name || esubNorm.includes(subNorm) || subNorm.includes(esubNorm);
+      return classMatch && secMatch && subMatch;
+    });
+
+    if (fuzzyMatches.length > 0) return fuzzyMatches;
+
+    // 2. Class & section match (across subjects in this class)
+    const classMatches = exams.filter(e => {
+      const ecNorm = (e.class_name || '').toLowerCase().trim().replace(/^class\s*/i, '');
+      const esNorm = (e.section || 'A').toUpperCase().trim();
+      const classMatch = ecNorm === cNorm || cNorm.includes(ecNorm) || ecNorm.includes(cNorm);
+      const secMatch = !e.section || esNorm === sNorm;
+      return classMatch && secMatch;
+    });
+
+    if (classMatches.length > 0) {
+      const seen = new Set<string>();
+      return classMatches.filter(e => {
+        const title = (e.name || e.title || '').trim();
+        if (seen.has(title)) return false;
+        seen.add(title);
+        return true;
+      });
+    }
+
+    // 3. Fallback: all exams with distinct titles
+    const seen = new Set<string>();
+    return exams.filter(e => {
+      const title = (e.name || e.title || '').trim();
+      if (!title || seen.has(title)) return false;
+      seen.add(title);
+      return true;
+    });
+  }, [exams, selectedBatch]);
+
+  // Ensure selectedExamId matches an available exam for the active batch
+  useEffect(() => {
+    if (availableExams.length > 0) {
+      const exists = availableExams.some(e => e.id === selectedExamId);
+      if (!exists) {
+        const currentExam = exams.find(e => e.id === selectedExamId);
+        const matchTitle = currentExam 
+          ? availableExams.find(e => (e.name || e.title) === (currentExam.name || currentExam.title))
+          : null;
+        setSelectedExamId(matchTitle ? matchTitle.id : availableExams[0].id);
+      }
+    }
+  }, [availableExams, selectedExamId, exams]);
+
   // Load marks sheet when exam or batch changes
   const loadSheet = useCallback(async () => {
     if (!selectedExamId || !selectedBatch) return;
@@ -215,11 +292,15 @@ function TeacherMarksContent() {
             onChange={(e) => setSelectedExamId(e.target.value)}
             className="w-full p-2.5 rounded-xl bg-[#F8FAF9] border border-[#DCE8E0] text-xs font-bold text-[#122A24] focus:outline-hidden focus:border-[#10B981] cursor-pointer"
           >
-            {exams.map(e => (
-              <option key={e.id} value={e.id}>
-                {e.name} {e.is_locked ? '(Locked by Admin)' : ''}
-              </option>
-            ))}
+            {availableExams.length === 0 ? (
+              <option value="">No scheduled exams found for batch</option>
+            ) : (
+              availableExams.map(e => (
+                <option key={e.id} value={e.id}>
+                  {e.name || e.title} {e.max_marks ? `(${e.max_marks} Marks)` : ''} {e.is_locked ? '🔒 (Locked by Admin)' : ''}
+                </option>
+              ))
+            )}
           </select>
         </div>
 

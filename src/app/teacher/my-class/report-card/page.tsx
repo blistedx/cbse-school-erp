@@ -20,6 +20,7 @@ import {
 interface ExamItem {
   id: string;
   name: string;
+  title?: string;
   date?: string;
 }
 
@@ -249,7 +250,7 @@ export default function ConsolidatedReportCardPage() {
           >
             {exams.map((ex) => (
               <option key={ex.id} value={ex.id}>
-                {ex.name}
+                {ex.name || ex.title}
               </option>
             ))}
           </select>

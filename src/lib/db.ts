@@ -3203,7 +3203,9 @@ export const Database = {
             const { _id, ...rest } = d;
             return {
               ...rest,
-              id: rest.id || _id?.toString()
+              id: rest.id || _id?.toString(),
+              name: rest.name || rest.title || 'Scheduled Assessment',
+              title: rest.title || rest.name || 'Scheduled Assessment'
             } as ScheduledExamItem;
           });
         }
@@ -3215,7 +3217,11 @@ export const Database = {
     if (session) res = res.filter(e => !e.academic_session || e.academic_session === session);
     if (className) res = res.filter(e => e.class_name.toLowerCase() === className.toLowerCase());
     if (examType && examType !== 'ALL') res = res.filter(e => e.type === examType);
-    return res;
+    return res.map(e => ({
+      ...e,
+      name: e.name || e.title || 'Scheduled Assessment',
+      title: e.title || e.name || 'Scheduled Assessment'
+    }));
   },
 
   async getExams(schoolId?: string, session?: string, className?: string, examType?: string): Promise<ScheduledExamItem[]> {
@@ -3259,6 +3265,8 @@ export const Database = {
     const normalizedExams: ScheduledExamItem[] = exams.map(e => ({
       ...e,
       id: e.id || `ex-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      name: e.name || e.title || 'Scheduled Assessment',
+      title: e.title || e.name || 'Scheduled Assessment',
       created_at: e.created_at || new Date().toISOString()
     }));
 

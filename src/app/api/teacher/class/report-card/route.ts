@@ -114,8 +114,8 @@ export async function GET(req: Request) {
       success: true,
       class_name,
       section,
-      exams: allExams.map(e => ({ id: e.id, name: e.name, date: e.date })),
-      active_exam: targetExam,
+      exams: allExams.map(e => ({ id: e.id, name: (e as any).name || e.title || 'Scheduled Assessment', title: e.title || (e as any).name || 'Scheduled Assessment', date: e.date })),
+      active_exam: targetExam ? { ...targetExam, name: (targetExam as any).name || targetExam.title || 'Scheduled Assessment', title: targetExam.title || (targetExam as any).name || 'Scheduled Assessment' } : null,
       subjects: subjects.map(s => ({ name: s.name, code: s.code, max_marks: s.max_marks || 100 })),
       consolidated_sheet: consolidatedRows
     });
