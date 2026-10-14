@@ -21,7 +21,8 @@ import {
   Coins,
   DoorClosed,
   ExternalLink,
-  ShieldAlert
+  ShieldAlert,
+  Settings
 } from 'lucide-react';
 
 interface PrincipalSidebarProps {
@@ -125,6 +126,16 @@ export function PrincipalSidebar({
           href: '/app',
           icon: ExternalLink,
           isExternal: true
+        }
+      ]
+    },
+    {
+      title: 'Institutional Settings',
+      items: [
+        {
+          label: 'Settings & Profile Picture',
+          href: '/principal/profile',
+          icon: Settings
         }
       ]
     }

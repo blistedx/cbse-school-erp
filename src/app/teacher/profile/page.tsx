@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, 
   Mail, 
@@ -14,9 +14,13 @@ import {
   AlertCircle, 
   RefreshCw,
   Building2,
-  GraduationCap
+  GraduationCap,
+  Camera,
+  Trash2,
+  Settings
 } from 'lucide-react';
 import { formatClassSectionDisplay } from '@/lib/utils';
+import { compressImageToBase64 } from '@/components/common/school-session-header';
 
 interface TeacherProfile {
   id: string;
@@ -43,15 +47,24 @@ export default function TeacherProfilePage() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [avatar, setAvatar] = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchProfile();
   }, []);
+
+  const sanitizePhoto = (url?: string) => {
+    if (!url || typeof url !== 'string') return '';
+    if (url.includes('MEDIA-TCH-TCH-PRIN-DPS2026')) return '';
+    return url;
+  };
 
   const fetchProfile = async () => {
     try {
@@ -59,8 +72,21 @@ export default function TeacherProfilePage() {
       const res = await fetch('/api/teacher/me');
       const data = await res.json();
       if (data.success && data.teacher) {
+        let initialPhoto = sanitizePhoto(data.teacher.avatar || data.teacher.photo);
+        if (!initialPhoto) {
+          try {
+            const stored = localStorage.getItem('current_user');
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              initialPhoto = sanitizePhoto(parsed.avatar || parsed.photo);
+            }
+          } catch (_) {}
+        }
+
         setProfile({
           ...data.teacher,
+          avatar: initialPhoto,
+          photo: initialPhoto,
           is_class_teacher: data.is_class_teacher,
           class_teacher_section: data.class_teacher_section,
           allocated_subjects: data.allocated_subjects || []
@@ -68,11 +94,94 @@ export default function TeacherProfilePage() {
         setFullName(data.teacher.full_name || '');
         setEmail(data.teacher.email || '');
         setPhone(data.teacher.phone || '');
+        setAvatar(initialPhoto);
       }
     } catch (err) {
       console.error('Failed to load profile', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingPhoto(true);
+      setFeedback(null);
+      const base64 = await compressImageToBase64(file);
+      setAvatar(base64);
+      setProfile(prev => prev ? { ...prev, avatar: base64, photo: base64 } : null);
+
+      // Immediately sync with localStorage for real-time header reflection
+      try {
+        const stored = localStorage.getItem('current_user');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          parsed.avatar = base64;
+          parsed.photo = base64;
+          localStorage.setItem('current_user', JSON.stringify(parsed));
+        }
+      } catch (_) {}
+
+      // Broadcast event so SchoolSessionHeader updates instantly
+      window.dispatchEvent(new Event('giterp_user_change'));
+      window.dispatchEvent(new Event('storage'));
+
+      // Persist to server
+      const res = await fetch('/api/auth/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar: base64, photo: base64 })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setFeedback({ type: 'success', text: 'Profile picture updated and saved successfully!' });
+      } else {
+        setFeedback({ type: 'error', text: data.error || 'Failed to save photo on server.' });
+      }
+    } catch (err: any) {
+      console.error('Error uploading photo:', err);
+      setFeedback({ type: 'error', text: err.message || 'Failed to process image.' });
+    } finally {
+      setUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    try {
+      setUploadingPhoto(true);
+      setFeedback(null);
+      setAvatar('');
+      setProfile(prev => prev ? { ...prev, avatar: '', photo: '' } : null);
+
+      try {
+        const stored = localStorage.getItem('current_user');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          parsed.avatar = '';
+          parsed.photo = '';
+          localStorage.setItem('current_user', JSON.stringify(parsed));
+        }
+      } catch (_) {}
+
+      window.dispatchEvent(new Event('giterp_user_change'));
+      window.dispatchEvent(new Event('storage'));
+
+      await fetch('/api/auth/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ avatar: '', photo: '' })
+      });
+
+      setFeedback({ type: 'success', text: 'Profile picture removed.' });
+    } catch (err) {
+      console.error('Failed to remove photo:', err);
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -95,7 +204,9 @@ export default function TeacherProfilePage() {
       const payload: Record<string, string> = {
         full_name: fullName,
         email,
-        phone
+        phone,
+        avatar,
+        photo: avatar
       };
 
       if (newPassword) {
@@ -112,6 +223,21 @@ export default function TeacherProfilePage() {
         setFeedback({ type: 'success', text: 'Your teacher profile has been updated successfully!' });
         setNewPassword('');
         setConfirmPassword('');
+
+        try {
+          const stored = localStorage.getItem('current_user');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            parsed.full_name = fullName;
+            parsed.phone = phone;
+            parsed.avatar = avatar;
+            parsed.photo = avatar;
+            localStorage.setItem('current_user', JSON.stringify(parsed));
+          }
+        } catch (_) {}
+
+        window.dispatchEvent(new Event('giterp_user_change'));
+        window.dispatchEvent(new Event('storage'));
       } else {
         setFeedback({ type: 'error', text: data.error || 'Failed to update profile.' });
       }
@@ -183,21 +309,60 @@ export default function TeacherProfilePage() {
             <div className="bg-gradient-to-br from-[#0F2620] via-[#14352B] to-[#1A4237] text-white p-6 rounded-3xl border border-emerald-700/60 shadow-xl text-center relative overflow-hidden">
               <div className="absolute -top-16 -right-16 w-44 h-44 rounded-full bg-emerald-400/10 blur-2xl pointer-events-none" />
               
-              <div className="relative z-10 w-24 h-24 rounded-full p-1 bg-gradient-to-br from-emerald-400 to-amber-300 mx-auto mb-3.5 shadow-lg">
-                <img
-                  src={profile?.avatar || '/teacher-ananya.jpg'}
-                  alt={profile?.full_name || 'Faculty Member'}
-                  className="w-full h-full rounded-full object-cover object-top bg-emerald-950"
-                  onError={(e: any) => {
-                    e.currentTarget.style.display = 'none';
-                    if (e.currentTarget.nextSibling) {
-                      e.currentTarget.nextSibling.style.display = 'flex';
-                    }
-                  }}
-                />
-                <div className="hidden w-full h-full rounded-full bg-emerald-800 text-white items-center justify-center font-bold text-2xl">
-                  {profile?.full_name?.charAt(0) || 'T'}
-                </div>
+              <div className="relative z-10 w-24 h-24 rounded-full p-1 bg-gradient-to-br from-emerald-400 to-amber-300 mx-auto mb-3 shadow-lg group">
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    alt={profile?.full_name || 'Faculty Member'}
+                    className="w-full h-full rounded-full object-cover object-top bg-emerald-950"
+                    onError={() => setAvatar('')}
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-full bg-emerald-800 text-white flex items-center justify-center font-bold text-2xl">
+                    {profile?.full_name?.charAt(0) || 'T'}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  className="absolute inset-0 rounded-full bg-black/60 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-[10px] font-bold"
+                  title="Click to change profile picture"
+                >
+                  <Camera className="w-5 h-5 text-amber-300 mb-0.5" />
+                  <span>{uploadingPhoto ? '...' : 'Change'}</span>
+                </button>
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+
+              <div className="relative z-10 flex items-center justify-center gap-2 mb-3.5">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-white border border-emerald-400/40 inline-flex items-center gap-1 cursor-pointer transition shadow-xs"
+                >
+                  <Camera className="w-3.5 h-3.5 text-amber-300" />
+                  {uploadingPhoto ? 'Processing...' : (avatar ? 'Change Photo' : 'Upload Photo')}
+                </button>
+                {avatar && (
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    disabled={uploadingPhoto}
+                    className="px-2 py-1 text-[11px] font-bold rounded-lg bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-500/40 inline-flex items-center gap-1 cursor-pointer transition shadow-xs"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Remove
+                  </button>
+                )}
               </div>
               
               <h2 className="relative z-10 text-xl font-black text-white">{profile?.full_name}</h2>

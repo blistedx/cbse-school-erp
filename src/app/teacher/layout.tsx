@@ -28,6 +28,7 @@ export default function TeacherLayout({
     isClassTeacher: boolean;
     classTeacherSection: { class_name: string; section: string } | null;
     pendingLeavesCount: number;
+    avatar?: string;
     loading: boolean;
   }>({
     teacherName: 'Faculty Member',
@@ -36,6 +37,7 @@ export default function TeacherLayout({
     isClassTeacher: false,
     classTeacherSection: null,
     pendingLeavesCount: 0,
+    avatar: '',
     loading: true
   });
 
@@ -47,6 +49,7 @@ export default function TeacherLayout({
           const data = await res.json();
           if (data.success && data.assignments) {
             const { teacher, isClassTeacher, classTeacherSection } = data.assignments;
+            const userAvatar = teacher.avatar || teacher.photo || '';
             setTeacherData({
               teacherName: teacher.full_name || 'Faculty Member',
               staffCode: teacher.staff_code || teacher.id,
@@ -54,6 +57,7 @@ export default function TeacherLayout({
               isClassTeacher: !!isClassTeacher,
               classTeacherSection: classTeacherSection || null,
               pendingLeavesCount: 0,
+              avatar: userAvatar,
               loading: false
             });
           }
@@ -65,6 +69,18 @@ export default function TeacherLayout({
       }
     }
     loadTeacherProfile();
+
+    function handleUserUpdate(e: any) {
+      if (e.detail) {
+        setTeacherData(prev => ({
+          ...prev,
+          teacherName: e.detail.full_name || prev.teacherName,
+          avatar: e.detail.photo || e.detail.avatar || prev.avatar
+        }));
+      }
+    }
+    window.addEventListener('giterp_user_change', handleUserUpdate);
+    return () => window.removeEventListener('giterp_user_change', handleUserUpdate);
   }, []);
 
   const getPageTitle = () => {
@@ -76,7 +92,7 @@ export default function TeacherLayout({
     if (pathname.includes('/materials')) return 'Study Materials';
     if (pathname.includes('/syllabus')) return 'Syllabus Tracker';
     if (pathname.includes('/timetable')) return 'Weekly Timetable';
-    if (pathname.includes('/profile')) return 'Faculty Profile';
+    if (pathname.includes('/profile')) return 'Settings & Profile';
     if (pathname.includes('/notices')) return 'Circulars';
     if (pathname.includes('/requests')) return 'Leave Petitions';
     return 'Faculty Workstation';
@@ -92,7 +108,9 @@ export default function TeacherLayout({
         currentUser={{
           full_name: teacherData.teacherName,
           role: teacherData.isClassTeacher ? `Class Incharge (${teacherData.classTeacherSection?.class_name || ''}-${teacherData.classTeacherSection?.section || ''})` : teacherData.designation,
-          username: teacherData.staffCode
+          username: teacherData.staffCode,
+          avatar: teacherData.avatar,
+          photo: teacherData.avatar
         }}
         onToggleSidebar={() => setMobileMenuOpen(prev => !prev)}
         onRefresh={() => window.location.reload()}
@@ -102,6 +120,7 @@ export default function TeacherLayout({
         {/* Dynamic Role-Adapting Sidebar */}
         <TeacherSidebar
           teacherName={teacherData.teacherName}
+          avatar={teacherData.avatar}
           staffCode={teacherData.staffCode}
           designation={teacherData.designation}
           isClassTeacher={teacherData.isClassTeacher}

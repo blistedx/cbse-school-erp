@@ -95,7 +95,7 @@ import { ANTIGRAVITY_THEMES, applyAntigravityTheme, getSavedThemeId } from '@/li
 import { compressImageFile } from '@/lib/image-compress';
 import { getSchoolInitials, printHtmlElement, numberToWordsINR, getTodayDateStr, isSameClass } from '@/lib/utils';
 import { ThinkingOrb, ThinkingOrbThinkingDemo, ThinkingOrbSyncPill } from '@/components/ui/thinking-orbs';
-import { SchoolSessionHeader } from '@/components/common/school-session-header';
+import { SchoolSessionHeader, compressImageToBase64 } from '@/components/common/school-session-header';
 
 // Instant Module Loading Fallback using ThinkingOrb
 const ModuleThinkingFallback = () => (
@@ -1942,18 +1942,11 @@ function ERPWorkspaceContent() {
   };
 
   // Principal Profile Photo Upload Handler in School Settings
-  const handleSchoolPrincipalPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSchoolPrincipalPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const maxBytes = 200 * 1024; // 200 KB limit
-    if (file.size > maxBytes) {
-      const sizeKb = (file.size / 1024).toFixed(1);
-      alert(`Selected photo is ${sizeKb} KB. Principal picture must be 200 KB or smaller (Recommended: 100 KB - 200 KB).`);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
+    try {
+      const base64 = await compressImageToBase64(file);
       setSettingsForm(prev => ({ ...prev, principal_avatar: base64 }));
       setProfileForm(prev => ({ ...prev, avatar: base64 }));
       if (currentUser?.role === 'PRINCIPAL' || currentUser?.role === 'ADMIN') {
@@ -1961,9 +1954,12 @@ function ERPWorkspaceContent() {
         setCurrentUser(updated);
         try { localStorage.setItem('current_user', JSON.stringify(updated)); } catch (_) {}
       }
+      window.dispatchEvent(new Event('giterp_user_change'));
+      window.dispatchEvent(new Event('storage'));
       showAdminToast('Principal photo selected. Click "Save Institutional Profile" below to persist.');
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert(err.message || 'Failed to process principal photo.');
+    }
   };
 
   const handleRemovePrincipalPhoto = () => {
@@ -1974,6 +1970,8 @@ function ERPWorkspaceContent() {
       setCurrentUser(updated);
       try { localStorage.setItem('current_user', JSON.stringify(updated)); } catch (_) {}
     }
+    window.dispatchEvent(new Event('giterp_user_change'));
+    window.dispatchEvent(new Event('storage'));
     showAdminToast('Principal photo removed.');
   };
 
@@ -2061,29 +2059,25 @@ function ERPWorkspaceContent() {
     }
   };
 
-  // User Profile Photo Upload Handler (Strict 200 KB limit, recommended 100-200 KB)
-  const handleUserProfilePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // User Profile Photo Upload Handler (Auto-compress to ~40KB base64)
+  const handleUserProfilePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const maxBytes = 200 * 1024; // 200 KB limit
-    if (file.size > maxBytes) {
-      const sizeKb = (file.size / 1024).toFixed(1);
-      alert(`Selected photo is ${sizeKb} KB. Profile picture must be 200 KB or smaller (Recommended: 100 KB - 200 KB).`);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
+    try {
+      const base64 = await compressImageToBase64(file);
       setProfileForm(prev => ({ ...prev, avatar: base64 }));
+      const updated = { ...currentUser, avatar: base64, photo: base64 };
+      setCurrentUser(updated);
+      try { localStorage.setItem('current_user', JSON.stringify(updated)); } catch (_) {}
       if (currentUser?.role === 'PRINCIPAL' || currentUser?.role === 'ADMIN') {
         setSettingsForm(prev => ({ ...prev, principal_avatar: base64 }));
-        const updated = { ...currentUser, avatar: base64, photo: base64 };
-        setCurrentUser(updated);
-        try { localStorage.setItem('current_user', JSON.stringify(updated)); } catch (_) {}
       }
+      window.dispatchEvent(new Event('giterp_user_change'));
+      window.dispatchEvent(new Event('storage'));
       showAdminToast('Profile picture selected. Save profile to persist changes.');
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert(err.message || 'Failed to process photo.');
+    }
   };
 
   const handleRemoveUserProfilePhoto = () => {
@@ -2094,6 +2088,8 @@ function ERPWorkspaceContent() {
       setCurrentUser(updated);
       try { localStorage.setItem('current_user', JSON.stringify(updated)); } catch (_) {}
     }
+    window.dispatchEvent(new Event('giterp_user_change'));
+    window.dispatchEvent(new Event('storage'));
     showAdminToast('Profile picture cleared.');
   };
 
@@ -2101,48 +2097,40 @@ function ERPWorkspaceContent() {
   const handleQuickUploadTeacherPhoto = async (teacherId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const maxBytes = 200 * 1024; // 200 KB
-    if (file.size > maxBytes) {
-      const sizeKb = (file.size / 1024).toFixed(1);
-      alert(`Selected photo is ${sizeKb} KB. Photo must be 200 KB or smaller.`);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result as string;
-      try {
-        const res = await apiFetch('/api/teachers', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: teacherId,
-            school_id: selectedSchool?.id || 'DPS2026',
-            photo: base64,
-            avatar: base64
-          })
-        });
-        const data = await res.json();
-        if (data.success) {
-          setTeachers(prev => prev.map(t => (t.id === teacherId || t.staff_code === teacherId) ? { ...t, photo: base64, avatar: base64 } : t));
-          const isPrin = teacherId === 'TCH-PRIN-DPS2026' || teacherId === 'PRIN01' || (data.teacher?.full_name || '').toLowerCase().includes('abhishek');
-          if (isPrin) {
-            setProfileForm(prev => ({ ...prev, avatar: base64 }));
-            setSettingsForm(prev => ({ ...prev, principal_avatar: base64 }));
-            if (currentUser?.role === 'PRINCIPAL' || currentUser?.role === 'ADMIN') {
-              const patched = { ...currentUser, avatar: base64, photo: base64 };
-              setCurrentUser(patched);
-              try { localStorage.setItem('current_user', JSON.stringify(patched)); } catch (_) {}
-            }
+    try {
+      const base64 = await compressImageToBase64(file);
+      const res = await apiFetch('/api/teachers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: teacherId,
+          school_id: selectedSchool?.id || 'DPS2026',
+          photo: base64,
+          avatar: base64
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTeachers(prev => prev.map(t => (t.id === teacherId || t.staff_code === teacherId) ? { ...t, photo: base64, avatar: base64 } : t));
+        const isPrin = teacherId === 'TCH-PRIN-DPS2026' || teacherId === 'PRIN01' || (data.teacher?.full_name || '').toLowerCase().includes('abhishek');
+        if (isPrin) {
+          setProfileForm(prev => ({ ...prev, avatar: base64 }));
+          setSettingsForm(prev => ({ ...prev, principal_avatar: base64 }));
+          if (currentUser?.role === 'PRINCIPAL' || currentUser?.role === 'ADMIN') {
+            const patched = { ...currentUser, avatar: base64, photo: base64 };
+            setCurrentUser(patched);
+            try { localStorage.setItem('current_user', JSON.stringify(patched)); } catch (_) {}
           }
-          showAdminToast('Faculty photo updated and persisted successfully!');
-        } else {
-          alert(data.error || 'Failed to update faculty photo.');
         }
-      } catch (err) {
-        console.error(err);
+        window.dispatchEvent(new Event('giterp_user_change'));
+        window.dispatchEvent(new Event('storage'));
+        showAdminToast('Faculty photo updated and persisted successfully!');
+      } else {
+        alert(data.error || 'Failed to update faculty photo.');
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert(err.message || 'Failed to process faculty photo.');
+    }
   };
 
   // Student Passport Photo Upload Handler with automatic client-side compression
@@ -2250,6 +2238,12 @@ function ERPWorkspaceContent() {
       if (storedUser && storedUser !== 'null' && storedUser !== 'undefined') {
         try {
           const parsed = JSON.parse(storedUser);
+          if (parsed.avatar && typeof parsed.avatar === 'string' && parsed.avatar.includes('MEDIA-TCH-TCH-PRIN-DPS2026')) {
+            parsed.avatar = '';
+            parsed.photo = '';
+            storedUser = JSON.stringify(parsed);
+            localStorage.setItem('current_user', storedUser);
+          }
           if ((parsed.role || parsed.login_role || '').toUpperCase() === 'TEACHER') {
             const schoolCode = parsed.school_code || parsed.school_id || 'DPS2026';
             window.location.replace(`/teacher?school=${encodeURIComponent(schoolCode)}`);
@@ -2264,8 +2258,8 @@ function ERPWorkspaceContent() {
           full_name: 'Dr. Abhishek Shukla',
           role: 'PRINCIPAL',
           school_id: 'DPS2026',
-          avatar: '/api/media/MEDIA-TCH-TCH-PRIN-DPS2026',
-          photo: '/api/media/MEDIA-TCH-TCH-PRIN-DPS2026'
+          avatar: '',
+          photo: ''
         };
         localStorage.setItem('current_user', JSON.stringify(defaultAdmin));
         storedUser = JSON.stringify(defaultAdmin);
@@ -2358,8 +2352,8 @@ function ERPWorkspaceContent() {
             full_name: 'Dr. Abhishek Shukla',
             role: 'PRINCIPAL',
             school_id: 'DPS2026',
-            avatar: '/api/media/MEDIA-TCH-TCH-PRIN-DPS2026',
-            photo: '/api/media/MEDIA-TCH-TCH-PRIN-DPS2026'
+            avatar: '',
+            photo: ''
           };
           localStorage.setItem('current_user', JSON.stringify(defaultAdmin));
           setCurrentUser(defaultAdmin);
@@ -4769,7 +4763,7 @@ function ERPWorkspaceContent() {
                     login_role: 'PRINCIPAL',
                     email: 'principal@dps2026.edu',
                     phone: '+91 11 4987 6543',
-                    avatar: '/api/media/MEDIA-TCH-TCH-PRIN-DPS2026'
+                    avatar: ''
                   };
                   localStorage.setItem('current_user', JSON.stringify(defaultAdmin));
                   setCurrentUser(defaultAdmin);
@@ -5241,14 +5235,31 @@ function ERPWorkspaceContent() {
               </button>
             )}
 
+            <button
+              onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }}
+              className={getNavClass('profile')}
+            >
+              <User className={getNavIconClass('profile')} />
+              <span>Settings &amp; Profile Picture</span>
+            </button>
+
             {/* Mobile User Profile Card with Theme Switcher */}
             <div 
               onClick={() => { setActiveTab('profile'); setMobileMenuOpen(false); }}
               className="mt-auto p-3 rounded-2xl bg-white/10 border border-white/15 text-xs text-white cursor-pointer hover:bg-white/15 transition-colors"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-emerald-500 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
-                  {(currentUser?.full_name || selectedSchool?.principal_name || 'A')[0]?.toUpperCase()}
+                <div className="w-8 h-8 rounded-full bg-emerald-500 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs overflow-hidden">
+                  {currentUser?.avatar || currentUser?.photo ? (
+                    <img
+                      src={currentUser.avatar || currentUser.photo}
+                      alt={currentUser?.full_name || 'User'}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    (currentUser?.full_name || selectedSchool?.principal_name || 'A')[0]?.toUpperCase()
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-white text-xs truncate">
@@ -5620,14 +5631,31 @@ function ERPWorkspaceContent() {
             </button>
           )}
 
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={getNavClass('profile')}
+          >
+            <User className={getNavIconClass('profile')} />
+            <span>Settings &amp; Profile Picture</span>
+          </button>
+
           {/* User Profile Card at Sidebar Bottom with Theme Switcher */}
           <div 
             onClick={() => setActiveTab('profile')}
             className="mt-auto p-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs text-white cursor-pointer transition-colors"
           >
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-emerald-500 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs">
-                {(currentUser?.full_name || selectedSchool?.principal_name || 'A')[0]?.toUpperCase()}
+              <div className="w-8 h-8 rounded-full bg-emerald-500 text-white font-bold flex items-center justify-center text-xs shrink-0 shadow-xs overflow-hidden">
+                {currentUser?.avatar || currentUser?.photo ? (
+                  <img
+                    src={currentUser.avatar || currentUser.photo}
+                    alt={currentUser?.full_name || 'User'}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  (currentUser?.full_name || selectedSchool?.principal_name || 'A')[0]?.toUpperCase()
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-semibold text-white text-xs truncate">
@@ -10362,7 +10390,12 @@ function ERPWorkspaceContent() {
                 <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left relative z-10">
                   <div className="w-20 h-20 rounded-2xl bg-white/15 border-2 border-white/30 text-white font-display font-bold text-3xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden relative group">
                     {profileForm.avatar || currentUser?.avatar || currentUser?.photo ? (
-                      <img src={profileForm.avatar || currentUser?.avatar || currentUser?.photo} alt="Profile" className="w-full h-full object-cover" />
+                      <img
+                        src={profileForm.avatar || currentUser?.avatar || currentUser?.photo}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      />
                     ) : (
                       (currentUser?.full_name || profileForm.full_name || 'U')[0]?.toUpperCase()
                     )}
@@ -10451,7 +10484,12 @@ function ERPWorkspaceContent() {
                       <div className="flex items-center gap-3.5 p-3.5 bg-emerald-50/50 rounded-2xl border border-emerald-200/80">
                         <div className="w-14 h-14 rounded-2xl border-2 border-[#122A24]/20 bg-white overflow-hidden flex items-center justify-center shrink-0 shadow-2xs">
                           {profileForm.avatar || currentUser?.avatar || currentUser?.photo ? (
-                            <img src={profileForm.avatar || currentUser?.avatar || currentUser?.photo} alt="Profile" className="w-full h-full object-cover" />
+                            <img
+                              src={profileForm.avatar || currentUser?.avatar || currentUser?.photo}
+                              alt="Profile"
+                              className="w-full h-full object-cover"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                            />
                           ) : (
                             <span className="font-display font-bold text-lg text-[#122A24]">
                               {(profileForm.full_name || currentUser?.full_name || 'U')[0]?.toUpperCase()}

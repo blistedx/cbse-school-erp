@@ -60,9 +60,11 @@ export default function PrincipalLayout({
         } catch (_) {}
       }
 
-      const avatar = parsedUser?.photo || parsedUser?.avatar || parsedSchool?.principal_avatar;
-      if (avatar) {
-        setPrincipalAvatar(avatar);
+      const rawAvatar = parsedUser?.photo || parsedUser?.avatar || parsedSchool?.principal_avatar;
+      if (rawAvatar && typeof rawAvatar === 'string' && !rawAvatar.includes('MEDIA-TCH-TCH-PRIN-DPS2026')) {
+        setPrincipalAvatar(rawAvatar);
+      } else {
+        setPrincipalAvatar('');
       }
 
       setIsAuthorized(true);
@@ -70,6 +72,23 @@ export default function PrincipalLayout({
       router.push('/login');
     }
   }, [router]);
+
+  // Real-time synchronization when profile picture or details change
+  useEffect(() => {
+    function handleUserUpdate(e: any) {
+      if (e.detail) {
+        if (e.detail.full_name) setPrincipalName(e.detail.full_name);
+        const nextAvatar = e.detail.photo || e.detail.avatar;
+        if (nextAvatar && typeof nextAvatar === 'string' && !nextAvatar.includes('MEDIA-TCH-TCH-PRIN-DPS2026')) {
+          setPrincipalAvatar(nextAvatar);
+        } else if (nextAvatar === '') {
+          setPrincipalAvatar('');
+        }
+      }
+    }
+    window.addEventListener('giterp_user_change', handleUserUpdate);
+    return () => window.removeEventListener('giterp_user_change', handleUserUpdate);
+  }, []);
 
   // Fetch pending approvals count for sidebar badge
   const fetchPendingBadge = async () => {

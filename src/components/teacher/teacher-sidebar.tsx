@@ -26,11 +26,13 @@ import {
   MessageSquare,
   FileCheck2,
   DollarSign,
+  Settings,
   X
 } from 'lucide-react';
 
 interface TeacherSidebarProps {
   teacherName?: string;
+  avatar?: string;
   staffCode?: string;
   designation?: string;
   isClassTeacher?: boolean;
@@ -45,6 +47,7 @@ interface TeacherSidebarProps {
 
 export function TeacherSidebar({
   teacherName = 'Faculty Member',
+  avatar = '',
   staffCode = 'EMP-FACULTY',
   designation = 'Teacher',
   isClassTeacher = false,
@@ -115,8 +118,17 @@ export function TeacherSidebar({
           {/* Teacher Identity & Class Teacher Badge */}
           <div className="p-4 mx-3 my-3 bg-[#18382F] rounded-2xl border border-emerald-800/30 space-y-2">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-600/30 border border-emerald-400/30 flex items-center justify-center text-emerald-300 font-bold text-sm">
-                {(teacherName || 'T')[0]}
+              <div className="w-10 h-10 rounded-xl bg-emerald-600/30 border border-emerald-400/30 flex items-center justify-center text-emerald-300 font-bold text-sm overflow-hidden shrink-0">
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    alt={teacherName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  (teacherName || 'T')[0]
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-white truncate">{teacherName}</p>
@@ -583,8 +595,8 @@ export function TeacherSidebar({
               }`}
             >
               <div className="flex items-center gap-3">
-                <User className="w-4 h-4 text-emerald-400" />
-                <span>Profile &amp; Security</span>
+                <Settings className="w-4 h-4 text-emerald-400" />
+                <span>Settings &amp; Profile Picture</span>
               </div>
               <ChevronRight className="w-3.5 h-3.5 opacity-60" />
             </Link>

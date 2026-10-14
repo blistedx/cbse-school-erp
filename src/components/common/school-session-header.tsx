@@ -14,7 +14,14 @@ import {
   Search,
   Palette,
   RefreshCw,
-  Clock
+  Clock,
+  Settings,
+  Camera,
+  Upload,
+  X,
+  Trash2,
+  KeyRound,
+  ShieldCheck
 } from 'lucide-react';
 import { School } from '@/lib/types';
 import { applyAntigravityTheme } from '@/lib/themes';
@@ -43,6 +50,43 @@ export interface SchoolSessionHeaderProps {
   onToggleTheme?: (theme?: string) => void;
   onRefresh?: () => void;
   onLogout?: () => void;
+}
+
+// Convert image file to optimized Base64 JPEG data URL (< 60 KB)
+export function compressImageToBase64(file: File, maxDim: number = 480, quality: number = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(e.target?.result as string);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 // Convert session string like "2026-27" to full display format "2026-2027"
@@ -108,6 +152,18 @@ export function SchoolSessionHeader({
   const [showSessionMenu, setShowSessionMenu] = useState(false);
   const [showSchoolMenu, setShowSchoolMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  // Settings Modal Edit States
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [previewAvatar, setPreviewAvatar] = useState('');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [modalToast, setModalToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-hydration state for standalone / cross-panel usage
   const [hydratedSchool, setHydratedSchool] = useState<School | null>(selectedSchool || null);
@@ -119,6 +175,31 @@ export function SchoolSessionHeader({
   const sessionMenuRef = useRef<HTMLDivElement>(null);
   const schoolMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Real-time synchronization when profile picture or user details change
+  useEffect(() => {
+    function handleUserUpdate(e: any) {
+      if (e.detail) {
+        setHydratedUser(e.detail);
+        setAvatarError(false);
+      }
+    }
+    window.addEventListener('giterp_user_change', handleUserUpdate);
+    function handleStorage() {
+      try {
+        const stored = localStorage.getItem('current_user');
+        if (stored) {
+          setHydratedUser(JSON.parse(stored));
+          setAvatarError(false);
+        }
+      } catch {}
+    }
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('giterp_user_change', handleUserUpdate);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
   // Sync props to internal state
   useEffect(() => {
@@ -201,6 +282,123 @@ export function SchoolSessionHeader({
   const activeSessionVal = hydratedSession || selectedSession || '2026-27';
   const activeUser = hydratedUser || currentUser;
   const activeThemeVal = hydratedTheme || currentTheme || 'emerald';
+
+  // Reset avatar error if avatar URL changes
+  useEffect(() => {
+    setAvatarError(false);
+  }, [activeUser?.avatar, activeUser?.photo, profileForm?.avatar]);
+
+  // Sync settings modal fields when opened
+  useEffect(() => {
+    if (showSettingsModal) {
+      setEditName(activeUser?.full_name || profileForm?.full_name || '');
+      setEditEmail(activeUser?.email || profileForm?.email || '');
+      setEditPhone(activeUser?.phone || profileForm?.phone || '');
+      setEditPassword('');
+      const curPic = activeUser?.photo || activeUser?.avatar || profileForm?.avatar || '';
+      if (curPic && typeof curPic === 'string' && !curPic.includes('MEDIA-TCH-TCH-PRIN-DPS2026') && curPic !== 'null') {
+        setPreviewAvatar(curPic);
+      } else {
+        setPreviewAvatar('');
+      }
+      setModalToast(null);
+    }
+  }, [showSettingsModal, activeUser, profileForm]);
+
+  const handlePhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const base64 = await compressImageToBase64(file);
+      setPreviewAvatar(base64);
+      setModalToast({ type: 'success', message: 'Photo selected! Click "Save Changes" to apply.' });
+    } catch (_) {
+      setModalToast({ type: 'error', message: 'Failed to process image. Please try another.' });
+    }
+  };
+
+  const userDisplayName = activeUser?.full_name || profileForm?.full_name || 'Administrator';
+  const userInitials = userDisplayName
+    .split(' ')
+    .filter(Boolean)
+    .map((p: string) => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || userDisplayName.charAt(0).toUpperCase() || 'A';
+
+  const handleSaveSettings = async () => {
+    setIsSavingSettings(true);
+    setModalToast(null);
+    try {
+      const updatedUser = {
+        ...(activeUser || {}),
+        full_name: editName.trim() || userDisplayName,
+        email: editEmail.trim(),
+        phone: editPhone.trim(),
+        avatar: previewAvatar,
+        photo: previewAvatar
+      };
+
+      try {
+        localStorage.setItem('current_user', JSON.stringify(updatedUser));
+      } catch (_) {}
+
+      try {
+        const storedSchool = localStorage.getItem('current_school');
+        if (storedSchool) {
+          const sch = JSON.parse(storedSchool);
+          if (sch.principal_name && (activeUser?.role === 'PRINCIPAL' || activeUser?.role === 'ADMIN')) {
+            sch.principal_name = editName.trim() || sch.principal_name;
+            sch.principal_avatar = previewAvatar;
+            sch.avatar = previewAvatar;
+            localStorage.setItem('current_school', JSON.stringify(sch));
+          }
+        }
+      } catch (_) {}
+
+      setHydratedUser(updatedUser);
+      setAvatarError(false);
+
+      window.dispatchEvent(new CustomEvent('giterp_user_change', { detail: updatedUser }));
+      window.dispatchEvent(new Event('storage'));
+
+      try {
+        await fetch('/api/auth/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            full_name: editName.trim(),
+            email: editEmail.trim(),
+            phone: editPhone.trim(),
+            new_password: editPassword.trim() || undefined,
+            avatar: previewAvatar,
+            photo: previewAvatar
+          })
+        });
+      } catch (_) {}
+
+      setModalToast({ type: 'success', message: 'Profile picture & settings saved successfully!' });
+      setTimeout(() => {
+        setShowSettingsModal(false);
+      }, 700);
+    } catch (err: any) {
+      setModalToast({ type: 'error', message: err.message || 'Failed to save settings.' });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const userAvatarRaw = activeUser?.avatar || activeUser?.photo || profileForm?.avatar;
+  const hasValidAvatar = Boolean(
+    userAvatarRaw &&
+    typeof userAvatarRaw === 'string' &&
+    userAvatarRaw.trim().length > 0 &&
+    userAvatarRaw !== 'null' &&
+    userAvatarRaw !== 'undefined' &&
+    !userAvatarRaw.includes('[object') &&
+    !userAvatarRaw.includes('MEDIA-TCH-TCH-PRIN-DPS2026') &&
+    !avatarError
+  );
 
   const currentDisplaySession = formatSessionFull(activeSessionVal);
 
@@ -564,20 +762,21 @@ export function SchoolSessionHeader({
             <button
               type="button"
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-gray-400/50 bg-gray-700 hover:border-emerald-400 flex items-center justify-center text-white text-xs font-bold overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-400 transition-all ml-0.5 active:scale-95"
-              title="User Account & Office Credentials"
+              className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full border border-gray-400/50 bg-[#122A24] hover:border-emerald-400 flex items-center justify-center text-white text-xs font-bold overflow-hidden cursor-pointer hover:ring-2 hover:ring-emerald-400 transition-all ml-0.5 active:scale-95"
+              title="User Account & Settings"
               aria-label="User Account"
             >
-              {activeUser?.avatar || activeUser?.photo || profileForm?.avatar ? (
+              {hasValidAvatar ? (
                 <img
-                  src={activeUser?.avatar || activeUser?.photo || profileForm?.avatar}
-                  alt="User Avatar"
+                  src={userAvatarRaw}
+                  alt={userDisplayName}
                   className="w-full h-full object-cover"
+                  onError={() => setAvatarError(true)}
                 />
               ) : (
-                <span className="text-[11px] font-bold">
-                  {(activeUser?.full_name || profileForm?.full_name || 'U')[0]?.toUpperCase()}
-                </span>
+                <div className="w-full h-full bg-gradient-to-tr from-emerald-600 via-emerald-700 to-teal-800 flex items-center justify-center text-white text-[11px] font-bold select-none">
+                  {userInitials}
+                </div>
               )}
             </button>
 
@@ -586,20 +785,33 @@ export function SchoolSessionHeader({
               <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-24px)] bg-[#25282D] rounded-2xl shadow-2xl border border-white/10 p-3 z-50 text-white animate-in fade-in zoom-in-95 space-y-3">
                 {/* User Identity Header */}
                 <div className="flex items-center gap-3 pb-2.5 border-b border-white/10">
-                  <div className="w-9 h-9 rounded-full bg-white/10 text-white font-bold flex items-center justify-center text-xs shrink-0 overflow-hidden border border-white/15">
-                    {activeUser?.avatar || activeUser?.photo || profileForm?.avatar ? (
+                  <div
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      setShowSettingsModal(true);
+                    }}
+                    className="w-10 h-10 rounded-full bg-white/10 text-white font-bold flex items-center justify-center text-xs shrink-0 overflow-hidden border border-white/15 relative group cursor-pointer"
+                    title="Click to change profile picture"
+                  >
+                    {hasValidAvatar ? (
                       <img
-                        src={activeUser?.avatar || activeUser?.photo || profileForm?.avatar}
+                        src={userAvatarRaw}
                         alt="Avatar"
                         className="w-full h-full object-cover rounded-full"
+                        onError={() => setAvatarError(true)}
                       />
                     ) : (
-                      (activeUser?.full_name || profileForm?.full_name || 'Admin')[0]?.toUpperCase()
+                      <div className="w-full h-full bg-gradient-to-tr from-emerald-600 via-emerald-700 to-teal-800 flex items-center justify-center text-white text-xs font-bold">
+                        {userInitials}
+                      </div>
                     )}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white rounded-full">
+                      <Camera className="w-4 h-4 text-white" />
+                    </div>
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-bold text-white truncate">
-                      {activeUser?.full_name || profileForm?.full_name || 'Administrator'}
+                      {userDisplayName}
                     </div>
                     <div className="text-[10px] text-gray-400 font-mono truncate">
                       {activeUser?.role || 'Staff'} • {activeUser?.username || profileForm?.username || 'admin'}
@@ -660,6 +872,27 @@ export function SchoolSessionHeader({
 
                 {/* Quick Profile Actions */}
                 <div className="pt-2 border-t border-white/10 space-y-1">
+                  {/* Universal Settings & Profile Picture (Present in EVERY module) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      setShowSettingsModal(true);
+                    }}
+                    className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-bold text-white bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/40 hover:border-emerald-500/60 transition-all cursor-pointer text-left group"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Settings className="h-4 w-4 text-emerald-400 group-hover:rotate-45 transition-transform" />
+                      <div>
+                        <div className="leading-tight">Profile Picture &amp; Settings</div>
+                        <div className="text-[9.5px] text-emerald-300/80 font-normal">Upload photo, change passcode</div>
+                      </div>
+                    </span>
+                    <span className="text-[10px] font-mono bg-emerald-500/30 text-emerald-300 px-1.5 py-0.5 rounded font-bold">
+                      EDIT
+                    </span>
+                  </button>
+
                   {/* Mobile Refresh shortcut */}
                   <button
                     type="button"
@@ -675,38 +908,67 @@ export function SchoolSessionHeader({
                     </span>
                   </button>
 
-                  {onNavigateTab && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        onNavigateTab('attendance');
-                      }}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-200 hover:bg-white/10 transition-colors cursor-pointer border-none bg-transparent text-left"
-                    >
-                      <span className="flex items-center gap-2">
-                        <Clock className="h-3.5 w-3.5 text-emerald-400" />
-                        My Attendance &amp; Regularization
-                      </span>
-                      <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-                    </button>
-                  )}
-
-                  {onNavigateTab && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        onNavigateTab('profile');
-                      }}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-200 hover:bg-white/10 transition-colors cursor-pointer border-none bg-transparent text-left"
-                    >
-                      <span className="flex items-center gap-2">
-                        <User className="h-3.5 w-3.5 text-emerald-400" />
-                        My Profile &amp; Passcode
-                      </span>
-                      <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-                    </button>
+                  {/* Panel-Specific Profile Navigation Links */}
+                  {onNavigateTab ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          onNavigateTab('attendance');
+                        }}
+                        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-200 hover:bg-white/10 transition-colors cursor-pointer border-none bg-transparent text-left"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5 text-emerald-400" />
+                          My Attendance &amp; Regularization
+                        </span>
+                        <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          onNavigateTab('profile');
+                        }}
+                        className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-200 hover:bg-white/10 transition-colors cursor-pointer border-none bg-transparent text-left"
+                      >
+                        <span className="flex items-center gap-2">
+                          <User className="h-3.5 w-3.5 text-emerald-400" />
+                          My Profile Studio
+                        </span>
+                        <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {panelName === 'Principal' && (
+                        <a
+                          href="/principal/profile"
+                          onClick={() => setShowUserMenu(false)}
+                          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-200 hover:bg-white/10 transition-colors no-underline text-left"
+                        >
+                          <span className="flex items-center gap-2">
+                            <User className="h-3.5 w-3.5 text-emerald-400" />
+                            Principal Office Credentials
+                          </span>
+                          <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                        </a>
+                      )}
+                      {panelName === 'Teacher' && (
+                        <a
+                          href="/teacher/profile"
+                          onClick={() => setShowUserMenu(false)}
+                          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-200 hover:bg-white/10 transition-colors no-underline text-left"
+                        >
+                          <span className="flex items-center gap-2">
+                            <User className="h-3.5 w-3.5 text-emerald-400" />
+                            Faculty Workstation Profile
+                          </span>
+                          <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                        </a>
+                      )}
+                    </>
                   )}
 
                   <button
@@ -739,6 +1001,199 @@ export function SchoolSessionHeader({
           </button>
         </div>
       </div>
+
+      {/* ── UNIVERSAL PROFILE PICTURE & ACCOUNT SETTINGS MODAL (Accessible Across ALL Modules) ── */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-[#25282D] border border-white/15 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden text-white flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                  <Settings className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Settings &amp; Profile Picture</h3>
+                  <p className="text-[10.5px] text-gray-400 font-mono">
+                    {activeUser?.role || 'User'} • {activeUser?.username || profileForm?.username || 'admin'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(false)}
+                className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 overflow-y-auto space-y-4 text-xs">
+              {/* Profile Photo Upload Studio */}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col items-center text-center relative">
+                <div className="w-24 h-24 rounded-full border-2 border-emerald-400/60 shadow-xl overflow-hidden relative group bg-emerald-950/60 mb-3">
+                  {previewAvatar ? (
+                    <img
+                      src={previewAvatar}
+                      alt="Profile Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-tr from-emerald-600 via-emerald-700 to-teal-800 flex items-center justify-center text-white text-3xl font-black select-none">
+                      {userInitials}
+                    </div>
+                  )}
+
+                  {/* Hover Camera Overlay */}
+                  <label
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity text-white text-[10px] font-semibold gap-1"
+                    title="Change Profile Picture"
+                  >
+                    <Camera className="w-5 h-5 text-emerald-300" />
+                    <span>Change</span>
+                  </label>
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handlePhotoFileChange}
+                  className="hidden"
+                />
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition shadow-xs"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload New Photo</span>
+                  </button>
+
+                  {previewAvatar && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewAvatar('')}
+                      className="px-3 py-1.5 bg-white/10 hover:bg-rose-600/30 text-rose-300 border border-white/10 hover:border-rose-500/40 rounded-xl text-xs flex items-center gap-1 cursor-pointer transition"
+                      title="Reset to Initials"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Remove</span>
+                    </button>
+                  )}
+                </div>
+                <p className="text-[10px] text-gray-400 mt-2">
+                  Supports JPG, PNG, WEBP (auto-compressed for instant loading)
+                </p>
+              </div>
+
+              {/* Status Toast */}
+              {modalToast && (
+                <div
+                  className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center gap-2 ${
+                    modalToast.type === 'success'
+                      ? 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300'
+                      : 'bg-rose-950/70 border-rose-500/60 text-rose-300'
+                  }`}
+                >
+                  <Check className="w-4 h-4 shrink-0" />
+                  <span>{modalToast.message}</span>
+                </div>
+              )}
+
+              {/* Account Credentials Form */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-gray-300 font-semibold mb-1 text-[11px]">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="e.g. Dr. Abhishek Shukla"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/15 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-400"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-gray-300 font-semibold mb-1 text-[11px]">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      placeholder="principal@dps.edu"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/15 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 font-semibold mb-1 text-[11px]">
+                      Mobile Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/15 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-gray-300 font-semibold mb-1 text-[11px] flex items-center justify-between">
+                    <span>New Passcode / Password</span>
+                    <span className="text-[10px] text-gray-500 font-mono">Optional</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder="Leave blank to keep unchanged"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/15 rounded-xl text-white text-xs focus:outline-none focus:border-emerald-400 font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-3.5 border-t border-white/10 flex items-center justify-end gap-2 bg-black/20">
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(false)}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/10 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveSettings}
+                disabled={isSavingSettings}
+                className="px-4 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-md"
+              >
+                {isSavingSettings ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Save Changes</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
