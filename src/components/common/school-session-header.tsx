@@ -456,32 +456,27 @@ export function SchoolSessionHeader({
           </div>
         )}
 
-        {/* 1. Academic Session Switcher */}
-        <div className="relative" ref={sessionMenuRef}>
-          {/* Mobile Session Pill (< sm): Ultra-compact & touch friendly */}
-          <button
-            type="button"
-            onClick={() => setShowSessionMenu(!showSessionMenu)}
-            className="sm:hidden flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-emerald-300 font-bold text-xs cursor-pointer select-none active:scale-95 transition-transform"
-            title="Switch Academic Session"
-          >
-            <span className="font-mono text-[11px]">{activeSessionVal}</span>
-            <ChevronDown className={`w-3 h-3 text-gray-300 transition-transform ${showSessionMenu ? 'rotate-180' : ''}`} />
-          </button>
-
-          {/* Desktop & Tablet Session Display (>= sm) */}
+        {/* 1. Academic Session Switcher (Unified for Mobile & Desktop) */}
+        <div className="relative shrink-0" ref={sessionMenuRef}>
           <div
             onClick={() => setShowSessionMenu(!showSessionMenu)}
-            className="hidden sm:flex flex-col items-end justify-center cursor-pointer group pr-1 select-none"
-            title="Click to change academic session"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setShowSessionMenu(!showSessionMenu);
+              }
+            }}
+            className="flex flex-col items-center justify-center cursor-pointer group px-1 sm:px-2 select-none text-center active:scale-95 transition-transform"
+            title="Academic Session (Click to switch)"
           >
-            <span className="text-[9.5px] text-gray-300 font-medium tracking-wide block uppercase leading-none mb-0.5 group-hover:text-emerald-300 transition-colors">
+            <span className="text-[10.5px] sm:text-xs text-white underline underline-offset-2 decoration-1 font-medium tracking-normal leading-tight whitespace-nowrap group-hover:text-gray-200 transition-colors">
               Academic Session
             </span>
-            <div className="flex items-center gap-1 text-sm md:text-base font-bold text-white tracking-tight leading-tight group-hover:text-emerald-300 transition-colors">
-              <span>{currentDisplaySession}</span>
-              <ChevronDown className={`w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-300 transition-transform ${showSessionMenu ? 'rotate-180' : ''}`} />
-            </div>
+            <span className="text-[17px] xs:text-lg sm:text-xl md:text-2xl font-bold text-white tracking-tight leading-none whitespace-nowrap mt-0.5 group-hover:opacity-90 transition-opacity">
+              {currentDisplaySession}
+            </span>
           </div>
 
           {/* Session Switcher Popover Menu */}
