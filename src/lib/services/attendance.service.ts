@@ -34,6 +34,9 @@ export interface SchoolAttendanceDaySummary {
   studentPresent: number;
   studentTotal: number;
   studentPercent: number;
+  enrolledInLogged?: number;
+  classesLoggedCount?: number;
+  isCompleteRollCall?: boolean;
   facultyPresent: number;
   facultyTotal: number;
   facultyPercent: number;
@@ -403,8 +406,9 @@ export class AttendanceService {
         : 0;
       const enrolledInLogged = studentRecords.reduce((acc, curr) => acc + (Number(curr.total_students) || 0), 0);
       const studentTotal = totalStudents > 0 ? totalStudents : enrolledInLogged;
-      const studentPercent = isStudentMarked && enrolledInLogged > 0
-        ? Number(((studentPresent / enrolledInLogged) * 100).toFixed(1))
+      const isCompleteRollCall = isStudentMarked && enrolledInLogged >= Math.floor(studentTotal * 0.8);
+      const studentPercent = isStudentMarked && studentTotal > 0
+        ? Number(((studentPresent / (isCompleteRollCall ? studentTotal : (enrolledInLogged || studentTotal))) * 100).toFixed(1))
         : 0;
 
       // Faculty records
@@ -427,6 +431,9 @@ export class AttendanceService {
         date: dateStr,
         studentPresent,
         studentTotal,
+        enrolledInLogged,
+        classesLoggedCount: studentRecords.length,
+        isCompleteRollCall,
         studentPercent,
         facultyPresent,
         facultyTotal,
@@ -471,8 +478,9 @@ export class AttendanceService {
       : 0;
     const enrolledInLogged = studentRecords.reduce((acc, curr) => acc + (Number(curr.total_students) || 0), 0);
     const studentTotal = totalStudents > 0 ? totalStudents : enrolledInLogged;
-    const studentPercent = isStudentMarked && enrolledInLogged > 0
-      ? Number(((studentPresent / enrolledInLogged) * 100).toFixed(1))
+    const isCompleteRollCall = isStudentMarked && enrolledInLogged >= Math.floor(studentTotal * 0.8);
+    const studentPercent = isStudentMarked && studentTotal > 0
+      ? Number(((studentPresent / (isCompleteRollCall ? studentTotal : (enrolledInLogged || studentTotal))) * 100).toFixed(1))
       : 0;
 
     // Faculty records
@@ -495,6 +503,9 @@ export class AttendanceService {
       date: dateStr,
       studentPresent,
       studentTotal,
+      enrolledInLogged,
+      classesLoggedCount: studentRecords.length,
+      isCompleteRollCall,
       studentPercent,
       facultyPresent,
       facultyTotal,

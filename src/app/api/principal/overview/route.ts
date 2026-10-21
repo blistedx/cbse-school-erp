@@ -192,7 +192,11 @@ export async function GET(req: Request) {
         attendance_today: {
           is_student_marked: attSummary.isStudentMarked,
           student_display: attSummary.isStudentMarked && attSummary.studentPercent > 0 ? `${attSummary.studentPercent}%` : 'Not Marked',
-          student_sublabel: attSummary.isStudentMarked ? `${attSummary.studentPresent}/${attSummary.studentTotal} scholars present` : 'Roll call pending',
+          student_sublabel: attSummary.isStudentMarked
+            ? (attSummary.isCompleteRollCall !== false
+                ? `${attSummary.studentPresent}/${attSummary.studentTotal} scholars present`
+                : `${attSummary.studentPresent}/${attSummary.enrolledInLogged || attSummary.studentPresent} scholars present (${attSummary.classesLoggedCount || 1} classes logged)`)
+            : 'Roll call pending',
           is_faculty_marked: facultyTurnout.present_count > 0 || attSummary.isFacultyMarked,
           faculty_sublabel: facultySubLabel,
           student_present: attSummary.studentPresent,

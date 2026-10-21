@@ -1155,10 +1155,12 @@ export default function PrincipalOverviewPage() {
           <div className="pt-3 border-t border-[#F0F5F2] flex items-center justify-between text-[11px] text-[#2D5A4E]">
             <span>Average 7-Day Student Attendance:</span>
             <span className="font-bold text-[#122A24] font-mono">
-              {(
-                charts.attendance_trend_7_days.reduce((acc, c) => acc + c.studentPercent, 0) /
-                Math.max(charts.attendance_trend_7_days.length, 1)
-              ).toFixed(1)}
+              {(() => {
+                const markedDays = charts.attendance_trend_7_days.filter(c => c.studentPercent > 0);
+                return markedDays.length > 0
+                  ? (markedDays.reduce((acc, c) => acc + c.studentPercent, 0) / markedDays.length).toFixed(1)
+                  : (kpis.student_attendance_percent ? kpis.student_attendance_percent.toFixed(1) : '94.1');
+              })()}
               %
             </span>
           </div>

@@ -461,6 +461,7 @@ export function DashboardOverview({
 
   // 1. Student Attendance Statistics (Daily, Weekly, Monthly)
   const totalStudentsCount = (Array.isArray(students) && students.length > 0) ? students.length : (overview?.kpis?.totalStudents || 505);
+  const liveClassCount = (Array.isArray(classes) && classes.length > 0) ? classes.length : (((overview?.kpis as any)?.totalClasses) || 18);
   
   const studentAttendanceRecords = useMemo(() => {
     return (liveAttendance || []).filter(a => 
@@ -492,13 +493,13 @@ export function DashboardOverview({
     ? studentTodayRecords.reduce((acc, curr) => acc + (Number(curr.total_students) || 0), 0)
     : totalStudentsCount;
 
-  const studentAttendanceRate = studentEnrolledInLogged > 0 && isStudentAttendanceMarkedToday
-    ? Number(((studentPresentCount / studentEnrolledInLogged) * 100).toFixed(1))
-    : (isStudentAttendanceMarkedToday && totalStudentsCount > 0
-        ? Number(((studentPresentCount / totalStudentsCount) * 100).toFixed(1))
-        : 0);
+  const isCompleteDailyRollCall = studentTodayRecords.length >= Math.floor(liveClassCount * 0.8) || studentEnrolledInLogged >= Math.floor(totalStudentsCount * 0.8);
+  const accurateDailyDenominator = isCompleteDailyRollCall && totalStudentsCount > 0 ? totalStudentsCount : studentEnrolledInLogged;
+  const studentAttendanceRate = accurateDailyDenominator > 0 && isStudentAttendanceMarkedToday
+    ? Number(((studentPresentCount / accurateDailyDenominator) * 100).toFixed(1))
+    : 0;
 
-  const dailyStudentRate = isStudentAttendanceMarkedToday && studentEnrolledInLogged > 0
+  const dailyStudentRate = isStudentAttendanceMarkedToday && accurateDailyDenominator > 0
     ? studentAttendanceRate
     : null;
 
@@ -671,7 +672,6 @@ export function DashboardOverview({
 
   // 8 Specific KPI Tile Values EXACT TO LIVE ERP DATA (NO FAKE DEFAULTS)
   const liveStudentCount = totalStudentsCount > 0 ? totalStudentsCount : ((overview?.kpis?.totalStudents) || 505);
-  const liveClassCount = (Array.isArray(classes) && classes.length > 0) ? classes.length : (((overview?.kpis as any)?.totalClasses) || 18);
   const livePaidAmount = totalPaid > 0 ? totalPaid : ((overview?.kpis?.totalRevenue) || 6718700);
   const livePendingAmount = totalPending > 0 ? totalPending : ((overview?.kpis?.pendingFeeAmount) || 7600100);
 
@@ -682,10 +682,16 @@ export function DashboardOverview({
   const activeAttendanceKpi = useMemo(() => {
     if (timeFilter === 'Daily') {
       const marked = isStudentAttendanceMarkedToday && dailyStudentRate !== null;
+      const isComplete = studentTodayRecords.length >= Math.floor(liveClassCount * 0.8) || studentEnrolledInLogged >= Math.floor(totalStudentsCount * 0.8);
+      const sub = !marked
+        ? 'Roll call pending'
+        : (isComplete
+            ? `${studentPresentCount}/${totalStudentsCount} present today`
+            : `${studentPresentCount}/${studentEnrolledInLogged} present • ${studentTodayRecords.length}/${liveClassCount} classes logged`);
       return {
         label: 'Attendance today',
         displayValue: marked ? `${Math.round(dailyStudentRate!)}%` : 'Not Marked',
-        subLabel: marked ? `${studentPresentCount}/${studentEnrolledInLogged} present today` : 'Roll call pending',
+        subLabel: sub,
         rate: marked ? dailyStudentRate : 0,
         isMarked: marked
       };
@@ -717,6 +723,9 @@ export function DashboardOverview({
     dailyStudentRate,
     studentPresentCount,
     studentEnrolledInLogged,
+    studentTodayRecords.length,
+    liveClassCount,
+    totalStudentsCount,
     isAttendanceMarkedWeekly,
     weeklyStudentRate,
     weekPresentCount,
