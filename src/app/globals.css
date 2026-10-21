@@ -581,37 +581,49 @@ a {
   margin: 0 0 28px;
 }
 
-/* 4-Role Buttons */
+/* 4-Role Segmented Pill Buttons (3D White & Dark Green) */
 .roles {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  border: 1.5px solid var(--ink-navy);
-  border-radius: 8px;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  background: #EEF4F0;
+  border: 1px solid #DCE8E0;
+  border-radius: 9999px;
+  padding: 4px;
+  gap: 4px;
   margin-bottom: 24px;
+  box-shadow: inset 0 1px 2px rgba(18, 42, 36, 0.08);
 }
 
 .roles button {
+  flex: 1;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 11.5px;
+  font-size: 11px;
+  font-weight: 600;
   letter-spacing: 0.5px;
-  padding: 11px 4px;
+  padding: 9px 8px;
   border: none;
-  background: #FFFFFF;
-  color: var(--ink-navy);
+  background: transparent;
+  color: var(--theme-text-muted);
   cursor: pointer;
-  border-right: 1.5px solid var(--ink-navy);
-  transition: background .15s, color .15s;
+  border-radius: 9999px;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
-.roles button:last-child {
-  border-right: none;
+.roles button:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.75);
+  color: #122A24;
 }
 
 .roles button.active {
-  background: var(--red-pen);
-  color: #FFFFFF;
-  font-weight: 600;
+  background: linear-gradient(180deg, #1d4d40 0%, #122a24 100%) !important;
+  color: #FFFFFF !important;
+  font-weight: 700;
+  box-shadow: 0 8px 18px -2px rgba(18, 42, 36, 0.45), 0 3px 6px -1px rgba(18, 42, 36, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.32), inset 0 -1.5px 1px rgba(0, 0, 0, 0.45);
+  transform: translateY(-0.5px);
 }
 
 /* Form Fields */
@@ -684,29 +696,36 @@ a {
   cursor: pointer;
 }
 
-/* Action Buttons */
+/* Action Buttons — 3D Dark Green Tactile Style */
 .submit {
   width: 100%;
-  padding: 14px;
-  border-radius: 7px;
-  border: 1.5px solid var(--ink-navy);
-  background: var(--ink-navy);
+  padding: 13px 20px;
+  border-radius: 14px;
+  border: 1px solid rgba(45, 110, 93, 0.45);
+  background: linear-gradient(180deg, #1d4d40 0%, #122a24 100%);
   color: #FFFFFF;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  transition: transform .15s ease, background .15s ease;
-  margin-top: 6px;
+  box-shadow: 0 10px 24px -4px rgba(18, 42, 36, 0.45), 0 4px 8px -2px rgba(18, 42, 36, 0.3), inset 0 1px 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.4);
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.16s cubic-bezier(0.16, 1, 0.3, 1), background 0.16s ease;
+  margin-top: 8px;
 }
 
 .submit:hover {
-  background: var(--red-pen);
-  border-color: var(--red-pen);
-  transform: translateY(-1px);
+  background: linear-gradient(180deg, #23594b 0%, #16362e 100%);
+  border-color: rgba(60, 140, 119, 0.55);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px -4px rgba(18, 42, 36, 0.52), 0 6px 12px -2px rgba(18, 42, 36, 0.38), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.38), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.submit:active {
+  transform: translateY(1.5px) scale(0.985);
+  box-shadow: 0 2px 6px rgba(18, 42, 36, 0.35), inset 0 2px 4px rgba(0, 0, 0, 0.45);
 }
 
 .stamp-icon {
@@ -1396,6 +1415,351 @@ a {
   animation: slideUpBottomSheet 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   MASTER 3D TACTILE BUTTON ENGINE — WHITE & DARK GREEN EDITION
+   Recreates authentic physical, elevated, tactile hardware aesthetics
+   matching reference: deep diffused shadows, top specular gloss highlights,
+   bottom chamfers, physical press clicks, and segmented pill capsules.
+   ───────────────────────────────────────────────────────────── */
 
+:root {
+  --btn-3d-green-bg: linear-gradient(180deg, #1d4d40 0%, #122a24 100%);
+  --btn-3d-green-hover-bg: linear-gradient(180deg, #245e4e 0%, #173830 100%);
+  --btn-3d-green-border: rgba(45, 110, 93, 0.45);
+  --btn-3d-green-shadow: 0 10px 24px -4px rgba(18, 42, 36, 0.45), 0 4px 8px -2px rgba(18, 42, 36, 0.3), inset 0 1px 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.4);
+  --btn-3d-green-hover-shadow: 0 14px 28px -4px rgba(18, 42, 36, 0.52), 0 6px 12px -2px rgba(18, 42, 36, 0.38), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.38), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.4);
+  --btn-3d-green-press-shadow: 0 2px 6px rgba(18, 42, 36, 0.35), inset 0 2px 4px rgba(0, 0, 0, 0.45);
 
+  --btn-3d-white-bg: linear-gradient(180deg, #FFFFFF 0%, #F5F9F6 100%);
+  --btn-3d-white-hover-bg: #FFFFFF;
+  --btn-3d-white-border: #DCE8E0;
+  --btn-3d-white-shadow: 0 8px 20px -3px rgba(18, 42, 36, 0.1), 0 3px 6px -1px rgba(18, 42, 36, 0.05), inset 0 1.5px 1px 0 #FFFFFF, inset 0 -1.5px 1px 0 rgba(18, 42, 36, 0.05);
+  --btn-3d-white-hover-shadow: 0 12px 26px -3px rgba(18, 42, 36, 0.15), 0 4px 10px -2px rgba(18, 42, 36, 0.08), inset 0 1.5px 1px 0 #FFFFFF;
+  --btn-3d-white-press-shadow: inset 0 2px 5px rgba(18, 42, 36, 0.12);
+}
 
+/* 1. Global Interactive Baseline for All Buttons */
+button,
+.btn,
+a[role="button"] {
+  position: relative;
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.16s ease,
+              border-color 0.16s ease !important;
+  will-change: transform, box-shadow;
+}
+
+/* 2. Primary 3D Dark Green Buttons */
+.btn-3d-dark,
+.btn-3d-green,
+.btn-3d-primary,
+button.submit,
+button[type="submit"]:not(.no-3d),
+button[class*="bg-[#122A24]"],
+button[class*="bg-[#122a24]"],
+button[class*="bg-[#1C443A]"],
+button[class*="bg-[#1c443a]"],
+button[class*="bg-emerald-500"],
+button[class*="bg-emerald-600"],
+button[class*="bg-emerald-700"],
+button[class*="bg-emerald-800"],
+button[class*="bg-emerald-900"],
+button[class*="bg-emerald-950"],
+button[class*="bg-teal-600"],
+button[class*="bg-teal-700"],
+button[class*="bg-slate-900"],
+button[class*="bg-zinc-900"],
+button[class*="bg-black"],
+a[class*="bg-[#122A24]"],
+a[class*="bg-[#122a24]"],
+a[class*="bg-[#1C443A]"],
+a[class*="bg-[#1c443a]"],
+a[class*="bg-emerald-500"],
+a[class*="bg-emerald-600"],
+a[class*="bg-emerald-700"],
+a[class*="bg-emerald-800"] {
+  background: var(--btn-3d-green-bg) !important;
+  color: #FFFFFF !important;
+  border: 1px solid var(--btn-3d-green-border) !important;
+  box-shadow: var(--btn-3d-green-shadow) !important;
+}
+
+.btn-3d-dark:hover:not(:disabled),
+.btn-3d-green:hover:not(:disabled),
+.btn-3d-primary:hover:not(:disabled),
+button.submit:hover:not(:disabled),
+button[type="submit"]:not(.no-3d):hover:not(:disabled),
+button[class*="bg-[#122A24]"]:hover:not(:disabled),
+button[class*="bg-[#122a24]"]:hover:not(:disabled),
+button[class*="bg-[#1C443A]"]:hover:not(:disabled),
+button[class*="bg-[#1c443a]"]:hover:not(:disabled),
+button[class*="bg-emerald-500"]:hover:not(:disabled),
+button[class*="bg-emerald-600"]:hover:not(:disabled),
+button[class*="bg-emerald-700"]:hover:not(:disabled),
+button[class*="bg-emerald-800"]:hover:not(:disabled),
+button[class*="bg-emerald-900"]:hover:not(:disabled),
+button[class*="bg-emerald-950"]:hover:not(:disabled),
+button[class*="bg-teal-600"]:hover:not(:disabled),
+button[class*="bg-teal-700"]:hover:not(:disabled),
+button[class*="bg-slate-900"]:hover:not(:disabled),
+button[class*="bg-zinc-900"]:hover:not(:disabled),
+button[class*="bg-black"]:hover:not(:disabled),
+a[class*="bg-[#122A24]"]:hover,
+a[class*="bg-[#122a24]"]:hover,
+a[class*="bg-[#1C443A]"]:hover,
+a[class*="bg-[#1c443a]"]:hover,
+a[class*="bg-emerald-500"]:hover,
+a[class*="bg-emerald-600"]:hover,
+a[class*="bg-emerald-700"]:hover {
+  background: var(--btn-3d-green-hover-bg) !important;
+  border-color: rgba(60, 140, 119, 0.55) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--btn-3d-green-hover-shadow) !important;
+}
+
+.btn-3d-dark:active:not(:disabled),
+.btn-3d-green:active:not(:disabled),
+.btn-3d-primary:active:not(:disabled),
+button.submit:active:not(:disabled),
+button[type="submit"]:not(.no-3d):active:not(:disabled),
+button[class*="bg-[#122A24]"]:active:not(:disabled),
+button[class*="bg-[#122a24]"]:active:not(:disabled),
+button[class*="bg-[#1C443A]"]:active:not(:disabled),
+button[class*="bg-[#1c443a]"]:active:not(:disabled),
+button[class*="bg-emerald-500"]:active:not(:disabled),
+button[class*="bg-emerald-600"]:active:not(:disabled),
+button[class*="bg-emerald-700"]:active:not(:disabled),
+button[class*="bg-emerald-800"]:active:not(:disabled),
+button[class*="bg-emerald-900"]:active:not(:disabled),
+button[class*="bg-emerald-950"]:active:not(:disabled),
+button[class*="bg-teal-600"]:active:not(:disabled),
+button[class*="bg-teal-700"]:active:not(:disabled),
+button[class*="bg-slate-900"]:active:not(:disabled),
+button[class*="bg-zinc-900"]:active:not(:disabled),
+button[class*="bg-black"]:active:not(:disabled),
+a[class*="bg-[#122A24]"]:active,
+a[class*="bg-[#122a24]"]:active,
+a[class*="bg-[#1C443A]"]:active,
+a[class*="bg-[#1c443a]"]:active {
+  transform: translateY(1.5px) scale(0.985) !important;
+  box-shadow: var(--btn-3d-green-press-shadow) !important;
+}
+
+/* 3. Secondary 3D White Buttons */
+.btn-3d-white,
+.btn-3d-secondary,
+button[class*="bg-white"]:not(.no-3d):not([class*="bg-transparent"]):not([class*="bg-white/"]),
+button[class*="bg-[#F4F8F5]"],
+button[class*="bg-[#f4f8f5]"],
+button[class*="bg-[#F8FAF9]"],
+button[class*="bg-[#f8faf9]"],
+button[class*="bg-[#F0F8F3]"],
+button[class*="bg-[#f0f8f3]"],
+button[class*="bg-slate-50"],
+button[class*="bg-slate-100"]:not(.no-3d),
+button[class*="border-[#DCE8E0]"]:not([class*="bg-transparent"]):not([class*="bg-[#122A24]"]):not([class*="bg-[#1C443A]"]):not([class*="bg-emerald-"]),
+button[class*="border-[#dce8e0]"]:not([class*="bg-transparent"]):not([class*="bg-[#122A24]"]):not([class*="bg-[#1C443A]"]):not([class*="bg-emerald-"]),
+button[class*="border-slate-300"]:not([class*="bg-transparent"]):not([class*="bg-[#122A24]"]):not([class*="bg-[#1C443A]"]):not([class*="bg-emerald-"]),
+a[class*="bg-white"]:not([class*="bg-transparent"]):not([class*="bg-white/"]) {
+  background: var(--btn-3d-white-bg) !important;
+  color: #122A24 !important;
+  border: 1px solid var(--btn-3d-white-border) !important;
+  box-shadow: var(--btn-3d-white-shadow) !important;
+}
+
+.btn-3d-white:hover:not(:disabled),
+.btn-3d-secondary:hover:not(:disabled),
+button[class*="bg-white"]:not(.no-3d):not([class*="bg-transparent"]):not([class*="bg-white/"]):hover:not(:disabled),
+button[class*="bg-[#F4F8F5]"]:hover:not(:disabled),
+button[class*="bg-[#f4f8f5]"]:hover:not(:disabled),
+button[class*="bg-[#F8FAF9]"]:hover:not(:disabled),
+button[class*="bg-[#f8faf9]"]:hover:not(:disabled),
+button[class*="bg-[#F0F8F3]"]:hover:not(:disabled),
+button[class*="bg-[#f0f8f3]"]:hover:not(:disabled),
+button[class*="bg-slate-50"]:hover:not(:disabled),
+button[class*="bg-slate-100"]:not(.no-3d):hover:not(:disabled),
+button[class*="border-[#DCE8E0]"]:not([class*="bg-transparent"]):not([class*="bg-[#122A24]"]):not([class*="bg-[#1C443A]"]):not([class*="bg-emerald-"]):hover:not(:disabled),
+button[class*="border-[#dce8e0]"]:not([class*="bg-transparent"]):not([class*="bg-[#122A24]"]):not([class*="bg-[#1C443A]"]):not([class*="bg-emerald-"]):hover:not(:disabled),
+button[class*="border-slate-300"]:not([class*="bg-transparent"]):not([class*="bg-[#122A24]"]):not([class*="bg-[#1C443A]"]):not([class*="bg-emerald-"]):hover:not(:disabled),
+a[class*="bg-white"]:not([class*="bg-transparent"]):not([class*="bg-white/"]):hover {
+  background: var(--btn-3d-white-hover-bg) !important;
+  border-color: #B8D6C3 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--btn-3d-white-hover-shadow) !important;
+}
+
+.btn-3d-white:active:not(:disabled),
+.btn-3d-secondary:active:not(:disabled),
+button[class*="bg-white"]:not(.no-3d):not([class*="bg-transparent"]):not([class*="bg-white/"]):active:not(:disabled),
+button[class*="bg-[#F4F8F5]"]:active:not(:disabled),
+button[class*="bg-[#f4f8f5]"]:active:not(:disabled),
+button[class*="bg-[#F8FAF9]"]:active:not(:disabled),
+button[class*="bg-[#f8faf9]"]:active:not(:disabled),
+button[class*="bg-[#F0F8F3]"]:active:not(:disabled),
+button[class*="bg-[#f0f8f3]"]:active:not(:disabled),
+button[class*="bg-slate-50"]:active:not(:disabled),
+button[class*="bg-slate-100"]:not(.no-3d):active:not(:disabled),
+button[class*="border-[#DCE8E0]"]:not([class*="bg-transparent"]):not([class*="bg-[#122A24]"]):not([class*="bg-[#1C443A]"]):not([class*="bg-emerald-"]):active:not(:disabled),
+button[class*="border-[#dce8e0]"]:not([class*="bg-transparent"]):not([class*="bg-[#122A24]"]):not([class*="bg-[#1C443A]"]):not([class*="bg-emerald-"]):active:not(:disabled),
+button[class*="border-slate-300"]:not([class*="bg-transparent"]):not([class*="bg-[#122A24]"]):not([class*="bg-[#1C443A]"]):not([class*="bg-emerald-"]):active:not(:disabled),
+a[class*="bg-white"]:not([class*="bg-transparent"]):not([class*="bg-white/"]):active {
+  transform: translateY(1.5px) scale(0.985) !important;
+  box-shadow: var(--btn-3d-white-press-shadow) !important;
+}
+
+/* 4. 3D Pill Capsule & Segmented Controls (Row 1 & 2 of Reference) */
+.segmented-pill-bar,
+.segmented-pill-container,
+[data-pill-bar] {
+  display: inline-flex;
+  align-items: center;
+  background: #EEF4F0;
+  border: 1px solid #DCE8E0;
+  border-radius: 9999px;
+  padding: 4px;
+  gap: 4px;
+  box-shadow: inset 0 1px 2px rgba(18, 42, 36, 0.08);
+}
+
+.segmented-pill-bar button,
+.segmented-pill-container button {
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 9999px !important;
+  border: none;
+  background: transparent;
+  color: #2D5A4E;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.segmented-pill-bar button:hover:not(.active),
+.segmented-pill-container button:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.7);
+  color: #122A24;
+}
+
+.segmented-pill-bar button.active,
+.segmented-pill-container button.active,
+.segmented-pill-bar button[aria-selected="true"],
+.segmented-pill-container button[aria-selected="true"] {
+  background: var(--btn-3d-green-bg) !important;
+  color: #FFFFFF !important;
+  border: 1px solid var(--btn-3d-green-border) !important;
+  box-shadow: var(--btn-3d-green-shadow) !important;
+  font-weight: 700 !important;
+}
+
+/* 5. 3D Pagination Numbers (Row 2 of Reference) */
+.pagination-3d,
+[data-pagination] {
+  display: inline-flex;
+  align-items: center;
+  background: #FFFFFF;
+  border: 1px solid #DCE8E0;
+  border-radius: 9999px;
+  padding: 4px 6px;
+  gap: 4px;
+  box-shadow: 0 4px 12px -2px rgba(18, 42, 36, 0.06);
+}
+
+.pagination-3d button,
+[data-pagination] button {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px !important;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: #2D5A4E;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.pagination-3d button:hover:not(.active):not([aria-current="page"]),
+[data-pagination] button:hover:not(.active):not([aria-current="page"]) {
+  background: #F4F8F5;
+  color: #122A24;
+}
+
+.pagination-3d button.active,
+.pagination-3d button[aria-current="page"],
+[data-pagination] button.active,
+[data-pagination] button[aria-current="page"] {
+  background: var(--btn-3d-green-bg) !important;
+  color: #FFFFFF !important;
+  border: 1px solid var(--btn-3d-green-border) !important;
+  box-shadow: 0 8px 18px -2px rgba(18, 42, 36, 0.42), 0 3px 6px -1px rgba(18, 42, 36, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.32), inset 0 -1px 1px rgba(0, 0, 0, 0.4) !important;
+  font-weight: 700 !important;
+}
+
+/* 6. Attendance P/A/H Roster 3D Squircle Buttons (Row 3 of Reference) */
+button[title*="Present"],
+button[aria-label*="Present"] {
+  border-radius: 10px !important;
+}
+
+button[title*="Present"][class*="bg-emerald-600"],
+button[aria-label*="Present"][class*="bg-emerald-600"] {
+  background: var(--btn-3d-green-bg) !important;
+  color: #FFFFFF !important;
+  box-shadow: var(--btn-3d-green-shadow) !important;
+  border: 1px solid var(--btn-3d-green-border) !important;
+}
+
+/* 7. Red / Danger 3D Buttons */
+.btn-3d-danger,
+button[class*="bg-rose-600"],
+button[class*="bg-red-600"],
+button[class*="bg-[var(--red-pen)]"],
+button[class*="bg-[#C4432B]"],
+a[class*="bg-[var(--red-pen)]"] {
+  background: linear-gradient(180deg, #d84d33 0%, #b8361f 100%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(160, 40, 20, 0.45) !important;
+  box-shadow: 0 10px 24px -4px rgba(196, 67, 43, 0.4), 0 4px 8px -2px rgba(196, 67, 43, 0.25), inset 0 1px 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1.5px 1px 0 rgba(0, 0, 0, 0.35) !important;
+}
+
+.btn-3d-danger:hover:not(:disabled),
+button[class*="bg-rose-600"]:hover:not(:disabled),
+button[class*="bg-red-600"]:hover:not(:disabled),
+button[class*="bg-[var(--red-pen)]"]:hover:not(:disabled),
+button[class*="bg-[#C4432B]"]:hover:not(:disabled),
+a[class*="bg-[var(--red-pen)]"]:hover {
+  background: linear-gradient(180deg, #e3583e 0%, #c43c24 100%) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 14px 28px -4px rgba(196, 67, 43, 0.48), 0 6px 12px -2px rgba(196, 67, 43, 0.3), inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.35) !important;
+}
+
+.btn-3d-danger:active:not(:disabled),
+button[class*="bg-rose-600"]:active:not(:disabled),
+button[class*="bg-red-600"]:active:not(:disabled),
+button[class*="bg-[var(--red-pen)]"]:active:not(:disabled),
+button[class*="bg-[#C4432B]"]:active:not(:disabled),
+a[class*="bg-[var(--red-pen)]"]:active {
+  transform: translateY(1.5px) scale(0.985) !important;
+  box-shadow: 0 2px 6px rgba(196, 67, 43, 0.3), inset 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* 8. Exclusions: Transparent & Ghost Action Triggers */
+button.btn-ghost,
+button.no-3d,
+button[class*="bg-transparent"],
+button[class*="border-none"][class*="bg-transparent"],
+button[class*="hover:bg-transparent"] {
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+button.btn-ghost:active,
+button.no-3d:active,
+button[class*="bg-transparent"]:active {
+  transform: scale(0.95) !important;
+}

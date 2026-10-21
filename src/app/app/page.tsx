@@ -4236,21 +4236,36 @@ function ERPWorkspaceContent() {
     if (!t) return false;
     if (teacherStatusFilter !== 'ALL' && t.status !== teacherStatusFilter) return false;
     if (teacherRoleFilter !== 'ALL' && resolveTeacherRole(t) !== teacherRoleFilter) return false;
-    if (teacherDeptFilter !== 'ALL' && !t.department?.toLowerCase().includes(teacherDeptFilter.toLowerCase())) return false;
-    if (teacherDesignationFilter !== 'ALL' && !t.designation?.toLowerCase().includes(teacherDesignationFilter.toLowerCase())) return false;
-    if (teacherCtetFilter !== 'ALL' && (t.ctet_qualified || 'NO').toUpperCase() !== teacherCtetFilter.toUpperCase()) return false;
-    if (teacherGenderFilter !== 'ALL' && resolveTeacherGender(t).toLowerCase() !== teacherGenderFilter.toLowerCase()) return false;
+
+    const toSafeLower = (val: any): string => {
+      if (!val) return '';
+      if (Array.isArray(val)) return val.filter(Boolean).map(String).join(', ').toLowerCase();
+      if (typeof val === 'object') return Object.values(val).filter(Boolean).map(String).join(', ').toLowerCase();
+      return String(val).toLowerCase();
+    };
+
+    const deptStr = toSafeLower(t.department);
+    if (teacherDeptFilter !== 'ALL' && !deptStr.includes(teacherDeptFilter.toLowerCase())) return false;
+
+    const desigStr = toSafeLower(t.designation);
+    if (teacherDesignationFilter !== 'ALL' && !desigStr.includes(teacherDesignationFilter.toLowerCase())) return false;
+
+    const ctetStr = String(t.ctet_qualified || 'NO').toUpperCase();
+    if (teacherCtetFilter !== 'ALL' && ctetStr !== teacherCtetFilter.toUpperCase()) return false;
+
+    const genderStr = toSafeLower(resolveTeacherGender(t));
+    if (teacherGenderFilter !== 'ALL' && genderStr !== teacherGenderFilter.toLowerCase()) return false;
     
     if (!_sq.trim()) return true;
     const q = _sq.toLowerCase().trim();
-    const name = (t.full_name || '').toLowerCase();
-    const code = (t.staff_code || '').toLowerCase();
-    const roleStr = resolveTeacherRole(t).toLowerCase();
-    const subj = (t.subject_specialization || t.department || '').toLowerCase();
-    const cls = (t.classes_taught || '').toLowerCase();
-    const desig = (t.designation || '').toLowerCase();
-    const phone = (t.phone || '').toLowerCase();
-    const email = (t.email || '').toLowerCase();
+    const name = toSafeLower(t.full_name);
+    const code = toSafeLower(t.staff_code);
+    const roleStr = toSafeLower(resolveTeacherRole(t));
+    const subj = toSafeLower(t.subject_specialization || t.department);
+    const cls = toSafeLower(t.classes_taught);
+    const desig = desigStr;
+    const phone = toSafeLower(t.phone);
+    const email = toSafeLower(t.email);
     return name.includes(q) || code.includes(q) || roleStr.includes(q) || subj.includes(q) || cls.includes(q) || desig.includes(q) || phone.includes(q) || email.includes(q);
   }).sort((a, b) => {
     const roleA = resolveTeacherRole(a);
