@@ -435,6 +435,22 @@ export function expandSchoolIds(schoolIds: string[]): string[] {
   return Array.from(expanded);
 }
 
+function getSessionVariants(session?: string): string[] {
+  if (!session || session === 'ALL') return [];
+  const s = session.trim();
+  const variants = new Set<string>([s]);
+  const m1 = s.match(/^(\d{4})-(\d{4})$/);
+  if (m1) {
+    variants.add(`${m1[1]}-${m1[2].slice(-2)}`);
+  }
+  const m2 = s.match(/^(\d{4})-(\d{2})$/);
+  if (m2) {
+    const century = m2[1].slice(0, 2);
+    variants.add(`${m2[1]}-${century}${m2[2]}`);
+  }
+  return Array.from(variants);
+}
+
 function buildSessionFilter(schoolIds: string[], session?: string) {
   const targetSession = session || '2026-27';
   const filter: any = {};
@@ -445,15 +461,17 @@ function buildSessionFilter(schoolIds: string[], session?: string) {
   }
 
   if (targetSession !== 'ALL') {
-    if (targetSession === '2026-27') {
+    const variants = getSessionVariants(targetSession);
+    const isDefaultSession = variants.includes('2026-27') || variants.includes('2026-2027');
+    if (isDefaultSession) {
       filter.$or = [
-        { academic_session: '2026-27' },
+        { academic_session: { $in: variants } },
         { academic_session: { $exists: false } },
         { academic_session: null },
         { academic_session: '' }
       ];
     } else {
-      filter.academic_session = targetSession;
+      filter.academic_session = { $in: variants };
     }
   }
 
@@ -544,8 +562,9 @@ export function getClassNameRegex(className: string): RegExp {
 function matchesSession(item: any, session?: string): boolean {
   const targetSession = session || '2026-27';
   if (targetSession === 'ALL') return true;
-  const itemSession = item.academic_session || '2026-27';
-  return itemSession === targetSession;
+  const itemSession = (item.academic_session || '2026-27').trim();
+  const variants = getSessionVariants(targetSession);
+  return variants.includes(itemSession) || (variants.includes('2026-27') && (!item.academic_session || itemSession === '2026-2027'));
 }
 
 export const Database = {
@@ -840,8 +859,9 @@ export const Database = {
         filename: `${school.school_code || schoolId}-logo.png`,
         data: cleanedUpdates.logo
       });
-      cleanedUpdates.logo = `/api/media/${mediaId}`;
-      cleanedUpdates.logo_url = `/api/media/${mediaId}`;
+      const logoUrl = `/api/media/${mediaId}?v=${Date.now()}`;
+      cleanedUpdates.logo = logoUrl;
+      cleanedUpdates.logo_url = logoUrl;
     }
 
     // Offload Base64 principal / admin profile picture to Vercel Blob / Media Vault
@@ -863,9 +883,10 @@ export const Database = {
         filename: `${school.school_code || schoolId}-principal.png`,
         data: rawPrincipalPic
       });
-      cleanedUpdates.avatar = `/api/media/${mediaId}`;
-      cleanedUpdates.photo = `/api/media/${mediaId}`;
-      cleanedUpdates.principal_avatar = `/api/media/${mediaId}`;
+      const prinUrl = `/api/media/${mediaId}?v=${Date.now()}`;
+      cleanedUpdates.avatar = prinUrl;
+      cleanedUpdates.photo = prinUrl;
+      cleanedUpdates.principal_avatar = prinUrl;
     } else if (cleanedUpdates.avatar && typeof cleanedUpdates.avatar === 'string' && cleanedUpdates.avatar.startsWith('/')) {
       cleanedUpdates.photo = cleanedUpdates.avatar;
       cleanedUpdates.principal_avatar = cleanedUpdates.avatar;
@@ -911,6 +932,14 @@ export const Database = {
     if (idx >= 0) {
       memoryStore.schools[idx] = updated;
       saveLocalStore();
+    }
+
+    updateSchoolLookupCache([updated]);
+    invalidateServerCache('school');
+    invalidateServerCache('schools');
+    invalidateServerCache('overview');
+    if (cleanedUpdates.principal_avatar) {
+      invalidateServerCache('teachers');
     }
 
     return updated;

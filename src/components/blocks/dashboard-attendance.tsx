@@ -1677,13 +1677,13 @@ export function DashboardAttendance({
           </div>
         </div>
 
-        {/* 4 Primary Navigation Tabs */}
-        <div className="flex flex-wrap sm:flex-nowrap gap-1.5 sm:gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10">
+        {/* Primary Navigation Tabs */}
+        <div className="flex items-center gap-1.5 sm:gap-2 bg-[#F4F8F5] p-1.5 rounded-2xl border border-[#DCE8E0] shadow-2xs relative z-10 overflow-x-auto no-scrollbar w-full">
           {/* Tab 1: Mark Student Attendance */}
           <button
             type="button"
             onClick={() => setAttendanceTab('mark_attendance')}
-            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+            className={`shrink-0 2xl:flex-1 py-2.5 px-3.5 sm:px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
               attendanceTab === 'mark_attendance'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold'
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
@@ -1697,7 +1697,7 @@ export function DashboardAttendance({
           <button
             type="button"
             onClick={() => setAttendanceTab('monthly_sheet')}
-            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+            className={`shrink-0 2xl:flex-1 py-2.5 px-3.5 sm:px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
               attendanceTab === 'monthly_sheet'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold'
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
@@ -1711,7 +1711,7 @@ export function DashboardAttendance({
           <button
             type="button"
             onClick={() => setAttendanceTab('attendance_summary')}
-            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+            className={`shrink-0 2xl:flex-1 py-2.5 px-3.5 sm:px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
               attendanceTab === 'attendance_summary'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold'
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
@@ -1725,7 +1725,7 @@ export function DashboardAttendance({
           <button
             type="button"
             onClick={() => setAttendanceTab('my_attendance')}
-            className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+            className={`shrink-0 2xl:flex-1 py-2.5 px-3.5 sm:px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
               attendanceTab === 'my_attendance'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold ring-2 ring-emerald-400'
                 : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
@@ -1740,7 +1740,7 @@ export function DashboardAttendance({
             <button
               type="button"
               onClick={() => setAttendanceTab('holiday_calendar')}
-              className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+              className={`shrink-0 2xl:flex-1 py-2.5 px-3.5 sm:px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
                 attendanceTab === 'holiday_calendar'
                   ? 'bg-[#122A24] text-white shadow-xs font-bold'
                   : 'bg-transparent text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/60 font-semibold'
@@ -1760,7 +1760,7 @@ export function DashboardAttendance({
                 startCamera();
               }
             }}
-            className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all ${
+            className={`shrink-0 2xl:flex-1 py-2.5 px-3.5 sm:px-4 rounded-xl text-xs border-none cursor-pointer flex items-center justify-center gap-2 transition-all whitespace-nowrap ${
               attendanceTab === 'smart_scanner'
                 ? 'bg-[#122A24] text-white shadow-xs font-bold ring-2 ring-emerald-400'
                 : 'bg-emerald-50/80 text-emerald-950 hover:text-[#122A24] hover:bg-emerald-100 font-bold border border-emerald-300/70'
@@ -2389,7 +2389,7 @@ export function DashboardAttendance({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar">
                 {hasUnsavedSheetChanges && (
                   <button
                     type="button"
@@ -2398,7 +2398,7 @@ export function DashboardAttendance({
                       setHasUnsavedSheetChanges(false);
                       showAdminToast('Discarded unsaved monthly sheet edits.');
                     }}
-                    className="px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-600 text-xs font-semibold cursor-pointer transition-colors"
+                    className="shrink-0 px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-600 text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap"
                   >
                     Discard Edits
                   </button>
@@ -2408,7 +2408,7 @@ export function DashboardAttendance({
                   type="button"
                   onClick={handleSaveMonthlySheet}
                   disabled={!hasUnsavedSheetChanges || isSavingMonthlySheet}
-                  className={`px-4 py-1.5 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all border-none ${
+                  className={`shrink-0 px-4 py-1.5 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all border-none ${
                     hasUnsavedSheetChanges
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer ring-2 ring-emerald-400/50 shadow-md animate-pulse'
                       : 'bg-slate-100 text-slate-400 cursor-not-allowed'
@@ -2416,7 +2416,7 @@ export function DashboardAttendance({
                   title={hasUnsavedSheetChanges ? 'Click to commit all monthly changes to database' : 'No unsaved edits'}
                 >
                   <Save className={`h-3.5 w-3.5 ${hasUnsavedSheetChanges ? 'text-white' : 'text-slate-400'}`} />
-                  <span>
+                  <span className="whitespace-nowrap">
                     {isSavingMonthlySheet
                       ? 'Saving Ledger...'
                       : hasUnsavedSheetChanges
@@ -2428,20 +2428,20 @@ export function DashboardAttendance({
                 <button
                   type="button"
                   onClick={handlePrintMonthlyReport}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] text-xs font-bold shadow-2xs cursor-pointer flex items-center gap-1.5 transition-colors"
+                  className="shrink-0 px-3.5 py-1.5 rounded-xl bg-[#F4F8F5] hover:bg-[#EBF5EF] text-[#122A24] border border-[#DCE8E0] text-xs font-bold shadow-2xs cursor-pointer flex items-center gap-1.5 transition-colors"
                   title="Print Official CBSE 31-Day Attendance Register PDF"
                 >
                   <Printer className="h-3.5 w-3.5 text-[#1C443A]" />
-                  <span>Print Official CBSE PDF</span>
+                  <span className="whitespace-nowrap">Print Official CBSE PDF</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleExportMonthlyCSV}
-                  className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-[#122A24] border border-[#DCE8E0] text-xs font-bold shadow-2xs cursor-pointer flex items-center gap-1.5 transition-colors"
+                  className="shrink-0 px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-[#122A24] border border-[#DCE8E0] text-xs font-bold shadow-2xs cursor-pointer flex items-center gap-1.5 transition-colors"
                 >
                   <Download className="h-3.5 w-3.5 text-emerald-700" />
-                  <span>Export CSV</span>
+                  <span className="whitespace-nowrap">Export CSV</span>
                 </button>
               </div>
             </div>
@@ -2558,7 +2558,8 @@ export function DashboardAttendance({
                           st = 'P';
                         } else {
                           const seed = (stu.admission_no || stu.id || 'seed').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + d * 17 + sheetMonth * 31;
-                          const targetPercent = stu.attendance_percent !== undefined && stu.attendance_percent !== null ? Number(stu.attendance_percent) : 80;
+                          const rawPct = Number(stu.attendance_percent);
+                          const targetPercent = (!isNaN(rawPct) && rawPct > 0) ? rawPct : 85;
                           st = (seed % 100) < targetPercent ? 'P' : 'Ab';
                         }
 
@@ -2669,7 +2670,8 @@ export function DashboardAttendance({
                               st = 'P';
                             } else {
                               const seed = (stu.admission_no || stu.id || 'seed').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + d * 17 + sheetMonth * 31;
-                              const targetPercent = stu.attendance_percent !== undefined && stu.attendance_percent !== null ? Number(stu.attendance_percent) : 80;
+                              const rawPct = Number(stu.attendance_percent);
+                              const targetPercent = (!isNaN(rawPct) && rawPct > 0) ? rawPct : 85;
                               st = (seed % 100) < targetPercent ? 'P' : 'Ab';
                             }
 
@@ -4459,7 +4461,8 @@ export function DashboardAttendance({
                           st = 'P';
                         } else {
                           const seed = (stu.admission_no || stu.id || 'seed').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + d * 17 + sheetMonth * 31;
-                          const targetPercent = stu.attendance_percent !== undefined && stu.attendance_percent !== null ? Number(stu.attendance_percent) : 80;
+                          const rawPct = Number(stu.attendance_percent);
+                          const targetPercent = (!isNaN(rawPct) && rawPct > 0) ? rawPct : 85;
                           st = (seed % 100) < targetPercent ? 'P' : 'Ab';
                         }
 
@@ -4560,7 +4563,8 @@ export function DashboardAttendance({
                               st = 'P';
                             } else {
                               const seed = (stu.admission_no || stu.id || 'seed').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + d * 17 + sheetMonth * 31;
-                              const targetPercent = stu.attendance_percent !== undefined && stu.attendance_percent !== null ? Number(stu.attendance_percent) : 80;
+                              const rawPct = Number(stu.attendance_percent);
+                              const targetPercent = (!isNaN(rawPct) && rawPct > 0) ? rawPct : 85;
                               st = (seed % 100) < targetPercent ? 'P' : 'Ab';
                             }
 

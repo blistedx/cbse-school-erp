@@ -872,10 +872,10 @@ export function DashboardFeeMaster({
       </div>
 
       {/* ─── EXACTLY 4 TOP-LEVEL TABS (NO SUB-TABS) ─── */}
-      <div className="flex items-center gap-2 p-1.5 bg-[#EBF5EF]/60 rounded-2xl border border-[#DCE8E0] overflow-x-auto">
+      <div className="flex items-center gap-2 p-1.5 bg-[#EBF5EF]/60 rounded-2xl border border-[#DCE8E0] overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`shrink-0 sm:flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'overview'
               ? 'bg-[#122A24] text-white shadow-xs'
               : 'text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/80'
@@ -887,7 +887,7 @@ export function DashboardFeeMaster({
 
         <button
           onClick={() => setActiveTab('collect')}
-          className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`shrink-0 sm:flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'collect'
               ? 'bg-[#122A24] text-white shadow-xs'
               : 'text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/80'
@@ -899,7 +899,7 @@ export function DashboardFeeMaster({
 
         <button
           onClick={() => setActiveTab('reports')}
-          className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`shrink-0 sm:flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'reports'
               ? 'bg-[#122A24] text-white shadow-xs'
               : 'text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/80'
@@ -911,7 +911,7 @@ export function DashboardFeeMaster({
 
         <button
           onClick={() => setActiveTab('setup')}
-          className={`flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`shrink-0 sm:flex-1 min-w-[130px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'setup'
               ? 'bg-[#122A24] text-white shadow-xs'
               : 'text-[#2D5A4E] hover:text-[#122A24] hover:bg-white/80'

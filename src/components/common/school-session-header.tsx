@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { School } from '@/lib/types';
 import { applyAntigravityTheme } from '@/lib/themes';
+import { apiFetch } from '@/lib/api-client';
+import { PhotoCropModal } from '@/components/common/photo-crop-modal';
 
 export interface SchoolSessionHeaderProps {
   selectedSchool?: School | null;
@@ -153,7 +155,10 @@ export function SchoolSessionHeader({
   const [showSchoolMenu, setShowSchoolMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+  const [logoError, setLogoError] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [tempCropSrc, setTempCropSrc] = useState('');
 
   // Settings Modal Edit States
   const [editName, setEditName] = useState('');
@@ -185,6 +190,13 @@ export function SchoolSessionHeader({
       }
     }
     window.addEventListener('giterp_user_change', handleUserUpdate);
+    function handleSchoolUpdate(e: any) {
+      if (e.detail?.school) {
+        setHydratedSchool(e.detail.school);
+        setLogoError(false);
+      }
+    }
+    window.addEventListener('giterp_school_change', handleSchoolUpdate);
     function handleStorage() {
       try {
         const stored = localStorage.getItem('current_user');
@@ -193,10 +205,18 @@ export function SchoolSessionHeader({
           setAvatarError(false);
         }
       } catch {}
+      try {
+        const storedSch = localStorage.getItem('current_school');
+        if (storedSch) {
+          setHydratedSchool(JSON.parse(storedSch));
+          setLogoError(false);
+        }
+      } catch {}
     }
     window.addEventListener('storage', handleStorage);
     return () => {
       window.removeEventListener('giterp_user_change', handleUserUpdate);
+      window.removeEventListener('giterp_school_change', handleSchoolUpdate);
       window.removeEventListener('storage', handleStorage);
     };
   }, []);
@@ -305,16 +325,22 @@ export function SchoolSessionHeader({
     }
   }, [showSettingsModal, activeUser, profileForm]);
 
-  const handlePhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    try {
-      const base64 = await compressImageToBase64(file);
-      setPreviewAvatar(base64);
-      setModalToast({ type: 'success', message: 'Photo selected! Click "Save Changes" to apply.' });
-    } catch (_) {
-      setModalToast({ type: 'error', message: 'Failed to process image. Please try another.' });
-    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setTempCropSrc(reader.result as string);
+      setCropModalOpen(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleCropConfirm = (croppedBase64: string) => {
+    setPreviewAvatar(croppedBase64);
+    setCropModalOpen(false);
+    setModalToast({ type: 'success', message: 'Photo adjusted! Click "Save Changes" to apply.' });
   };
 
   const userDisplayName = activeUser?.full_name || profileForm?.full_name || 'Administrator';
@@ -330,13 +356,32 @@ export function SchoolSessionHeader({
     setIsSavingSettings(true);
     setModalToast(null);
     try {
+      const res = await apiFetch('/api/auth/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: editName.trim(),
+          email: editEmail.trim(),
+          phone: editPhone.trim(),
+          new_password: editPassword.trim() || undefined,
+          avatar: previewAvatar,
+          photo: previewAvatar
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to persist profile changes to database.');
+      }
+
+      const savedAvatar = data.user?.avatar || data.user?.photo || previewAvatar;
       const updatedUser = {
         ...(activeUser || {}),
         full_name: editName.trim() || userDisplayName,
         email: editEmail.trim(),
         phone: editPhone.trim(),
-        avatar: previewAvatar,
-        photo: previewAvatar
+        avatar: savedAvatar,
+        photo: savedAvatar
       };
 
       try {
@@ -349,8 +394,8 @@ export function SchoolSessionHeader({
           const sch = JSON.parse(storedSchool);
           if (sch.principal_name && (activeUser?.role === 'PRINCIPAL' || activeUser?.role === 'ADMIN')) {
             sch.principal_name = editName.trim() || sch.principal_name;
-            sch.principal_avatar = previewAvatar;
-            sch.avatar = previewAvatar;
+            sch.principal_avatar = savedAvatar;
+            sch.avatar = savedAvatar;
             localStorage.setItem('current_school', JSON.stringify(sch));
           }
         }
@@ -362,22 +407,7 @@ export function SchoolSessionHeader({
       window.dispatchEvent(new CustomEvent('giterp_user_change', { detail: updatedUser }));
       window.dispatchEvent(new Event('storage'));
 
-      try {
-        await fetch('/api/auth/profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            full_name: editName.trim(),
-            email: editEmail.trim(),
-            phone: editPhone.trim(),
-            new_password: editPassword.trim() || undefined,
-            avatar: previewAvatar,
-            photo: previewAvatar
-          })
-        });
-      } catch (_) {}
-
-      setModalToast({ type: 'success', message: 'Profile picture & settings saved successfully!' });
+      setModalToast({ type: 'success', message: 'Profile picture & settings saved permanently!' });
       setTimeout(() => {
         setShowSettingsModal(false);
       }, 700);
@@ -420,6 +450,10 @@ export function SchoolSessionHeader({
     : (activeSchool?.city ? `${activeSchool.city}, Uttar Pradesh` : 'Amrapali Yojna, Dubagga Lucknow');
 
   const schoolLogo = activeSchool?.logo || activeSchool?.logo_url;
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [schoolLogo]);
 
   const handleSessionSelect = (sessionCode: string) => {
     setShowSessionMenu(false);
@@ -517,34 +551,29 @@ export function SchoolSessionHeader({
           >
             {/* Circular School Logo */}
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white border border-[#166534] flex items-center justify-center p-0.5 overflow-hidden shadow-xs shrink-0 relative">
-              {schoolLogo ? (
+              {schoolLogo && !logoError ? (
                 <img
+                  key={schoolLogo}
                   src={schoolLogo}
                   alt={schoolName}
                   className="w-full h-full object-contain rounded-full"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).style.display = 'none';
-                    const fb = e.currentTarget.nextElementSibling as HTMLElement;
-                    if (fb) fb.style.display = 'flex';
-                  }}
+                  onError={() => setLogoError(true)}
                 />
-              ) : null}
-              <div
-                className="w-full h-full items-center justify-center rounded-full bg-white"
-                style={{ display: schoolLogo ? 'none' : 'flex' }}
-              >
-                {/* Authentic Emerald DPS Circular Crest Vector */}
-                <svg viewBox="0 0 100 100" className="w-full h-full text-[#15803d]" fill="currentColor">
-                  <circle cx="50" cy="50" r="47" fill="none" stroke="currentColor" strokeWidth="3.5" />
-                  <circle cx="50" cy="50" r="41" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                  <path d="M50 20 C46 28 44 32 47 38 C49 34 52 32 50 20 Z" fill="#eab308" />
-                  <path d="M48 24 C45 30 46 34 48 38 C50 34 52 30 48 24 Z" fill="#ef4444" />
-                  <rect x="45" y="38" width="10" height="24" rx="2" fill="currentColor" />
-                  <path d="M30 45 C30 65 50 78 50 78 C50 78 70 65 70 45" fill="none" stroke="currentColor" strokeWidth="3" />
-                  <path d="M22 40 C24 60 38 74 50 82 C62 74 76 60 78 40" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3,2" />
-                  <path d="M25 82 Q50 90 75 82" fill="none" stroke="currentColor" strokeWidth="2.5" />
-                </svg>
-              </div>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center rounded-full bg-white">
+                  {/* Authentic Emerald DPS Circular Crest Vector */}
+                  <svg viewBox="0 0 100 100" className="w-full h-full text-[#15803d]" fill="currentColor">
+                    <circle cx="50" cy="50" r="47" fill="none" stroke="currentColor" strokeWidth="3.5" />
+                    <circle cx="50" cy="50" r="41" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M50 20 C46 28 44 32 47 38 C49 34 52 32 50 20 Z" fill="#eab308" />
+                    <path d="M48 24 C45 30 46 34 48 38 C50 34 52 30 48 24 Z" fill="#ef4444" />
+                    <rect x="45" y="38" width="10" height="24" rx="2" fill="currentColor" />
+                    <path d="M30 45 C30 65 50 78 50 78 C50 78 70 65 70 45" fill="none" stroke="currentColor" strokeWidth="3" />
+                    <path d="M22 40 C24 60 38 74 50 82 C62 74 76 60 78 40" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3,2" />
+                    <path d="M25 82 Q50 90 75 82" fill="none" stroke="currentColor" strokeWidth="2.5" />
+                  </svg>
+                </div>
+              )}
             </div>
 
             {/* School Name & Campus Subtitle */}
@@ -716,6 +745,19 @@ export function SchoolSessionHeader({
 
         {/* 2. Action Icons: Theme, Refresh, Notifications, Profile, Logout */}
         <div className="flex items-center gap-1 sm:gap-1.5 border-l border-white/15 pl-1.5 sm:pl-2">
+          {/* Global Omni-Search Icon Trigger (Mobile & Tablet < lg) */}
+          {onOpenSearch && (
+            <button
+              type="button"
+              onClick={onOpenSearch}
+              className="flex lg:hidden p-1.5 text-gray-200 hover:text-white hover:bg-white/10 active:bg-white/20 rounded-lg transition-colors cursor-pointer border-none bg-transparent items-center justify-center shrink-0 active:scale-95"
+              title="Search Scholars, Staff, Fees, Classes (Ctrl+K)"
+              aria-label="Global Search"
+            >
+              <Search className="w-4 h-4 text-emerald-300 hover:text-white" />
+            </button>
+          )}
+
           {/* Theme Mode Toggle Button (Desktop & Tablet) */}
           <button
             type="button"
@@ -1194,6 +1236,18 @@ export function SchoolSessionHeader({
           </div>
         </div>
       )}
+
+      {/* Photo Crop Modal for Profile Picture */}
+      <PhotoCropModal
+        isOpen={cropModalOpen}
+        imageSrc={tempCropSrc}
+        title="Crop & Adjust Profile Picture"
+        subtitle="Zoom, pan, and rotate your photograph before uploading"
+        circularCrop={true}
+        aspectRatio="1:1"
+        onConfirm={handleCropConfirm}
+        onClose={() => setCropModalOpen(false)}
+      />
     </div>
   );
 }

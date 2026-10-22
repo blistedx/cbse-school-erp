@@ -96,6 +96,7 @@ import { compressImageFile } from '@/lib/image-compress';
 import { getSchoolInitials, printHtmlElement, numberToWordsINR, getTodayDateStr, isSameClass } from '@/lib/utils';
 import { ThinkingOrb, ThinkingOrbThinkingDemo, ThinkingOrbSyncPill } from '@/components/ui/thinking-orbs';
 import { SchoolSessionHeader, compressImageToBase64 } from '@/components/common/school-session-header';
+import { PhotoCropModal } from '@/components/common/photo-crop-modal';
 
 // Instant Module Loading Fallback using ThinkingOrb
 const ModuleThinkingFallback = () => (
@@ -1917,23 +1918,47 @@ function ERPWorkspaceContent() {
     houses: DEFAULT_SCHOOL_HOUSES
   });
 
-  // School Logo Upload Handler (Max 200 KB, Recommended 100 KB - 200 KB)
+  // Photo Crop & Adjustment Modal State
+  const [photoCropConfig, setPhotoCropConfig] = useState<{
+    isOpen: boolean;
+    imageSrc: string;
+    title: string;
+    subtitle: string;
+    circularCrop: boolean;
+    aspectRatio: '1:1' | 'free' | '4:3';
+    onConfirm: (croppedBase64: string) => void;
+  }>({
+    isOpen: false,
+    imageSrc: '',
+    title: 'Crop & Adjust Photo',
+    subtitle: 'Drag, zoom, or rotate your photo before saving',
+    circularCrop: true,
+    aspectRatio: '1:1',
+    onConfirm: () => {}
+  });
+
+  // School Logo Upload Handler with PhotoCropModal
   const handleSchoolLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const maxBytes = 200 * 1024; // 200 KB limit
-    if (file.size > maxBytes) {
-      const sizeKb = (file.size / 1024).toFixed(1);
-      alert(`Selected file is ${sizeKb} KB. Image must be 200 KB or smaller (Recommended: 100 KB - 200 KB).`);
-      return;
-    }
     const reader = new FileReader();
     reader.onload = () => {
-      const base64 = reader.result as string;
-      setSettingsForm(prev => ({ ...prev, logo: base64 }));
-      showAdminToast('School logo uploaded to preview. Click "Save Institutional Profile" to persist.');
+      setPhotoCropConfig({
+        isOpen: true,
+        imageSrc: reader.result as string,
+        title: 'Crop & Adjust Official School Logo',
+        subtitle: 'Position, zoom, and rotate the institutional logo / emblem',
+        circularCrop: false,
+        aspectRatio: '1:1',
+        onConfirm: (croppedBase64: string) => {
+          setSettingsForm(prev => ({ ...prev, logo: croppedBase64 }));
+          setPhotoCropConfig(prev => ({ ...prev, isOpen: false }));
+          showAdminToast('School logo cropped & ready! Click "Save Institutional Profile" to persist.');
+        }
+      });
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleRemoveSchoolLogo = () => {
@@ -1941,25 +1966,36 @@ function ERPWorkspaceContent() {
     showAdminToast('School logo removed.');
   };
 
-  // Principal Profile Photo Upload Handler in School Settings
-  const handleSchoolPrincipalPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Principal Profile Photo Upload Handler in School Settings with PhotoCropModal
+  const handleSchoolPrincipalPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    try {
-      const base64 = await compressImageToBase64(file);
-      setSettingsForm(prev => ({ ...prev, principal_avatar: base64 }));
-      setProfileForm(prev => ({ ...prev, avatar: base64 }));
-      if (currentUser?.role === 'PRINCIPAL' || currentUser?.role === 'ADMIN') {
-        const updated = { ...currentUser, avatar: base64, photo: base64 };
-        setCurrentUser(updated);
-        try { localStorage.setItem('current_user', JSON.stringify(updated)); } catch (_) {}
-      }
-      window.dispatchEvent(new Event('giterp_user_change'));
-      window.dispatchEvent(new Event('storage'));
-      showAdminToast('Principal photo selected. Click "Save Institutional Profile" below to persist.');
-    } catch (err: any) {
-      alert(err.message || 'Failed to process principal photo.');
-    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotoCropConfig({
+        isOpen: true,
+        imageSrc: reader.result as string,
+        title: 'Crop & Adjust Principal / Head Photograph',
+        subtitle: 'Center headshot, zoom, and align within circular frame',
+        circularCrop: true,
+        aspectRatio: '1:1',
+        onConfirm: (croppedBase64: string) => {
+          setSettingsForm(prev => ({ ...prev, principal_avatar: croppedBase64 }));
+          setProfileForm(prev => ({ ...prev, avatar: croppedBase64 }));
+          if (currentUser?.role === 'PRINCIPAL' || currentUser?.role === 'ADMIN') {
+            const updated = { ...currentUser, avatar: croppedBase64, photo: croppedBase64 };
+            setCurrentUser(updated);
+            try { localStorage.setItem('current_user', JSON.stringify(updated)); } catch (_) {}
+          }
+          window.dispatchEvent(new Event('giterp_user_change'));
+          window.dispatchEvent(new Event('storage'));
+          setPhotoCropConfig(prev => ({ ...prev, isOpen: false }));
+          showAdminToast('Principal photo cropped! Click "Save Institutional Profile" below to persist.');
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleRemovePrincipalPhoto = () => {
@@ -2133,44 +2169,52 @@ function ERPWorkspaceContent() {
     }
   };
 
-  // Student Passport Photo Upload Handler with automatic client-side compression
-  const handleStudentPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Student Passport Photo Upload Handler with PhotoCropModal
+  const handleStudentPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    try {
-      const base64 = await compressImageFile(file, 480, 0.85);
-      setStudentForm(prev => ({ ...prev, photo: base64, avatar: base64 }));
-      showAdminToast('Student photo attached to admission form.');
-    } catch (err: any) {
-      console.warn('Canvas compression fallback:', err);
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = reader.result as string;
-        setStudentForm(prev => ({ ...prev, photo: base64, avatar: base64 }));
-        showAdminToast('Student photo attached to admission form.');
-      };
-      reader.readAsDataURL(file);
-    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotoCropConfig({
+        isOpen: true,
+        imageSrc: reader.result as string,
+        title: 'Crop & Adjust Student Photograph',
+        subtitle: 'Center scholar portrait, adjust zoom and rotation for ID card',
+        circularCrop: true,
+        aspectRatio: '1:1',
+        onConfirm: (croppedBase64: string) => {
+          setStudentForm(prev => ({ ...prev, photo: croppedBase64, avatar: croppedBase64 }));
+          setPhotoCropConfig(prev => ({ ...prev, isOpen: false }));
+          showAdminToast('Student photo cropped and attached to form.');
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
-  // Faculty / Teacher Profile Photo Upload Handler with automatic client-side compression
-  const handleTeacherPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Faculty / Teacher Profile Photo Upload Handler with PhotoCropModal
+  const handleTeacherPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    try {
-      const base64 = await compressImageFile(file, 480, 0.85);
-      setTeacherForm(prev => ({ ...prev, photo: base64, avatar: base64 }));
-      showAdminToast('Faculty photo attached to registration form.');
-    } catch (err: any) {
-      console.warn('Canvas compression fallback:', err);
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = reader.result as string;
-        setTeacherForm(prev => ({ ...prev, photo: base64, avatar: base64 }));
-        showAdminToast('Faculty photo attached to registration form.');
-      };
-      reader.readAsDataURL(file);
-    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotoCropConfig({
+        isOpen: true,
+        imageSrc: reader.result as string,
+        title: 'Crop & Adjust Faculty Photograph',
+        subtitle: 'Center staff portrait, adjust zoom and rotation for ID card',
+        circularCrop: true,
+        aspectRatio: '1:1',
+        onConfirm: (croppedBase64: string) => {
+          setTeacherForm(prev => ({ ...prev, photo: croppedBase64, avatar: croppedBase64 }));
+          setPhotoCropConfig(prev => ({ ...prev, isOpen: false }));
+          showAdminToast('Faculty photo cropped and attached to form.');
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   // Direct Student DP Upload & Cloud Sync Handler
@@ -3799,6 +3843,8 @@ function ERPWorkspaceContent() {
         }
         if (typeof window !== 'undefined') {
           localStorage.setItem('current_school', JSON.stringify(data.school));
+          window.dispatchEvent(new CustomEvent('giterp_school_change', { detail: { school: data.school } }));
+          window.dispatchEvent(new Event('storage'));
         }
 
         // Immediately update teachers list in state and snapshot
@@ -4935,6 +4981,7 @@ function ERPWorkspaceContent() {
                 <div className="w-8 h-8 rounded-xl bg-white text-[#122A24] flex items-center justify-center font-bold text-xs shadow-xs shrink-0 overflow-hidden p-0.5 border border-white/20">
                   {selectedSchool?.logo || selectedSchool?.logo_url ? (
                     <img
+                      key={selectedSchool.logo || selectedSchool.logo_url}
                       src={selectedSchool.logo || selectedSchool.logo_url}
                       alt={selectedSchool.school_name || 'School Logo'}
                       className="w-full h-full object-contain rounded-lg"
@@ -4992,6 +5039,20 @@ function ERPWorkspaceContent() {
                 </select>
               </div>
             )}
+
+            {/* Quick Omni-Search button in mobile drawer */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setIsOmniSearchOpen(true);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 bg-white/10 hover:bg-white/15 active:bg-white/20 border border-white/15 rounded-xl text-xs text-gray-200 transition-all cursor-pointer mb-2"
+            >
+              <Search className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="flex-1 text-left text-gray-300 text-xs">Search scholars, staff, fees...</span>
+              <kbd className="px-1.5 py-0.5 text-[9px] font-mono bg-white/10 rounded text-gray-300">Ctrl+K</kbd>
+            </button>
 
             <div className="text-[10px] font-semibold text-emerald-300/60 uppercase tracking-wider px-3 mb-1 mt-1 font-mono">
               Main Menu
@@ -5336,6 +5397,7 @@ function ERPWorkspaceContent() {
             <div className="w-9 h-9 rounded-xl bg-white text-[#122A24] flex items-center justify-center font-bold text-xs shadow-xs shrink-0 group-hover:scale-105 transition-transform overflow-hidden p-0.5 border border-white/20">
               {selectedSchool?.logo || selectedSchool?.logo_url ? (
                 <img
+                  key={selectedSchool.logo || selectedSchool.logo_url}
                   src={selectedSchool.logo || selectedSchool.logo_url}
                   alt={selectedSchool.school_name || 'School Logo'}
                   className="w-full h-full object-contain rounded-lg"
@@ -15157,6 +15219,18 @@ function ERPWorkspaceContent() {
           onDownloadCSV={activeReportModal.onDownloadCSV}
         />
       )}
+
+      {/* Global Photo Crop & Adjustment Modal */}
+      <PhotoCropModal
+        isOpen={photoCropConfig.isOpen}
+        imageSrc={photoCropConfig.imageSrc}
+        title={photoCropConfig.title}
+        subtitle={photoCropConfig.subtitle}
+        circularCrop={photoCropConfig.circularCrop}
+        aspectRatio={photoCropConfig.aspectRatio}
+        onConfirm={photoCropConfig.onConfirm}
+        onClose={() => setPhotoCropConfig(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }
